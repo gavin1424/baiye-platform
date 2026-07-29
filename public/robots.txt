@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /messages
+Disallow: /notifications
+Disallow: /inquiry-cart
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+
+Sitemap: https://gavin1424.github.io/baiye-platform/sitemap.xml
