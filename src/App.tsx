@@ -52,7 +52,7 @@ const titles: Record<string, string> = {
   "/marketplace": "商品與服務市集｜百業共創",
   "/inquiry-cart": "企業詢價單｜百業共創",
   "/login": "會員登入｜百業共創",
-  "/register": "免費註冊｜百業共創",
+  "/register": "會員註冊｜百業共創",
   "/forgot-password": "忘記密碼｜百業共創",
   "/dashboard": "會員後台總覽｜百業共創",
   "/dashboard/site-editor": "我的網站編輯器｜百業共創",

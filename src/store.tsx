@@ -10,6 +10,7 @@ import {
 import type { SiteSettings } from "./types";
 
 type Role = "guest" | "business" | "admin";
+export type MembershipPlan = "free" | "pro" | "enterprise";
 
 type Session = {
   role: Role;
@@ -27,6 +28,7 @@ type AppStoreValue = {
   proposals: number[];
   notificationsRead: number[];
   siteSettings: SiteSettings;
+  membershipPlan: MembershipPlan;
   login: (email: string, password: string) => { ok: boolean; message: string };
   register: (name: string, email: string) => void;
   logout: () => void;
@@ -40,6 +42,7 @@ type AppStoreValue = {
   markNotificationRead: (id: number) => void;
   markAllNotificationsRead: () => void;
   setSiteSettings: (settings: SiteSettings) => void;
+  setMembershipPlan: (plan: MembershipPlan) => void;
   notify: (message: string, tone?: "success" | "info" | "warning") => void;
 };
 
@@ -118,6 +121,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [proposals, setProposals] = useStoredState<number[]>("proposals", []);
   const [notificationsRead, setNotificationsRead] = useStoredState<number[]>("notifications-read", []);
   const [siteSettings, setSiteSettings] = useStoredState<SiteSettings>("site-settings", defaultSiteSettings);
+  const [membershipPlan, setMembershipPlan] = useStoredState<MembershipPlan>("membership-plan", "free");
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "success") => {
@@ -139,6 +143,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       proposals,
       notificationsRead,
       siteSettings,
+      membershipPlan,
       login: (email, password) => {
         if (email === "demo@baiye.local" && password === "Demo1234") {
           setSession({ role: "business", name: "強哥水族", email });
@@ -154,6 +159,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
       register: (name, email) => {
         setSession({ role: "business", name, email });
+        setMembershipPlan("free");
         notify("註冊完成，商家網站草稿已建立");
       },
       logout: () => {
@@ -199,6 +205,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         notify("所有通知已標示為已讀");
       },
       setSiteSettings,
+      setMembershipPlan,
       notify,
     }),
     [
@@ -211,6 +218,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       proposals,
       notificationsRead,
       siteSettings,
+      membershipPlan,
       setSession,
       setBusinessFavorites,
       setProductFavorites,
@@ -220,6 +228,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       setProposals,
       setNotificationsRead,
       setSiteSettings,
+      setMembershipPlan,
       notify,
     ],
   );

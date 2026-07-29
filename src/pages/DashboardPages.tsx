@@ -116,7 +116,8 @@ export function DashboardLayout({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, logout } = useAppStore();
+  const { session, logout, membershipPlan } = useAppStore();
+  const hasPublishingPlan = membershipPlan !== "free";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -147,7 +148,7 @@ export function DashboardLayout({
           <div>
             <strong>強哥水族</strong>
             <span>
-              <span className="status-dot" /> 網站已發布
+              <span className="status-dot" /> {hasPublishingPlan ? "網站已發布" : "草稿可預覽"}
             </span>
           </div>
           <CaretDown />
@@ -169,8 +170,10 @@ export function DashboardLayout({
           <span>
             <Sparkle weight="fill" />
           </span>
-          <strong>專業方案試用中</strong>
-          <p>剩餘 12 天，升級後保留所有進階功能。</p>
+          <strong>
+            {membershipPlan === "enterprise" ? "企業方案已啟用" : hasPublishingPlan ? "專業方案已啟用" : "免費會員方案"}
+          </strong>
+          <p>{hasPublishingPlan ? "已包含公開網站發布功能。" : "可編輯與預覽；正式發布需升級付費方案。"}</p>
           <i>
             <b />
           </i>
@@ -191,7 +194,7 @@ export function DashboardLayout({
           <div className="dashboard-top-actions">
             <Link to="/business/qiang-ge-aquarium" className="btn btn-outline btn-sm">
               <Eye />
-              查看公開網站
+              {hasPublishingPlan ? "查看公開網站" : "預覽網站"}
             </Link>
             <Link to="/notifications" className="dashboard-icon-button" aria-label="通知">
               <Bell />
@@ -514,10 +517,11 @@ const sectionLabels: Record<string, string> = {
 };
 
 export function SiteEditorPage() {
-  const { siteSettings, setSiteSettings, notify } = useAppStore();
+  const { siteSettings, setSiteSettings, membershipPlan, notify } = useAppStore();
   const [draft, setDraft] = useState<SiteSettings>(siteSettings);
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [publishOpen, setPublishOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [activePanel, setActivePanel] = useState("content");
 
   const update = <K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) =>
@@ -554,6 +558,11 @@ export function SiteEditorPage() {
 
   const publish = () => {
     setSiteSettings(draft);
+    if (membershipPlan === "free") {
+      setUpgradeOpen(true);
+      notify("草稿已儲存；發布公開網站需要付費方案", "info");
+      return;
+    }
     setPublishOpen(true);
     notify("網站發布成功");
   };
@@ -930,6 +939,42 @@ export function SiteEditorPage() {
               查看網站
             </Link>
             <button type="button" className="btn btn-outline" onClick={() => setPublishOpen(false)}>
+              繼續編輯
+            </button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        open={upgradeOpen}
+        title="發布公開網站需要付費方案"
+        onClose={() => setUpgradeOpen(false)}
+        size="sm"
+      >
+        <div className="upgrade-confirm">
+          <span className="upgrade-icon">
+            <ShieldCheck weight="duotone" />
+          </span>
+          <h3>網站草稿已儲存</h3>
+          <p>免費會員可以編輯商家資料、調整網站並使用即時預覽；正式發布公開網站或綁定網址，需要升級付費方案。</p>
+          <div className="upgrade-summary">
+            <div>
+              <span>目前方案</span>
+              <strong>免費會員方案</strong>
+            </div>
+            <div>
+              <span>編輯與預覽</span>
+              <strong>可使用</strong>
+            </div>
+            <div>
+              <span>公開發布</span>
+              <strong>需升級</strong>
+            </div>
+          </div>
+          <div className="form-actions">
+            <Link to="/pricing" className="btn btn-primary">
+              查看升級方案
+            </Link>
+            <button type="button" className="btn btn-outline" onClick={() => setUpgradeOpen(false)}>
               繼續編輯
             </button>
           </div>

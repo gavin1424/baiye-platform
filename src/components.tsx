@@ -130,7 +130,7 @@ export function Header() {
                 登入
               </Link>
               <Link to="/register" className="btn btn-primary btn-sm">
-                免費加入
+                加入平台
               </Link>
             </>
           ) : (
@@ -183,7 +183,7 @@ export function Header() {
                 登入
               </Link>
               <Link to="/register" className="btn btn-primary">
-                免費加入
+                加入平台
               </Link>
             </div>
           ) : (
@@ -198,6 +198,10 @@ export function Header() {
 }
 
 export function Footer() {
+  const { session } = useAppStore();
+  const siteEditorPath =
+    session.role === "guest" ? "/register" : session.role === "admin" ? "/admin" : "/dashboard/site-editor";
+
   return (
     <footer className="site-footer">
       <div className="container footer-main">
@@ -216,7 +220,7 @@ export function Footer() {
           </div>
           <div>
             <strong>商家服務</strong>
-            <Link to="/register">免費建立網站</Link>
+            <Link to={siteEditorPath}>建立網站</Link>
             <Link to="/pricing">方案與價格</Link>
             <Link to="/how-it-works">如何運作</Link>
             <Link to="/success-stories">成功案例</Link>

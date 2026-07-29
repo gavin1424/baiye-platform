@@ -26,6 +26,7 @@ import {
   SectionHeading,
 } from "../components";
 import { businesses, categories, collaborationNeeds, faqs, platformStats, products } from "../data";
+import { useAppStore } from "../store";
 
 const popularCategories = [
   ["居家修繕", "1,280+ 位專家"],
@@ -40,6 +41,9 @@ const popularCategories = [
 
 export function HomePage() {
   const [openFaq, setOpenFaq] = useState(0);
+  const { session } = useAppStore();
+  const siteEditorPath =
+    session.role === "guest" ? "/register" : session.role === "admin" ? "/admin" : "/dashboard/site-editor";
 
   return (
     <PublicLayout>
@@ -57,8 +61,8 @@ export function HomePage() {
             </h1>
             <p>建立自己的商家網站、展示服務與作品，找到客戶、供應商與跨業合作夥伴。</p>
             <div className="hero-actions">
-              <Link to="/register" className="btn btn-primary btn-lg">
-                免費建立我的網站
+              <Link to={siteEditorPath} className="btn btn-primary btn-lg">
+                建立我的網站
                 <ArrowRight />
               </Link>
               <Link to="/businesses" className="btn btn-outline btn-lg">
@@ -311,8 +315,8 @@ export function HomePage() {
         <div className="container pricing-preview-shell">
           <div className="pricing-preview-copy">
             <span className="eyebrow">彈性成長方案</span>
-            <h2>先免費開始，等生意需要再升級</h2>
-            <p>所有方案都能建立公開專業頁面。專業與企業方案提供更多曝光、數據與團隊功能。</p>
+            <h2>先建立商家資料，需要公開網站時再升級</h2>
+            <p>免費會員可建立商家資料、編輯與預覽網站；正式發布公開網站或綁定網址需升級專業或企業方案。</p>
             <Link to="/pricing" className="btn btn-outline">
               比較完整方案
               <ArrowRight />
@@ -338,8 +342,8 @@ export function HomePage() {
                 <Check /> 訪客數據與提升曝光
               </li>
             </ul>
-            <Link to="/register?plan=pro" className="btn btn-primary">
-              免費試用專業版
+            <Link to="/pricing" className="btn btn-primary">
+              選擇專業方案
             </Link>
           </div>
         </div>
@@ -375,14 +379,14 @@ export function HomePage() {
           <div>
             <span>每個行業，都值得擁有自己的網站。</span>
             <h2>今天，讓你的專業正式被看見</h2>
-            <p>免費建立商家網站，加入全台百工百業的合作網絡。</p>
+            <p>建立商家資料、編輯網站內容，加入全台百工百業的合作網絡。</p>
           </div>
           <div className="home-cta-actions">
-            <Link to="/register" className="btn btn-accent btn-lg">
-              免費建立我的網站
+            <Link to={siteEditorPath} className="btn btn-accent btn-lg">
+              建立我的網站
               <ArrowRight />
             </Link>
-            <span>不用信用卡・隨時可升級</span>
+            <span>可先編輯與預覽・正式發布需升級方案</span>
           </div>
         </div>
       </section>

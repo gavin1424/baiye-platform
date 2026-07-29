@@ -27,16 +27,23 @@ import { useState, type CSSProperties, type FormEvent, type ReactNode } from "re
 import { Link } from "react-router-dom";
 import { BusinessLogo, Modal, PublicLayout, Rating, SectionHeading } from "../components";
 import { businesses, faqs, pageDirectory } from "../data";
-import { useAppStore } from "../store";
+import { useAppStore, type MembershipPlan } from "../store";
 
 const plans = [
   {
     id: "free",
-    name: "免費方案",
+    name: "免費會員方案",
     price: 0,
-    description: "適合剛開始建立線上專業形象的個人與小型商家。",
-    features: ["一頁式商家網站", "上架 3 個服務", "上傳 6 個作品", "每月 1 則合作需求", "基本搜尋曝光", "平台浮水印"],
-    cta: "免費開始",
+    description: "適合先建立商家資料、整理內容並預覽網站的個人與小型商家。",
+    features: [
+      "建立商家資料",
+      "一頁式網站草稿與即時預覽",
+      "上架 3 個服務",
+      "上傳 6 個作品",
+      "每月 1 則合作需求",
+      "正式發布公開網站需升級",
+    ],
+    cta: "選擇免費會員方案",
   },
   {
     id: "pro",
@@ -53,7 +60,7 @@ const plans = [
       "提高搜尋曝光",
       "移除平台浮水印",
     ],
-    cta: "免費試用 14 天",
+    cta: "選擇專業方案",
     recommended: true,
   },
   {
@@ -80,14 +87,16 @@ export function PricingPage() {
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [selectedPlan, setSelectedPlan] = useState<(typeof plans)[number] | null>(null);
   const [step, setStep] = useState(1);
-  const { notify } = useAppStore();
+  const { notify, setMembershipPlan } = useAppStore();
 
   const confirm = () => {
     if (step === 1) {
       setStep(2);
       return;
     }
-    notify(`已模擬升級為${selectedPlan?.name}`);
+    if (!selectedPlan) return;
+    setMembershipPlan(selectedPlan.id as MembershipPlan);
+    notify(selectedPlan.id === "free" ? "已切換為免費會員方案" : `已模擬升級為${selectedPlan.name}`);
     setSelectedPlan(null);
     setStep(1);
   };
@@ -100,8 +109,8 @@ export function PricingPage() {
             <Sparkle weight="fill" />
             方案與價格
           </span>
-          <h1>從免費網站開始，跟著生意一起成長</h1>
-          <p>不綁長約、不收交易抽成。第一版為模擬升級流程，不會產生真實付款。</p>
+          <h1>從商家資料開始，依照曝光需求選擇方案</h1>
+          <p>免費會員可以建立商家資料、編輯與預覽網站；正式發布公開網站或綁定網址，需要升級付費方案。</p>
           <div className="billing-toggle">
             <button type="button" className={billing === "monthly" ? "active" : ""} onClick={() => setBilling("monthly")}>
               月繳
@@ -176,12 +185,13 @@ export function PricingPage() {
           <div className="comparison-table" role="table" aria-label="方案功能比較">
             <div className="comparison-row comparison-head" role="row">
               <strong>功能</strong>
-              <span>免費</span>
+              <span>免費會員</span>
               <span>專業</span>
               <span>企業</span>
             </div>
             {[
               ["商家網站版型", "1 種", "3 種", "3 種＋企業版"],
+              ["公開網站發布", "需升級", "包含", "包含"],
               ["商品／服務", "3 個", "30 個", "無限"],
               ["作品案例", "6 個", "50 個", "無限"],
               ["每月合作需求", "1 則", "10 則", "無限"],
@@ -212,7 +222,11 @@ export function PricingPage() {
           </div>
         </div>
       </section>
-      <Modal open={Boolean(selectedPlan)} title={`升級為${selectedPlan?.name || ""}`} onClose={() => setSelectedPlan(null)}>
+      <Modal
+        open={Boolean(selectedPlan)}
+        title={selectedPlan?.id === "free" ? "選擇免費會員方案" : `升級為${selectedPlan?.name || ""}`}
+        onClose={() => setSelectedPlan(null)}
+      >
         {step === 1 ? (
           <div className="upgrade-confirm">
             <span className="upgrade-icon">
@@ -235,7 +249,11 @@ export function PricingPage() {
                 </strong>
               </div>
             </div>
-            <p>這是 MVP 模擬升級，不會連接金流或收取費用。</p>
+            <p>
+              {selectedPlan?.id === "free"
+                ? "免費會員可建立商家資料並編輯、預覽網站；正式發布公開網站需要升級付費方案。"
+                : "這是 MVP 模擬升級，不會連接金流或實際扣款。"}
+            </p>
             <button type="button" className="btn btn-primary" onClick={confirm}>
               繼續
               <ArrowRight />
@@ -246,10 +264,14 @@ export function PricingPage() {
             <span className="upgrade-icon success">
               <Check weight="bold" />
             </span>
-            <h3>準備啟用進階功能</h3>
-            <p>正式版將在此串接安全付款。現在按下確認即可模擬完成升級。</p>
+            <h3>{selectedPlan?.id === "free" ? "準備啟用免費會員功能" : "準備啟用進階功能"}</h3>
+            <p>
+              {selectedPlan?.id === "free"
+                ? "啟用後可建立商家資料、編輯網站並使用即時預覽。"
+                : "正式版將在此串接安全付款。現在按下確認即可模擬完成升級。"}
+            </p>
             <button type="button" className="btn btn-primary" onClick={confirm}>
-              確認模擬升級
+              {selectedPlan?.id === "free" ? "確認選擇方案" : "確認模擬升級"}
             </button>
           </div>
         )}
@@ -461,7 +483,10 @@ export function FaqPage() {
   const [open, setOpen] = useState<number[]>([0]);
   const extended = [
     ...faqs,
-    { q: "免費方案會一直保留嗎？", a: "目前規劃免費方案會持續提供，正式版上線後若有調整，會提前公告並保留合理轉換時間。" },
+    {
+      q: "免費會員方案會一直保留嗎？",
+      a: "目前規劃免費會員方案會持續提供商家資料、網站編輯與預覽；正式發布公開網站或綁定網址需要升級付費方案。",
+    },
     { q: "可以把既有網站網址放到平台嗎？", a: "可以。商家資料可放外部網站與社群連結；自訂網域功能則已為企業方案預留。" },
     { q: "平台如何處理不實內容或糾紛？", a: "可透過檢舉頁提交資料，管理員會依內容規範審查、下架或限制帳號。合作前仍建議簽訂正式合約。" },
     { q: "企業可以邀請多位成員嗎？", a: "企業方案預留團隊成員與權限管理，第一版介面已完成，正式後端串接後即可共同管理。" },
@@ -739,7 +764,10 @@ export function TermsPage() {
         ["帳號責任", "你應提供真實且可驗證的資料，妥善保管登入資訊，並對帳號下發布的內容與行為負責。不得冒用他人身份或提供誤導資訊。"],
         ["內容規範", "不得發布詐騙、侵權、歧視、騷擾、違法商品、垃圾訊息或其他傷害平台安全與信任的內容。平台得依規範審查、限制、下架或保留稽核紀錄。"],
         ["合作與交易", "會員應自行確認合作對象、服務範圍、報價、交付、付款與合約。重要約定應以可保存的書面形式確認。"],
-        ["方案與費用", "本 MVP 的升級與訂單皆為模擬，不會收費。正式版方案、付款、退款與續訂規則將於啟用前另行公告。"],
+        [
+          "方案與費用",
+          "本 MVP 的升級與訂單皆為模擬，不會實際扣款。免費會員可建立商家資料並編輯、預覽網站；正式發布公開網站或綁定網址需要付費方案。正式版付款、退款與續訂規則將於啟用前另行公告。",
+        ],
         ["責任限制", "平台會合理維護服務與內容安全，但不對會員間合作結果、間接損失或不可控制的中斷承擔超出法律規定的責任。"],
       ]}
     />
@@ -832,6 +860,10 @@ function InfoHero({ eyebrow, title, description }: { eyebrow: string; title: str
 }
 
 function SimpleCta() {
+  const { session } = useAppStore();
+  const siteEditorPath =
+    session.role === "guest" ? "/register" : session.role === "admin" ? "/admin" : "/dashboard/site-editor";
+
   return (
     <section className="simple-cta">
       <div className="container">
@@ -839,8 +871,8 @@ function SimpleCta() {
           <span>每個行業，都值得擁有自己的網站。</span>
           <h2>準備好讓專業被更多人看見了嗎？</h2>
         </div>
-        <Link to="/register" className="btn btn-accent btn-lg">
-          免費建立我的網站
+        <Link to={siteEditorPath} className="btn btn-accent btn-lg">
+          建立我的網站
           <ArrowRight />
         </Link>
       </div>

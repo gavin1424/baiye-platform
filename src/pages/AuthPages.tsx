@@ -163,7 +163,7 @@ export function LoginPage() {
           </button>
         </div>
         <p className="auth-switch">
-          還沒有帳號？<Link to="/register">免費註冊</Link>
+          還沒有帳號？<Link to="/register">註冊會員</Link>
         </p>
       </div>
     </AuthShell>
@@ -206,7 +206,7 @@ export function RegisterPage() {
           <small>選擇會員類型</small>
           <small>建立帳號</small>
         </div>
-        <span className="eyebrow">免費開始</span>
+        <span className="eyebrow">建立會員資料</span>
         <h1>{step === 1 ? "你想如何使用平台？" : "建立你的百業共創帳號"}</h1>
         <p>{step === 1 ? "選擇最接近的身份，之後仍可在設定中調整。" : "完成後會自動建立可編輯的商家網站草稿。"}</p>
         <form className="form-stack auth-form" onSubmit={submit}>
@@ -277,7 +277,7 @@ export function RegisterPage() {
               </button>
             )}
             <button type="submit" className="btn btn-primary btn-lg">
-              {step === 1 ? "繼續" : "建立免費帳號"}
+              {step === 1 ? "繼續" : "建立會員帳號"}
               <ArrowRight />
             </button>
           </div>
