@@ -10806,6 +10806,31 @@ button:disabled {
     padding-bottom: 68px;
   }
 
+  .auth-page {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .auth-visual {
+    display: none;
+  }
+
+  .auth-main {
+    min-width: 0;
+    place-items: start center;
+    padding: 34px 24px 48px;
+  }
+
+  .auth-mobile-logo {
+    display: block;
+    margin-bottom: 30px;
+  }
+
+  .auth-card {
+    min-width: 0;
+  }
+
   .site-header {
     height: 66px;
   }
@@ -11229,6 +11254,10 @@ button:disabled {
 @media (max-width: 600px) {
   .container {
     width: calc(100% - 28px);
+  }
+
+  .auth-main {
+    padding-inline: 16px;
   }
 
   .section {
