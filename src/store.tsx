@@ -8,6 +8,18 @@ import {
   type ReactNode,
 } from "react";
 import type { SiteSettings } from "./types";
+import { defaultShopProducts } from "./shop-data";
+import type {
+  CartOperationResult,
+  FulfillmentType,
+  OrderStatus,
+  PaymentStatus,
+  ShopCartItem,
+  ShopCustomer,
+  ShopOrder,
+  ShopPaymentMethod,
+  ShopProduct,
+} from "./shop-types";
 
 type Role = "guest" | "business" | "admin";
 export type MembershipPlan = "free" | "pro" | "enterprise";
@@ -29,6 +41,9 @@ type AppStoreValue = {
   notificationsRead: number[];
   siteSettings: SiteSettings;
   membershipPlan: MembershipPlan;
+  shopProducts: ShopProduct[];
+  shopCart: ShopCartItem[];
+  shopOrders: ShopOrder[];
   login: (email: string, password: string) => { ok: boolean; message: string };
   register: (name: string, email: string) => void;
   logout: () => void;
@@ -43,6 +58,19 @@ type AppStoreValue = {
   markAllNotificationsRead: () => void;
   setSiteSettings: (settings: SiteSettings) => void;
   setMembershipPlan: (plan: MembershipPlan) => void;
+  addToShopCart: (productId: number, quantity?: number) => CartOperationResult;
+  updateShopCartQuantity: (productId: number, quantity: number) => CartOperationResult;
+  removeFromShopCart: (productId: number) => void;
+  clearShopCart: () => void;
+  saveShopProduct: (product: ShopProduct) => void;
+  toggleShopProductActive: (productId: number) => void;
+  createShopOrder: (input: {
+    customer: ShopCustomer;
+    fulfillmentType: FulfillmentType;
+    paymentMethod: ShopPaymentMethod;
+  }) => ShopOrder | null;
+  updateShopOrderPayment: (orderNumber: string, paymentStatus: PaymentStatus, providerReference?: string) => void;
+  updateShopOrderStatus: (orderNumber: string, status: OrderStatus) => void;
   notify: (message: string, tone?: "success" | "info" | "warning") => void;
 };
 
@@ -122,6 +150,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [notificationsRead, setNotificationsRead] = useStoredState<number[]>("notifications-read", []);
   const [siteSettings, setSiteSettings] = useStoredState<SiteSettings>("site-settings", defaultSiteSettings);
   const [membershipPlan, setMembershipPlan] = useStoredState<MembershipPlan>("membership-plan", "free");
+  const [shopProducts, setShopProducts] = useStoredState<ShopProduct[]>("shop-products", defaultShopProducts);
+  const [shopCart, setShopCart] = useStoredState<ShopCartItem[]>("shop-cart", []);
+  const [shopOrders, setShopOrders] = useStoredState<ShopOrder[]>("shop-orders", []);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "success") => {
@@ -144,6 +175,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       notificationsRead,
       siteSettings,
       membershipPlan,
+      shopProducts,
+      shopCart,
+      shopOrders,
       login: (email, password) => {
         if (email === "demo@baiye.local" && password === "Demo1234") {
           setSession({ role: "business", name: "強哥水族", email });
@@ -206,6 +240,144 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
       setSiteSettings,
       setMembershipPlan,
+      addToShopCart: (productId, quantity = 1) => {
+        const product = shopProducts.find((item) => item.id === productId && item.active);
+        if (!product) return { ok: false, message: "此商品目前未上架" };
+        if (product.stock < 1) {
+          notify("此商品目前缺貨，暫時無法加入購物車", "warning");
+          return { ok: false, message: "商品缺貨" };
+        }
+        const currentQuantity = shopCart.find((item) => item.productId === productId)?.quantity || 0;
+        const nextQuantity = currentQuantity + Math.max(1, quantity);
+        if (nextQuantity > product.stock) {
+          notify(`庫存僅剩 ${product.stock} 件，已達可購買上限`, "warning");
+          return { ok: false, message: "庫存不足" };
+        }
+        setShopCart((items) => {
+          const existing = items.find((item) => item.productId === productId);
+          if (existing) {
+            return items.map((item) =>
+              item.productId === productId ? { ...item, quantity: item.quantity + Math.max(1, quantity) } : item,
+            );
+          }
+          return [...items, { productId, quantity: Math.max(1, quantity) }];
+        });
+        notify(`已將「${product.name}」加入購物車`);
+        return { ok: true, message: "已加入購物車" };
+      },
+      updateShopCartQuantity: (productId, quantity) => {
+        if (quantity <= 0) {
+          setShopCart((items) => items.filter((item) => item.productId !== productId));
+          notify("商品已從購物車移除", "info");
+          return { ok: true, message: "商品已移除" };
+        }
+        const product = shopProducts.find((item) => item.id === productId && item.active);
+        if (!product || product.stock < quantity) {
+          notify(product ? `庫存僅剩 ${product.stock} 件` : "此商品目前未上架", "warning");
+          return { ok: false, message: product ? "庫存不足" : "商品未上架" };
+        }
+        setShopCart((items) =>
+          items.map((item) => (item.productId === productId ? { ...item, quantity } : item)),
+        );
+        return { ok: true, message: "數量已更新" };
+      },
+      removeFromShopCart: (productId) => {
+        setShopCart((items) => items.filter((item) => item.productId !== productId));
+        notify("商品已從購物車移除", "info");
+      },
+      clearShopCart: () => setShopCart([]),
+      saveShopProduct: (product) => {
+        setShopProducts((items) => {
+          const exists = items.some((item) => item.id === product.id);
+          return exists ? items.map((item) => (item.id === product.id ? product : item)) : [product, ...items];
+        });
+        notify(`「${product.name}」已儲存`);
+      },
+      toggleShopProductActive: (productId) => {
+        const product = shopProducts.find((item) => item.id === productId);
+        setShopProducts((items) =>
+          items.map((item) => (item.id === productId ? { ...item, active: !item.active } : item)),
+        );
+        if (product) notify(`「${product.name}」已${product.active ? "下架" : "上架"}`, "info");
+      },
+      createShopOrder: ({ customer, fulfillmentType, paymentMethod }) => {
+        if (shopCart.length === 0) {
+          notify("購物車目前沒有商品", "warning");
+          return null;
+        }
+        const items = shopCart.flatMap((cartItem) => {
+          const product = shopProducts.find((item) => item.id === cartItem.productId && item.active);
+          if (!product || product.stock < cartItem.quantity) return [];
+          return [{
+            productId: product.id,
+            sku: product.sku,
+            name: product.name,
+            price: product.price,
+            quantity: cartItem.quantity,
+          }];
+        });
+        if (items.length !== shopCart.length) {
+          notify("部分商品庫存或上架狀態已變更，請重新確認購物車", "warning");
+          return null;
+        }
+        const now = new Date();
+        const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const shippingFee = fulfillmentType === "delivery" ? 120 : fulfillmentType === "store-pickup" ? 60 : 0;
+        const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+        const orderNumber = `BY${datePart}${String(now.getTime()).slice(-6)}`;
+        const order: ShopOrder = {
+          id: crypto.randomUUID?.() || `${now.getTime()}-${Math.random().toString(16).slice(2)}`,
+          orderNumber,
+          items,
+          customer,
+          fulfillmentType,
+          paymentMethod,
+          paymentStatus: "pending",
+          status: "processing",
+          subtotal,
+          shippingFee,
+          total: subtotal + shippingFee,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        };
+        setShopOrders((orders) => [order, ...orders.filter((item) => item.orderNumber !== orderNumber)]);
+        return order;
+      },
+      updateShopOrderPayment: (orderNumber, paymentStatus, providerReference) => {
+        setShopOrders((orders) =>
+          orders.map((order) => {
+            if (order.orderNumber !== orderNumber) return order;
+            const status: OrderStatus =
+              paymentStatus === "paid"
+                ? "paid"
+                : paymentStatus === "cancelled"
+                  ? "cancelled"
+                  : order.status;
+            return {
+              ...order,
+              paymentStatus,
+              status,
+              providerReference: providerReference || order.providerReference,
+              updatedAt: new Date().toISOString(),
+            };
+          }),
+        );
+      },
+      updateShopOrderStatus: (orderNumber, status) => {
+        setShopOrders((orders) =>
+          orders.map((order) =>
+            order.orderNumber === orderNumber
+              ? {
+                  ...order,
+                  status,
+                  paymentStatus: status === "paid" && order.paymentStatus === "pending" ? "paid" : order.paymentStatus,
+                  updatedAt: new Date().toISOString(),
+                }
+              : order,
+          ),
+        );
+        notify(`訂單 ${orderNumber} 狀態已更新`);
+      },
       notify,
     }),
     [
@@ -219,6 +391,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       notificationsRead,
       siteSettings,
       membershipPlan,
+      shopProducts,
+      shopCart,
+      shopOrders,
       setSession,
       setBusinessFavorites,
       setProductFavorites,
@@ -229,6 +404,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       setNotificationsRead,
       setSiteSettings,
       setMembershipPlan,
+      setShopProducts,
+      setShopCart,
+      setShopOrders,
       notify,
     ],
   );

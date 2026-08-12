@@ -42,13 +42,16 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { BusinessLogo, IndustryIcon, Modal, PlatformLogo } from "../components";
 import { businesses, categories, collaborationNeeds, products, reviews } from "../data";
 import { useAppStore } from "../store";
+import { AdminShopOrders, AdminShopProducts } from "./AdminCommerce";
 
 const adminNav = [
   { id: "overview", label: "平台總覽", icon: ChartBar },
   { id: "members", label: "會員管理", icon: UsersThree },
   { id: "businesses", label: "商家管理", icon: Storefront },
   { id: "collaborations", label: "合作需求", icon: Handshake },
-  { id: "products", label: "商品管理", icon: Package },
+  { id: "shop-products", label: "商城商品", icon: Package },
+  { id: "shop-orders", label: "商城訂單", icon: Receipt },
+  { id: "products", label: "市集內容", icon: ClipboardText },
   { id: "reviews", label: "評價管理", icon: Star },
   { id: "reports", label: "檢舉管理", icon: Flag, badge: 8 },
   { id: "categories", label: "分類管理", icon: ListBullets },
@@ -210,7 +213,9 @@ export function AdminPage() {
           onAction={(target) => setActionTarget(target)}
         />
       )}
-      {activeTab !== "overview" && (
+      {activeTab === "shop-products" && <AdminShopProducts />}
+      {activeTab === "shop-orders" && <AdminShopOrders />}
+      {activeTab !== "overview" && activeTab !== "shop-products" && activeTab !== "shop-orders" && (
         <AdminDataSection
           tab={activeTab}
           memberStatus={memberStatus}

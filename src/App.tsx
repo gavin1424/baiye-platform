@@ -18,6 +18,13 @@ import {
   MarketplacePage,
   ProductDetailPage,
 } from "./pages/MarketplacePages";
+import {
+  CheckoutPage,
+  PaymentResultPage,
+  ShopCartPage,
+  ShopHomePage,
+  ShopProductPage,
+} from "./pages/ShopPages";
 import { ForgotPasswordPage, LoginPage, RegisterPage } from "./pages/AuthPages";
 import {
   CollaborationManagementPage,
@@ -51,6 +58,9 @@ const titles: Record<string, string> = {
   "/collaborations/new": "發布合作需求｜百業共創",
   "/marketplace": "商品與服務市集｜百業共創",
   "/inquiry-cart": "企業詢價單｜百業共創",
+  "/shop": "百業商城｜百業共創",
+  "/cart": "購物車｜百業共創",
+  "/checkout": "測試結帳｜百業共創",
   "/login": "會員登入｜百業共創",
   "/register": "會員註冊｜百業共創",
   "/forgot-password": "忘記密碼｜百業共創",
@@ -86,6 +96,10 @@ function ScrollAndMetadata() {
           ? "合作需求詳情｜百業共創"
           : path.startsWith("/marketplace/")
             ? "商品服務詳情｜百業共創"
+            : path.startsWith("/shop/")
+              ? "商城商品詳情｜百業共創"
+              : path.startsWith("/payment/")
+                ? "付款結果｜百業共創"
             : path.startsWith("/categories/")
               ? "行業分類｜百業共創"
               : path.startsWith("/dashboard/")
@@ -130,6 +144,11 @@ export function App() {
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/:slug" element={<ProductDetailPage />} />
         <Route path="/inquiry-cart" element={<InquiryCartPage />} />
+        <Route path="/shop" element={<ShopHomePage />} />
+        <Route path="/shop/:slug" element={<ShopProductPage />} />
+        <Route path="/cart" element={<ShopCartPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/payment/:result" element={<PaymentResultPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

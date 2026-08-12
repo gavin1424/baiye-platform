@@ -21,5 +21,6 @@ design-qa.md
 .vercel/
 .netlify/
 .DS_Store
+data/payment-runtime*.json
 .openai/
 AGENTS.md

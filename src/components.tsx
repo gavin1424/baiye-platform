@@ -36,6 +36,7 @@ import {
   ShareNetwork,
   ShieldCheck,
   ShoppingBag,
+  ShoppingCart,
   SignOut,
   SlidersHorizontal,
   Snowflake,
@@ -82,7 +83,7 @@ export function PlatformLogo({ compact = false }: { compact?: boolean }) {
 const navItems = [
   ["找服務", "/businesses"],
   ["合作需求", "/collaborations"],
-  ["商品市集", "/marketplace"],
+  ["商城", "/shop"],
   ["成功案例", "/success-stories"],
   ["如何運作", "/how-it-works"],
 ];
@@ -91,7 +92,8 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  const { session, logout, inquiryCart } = useAppStore();
+  const { session, logout, inquiryCart, shopCart } = useAppStore();
+  const shopCartCount = shopCart.reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -116,6 +118,10 @@ export function Header() {
           ))}
         </nav>
         <div className="header-actions">
+          <Link to="/cart" className="header-icon" aria-label={`購物車，${shopCartCount} 件商品`} data-testid="header-shop-cart">
+            <ShoppingCart />
+            {shopCartCount > 0 && <span className="count-badge">{shopCartCount}</span>}
+          </Link>
           <Link to="/inquiry-cart" className="header-icon" aria-label={`詢價單，${inquiryCart.length} 個項目`}>
             <ShoppingBag />
             {inquiryCart.length > 0 && <span className="count-badge">{inquiryCart.length}</span>}
@@ -215,7 +221,8 @@ export function Footer() {
             <strong>探索平台</strong>
             <Link to="/businesses">找商家</Link>
             <Link to="/collaborations">合作需求</Link>
-            <Link to="/marketplace">商品市集</Link>
+            <Link to="/shop">平台商城</Link>
+            <Link to="/marketplace">商品服務市集</Link>
             <Link to="/categories">行業分類</Link>
           </div>
           <div>
