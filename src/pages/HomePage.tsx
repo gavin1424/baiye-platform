@@ -328,8 +328,8 @@ export function HomePage() {
               專業方案
             </div>
             <div className="price">
-              <strong>NT$499</strong>
-              <span>／月</span>
+              <strong>NT$18,000</strong>
+              <span>一次性開通</span>
             </div>
             <ul>
               <li>

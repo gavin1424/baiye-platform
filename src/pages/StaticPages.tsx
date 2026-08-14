@@ -34,6 +34,7 @@ const plans = [
     id: "free",
     name: "免費會員方案",
     price: 0,
+    billingType: "recurring",
     description: "適合先建立商家資料、整理內容並預覽網站的個人與小型商家。",
     features: [
       "建立商家資料",
@@ -48,7 +49,8 @@ const plans = [
   {
     id: "pro",
     name: "專業方案",
-    price: 499,
+    price: 18000,
+    billingType: "one-time",
     description: "適合穩定接案、需要作品與數據管理的專業商家。",
     features: [
       "完整多區塊商家網站",
@@ -67,6 +69,7 @@ const plans = [
     id: "enterprise",
     name: "企業方案",
     price: 1499,
+    billingType: "recurring",
     description: "適合企業採購、供應商管理與多成員協作。",
     features: [
       "無限商品與服務",
@@ -126,7 +129,8 @@ export function PricingPage() {
         <div className="container">
           <div className="pricing-grid">
             {plans.map((plan) => {
-              const displayed = billing === "yearly" ? Math.round((plan.price * 10) / 12) : plan.price;
+              const isOneTime = plan.billingType === "one-time";
+              const displayed = !isOneTime && billing === "yearly" ? Math.round((plan.price * 10) / 12) : plan.price;
               return (
                 <article key={plan.id} className={`pricing-card ${plan.recommended ? "recommended" : ""}`}>
                   {plan.recommended && <span className="recommended-ribbon">最多商家選擇</span>}
@@ -138,9 +142,11 @@ export function PricingPage() {
                     <p>{plan.description}</p>
                     <div className="pricing-amount">
                       <strong>NT${displayed.toLocaleString("zh-TW")}</strong>
-                      <span>／月</span>
+                      <span>{isOneTime ? "一次性開通" : "／月"}</span>
                     </div>
-                    {billing === "yearly" && plan.price > 0 && <small>年繳 NT$ {(plan.price * 10).toLocaleString("zh-TW")}</small>}
+                    {!isOneTime && billing === "yearly" && plan.price > 0 && (
+                      <small>年繳 NT$ {(plan.price * 10).toLocaleString("zh-TW")}</small>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -239,13 +245,16 @@ export function PricingPage() {
                 <strong>{selectedPlan?.name}</strong>
               </div>
               <div>
-                <span>計費週期</span>
-                <strong>{billing === "monthly" ? "每月" : "每年"}</strong>
+                <span>計費方式</span>
+                <strong>{selectedPlan?.billingType === "one-time" ? "一次性開通" : billing === "monthly" ? "每月" : "每年"}</strong>
               </div>
               <div>
                 <span>模擬金額</span>
                 <strong>
-                  NT${billing === "yearly" ? ((selectedPlan?.price || 0) * 10).toLocaleString("zh-TW") : selectedPlan?.price.toLocaleString("zh-TW")}
+                  NT$
+                  {selectedPlan?.billingType !== "one-time" && billing === "yearly"
+                    ? ((selectedPlan?.price || 0) * 10).toLocaleString("zh-TW")
+                    : selectedPlan?.price.toLocaleString("zh-TW")}
                 </strong>
               </div>
             </div>
