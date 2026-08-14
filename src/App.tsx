@@ -36,6 +36,7 @@ import {
   SiteEditorPage,
 } from "./pages/DashboardPages";
 import { AdminPage } from "./pages/AdminPage";
+import { DemoSitesPage, IndustryDemoSitePage } from "./pages/IndustryDemoSites";
 import {
   AboutPage,
   ContactPage,
@@ -72,6 +73,7 @@ const titles: Record<string, string> = {
   "/messages": "私訊中心｜百業共創",
   "/notifications": "通知中心｜百業共創",
   "/pricing": "方案與價格｜百業共創",
+  "/demo-sites": "五大產業示範網站｜百業共創",
   "/about": "關於平台｜百業共創",
   "/how-it-works": "如何運作｜百業共創",
   "/success-stories": "成功合作案例｜百業共創",
@@ -93,19 +95,21 @@ function ScrollAndMetadata() {
       titles[path] ||
       (path.startsWith("/business/")
         ? "商家專屬網站｜百業共創"
-        : path.startsWith("/collaborations/")
-          ? "合作需求詳情｜百業共創"
-          : path.startsWith("/marketplace/")
-            ? "商品服務詳情｜百業共創"
-            : path.startsWith("/shop/")
-              ? "商城商品詳情｜百業共創"
-              : path.startsWith("/payment/")
-                ? "付款結果｜百業共創"
-            : path.startsWith("/categories/")
-              ? "行業分類｜百業共創"
-              : path.startsWith("/dashboard/")
-                ? "商家後台｜百業共創"
-                : "找不到頁面｜百業共創");
+        : path.startsWith("/demo-sites/")
+          ? "產業示範網站｜百業共創"
+          : path.startsWith("/collaborations/")
+            ? "合作需求詳情｜百業共創"
+            : path.startsWith("/marketplace/")
+              ? "商品服務詳情｜百業共創"
+              : path.startsWith("/shop/")
+                ? "商城商品詳情｜百業共創"
+                : path.startsWith("/payment/")
+                  ? "付款結果｜百業共創"
+                  : path.startsWith("/categories/")
+                    ? "行業分類｜百業共創"
+                    : path.startsWith("/dashboard/")
+                      ? "商家後台｜百業共創"
+                      : "找不到頁面｜百業共創");
     document.title = title;
     const description =
       "建立自己的商家網站、展示服務與作品，找到客戶、供應商與跨業合作夥伴。";
@@ -159,6 +163,8 @@ export function App() {
         <Route path="/businesses" element={<BusinessesPage />} />
         <Route path="/search" element={<BusinessesPage searchTitle />} />
         <Route path="/business/:slug" element={<BusinessPage />} />
+        <Route path="/demo-sites" element={<DemoSitesPage />} />
+        <Route path="/demo-sites/:slug" element={<IndustryDemoSitePage />} />
         <Route path="/collaborations" element={<CollaborationsPage />} />
         <Route
           path="/collaborations/new"
