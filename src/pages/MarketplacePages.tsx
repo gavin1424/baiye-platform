@@ -24,7 +24,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useMemo, useState, type FormEvent } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   BusinessLogo,
   EmptyState,
@@ -244,10 +244,11 @@ export function MarketplacePage() {
 }
 
 export function ProductDetailPage() {
+  const navigate = useNavigate();
   const { slug } = useParams();
   const product = products.find((item) => item.slug === slug) || products[0];
   const supplier = businesses.find((business) => business.id === product.businessId) || businesses[0];
-  const { productFavorites, toggleProductFavorite, addToInquiry, inquiryCart, notify } = useAppStore();
+  const { session, productFavorites, toggleProductFavorite, addToInquiry, inquiryCart, notify } = useAppStore();
   const [contactOpen, setContactOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const gallery = [
@@ -262,6 +263,15 @@ export function ProductDetailPage() {
     event.preventDefault();
     setContactOpen(false);
     notify("詢問已送給商家");
+  };
+
+  const requireMerchant = (action: () => void) => {
+    if (session.role === "business" || session.role === "admin") {
+      action();
+      return;
+    }
+    notify("商家詢價功能需完成 NT$18,000 一次性商家上架註冊。", "warning");
+    navigate(session.role === "guest" ? "/login" : "/pricing");
   };
 
   return (
@@ -334,7 +344,7 @@ export function ProductDetailPage() {
                 <button
                   type="button"
                   className={`btn btn-lg ${inquiryCart.includes(product.id) ? "btn-success" : "btn-primary"}`}
-                  onClick={() => addToInquiry(product.id)}
+                  onClick={() => requireMerchant(() => addToInquiry(product.id))}
                 >
                   {inquiryCart.includes(product.id) ? (
                     <>
@@ -346,7 +356,7 @@ export function ProductDetailPage() {
                     </>
                   )}
                 </button>
-                <button type="button" className="btn btn-outline btn-lg" onClick={() => setContactOpen(true)}>
+                <button type="button" className="btn btn-outline btn-lg" onClick={() => requireMerchant(() => setContactOpen(true))}>
                   <PaperPlaneTilt />
                   聯絡商家
                 </button>
@@ -457,7 +467,7 @@ export function ProductDetailPage() {
               <Link to={`/business/${supplier.slug}`} className="btn btn-outline">
                 <Storefront /> 查看商家
               </Link>
-              <button type="button" className="btn btn-primary" onClick={() => setContactOpen(true)}>
+              <button type="button" className="btn btn-primary" onClick={() => requireMerchant(() => setContactOpen(true))}>
                 <Envelope /> 聯絡供應商
               </button>
             </aside>

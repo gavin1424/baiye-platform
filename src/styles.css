@@ -2021,6 +2021,15 @@ button:disabled {
   line-height: 1.75;
 }
 
+.pricing-preview-copy .price strong {
+  color: var(--white);
+}
+
+.pricing-preview-copy .price span {
+  margin-left: 8px;
+  color: #a7bac3;
+}
+
 .pricing-preview-copy .btn-outline {
   color: #fff;
   background: transparent;
@@ -5843,7 +5852,7 @@ button:disabled {
   min-height: 92px;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  align-items: center;
+  align-items: start;
   gap: 13px;
   padding: 16px;
   background: #fff;
@@ -5892,6 +5901,91 @@ button:disabled {
   margin-top: 4px;
   color: var(--slate-500);
   font-size: 10px;
+}
+
+.registration-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 7px;
+  color: var(--navy-900);
+  font-size: 20px;
+  font-weight: 850;
+}
+
+.registration-price small {
+  color: var(--teal-700);
+  font-size: 10px;
+}
+
+.role-options ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
+  margin-top: 10px;
+  color: var(--slate-600);
+  font-size: 9px;
+  list-style: none;
+}
+
+.role-options li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.role-options li svg {
+  flex: 0 0 12px;
+  color: var(--green-600);
+}
+
+.member-account-page {
+  min-height: 68vh;
+  background: var(--cream-50);
+}
+
+.member-account-card {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 38px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.member-account-card h1 {
+  margin-top: 10px;
+  color: var(--navy-950);
+}
+
+.member-account-card > p {
+  margin-top: 10px;
+  color: var(--slate-600);
+}
+
+.member-account-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.member-account-stats > div {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+  background: var(--cream-100);
+  border-radius: 12px;
+}
+
+.member-account-stats span {
+  color: var(--slate-500);
+  font-size: 10px;
+}
+
+.member-account-stats strong {
+  color: var(--navy-900);
 }
 
 .radio-check {
@@ -9685,8 +9779,10 @@ button:disabled {
 
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+  max-width: 920px;
+  margin: 0 auto;
 }
 
 .pricing-section .pricing-card {
@@ -9824,7 +9920,7 @@ button:disabled {
 
 .comparison-row {
   display: grid;
-  grid-template-columns: 1.65fr repeat(3, 1fr);
+  grid-template-columns: 1.65fr repeat(2, 1fr);
   border-top: 1px solid var(--slate-100);
 }
 
@@ -11314,6 +11410,15 @@ button:disabled {
 
   .section {
     padding-block: 58px;
+  }
+
+  .member-account-card {
+    padding: 24px;
+  }
+
+  .member-account-stats,
+  .role-options ul {
+    grid-template-columns: 1fr;
   }
 
   .brand-copy small,

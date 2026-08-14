@@ -25,7 +25,7 @@ import {
   ShopHomePage,
   ShopProductPage,
 } from "./pages/ShopPages";
-import { ForgotPasswordPage, LoginPage, RegisterPage } from "./pages/AuthPages";
+import { ForgotPasswordPage, LoginPage, MemberAccountPage, RegisterPage } from "./pages/AuthPages";
 import {
   CollaborationManagementPage,
   DashboardOverviewPage,
@@ -64,7 +64,8 @@ const titles: Record<string, string> = {
   "/login": "會員登入｜百業共創",
   "/register": "會員註冊｜百業共創",
   "/forgot-password": "忘記密碼｜百業共創",
-  "/dashboard": "會員後台總覽｜百業共創",
+  "/account": "免費會員帳號｜百業共創",
+  "/dashboard": "商家後台總覽｜百業共創",
   "/dashboard/site-editor": "我的網站編輯器｜百業共創",
   "/dashboard/products": "商品與服務管理｜百業共創",
   "/dashboard/collaborations": "合作需求管理｜百業共創",
@@ -103,7 +104,7 @@ function ScrollAndMetadata() {
             : path.startsWith("/categories/")
               ? "行業分類｜百業共創"
               : path.startsWith("/dashboard/")
-                ? "會員後台｜百業共創"
+                ? "商家後台｜百業共創"
                 : "找不到頁面｜百業共創");
     document.title = title;
     const description =
@@ -116,14 +117,34 @@ function ScrollAndMetadata() {
   return null;
 }
 
-function ProtectedRoute({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
-  const { session } = useAppStore();
+function MerchantRoute({ children }: { children: ReactNode }) {
+  const { session, notify } = useAppStore();
   const location = useLocation();
+
+  useEffect(() => {
+    if (session.role === "member") {
+      notify("商家上架功能需完成 NT$18,000 一次性商家上架註冊。", "warning");
+    }
+  }, [location.pathname, notify, session.role]);
+
   if (session.role === "guest") return <Navigate to="/login" replace />;
-  if (admin && session.role !== "admin") return <Navigate to="/dashboard" replace />;
-  if (!admin && session.role === "admin" && location.pathname.startsWith("/dashboard")) {
-    return <Navigate to="/admin" replace />;
-  }
+  if (session.role === "member") return <Navigate to="/pricing" replace />;
+  return children;
+}
+
+function MemberRoute({ children }: { children: ReactNode }) {
+  const { session } = useAppStore();
+  if (session.role === "guest") return <Navigate to="/login" replace />;
+  if (session.role === "business") return <Navigate to="/dashboard" replace />;
+  if (session.role === "admin") return <Navigate to="/admin" replace />;
+  return children;
+}
+
+function AdminRoute({ children }: { children: ReactNode }) {
+  const { session } = useAppStore();
+  if (session.role === "guest") return <Navigate to="/login" replace />;
+  if (session.role === "member") return <Navigate to="/pricing" replace />;
+  if (session.role === "business") return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -139,11 +160,25 @@ export function App() {
         <Route path="/search" element={<BusinessesPage searchTitle />} />
         <Route path="/business/:slug" element={<BusinessPage />} />
         <Route path="/collaborations" element={<CollaborationsPage />} />
-        <Route path="/collaborations/new" element={<NewCollaborationPage />} />
+        <Route
+          path="/collaborations/new"
+          element={
+            <MerchantRoute>
+              <NewCollaborationPage />
+            </MerchantRoute>
+          }
+        />
         <Route path="/collaborations/:id" element={<CollaborationDetailPage />} />
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/:slug" element={<ProductDetailPage />} />
-        <Route path="/inquiry-cart" element={<InquiryCartPage />} />
+        <Route
+          path="/inquiry-cart"
+          element={
+            <MerchantRoute>
+              <InquiryCartPage />
+            </MerchantRoute>
+          }
+        />
         <Route path="/shop" element={<ShopHomePage />} />
         <Route path="/shop/:slug" element={<ShopProductPage />} />
         <Route path="/cart" element={<ShopCartPage />} />
@@ -153,35 +188,43 @@ export function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route
+          path="/account"
+          element={
+            <MemberRoute>
+              <MemberAccountPage />
+            </MemberRoute>
+          }
+        />
+        <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <MerchantRoute>
               <DashboardOverviewPage />
-            </ProtectedRoute>
+            </MerchantRoute>
           }
         />
         <Route
           path="/dashboard/site-editor"
           element={
-            <ProtectedRoute>
+            <MerchantRoute>
               <SiteEditorPage />
-            </ProtectedRoute>
+            </MerchantRoute>
           }
         />
         <Route
           path="/dashboard/products"
           element={
-            <ProtectedRoute>
+            <MerchantRoute>
               <ProductManagementPage />
-            </ProtectedRoute>
+            </MerchantRoute>
           }
         />
         <Route
           path="/dashboard/collaborations"
           element={
-            <ProtectedRoute>
+            <MerchantRoute>
               <CollaborationManagementPage />
-            </ProtectedRoute>
+            </MerchantRoute>
           }
         />
         {[
@@ -202,26 +245,26 @@ export function App() {
             key={section}
             path={`/dashboard/${section}`}
             element={
-              <ProtectedRoute>
+              <MerchantRoute>
                 <GenericDashboardPage section={section} />
-              </ProtectedRoute>
+              </MerchantRoute>
             }
           />
         ))}
         <Route
           path="/messages"
           element={
-            <ProtectedRoute>
+            <MerchantRoute>
               <MessagesPage />
-            </ProtectedRoute>
+            </MerchantRoute>
           }
         />
         <Route
           path="/notifications"
           element={
-            <ProtectedRoute>
+            <MerchantRoute>
               <NotificationsPage />
-            </ProtectedRoute>
+            </MerchantRoute>
           }
         />
         <Route path="/pricing" element={<PricingPage />} />
@@ -236,9 +279,9 @@ export function App() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute admin>
+            <AdminRoute>
               <AdminPage />
-            </ProtectedRoute>
+            </AdminRoute>
           }
         />
         <Route path="/not-found-demo" element={<NotFoundPage />} />

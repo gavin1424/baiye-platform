@@ -256,11 +256,12 @@ export function CollaborationsPage() {
 }
 
 export function CollaborationDetailPage() {
+  const navigate = useNavigate();
   const { id = "1" } = useParams();
   const custom = readCustomNeeds();
   const need = [...custom, ...collaborationNeeds].find((item) => String(item.id) === id) || collaborationNeeds[0];
   const publisher = businesses.find((business) => business.id === need.publisherId) || businesses[0];
-  const { needFavorites, toggleNeedFavorite, submitProposal, proposals } = useAppStore();
+  const { session, needFavorites, toggleNeedFavorite, submitProposal, proposals, notify } = useAppStore();
   const [proposalOpen, setProposalOpen] = useState(false);
   const [step, setStep] = useState(1);
 
@@ -273,6 +274,15 @@ export function CollaborationDetailPage() {
     submitProposal(need.id);
     setProposalOpen(false);
     setStep(1);
+  };
+
+  const openProposal = () => {
+    if (session.role === "business" || session.role === "admin") {
+      if (!proposals.includes(need.id)) setProposalOpen(true);
+      return;
+    }
+    notify("商家提案功能需完成 NT$18,000 一次性商家上架註冊。", "warning");
+    navigate(session.role === "guest" ? "/login" : "/pricing");
   };
 
   return (
@@ -387,7 +397,7 @@ export function CollaborationDetailPage() {
               <button
                 type="button"
                 className={`btn btn-lg ${proposals.includes(need.id) ? "btn-success" : "btn-primary"}`}
-                onClick={() => !proposals.includes(need.id) && setProposalOpen(true)}
+                onClick={openProposal}
               >
                 {proposals.includes(need.id) ? (
                   <>

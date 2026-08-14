@@ -267,9 +267,8 @@ export function AdminPage() {
               <span>發送對象 *</span>
               <select required>
                 <option>全部會員</option>
-                <option>商家會員</option>
-                <option>企業會員</option>
-                <option>指定方案會員</option>
+                <option>免費會員</option>
+                <option>商家上架會員</option>
               </select>
             </label>
             <label className="field">
@@ -566,10 +565,9 @@ function AdminDataSection({
       }));
     if (tab === "plans")
       return [
-        ["免費會員方案", "32,680 位會員・NT$0／月", "公開中"],
-        ["專業方案", "14,860 位會員・NT$18,000／次", "公開中"],
-        ["企業方案", "2,746 位會員・NT$1,499／月", "公開中"],
-      ].map((item, index) => ({ id: index + 1, title: item[0], subtitle: item[1], meta: "本月正常", status: item[2] }));
+        ["免費會員", "32,680 位會員・NT$0・一般購物會員", "公開中"],
+        ["商家上架註冊", "17,606 位會員・NT$18,000／次・一次性開通", "公開中"],
+      ].map((item, index) => ({ id: index + 1, title: item[0], subtitle: item[1], meta: "資格正常", status: item[2] }));
     if (tab === "ads")
       return [
         ["首頁 Hero 下方橫幅", "桌機 1200×160・手機 360×120", "使用中"],
@@ -580,7 +578,7 @@ function AdminDataSection({
     if (tab === "announcements")
       return [
         ["八月平台功能更新", "全部會員・站內通知＋Email", "已排程"],
-        ["企業方案供應商管理上線", "企業會員・站內通知", "已發送"],
+        ["商家上架功能更新", "商家上架會員・站內通知", "已發送"],
         ["內容審核規範更新", "商家會員・Email", "草稿"],
       ].map((item, index) => ({ id: index + 1, title: item[0], subtitle: item[1], meta: `2026/07/${28 - index}`, status: item[2] }));
     if (tab === "analytics")

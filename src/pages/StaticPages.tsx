@@ -1,7 +1,6 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Buildings,
   Check,
   CheckCircle,
   CirclesFour,
@@ -25,85 +24,41 @@ import {
 } from "@phosphor-icons/react";
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { BusinessLogo, Modal, PublicLayout, Rating, SectionHeading } from "../components";
+import { BusinessLogo, PublicLayout, Rating, SectionHeading } from "../components";
 import { businesses, faqs, pageDirectory } from "../data";
-import { useAppStore, type MembershipPlan } from "../store";
+import { useAppStore } from "../store";
 
 const plans = [
   {
     id: "free",
-    name: "免費會員方案",
+    name: "免費會員",
     price: 0,
-    billingType: "recurring",
-    description: "適合先建立商家資料、整理內容並預覽網站的個人與小型商家。",
-    features: [
-      "建立商家資料",
-      "一頁式網站草稿與即時預覽",
-      "上架 3 個服務",
-      "上傳 6 個作品",
-      "每月 1 則合作需求",
-      "正式發布公開網站需升級",
-    ],
-    cta: "選擇免費會員方案",
+    billingLabel: "",
+    description: "一般消費者購物帳號，免費註冊後即可開始使用商城。",
+    features: ["免費註冊", "瀏覽商城與商品", "購物車", "結帳", "購物帳號功能"],
+    cta: "免費註冊",
+    to: "/register?type=member",
   },
   {
-    id: "pro",
-    name: "專業方案",
+    id: "merchant",
+    name: "商家上架註冊",
     price: 18000,
-    billingType: "one-time",
-    description: "適合穩定接案、需要作品與數據管理的專業商家。",
+    billingLabel: "一次性開通",
+    description: "完成一次性商家上架註冊後，開通目前完整商家功能。",
     features: [
-      "完整多區塊商家網站",
-      "30 個商品或服務",
-      "50 個作品案例",
-      "每月 10 則合作需求",
-      "進階網站版型",
-      "訪客數據分析",
-      "提高搜尋曝光",
-      "移除平台浮水印",
+      "建立商家資料與公開網站",
+      "網站編輯與發布",
+      "商品／服務與作品上架",
+      "合作需求、提案與詢價／報價",
+      "商家訂單、私訊與評價",
+      "數據分析與完整商家後台",
     ],
-    cta: "選擇專業方案",
-    recommended: true,
-  },
-  {
-    id: "enterprise",
-    name: "企業方案",
-    price: 1499,
-    billingType: "recurring",
-    description: "適合企業採購、供應商管理與多成員協作。",
-    features: [
-      "無限商品與服務",
-      "多位團隊成員",
-      "大型採購需求",
-      "企業認證標章",
-      "優先搜尋曝光",
-      "詳細數據分析",
-      "專屬客服",
-      "自訂網域預留",
-      "批次詢價與供應商管理",
-    ],
-    cta: "選擇企業方案",
+    cta: "申請商家上架",
+    to: "/register?type=merchant",
   },
 ];
 
 export function PricingPage() {
-  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
-  const [selectedPlan, setSelectedPlan] = useState<(typeof plans)[number] | null>(null);
-  const [step, setStep] = useState(1);
-  const { notify, setMembershipPlan } = useAppStore();
-
-  const confirm = () => {
-    if (step === 1) {
-      setStep(2);
-      return;
-    }
-    if (!selectedPlan) return;
-    setMembershipPlan(selectedPlan.id as MembershipPlan);
-    notify(selectedPlan.id === "free" ? "已切換為免費會員方案" : `已模擬升級為${selectedPlan.name}`);
-    setSelectedPlan(null);
-    setStep(1);
-  };
-
   return (
     <PublicLayout>
       <section className="pricing-hero">
@@ -112,49 +67,29 @@ export function PricingPage() {
             <Sparkle weight="fill" />
             方案與價格
           </span>
-          <h1>從商家資料開始，依照曝光需求選擇方案</h1>
-          <p>免費會員可以建立商家資料、編輯與預覽網站；正式發布公開網站或綁定網址，需要升級付費方案。</p>
-          <div className="billing-toggle">
-            <button type="button" className={billing === "monthly" ? "active" : ""} onClick={() => setBilling("monthly")}>
-              月繳
-            </button>
-            <button type="button" className={billing === "yearly" ? "active" : ""} onClick={() => setBilling("yearly")}>
-              年繳
-              <span>省 2 個月</span>
-            </button>
-          </div>
+          <h1>免費購物，商家一次完成上架註冊</h1>
+          <p>免費會員只用於商城購物；建立商家頁面與使用商家後台，需完成 NT$18,000 一次性商家上架註冊。</p>
         </div>
       </section>
       <section className="pricing-section">
         <div className="container">
           <div className="pricing-grid">
-            {plans.map((plan) => {
-              const isOneTime = plan.billingType === "one-time";
-              const displayed = !isOneTime && billing === "yearly" ? Math.round((plan.price * 10) / 12) : plan.price;
-              return (
-                <article key={plan.id} className={`pricing-card ${plan.recommended ? "recommended" : ""}`}>
-                  {plan.recommended && <span className="recommended-ribbon">最多商家選擇</span>}
+            {plans.map((plan) => (
+                <article key={plan.id} className="pricing-card">
                   <div className="pricing-card-top">
                     <span className={`plan-icon plan-${plan.id}`}>
-                      {plan.id === "free" ? <Storefront /> : plan.id === "pro" ? <Sparkle /> : <Buildings />}
+                      {plan.id === "free" ? <Storefront /> : <Sparkle />}
                     </span>
                     <h2>{plan.name}</h2>
                     <p>{plan.description}</p>
                     <div className="pricing-amount">
-                      <strong>NT${displayed.toLocaleString("zh-TW")}</strong>
-                      <span>{isOneTime ? "一次性開通" : "／月"}</span>
+                      <strong>NT${plan.price.toLocaleString("zh-TW")}</strong>
+                      {plan.billingLabel && <span>{plan.billingLabel}</span>}
                     </div>
-                    {!isOneTime && billing === "yearly" && plan.price > 0 && (
-                      <small>年繳 NT$ {(plan.price * 10).toLocaleString("zh-TW")}</small>
-                    )}
                   </div>
-                  <button
-                    type="button"
-                    className={`btn ${plan.recommended ? "btn-primary" : "btn-outline"} btn-lg`}
-                    onClick={() => setSelectedPlan(plan)}
-                  >
+                  <Link to={plan.to} className={`btn ${plan.id === "merchant" ? "btn-primary" : "btn-outline"} btn-lg`}>
                     {plan.cta}
-                  </button>
+                  </Link>
                   <ul>
                     {plan.features.map((feature) => (
                       <li key={feature}>
@@ -164,13 +99,12 @@ export function PricingPage() {
                     ))}
                   </ul>
                 </article>
-              );
-            })}
+            ))}
           </div>
           <div className="pricing-trust-row">
             {[
               [ShieldCheck, "不收交易抽成"],
-              [CheckCircle, "隨時可取消"],
+              [CheckCircle, "一次性清楚開通"],
               [UsersThree, "真人客服支援"],
               [Globe, "未來支援自訂網域"],
             ].map(([Icon, label]) => {
@@ -187,29 +121,28 @@ export function PricingPage() {
       </section>
       <section className="pricing-comparison section">
         <div className="container">
-          <SectionHeading title="功能比較" description="找到適合目前階段的方案，之後可隨時調整。" />
+          <SectionHeading title="功能比較" description="免費會員專注購物，商家上架後才開通完整商家功能。" />
           <div className="comparison-table" role="table" aria-label="方案功能比較">
             <div className="comparison-row comparison-head" role="row">
               <strong>功能</strong>
               <span>免費會員</span>
-              <span>專業</span>
-              <span>企業</span>
+              <span>商家上架</span>
             </div>
             {[
-              ["商家網站版型", "1 種", "3 種", "3 種＋企業版"],
-              ["公開網站發布", "需升級", "包含", "包含"],
-              ["商品／服務", "3 個", "30 個", "無限"],
-              ["作品案例", "6 個", "50 個", "無限"],
-              ["每月合作需求", "1 則", "10 則", "無限"],
-              ["數據分析", "—", "基本", "完整"],
-              ["團隊成員", "1 位", "1 位", "10 位"],
-              ["供應商管理", "—", "—", "包含"],
+              ["商城購物", "包含", "包含"],
+              ["商家公開頁", "—", "包含"],
+              ["商家網站", "—", "包含"],
+              ["商品／服務上架", "—", "包含"],
+              ["作品案例", "—", "包含"],
+              ["合作需求", "—", "包含"],
+              ["詢價／報價", "—", "包含"],
+              ["商家後台", "—", "包含"],
+              ["數據分析", "—", "包含"],
             ].map((row) => (
               <div className="comparison-row" role="row" key={row[0]}>
                 <strong>{row[0]}</strong>
                 <span>{row[1]}</span>
                 <span>{row[2]}</span>
-                <span>{row[3]}</span>
               </div>
             ))}
           </div>
@@ -228,63 +161,6 @@ export function PricingPage() {
           </div>
         </div>
       </section>
-      <Modal
-        open={Boolean(selectedPlan)}
-        title={selectedPlan?.id === "free" ? "選擇免費會員方案" : `升級為${selectedPlan?.name || ""}`}
-        onClose={() => setSelectedPlan(null)}
-      >
-        {step === 1 ? (
-          <div className="upgrade-confirm">
-            <span className="upgrade-icon">
-              <Sparkle weight="fill" />
-            </span>
-            <h3>確認方案內容</h3>
-            <div className="upgrade-summary">
-              <div>
-                <span>方案</span>
-                <strong>{selectedPlan?.name}</strong>
-              </div>
-              <div>
-                <span>計費方式</span>
-                <strong>{selectedPlan?.billingType === "one-time" ? "一次性開通" : billing === "monthly" ? "每月" : "每年"}</strong>
-              </div>
-              <div>
-                <span>模擬金額</span>
-                <strong>
-                  NT$
-                  {selectedPlan?.billingType !== "one-time" && billing === "yearly"
-                    ? ((selectedPlan?.price || 0) * 10).toLocaleString("zh-TW")
-                    : selectedPlan?.price.toLocaleString("zh-TW")}
-                </strong>
-              </div>
-            </div>
-            <p>
-              {selectedPlan?.id === "free"
-                ? "免費會員可建立商家資料並編輯、預覽網站；正式發布公開網站需要升級付費方案。"
-                : "這是 MVP 模擬升級，不會連接金流或實際扣款。"}
-            </p>
-            <button type="button" className="btn btn-primary" onClick={confirm}>
-              繼續
-              <ArrowRight />
-            </button>
-          </div>
-        ) : (
-          <div className="upgrade-confirm">
-            <span className="upgrade-icon success">
-              <Check weight="bold" />
-            </span>
-            <h3>{selectedPlan?.id === "free" ? "準備啟用免費會員功能" : "準備啟用進階功能"}</h3>
-            <p>
-              {selectedPlan?.id === "free"
-                ? "啟用後可建立商家資料、編輯網站並使用即時預覽。"
-                : "正式版將在此串接安全付款。現在按下確認即可模擬完成升級。"}
-            </p>
-            <button type="button" className="btn btn-primary" onClick={confirm}>
-              {selectedPlan?.id === "free" ? "確認選擇方案" : "確認模擬升級"}
-            </button>
-          </div>
-        )}
-      </Modal>
     </PublicLayout>
   );
 }
@@ -377,7 +253,7 @@ export function HowItWorksPage() {
           </div>
           <div className="path-steps">
             {[
-              [Storefront, "建立商家網站", "選版型、填資料、上傳作品與服務。", "/register"],
+              [Storefront, "完成商家上架註冊", "NT$18,000 一次性開通完整商家功能。", "/pricing"],
               [SealCheck, "完成信任認證", "驗證手機、Email、商業登記或專業證照。", "/dashboard/profile"],
               [Globe, "發布並開始曝光", "分享網址，也在平台搜尋與分類頁被看見。", "/dashboard/site-editor"],
               [Handshake, "接收並管理合作", "集中回覆私訊、詢價、提案與合作邀請。", "/dashboard"],
@@ -493,12 +369,12 @@ export function FaqPage() {
   const extended = [
     ...faqs,
     {
-      q: "免費會員方案會一直保留嗎？",
-      a: "目前規劃免費會員方案會持續提供商家資料、網站編輯與預覽；正式發布公開網站或綁定網址需要升級付費方案。",
+      q: "免費會員可以使用哪些功能？",
+      a: "免費會員是純消費者購物帳號，可瀏覽商城、使用購物車並完成結帳，不包含任何商家功能。",
     },
-    { q: "可以把既有網站網址放到平台嗎？", a: "可以。商家資料可放外部網站與社群連結；自訂網域功能則已為企業方案預留。" },
+    { q: "商家如何建立公開頁與網站？", a: "需完成 NT$18,000 一次性商家上架註冊，完成後即可使用商家頁、網站編輯器與發布功能。" },
     { q: "平台如何處理不實內容或糾紛？", a: "可透過檢舉頁提交資料，管理員會依內容規範審查、下架或限制帳號。合作前仍建議簽訂正式合約。" },
-    { q: "企業可以邀請多位成員嗎？", a: "企業方案預留團隊成員與權限管理，第一版介面已完成，正式後端串接後即可共同管理。" },
+    { q: "商家上架後可以使用合作功能嗎？", a: "可以。商家上架會員可使用合作需求、提案、詢價、報價、私訊與商家後台等既有功能。" },
   ];
   return (
     <PublicLayout>
@@ -775,7 +651,7 @@ export function TermsPage() {
         ["合作與交易", "會員應自行確認合作對象、服務範圍、報價、交付、付款與合約。重要約定應以可保存的書面形式確認。"],
         [
           "方案與費用",
-          "本 MVP 的升級與訂單皆為模擬，不會實際扣款。免費會員可建立商家資料並編輯、預覽網站；正式發布公開網站或綁定網址需要付費方案。正式版付款、退款與續訂規則將於啟用前另行公告。",
+          "免費會員為 NT$0 的消費者購物帳號，不包含商家功能。商家建立公開頁、網站與使用商家後台，需完成 NT$18,000 一次性商家上架註冊。正式版付款與退款規則將於啟用前另行公告。",
         ],
         ["責任限制", "平台會合理維護服務與內容安全，但不對會員間合作結果、間接損失或不可控制的中斷承擔超出法律規定的責任。"],
       ]}
@@ -871,7 +747,7 @@ function InfoHero({ eyebrow, title, description }: { eyebrow: string; title: str
 function SimpleCta() {
   const { session } = useAppStore();
   const siteEditorPath =
-    session.role === "guest" ? "/register" : session.role === "admin" ? "/admin" : "/dashboard/site-editor";
+    session.role === "business" ? "/dashboard/site-editor" : session.role === "admin" ? "/admin" : "/pricing";
 
   return (
     <section className="simple-cta">
@@ -881,7 +757,7 @@ function SimpleCta() {
           <h2>準備好讓專業被更多人看見了嗎？</h2>
         </div>
         <Link to={siteEditorPath} className="btn btn-accent btn-lg">
-          建立我的網站
+          {session.role === "business" ? "管理商家網站" : "申請商家上架"}
           <ArrowRight />
         </Link>
       </div>

@@ -94,6 +94,9 @@ export function Header() {
   const location = useLocation();
   const { session, logout, inquiryCart, shopCart } = useAppStore();
   const shopCartCount = shopCart.reduce((sum, item) => sum + item.quantity, 0);
+  const isBusiness = session.role === "business";
+  const accountPath = session.role === "admin" ? "/admin" : isBusiness ? "/dashboard" : "/account";
+  const accountLabel = session.role === "admin" ? "管理員後台" : isBusiness ? "商家後台" : "免費會員帳號";
 
   useEffect(() => {
     setMenuOpen(false);
@@ -122,14 +125,18 @@ export function Header() {
             <ShoppingCart />
             {shopCartCount > 0 && <span className="count-badge">{shopCartCount}</span>}
           </Link>
-          <Link to="/inquiry-cart" className="header-icon" aria-label={`詢價單，${inquiryCart.length} 個項目`}>
-            <ShoppingBag />
-            {inquiryCart.length > 0 && <span className="count-badge">{inquiryCart.length}</span>}
-          </Link>
-          <Link to="/notifications" className="header-icon" aria-label="通知中心">
-            <Bell />
-            <span className="notification-dot" />
-          </Link>
+          {isBusiness && (
+            <>
+              <Link to="/inquiry-cart" className="header-icon" aria-label={`詢價單，${inquiryCart.length} 個項目`}>
+                <ShoppingBag />
+                {inquiryCart.length > 0 && <span className="count-badge">{inquiryCart.length}</span>}
+              </Link>
+              <Link to="/notifications" className="header-icon" aria-label="通知中心">
+                <Bell />
+                <span className="notification-dot" />
+              </Link>
+            </>
+          )}
           {session.role === "guest" ? (
             <>
               <Link to="/login" className="btn btn-ghost btn-sm">
@@ -141,15 +148,20 @@ export function Header() {
             </>
           ) : (
             <div className="account-menu">
-              <Link to={session.role === "admin" ? "/admin" : "/dashboard"} className="account-chip">
+              <Link to={accountPath} className="account-chip">
                 <span className="avatar avatar-sm">{session.name.slice(0, 1)}</span>
                 <span>{session.name}</span>
                 <CaretDown />
               </Link>
               <div className="account-popover">
-                <Link to={session.role === "admin" ? "/admin" : "/dashboard"}>
-                  <UserCircle /> {session.role === "admin" ? "管理員後台" : "會員後台"}
+                <Link to={accountPath}>
+                  <UserCircle /> {accountLabel}
                 </Link>
+                {session.role === "member" && (
+                  <Link to="/cart">
+                    <ShoppingCart /> 購物車
+                  </Link>
+                )}
                 <button type="button" onClick={logout}>
                   <SignOut /> 登出
                 </button>
@@ -193,8 +205,8 @@ export function Header() {
               </Link>
             </div>
           ) : (
-            <Link to={session.role === "admin" ? "/admin" : "/dashboard"} className="btn btn-primary">
-              前往{session.role === "admin" ? "管理員" : "會員"}後台
+            <Link to={accountPath} className="btn btn-primary">
+              {session.role === "member" ? "前往免費會員帳號" : `前往${session.role === "admin" ? "管理員" : "商家"}後台`}
             </Link>
           )}
         </div>
@@ -206,7 +218,7 @@ export function Header() {
 export function Footer() {
   const { session } = useAppStore();
   const siteEditorPath =
-    session.role === "guest" ? "/register" : session.role === "admin" ? "/admin" : "/dashboard/site-editor";
+    session.role === "business" ? "/dashboard/site-editor" : session.role === "admin" ? "/admin" : "/pricing";
 
   return (
     <footer className="site-footer">
@@ -254,17 +266,26 @@ export function Footer() {
 
 export function MobileBottomNav() {
   const { session } = useAppStore();
-  const items = [
-    { label: "首頁", to: "/", icon: House },
-    { label: "搜尋", to: "/businesses", icon: MagnifyingGlass },
-    { label: "發布需求", to: "/collaborations/new", icon: Plus, primary: true },
-    { label: "私訊", to: "/messages", icon: ChatCircleDots },
-    {
-      label: "我的",
-      to: session.role === "admin" ? "/admin" : session.role === "business" ? "/dashboard" : "/login",
-      icon: UserCircle,
-    },
-  ];
+  const items =
+    session.role === "business"
+      ? [
+          { label: "首頁", to: "/", icon: House },
+          { label: "搜尋", to: "/businesses", icon: MagnifyingGlass },
+          { label: "發布需求", to: "/collaborations/new", icon: Plus, primary: true },
+          { label: "私訊", to: "/messages", icon: ChatCircleDots },
+          { label: "我的", to: "/dashboard", icon: UserCircle },
+        ]
+      : [
+          { label: "首頁", to: "/", icon: House },
+          { label: "商城", to: "/shop", icon: Storefront },
+          { label: "購物車", to: "/cart", icon: ShoppingCart, primary: true },
+          { label: "商家上架", to: "/pricing", icon: Briefcase },
+          {
+            label: "我的",
+            to: session.role === "admin" ? "/admin" : session.role === "member" ? "/account" : "/login",
+            icon: UserCircle,
+          },
+        ];
   return (
     <nav className="mobile-bottom-nav" aria-label="手機版主要導覽">
       {items.map((item) => {

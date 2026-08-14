@@ -97,7 +97,7 @@ const dashboardNav = [
   { label: "評價", to: "/dashboard/reviews", icon: Star },
   { label: "通知", to: "/notifications", icon: Bell, badge: 5 },
   { label: "數據分析", to: "/dashboard/analytics", icon: ChartLineUp },
-  { label: "方案管理", to: "/dashboard/plans", icon: Sparkle },
+  { label: "商家上架", to: "/dashboard/plans", icon: Sparkle },
   { label: "帳號設定", to: "/dashboard/settings", icon: Gear },
 ];
 
@@ -116,8 +116,7 @@ export function DashboardLayout({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, logout, membershipPlan } = useAppStore();
-  const hasPublishingPlan = membershipPlan !== "free";
+  const { session, logout } = useAppStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -148,7 +147,7 @@ export function DashboardLayout({
           <div>
             <strong>強哥水族</strong>
             <span>
-              <span className="status-dot" /> {hasPublishingPlan ? "網站已發布" : "草稿可預覽"}
+              <span className="status-dot" /> 網站已發布
             </span>
           </div>
           <CaretDown />
@@ -170,14 +169,12 @@ export function DashboardLayout({
           <span>
             <Sparkle weight="fill" />
           </span>
-          <strong>
-            {membershipPlan === "enterprise" ? "企業方案已啟用" : hasPublishingPlan ? "專業方案已啟用" : "免費會員方案"}
-          </strong>
-          <p>{hasPublishingPlan ? "已包含公開網站發布功能。" : "可編輯與預覽；正式發布需升級付費方案。"}</p>
+          <strong>商家上架已開通</strong>
+          <p>NT$18,000 一次性，完整商家功能可使用。</p>
           <i>
             <b />
           </i>
-          <Link to="/pricing">查看升級方案</Link>
+          <Link to="/pricing">查看上架內容</Link>
         </div>
       </aside>
       {sidebarOpen && <button className="dashboard-sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-label="關閉選單" />}
@@ -194,7 +191,7 @@ export function DashboardLayout({
           <div className="dashboard-top-actions">
             <Link to="/business/qiang-ge-aquarium" className="btn btn-outline btn-sm">
               <Eye />
-              {hasPublishingPlan ? "查看公開網站" : "預覽網站"}
+              查看公開網站
             </Link>
             <Link to="/notifications" className="dashboard-icon-button" aria-label="通知">
               <Bell />
@@ -517,11 +514,10 @@ const sectionLabels: Record<string, string> = {
 };
 
 export function SiteEditorPage() {
-  const { siteSettings, setSiteSettings, membershipPlan, notify } = useAppStore();
+  const { siteSettings, setSiteSettings, notify } = useAppStore();
   const [draft, setDraft] = useState<SiteSettings>(siteSettings);
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [publishOpen, setPublishOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [activePanel, setActivePanel] = useState("content");
 
   const update = <K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) =>
@@ -558,11 +554,6 @@ export function SiteEditorPage() {
 
   const publish = () => {
     setSiteSettings(draft);
-    if (membershipPlan === "free") {
-      setUpgradeOpen(true);
-      notify("草稿已儲存；發布公開網站需要付費方案", "info");
-      return;
-    }
     setPublishOpen(true);
     notify("網站發布成功");
   };
@@ -939,42 +930,6 @@ export function SiteEditorPage() {
               查看網站
             </Link>
             <button type="button" className="btn btn-outline" onClick={() => setPublishOpen(false)}>
-              繼續編輯
-            </button>
-          </div>
-        </div>
-      </Modal>
-      <Modal
-        open={upgradeOpen}
-        title="發布公開網站需要付費方案"
-        onClose={() => setUpgradeOpen(false)}
-        size="sm"
-      >
-        <div className="upgrade-confirm">
-          <span className="upgrade-icon">
-            <ShieldCheck weight="duotone" />
-          </span>
-          <h3>網站草稿已儲存</h3>
-          <p>免費會員可以編輯商家資料、調整網站並使用即時預覽；正式發布公開網站或綁定網址，需要升級付費方案。</p>
-          <div className="upgrade-summary">
-            <div>
-              <span>目前方案</span>
-              <strong>免費會員方案</strong>
-            </div>
-            <div>
-              <span>編輯與預覽</span>
-              <strong>可使用</strong>
-            </div>
-            <div>
-              <span>公開發布</span>
-              <strong>需升級</strong>
-            </div>
-          </div>
-          <div className="form-actions">
-            <Link to="/pricing" className="btn btn-primary">
-              查看升級方案
-            </Link>
-            <button type="button" className="btn btn-outline" onClick={() => setUpgradeOpen(false)}>
               繼續編輯
             </button>
           </div>
@@ -1699,14 +1654,14 @@ const genericConfig: Record<
     ],
   },
   plans: {
-    title: "方案管理",
-    description: "查看目前方案、使用量與升級選項。",
+    title: "商家上架",
+    description: "查看商家上架資格與已開通功能。",
     icon: Sparkle,
     rows: [
-      ["目前方案", "專業方案・試用至 2026/08/10", "試用中"],
-      ["商品額度", "已使用 8 / 30", "正常"],
-      ["作品額度", "已使用 18 / 50", "正常"],
-      ["合作需求", "本月已使用 3 / 10", "正常"],
+      ["目前資格", "商家上架已開通", "有效"],
+      ["開通費用", "NT$18,000", "一次性"],
+      ["商家公開頁", "已啟用", "可使用"],
+      ["商家後台", "完整功能", "可使用"],
     ],
   },
   settings: {

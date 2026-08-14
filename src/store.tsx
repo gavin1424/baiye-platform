@@ -21,8 +21,8 @@ import type {
   ShopProduct,
 } from "./shop-types";
 
-type Role = "guest" | "business" | "admin";
-export type MembershipPlan = "free" | "pro" | "enterprise";
+export type Role = "guest" | "member" | "business" | "admin";
+export type MembershipPlan = "free" | "merchant";
 
 type Session = {
   role: Role;
@@ -40,12 +40,12 @@ type AppStoreValue = {
   proposals: number[];
   notificationsRead: number[];
   siteSettings: SiteSettings;
-  membershipPlan: MembershipPlan;
   shopProducts: ShopProduct[];
   shopCart: ShopCartItem[];
   shopOrders: ShopOrder[];
-  login: (email: string, password: string) => { ok: boolean; message: string };
+  login: (email: string, password: string) => { ok: boolean; message: string; role?: Role };
   register: (name: string, email: string) => void;
+  registerMerchant: (name: string, email: string) => void;
   logout: () => void;
   toggleBusinessFavorite: (id: number) => void;
   toggleProductFavorite: (id: number) => void;
@@ -57,7 +57,6 @@ type AppStoreValue = {
   markNotificationRead: (id: number) => void;
   markAllNotificationsRead: () => void;
   setSiteSettings: (settings: SiteSettings) => void;
-  setMembershipPlan: (plan: MembershipPlan) => void;
   addToShopCart: (productId: number, quantity?: number) => CartOperationResult;
   updateShopCartQuantity: (productId: number, quantity: number) => CartOperationResult;
   removeFromShopCart: (productId: number) => void;
@@ -104,6 +103,23 @@ const defaultSiteSettings: SiteSettings = {
 const defaultSession: Session = { role: "guest", name: "", email: "" };
 const AppStoreContext = createContext<AppStoreValue | null>(null);
 
+function migrateSession(value: unknown): Session {
+  if (!value || typeof value !== "object") return defaultSession;
+  const candidate = value as Partial<Session>;
+  const role = ["guest", "member", "business", "admin"].includes(String(candidate.role))
+    ? (candidate.role as Role)
+    : "guest";
+  return {
+    role,
+    name: typeof candidate.name === "string" ? candidate.name : "",
+    email: typeof candidate.email === "string" ? candidate.email : "",
+  };
+}
+
+function migrateMembershipPlan(value: unknown): MembershipPlan {
+  return value === "merchant" || value === "pro" || value === "enterprise" ? "merchant" : "free";
+}
+
 function loadValue<T>(key: string, fallback: T): T {
   try {
     const value = window.localStorage.getItem(`baiye:${key}`);
@@ -125,8 +141,11 @@ function loadValue<T>(key: string, fallback: T): T {
   }
 }
 
-function useStoredState<T>(key: string, fallback: T) {
-  const [value, setValue] = useState<T>(() => loadValue(key, fallback));
+function useStoredState<T>(key: string, fallback: T, migrate?: (value: unknown) => T) {
+  const [value, setValue] = useState<T>(() => {
+    const stored = loadValue<unknown>(key, fallback);
+    return migrate ? migrate(stored) : (stored as T);
+  });
 
   useEffect(() => {
     window.localStorage.setItem(`baiye:${key}`, JSON.stringify(value));
@@ -140,7 +159,7 @@ function toggleId(list: number[], id: number) {
 }
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useStoredState<Session>("session", defaultSession);
+  const [session, setSession] = useStoredState<Session>("session", defaultSession, migrateSession);
   const [businessFavorites, setBusinessFavorites] = useStoredState<number[]>("favorite-businesses", []);
   const [productFavorites, setProductFavorites] = useStoredState<number[]>("favorite-products", []);
   const [needFavorites, setNeedFavorites] = useStoredState<number[]>("favorite-needs", []);
@@ -149,7 +168,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [proposals, setProposals] = useStoredState<number[]>("proposals", []);
   const [notificationsRead, setNotificationsRead] = useStoredState<number[]>("notifications-read", []);
   const [siteSettings, setSiteSettings] = useStoredState<SiteSettings>("site-settings", defaultSiteSettings);
-  const [membershipPlan, setMembershipPlan] = useStoredState<MembershipPlan>("membership-plan", "free");
+  const [membershipPlan, setMembershipPlan] = useStoredState<MembershipPlan>(
+    "membership-plan",
+    "free",
+    migrateMembershipPlan,
+  );
   const [shopProducts, setShopProducts] = useStoredState<ShopProduct[]>("shop-products", defaultShopProducts);
   const [shopCart, setShopCart] = useStoredState<ShopCartItem[]>("shop-cart", []);
   const [shopOrders, setShopOrders] = useStoredState<ShopOrder[]>("shop-orders", []);
@@ -163,6 +186,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }, 3200);
   }, []);
 
+  useEffect(() => {
+    if (session.role === "business" && membershipPlan === "free") {
+      setSession({ ...session, role: "member" });
+    } else if (session.role === "member" && membershipPlan === "merchant") {
+      setSession({ ...session, role: "business" });
+    }
+  }, [membershipPlan, session, setSession]);
+
   const value = useMemo<AppStoreValue>(
     () => ({
       session,
@@ -174,27 +205,38 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       proposals,
       notificationsRead,
       siteSettings,
-      membershipPlan,
       shopProducts,
       shopCart,
       shopOrders,
       login: (email, password) => {
+        if (email === "member@baiye.local" && password === "Member1234") {
+          setSession({ role: "member", name: "購物會員", email });
+          setMembershipPlan("free");
+          notify("登入成功，歡迎開始購物！");
+          return { ok: true, message: "登入成功", role: "member" };
+        }
         if (email === "demo@baiye.local" && password === "Demo1234") {
           setSession({ role: "business", name: "強哥水族", email });
+          setMembershipPlan("merchant");
           notify("登入成功，歡迎回來！");
-          return { ok: true, message: "登入成功" };
+          return { ok: true, message: "登入成功", role: "business" };
         }
         if (email === "admin@baiye.local" && password === "Admin1234") {
           setSession({ role: "admin", name: "平台管理員", email });
           notify("管理員登入成功");
-          return { ok: true, message: "登入成功" };
+          return { ok: true, message: "登入成功", role: "admin" };
         }
         return { ok: false, message: "Email 或密碼不正確，請使用頁面上的測試帳號。" };
       },
       register: (name, email) => {
-        setSession({ role: "business", name, email });
+        setSession({ role: "member", name, email });
         setMembershipPlan("free");
-        notify("註冊完成，商家網站草稿已建立");
+        notify("註冊完成，現在可以開始購物。");
+      },
+      registerMerchant: (name, email) => {
+        setSession({ role: "business", name, email });
+        setMembershipPlan("merchant");
+        notify("商家上架註冊完成，商家功能已開通。");
       },
       logout: () => {
         setSession(defaultSession);
@@ -221,6 +263,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         notify(isFollowing ? "已取消追蹤" : "追蹤成功");
       },
       addToInquiry: (id) => {
+        if (session.role !== "business" && session.role !== "admin") {
+          notify("商家詢價功能需完成 NT$18,000 一次性商家上架註冊。", "warning");
+          return;
+        }
         setInquiryCart((list) => (list.includes(id) ? list : [...list, id]));
         notify("已加入詢價單");
       },
@@ -229,6 +275,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         notify("已移出詢價單", "info");
       },
       submitProposal: (id) => {
+        if (session.role !== "business" && session.role !== "admin") {
+          notify("商家提案功能需完成 NT$18,000 一次性商家上架註冊。", "warning");
+          return;
+        }
         setProposals((list) => (list.includes(id) ? list : [...list, id]));
         notify("提案已送出，對方會收到通知");
       },
@@ -239,7 +289,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         notify("所有通知已標示為已讀");
       },
       setSiteSettings,
-      setMembershipPlan,
       addToShopCart: (productId, quantity = 1) => {
         const product = shopProducts.find((item) => item.id === productId && item.active);
         if (!product) return { ok: false, message: "此商品目前未上架" };

@@ -1,20 +1,18 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Buildings,
   Check,
   Eye,
   EyeSlash,
   Handshake,
   Lock,
   ShieldCheck,
+  ShoppingCart,
   Storefront,
-  User,
-  UserCircle,
 } from "@phosphor-icons/react";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { PlatformLogo } from "../components";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { PlatformLogo, PublicLayout } from "../components";
 import { useAppStore } from "../store";
 
 function AuthShell({ children, kind = "login" }: { children: ReactNode; kind?: "login" | "register" | "forgot" }) {
@@ -27,13 +25,13 @@ function AuthShell({ children, kind = "login" }: { children: ReactNode; kind?: "
         <PlatformLogo />
         <div className="auth-visual-copy">
           <span className="eyebrow">每個行業，都值得擁有自己的網站。</span>
-          <h1>{kind === "register" ? "把你的專業，變成可被信任的品牌頁面" : "一個帳號，管理網站與所有合作機會"}</h1>
-          <p>展示服務與作品、回覆詢價、發布需求，讓商機不再散落在不同管道。</p>
+          <h1>{kind === "register" ? "免費購物，或讓商家正式上架" : "一個帳號，開始購物或管理商家"}</h1>
+          <p>免費會員專注商城購物；完成商家上架註冊後，才會開通完整商家功能。</p>
           <div className="auth-benefits">
             {[
-              [Storefront, "專屬商家網站", "快速建立公開專業頁面"],
+              [ShoppingCart, "商城購物", "瀏覽商品、購物車與結帳"],
+              [Storefront, "商家正式上架", "建立公開頁面與商家網站"],
               [Handshake, "合作媒合", "找到客戶與跨業夥伴"],
-              [ShieldCheck, "信任認證", "累積評價與合作紀錄"],
             ].map(([Icon, title, text]) => {
               const ItemIcon = Icon as typeof Storefront;
               return (
@@ -85,7 +83,7 @@ export function LoginPage() {
         setError(result.message);
         return;
       }
-      navigate(email.startsWith("admin") ? "/admin" : "/dashboard");
+      navigate(result.role === "admin" ? "/admin" : result.role === "business" ? "/dashboard" : "/account");
     }, 520);
   };
 
@@ -94,7 +92,7 @@ export function LoginPage() {
       <div className="auth-card">
         <span className="eyebrow">歡迎回來</span>
         <h1>登入百業共創</h1>
-        <p>繼續管理商家網站、合作與詢價。</p>
+        <p>繼續商城購物，或管理已完成上架註冊的商家。</p>
         <form className="form-stack auth-form" onSubmit={submit}>
           {error && (
             <div className="form-error" role="alert">
@@ -138,13 +136,26 @@ export function LoginPage() {
           <button
             type="button"
             onClick={() => {
+              setEmail("member@baiye.local");
+              setPassword("Member1234");
+            }}
+          >
+            <ShoppingCart />
+            <span>
+              <b>免費會員</b>
+              member@baiye.local
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
               setEmail("demo@baiye.local");
               setPassword("Demo1234");
             }}
           >
             <Storefront />
             <span>
-              <b>一般商家</b>
+              <b>商家上架帳號</b>
               demo@baiye.local
             </span>
           </button>
@@ -171,10 +182,13 @@ export function LoginPage() {
 }
 
 export function RegisterPage() {
-  const { register } = useAppStore();
+  const { register, registerMerchant } = useAppStore();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [step, setStep] = useState(1);
-  const [role, setRole] = useState("business");
+  const [registrationType, setRegistrationType] = useState<"member" | "merchant">(() =>
+    params.get("type") === "merchant" ? "merchant" : "member",
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -186,15 +200,37 @@ export function RegisterPage() {
       setStep(2);
       return;
     }
+    if (registrationType === "merchant") {
+      registerMerchant(name, email);
+      navigate("/dashboard");
+      return;
+    }
     register(name, email);
-    navigate("/dashboard");
+    navigate("/shop");
   };
 
-  const roles = [
-    { id: "individual", icon: UserCircle, title: "個人會員", text: "自由工作者、老師與專業接案者" },
-    { id: "business", icon: Storefront, title: "商家會員", text: "店家、工作室、供應商與品牌", recommended: true },
-    { id: "enterprise", icon: Buildings, title: "企業會員", text: "採購團隊、多位成員與供應商管理" },
+  const registrationTypes = [
+    {
+      id: "member" as const,
+      icon: ShoppingCart,
+      title: "免費會員",
+      price: "NT$0",
+      text: "一般購物使用",
+      features: ["免費註冊", "商城購物", "購物車", "結帳"],
+      cta: "免費註冊",
+    },
+    {
+      id: "merchant" as const,
+      icon: Storefront,
+      title: "商家上架註冊",
+      price: "NT$18,000",
+      billing: "一次性開通",
+      text: "完成後開通完整商家功能",
+      features: ["商家正式上架", "專屬商家頁", "商品／服務與作品", "合作媒合與商家後台"],
+      cta: "申請商家上架",
+    },
   ];
+  const selectedRegistration = registrationTypes.find((item) => item.id === registrationType)!;
 
   return (
     <AuthShell kind="register">
@@ -203,29 +239,51 @@ export function RegisterPage() {
           <span className="active">1</span>
           <i className={step === 2 ? "active" : ""} />
           <span className={step === 2 ? "active" : ""}>2</span>
-          <small>選擇會員類型</small>
+          <small>選擇註冊方式</small>
           <small>建立帳號</small>
         </div>
         <span className="eyebrow">建立會員資料</span>
         <h1>{step === 1 ? "你想如何使用平台？" : "建立你的百業共創帳號"}</h1>
-        <p>{step === 1 ? "選擇最接近的身份，之後仍可在設定中調整。" : "完成後會自動建立可編輯的商家網站草稿。"}</p>
+        <p>
+          {step === 1
+            ? "免費會員只用於商城購物；商家功能需完成一次性上架註冊。"
+            : registrationType === "merchant"
+              ? "完成後將開通商家公開頁、網站與完整商家後台。"
+              : "完成後即可瀏覽商城、使用購物車並結帳。"}
+        </p>
         <form className="form-stack auth-form" onSubmit={submit}>
           {step === 1 ? (
             <div className="role-options">
-              {roles.map((item) => {
+              {registrationTypes.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <label key={item.id} className={role === item.id ? "selected" : ""}>
-                    {item.recommended && <span className="recommended-label">最多人選擇</span>}
-                    <input type="radio" name="role" value={item.id} checked={role === item.id} onChange={() => setRole(item.id)} />
+                  <label key={item.id} className={registrationType === item.id ? "selected" : ""}>
+                    <input
+                      type="radio"
+                      name="registrationType"
+                      value={item.id}
+                      checked={registrationType === item.id}
+                      onChange={() => setRegistrationType(item.id)}
+                    />
                     <span className="role-icon">
                       <Icon weight="duotone" />
                     </span>
                     <div>
                       <strong>{item.title}</strong>
+                      <span className="registration-price">
+                        {item.price}
+                        {item.billing && <small>{item.billing}</small>}
+                      </span>
                       <p>{item.text}</p>
+                      <ul>
+                        {item.features.map((feature) => (
+                          <li key={feature}>
+                            <Check weight="bold" /> {feature}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <span className="radio-check">{role === item.id && <Check weight="bold" />}</span>
+                    <span className="radio-check">{registrationType === item.id && <Check weight="bold" />}</span>
                   </label>
                 );
               })}
@@ -233,8 +291,13 @@ export function RegisterPage() {
           ) : (
             <>
               <label className="field">
-                <span>{role === "individual" ? "姓名" : "商家／企業名稱"} *</span>
-                <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：山海設計工作室" />
+                <span>{registrationType === "merchant" ? "商家名稱" : "姓名"} *</span>
+                <input
+                  required
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder={registrationType === "merchant" ? "例如：山海設計工作室" : "例如：王小明"}
+                />
               </label>
               <label className="field">
                 <span>Email *</span>
@@ -277,7 +340,7 @@ export function RegisterPage() {
               </button>
             )}
             <button type="submit" className="btn btn-primary btn-lg">
-              {step === 1 ? "繼續" : "建立會員帳號"}
+              {selectedRegistration.cta}
               <ArrowRight />
             </button>
           </div>
@@ -287,6 +350,64 @@ export function RegisterPage() {
         </p>
       </div>
     </AuthShell>
+  );
+}
+
+export function MemberAccountPage() {
+  const { session, shopCart, shopOrders, logout } = useAppStore();
+  const navigate = useNavigate();
+  const cartCount = shopCart.reduce((sum, item) => sum + item.quantity, 0);
+
+  return (
+    <PublicLayout>
+      <section className="section member-account-page">
+        <div className="container">
+          <div className="member-account-card">
+            <span className="role-icon">
+              <ShoppingCart weight="duotone" />
+            </span>
+            <span className="eyebrow">免費會員</span>
+            <h1>{session.name || "購物會員"}</h1>
+            <p>你的帳號可使用商城購物、購物車與結帳；商家功能需另外完成商家上架註冊。</p>
+            <div className="member-account-stats">
+              <div>
+                <span>會員費用</span>
+                <strong>NT$0</strong>
+              </div>
+              <div>
+                <span>購物車</span>
+                <strong>{cartCount} 件</strong>
+              </div>
+              <div>
+                <span>商城訂單</span>
+                <strong>{shopOrders.length} 筆</strong>
+              </div>
+            </div>
+            <div className="form-actions">
+              <Link to="/shop" className="btn btn-primary">
+                前往商城
+              </Link>
+              <Link to="/cart" className="btn btn-outline">
+                查看購物車
+              </Link>
+              <Link to="/pricing" className="btn btn-outline">
+                申請商家上架
+              </Link>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  logout();
+                  navigate("/");
+                }}
+              >
+                登出
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </PublicLayout>
   );
 }
 

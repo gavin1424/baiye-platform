@@ -43,7 +43,7 @@ export function HomePage() {
   const [openFaq, setOpenFaq] = useState(0);
   const { session } = useAppStore();
   const siteEditorPath =
-    session.role === "guest" ? "/register" : session.role === "admin" ? "/admin" : "/dashboard/site-editor";
+    session.role === "business" ? "/dashboard/site-editor" : session.role === "admin" ? "/admin" : "/pricing";
 
   return (
     <PublicLayout>
@@ -62,7 +62,7 @@ export function HomePage() {
             <p>建立自己的商家網站、展示服務與作品，找到客戶、供應商與跨業合作夥伴。</p>
             <div className="hero-actions">
               <Link to={siteEditorPath} className="btn btn-primary btn-lg">
-                建立我的網站
+                {session.role === "business" ? "管理商家網站" : "申請商家上架"}
                 <ArrowRight />
               </Link>
               <Link to="/businesses" className="btn btn-outline btn-lg">
@@ -314,18 +314,22 @@ export function HomePage() {
       <section className="section section-pricing-preview">
         <div className="container pricing-preview-shell">
           <div className="pricing-preview-copy">
-            <span className="eyebrow">彈性成長方案</span>
-            <h2>先建立商家資料，需要公開網站時再升級</h2>
-            <p>免費會員可建立商家資料、編輯與預覽網站；正式發布公開網站或綁定網址需升級專業或企業方案。</p>
-            <Link to="/pricing" className="btn btn-outline">
-              比較完整方案
+            <span className="eyebrow">免費會員</span>
+            <h2>免費加入會員</h2>
+            <div className="price">
+              <strong>NT$0</strong>
+              <span>開始購物</span>
+            </div>
+            <p>免費註冊後即可瀏覽商城、查看商品、使用購物車並完成結帳。</p>
+            <Link to="/register?type=member" className="btn btn-outline">
+              免費註冊
               <ArrowRight />
             </Link>
           </div>
           <div className="price-spotlight">
             <div className="price-label">
-              <span>最多商家選擇</span>
-              專業方案
+              <span>商家想在平台正式上架</span>
+              商家上架註冊
             </div>
             <div className="price">
               <strong>NT$18,000</strong>
@@ -336,14 +340,14 @@ export function HomePage() {
                 <Check /> 完整多區塊商家網站
               </li>
               <li>
-                <Check /> 30 個商品或服務
+                <Check /> 商品／服務與作品上架
               </li>
               <li>
-                <Check /> 訪客數據與提升曝光
+                <Check /> 合作媒合與完整商家後台
               </li>
             </ul>
-            <Link to="/pricing" className="btn btn-primary">
-              選擇專業方案
+            <Link to="/register?type=merchant" className="btn btn-primary">
+              申請商家上架
             </Link>
           </div>
         </div>
@@ -383,10 +387,10 @@ export function HomePage() {
           </div>
           <div className="home-cta-actions">
             <Link to={siteEditorPath} className="btn btn-accent btn-lg">
-              建立我的網站
+              {session.role === "business" ? "管理商家網站" : "申請商家上架"}
               <ArrowRight />
             </Link>
-            <span>可先編輯與預覽・正式發布需升級方案</span>
+            <span>NT$18,000 一次性開通完整商家功能</span>
           </div>
         </div>
       </section>
