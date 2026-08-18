@@ -45,6 +45,16 @@ export function HomePage() {
   const siteEditorPath =
     session.role === "business" ? "/dashboard/site-editor" : session.role === "admin" ? "/admin" : "/pricing";
 
+  const officialCases = [
+    {
+      name: "美玲拼布",
+      industry: "手作・拼布・文創",
+      summary: "拼布作品、課程教學與品牌形象整合網站。",
+      tag: "正式案例",
+      image: "https://meilingpatchwork.com/wp-content/themes/meiling-patchwork/assets/images/home/patchwork-hero-poster.webp",
+      url: "https://meilingpatchwork.com/",
+    },
+  ];
   return (
     <PublicLayout>
       <section className="hero-section">
@@ -267,6 +277,37 @@ export function HomePage() {
         </div>
       </section>
 
+      <section id="website-cases" className="section section-website-cases">
+        <div className="container">
+          <SectionHeading
+            eyebrow="網站實績"
+            title="看看我們實際做出的網站"
+            description="不只是模板，而是真正可以營運、展示品牌與承接客戶的網站。"
+          />
+          <div className="website-cases-grid">
+            {officialCases.map((caseItem) => (
+              <article className="website-case-card" key={caseItem.name}>
+                <img src={caseItem.image} alt={caseItem.name} loading="lazy" />
+                <div className="website-case-content">
+                  <p className="website-case-category">{caseItem.industry}</p>
+                  <h3>{caseItem.name}</h3>
+                  <p>{caseItem.summary}</p>
+                  <span className="website-case-status status-badge status-success">{caseItem.tag}</span>
+                  <a
+                    href={caseItem.url}
+                    className="text-link website-case-link"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    查看正式網站
+                    <ArrowRight />
+                  </a>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
       <section className="section section-how">
         <div className="container">
           <SectionHeading
@@ -397,3 +438,5 @@ export function HomePage() {
     </PublicLayout>
   );
 }
+
+

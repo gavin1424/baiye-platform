@@ -1121,6 +1121,83 @@ button:disabled {
   background: var(--white);
 }
 
+.section-website-cases {
+  background: var(--white);
+}
+
+.section-website-cases .container {
+  display: flex;
+  flex-direction: column;
+}
+
+.website-cases-grid {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.website-case-card {
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
+  min-height: 215px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: var(--slate-900);
+}
+
+.website-case-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.website-case-card > img {
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  object-fit: cover;
+}
+
+.website-case-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+}
+
+.website-case-category {
+  margin: 0;
+  color: var(--teal-700);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.website-case-content h3 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.website-case-content > p {
+  margin: 0;
+  color: var(--slate-500);
+  line-height: 1.7;
+}
+
+.website-case-link {
+  margin-top: auto;
+  width: fit-content;
+  font-size: 15px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .category-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -11127,6 +11204,23 @@ button:disabled {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
+  .website-case-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .website-case-content {
+    gap: 8px;
+    padding: 18px;
+  }
+
+  .website-case-content h3 {
+    font-size: 22px;
+  }
+
+  .website-case-card > img {
+    min-height: 190px;
+  }
+
   .business-results-layout,
   .market-layout,
   .collaboration-layout {
@@ -11357,6 +11451,17 @@ button:disabled {
     min-width: 700px;
   }
 
+  .website-case-content h3 {
+    font-size: 20px;
+  }
+
+  .website-case-content > p {
+    font-size: 13px;
+  }
+
+  .website-case-link {
+    font-size: 14px;
+  }
   .about-mission-grid,
   .story-featured,
   .contact-layout,
@@ -14603,3 +14708,4 @@ button:disabled {
     transition-duration: 0.01ms !important;
   }
 }
+
