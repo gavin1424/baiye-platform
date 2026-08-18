@@ -62,7 +62,7 @@ export function HomePage() {
           <div className="hero-copy">
             <span className="eyebrow hero-eyebrow">
               <CirclesFour weight="fill" />
-              全台百工百業的合作起點
+              串聯百工・智慧升級・共創未來
             </span>
             <h1>
               讓你的專業，
@@ -424,7 +424,7 @@ export function HomePage() {
           <div>
             <span>每個行業，都值得擁有自己的網站。</span>
             <h2>今天，讓你的專業正式被看見</h2>
-            <p>建立商家資料、編輯網站內容，加入全台百工百業的合作網絡。</p>
+            <p>建立商家資料、編輯網站內容，加入全台百業夥伴的合作網絡。</p>
           </div>
           <div className="home-cta-actions">
             <Link to={siteEditorPath} className="btn btn-accent btn-lg">

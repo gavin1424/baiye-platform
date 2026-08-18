@@ -50,39 +50,40 @@ import {
   TermsPage,
 } from "./pages/StaticPages";
 
-const titles: Record<string, string> = {
-  "/": "百業共創｜百工百業合作平台",
-  "/categories": "百工百業分類｜百業共創",
-  "/businesses": "找服務、找商家｜百業共創",
-  "/search": "商家搜尋結果｜百業共創",
-  "/collaborations": "合作需求廣場｜百業共創",
-  "/collaborations/new": "發布合作需求｜百業共創",
-  "/marketplace": "商品與服務市集｜百業共創",
-  "/inquiry-cart": "企業詢價單｜百業共創",
-  "/shop": "百業商城｜百業共創",
-  "/cart": "購物車｜百業共創",
-  "/checkout": "測試結帳｜百業共創",
-  "/login": "會員登入｜百業共創",
-  "/register": "會員註冊｜百業共創",
-  "/forgot-password": "忘記密碼｜百業共創",
-  "/account": "免費會員帳號｜百業共創",
-  "/dashboard": "商家後台總覽｜百業共創",
-  "/dashboard/site-editor": "我的網站編輯器｜百業共創",
-  "/dashboard/products": "商品與服務管理｜百業共創",
-  "/dashboard/collaborations": "合作需求管理｜百業共創",
-  "/messages": "私訊中心｜百業共創",
-  "/notifications": "通知中心｜百業共創",
-  "/pricing": "方案與價格｜百業共創",
-  "/demo-sites": "五大產業示範網站｜百業共創",
-  "/about": "關於平台｜百業共創",
-  "/how-it-works": "如何運作｜百業共創",
-  "/success-stories": "成功合作案例｜百業共創",
-  "/faq": "常見問題｜百業共創",
-  "/contact": "聯絡我們｜百業共創",
-  "/privacy": "隱私權政策｜百業共創",
-  "/terms": "使用條款｜百業共創",
-  "/report": "檢舉內容｜百業共創",
-  "/admin": "平台管理員後台｜百業共創",
+const PLATFORM_BRAND = "創百業智慧鏈";
+const PAGE_TITLES: Record<string, string> = {
+  "/": `${PLATFORM_BRAND}｜AI 智慧網站與百業數位升級平台`,
+  "/categories": "行業分類｜創百業智慧鏈",
+  "/businesses": "找服務、找商家｜創百業智慧鏈",
+  "/search": "商家搜尋結果｜創百業智慧鏈",
+  "/collaborations": "合作需求廣場｜創百業智慧鏈",
+  "/collaborations/new": "發布合作需求｜創百業智慧鏈",
+  "/marketplace": "商品與服務市集｜創百業智慧鏈",
+  "/inquiry-cart": "企業詢價單｜創百業智慧鏈",
+  "/shop": "百業商城｜創百業智慧鏈",
+  "/cart": "購物車｜創百業智慧鏈",
+  "/checkout": "測試結帳｜創百業智慧鏈",
+  "/login": "會員登入｜創百業智慧鏈",
+  "/register": "會員註冊｜創百業智慧鏈",
+  "/forgot-password": "忘記密碼｜創百業智慧鏈",
+  "/account": "免費會員帳號｜創百業智慧鏈",
+  "/dashboard": "商家後台總覽｜創百業智慧鏈",
+  "/dashboard/site-editor": "我的網站編輯器｜創百業智慧鏈",
+  "/dashboard/products": "商品與服務管理｜創百業智慧鏈",
+  "/dashboard/collaborations": "合作需求管理｜創百業智慧鏈",
+  "/messages": "私訊中心｜創百業智慧鏈",
+  "/notifications": "通知中心｜創百業智慧鏈",
+  "/pricing": "方案與價格｜創百業智慧鏈",
+  "/demo-sites": "五大產業示範網站｜創百業智慧鏈",
+  "/about": "關於平台｜創百業智慧鏈",
+  "/how-it-works": "如何運作｜創百業智慧鏈",
+  "/success-stories": "成功合作案例｜創百業智慧鏈",
+  "/faq": "常見問題｜創百業智慧鏈",
+  "/contact": "聯絡我們｜創百業智慧鏈",
+  "/privacy": "隱私權政策｜創百業智慧鏈",
+  "/terms": "使用條款｜創百業智慧鏈",
+  "/report": "檢舉內容｜創百業智慧鏈",
+  "/admin": "平台管理員後台｜創百業智慧鏈",
 };
 
 function ScrollAndMetadata() {
@@ -92,27 +93,27 @@ function ScrollAndMetadata() {
     window.scrollTo({ top: 0, behavior: "instant" });
     const path = location.pathname;
     const title =
-      titles[path] ||
+      PAGE_TITLES[path] ||
       (path.startsWith("/business/")
-        ? "商家專屬網站｜百業共創"
+        ? "商家專屬網站｜創百業智慧鏈"
         : path.startsWith("/demo-sites/")
-          ? "產業示範網站｜百業共創"
+          ? "產業示範網站｜創百業智慧鏈"
           : path.startsWith("/collaborations/")
-            ? "合作需求詳情｜百業共創"
+            ? "合作需求詳情｜創百業智慧鏈"
             : path.startsWith("/marketplace/")
-              ? "商品服務詳情｜百業共創"
+              ? "商品服務詳情｜創百業智慧鏈"
               : path.startsWith("/shop/")
-                ? "商城商品詳情｜百業共創"
+                ? "商城商品詳情｜創百業智慧鏈"
                 : path.startsWith("/payment/")
-                  ? "付款結果｜百業共創"
+                  ? "付款結果｜創百業智慧鏈"
                   : path.startsWith("/categories/")
-                    ? "行業分類｜百業共創"
+                    ? "行業分類｜創百業智慧鏈"
                     : path.startsWith("/dashboard/")
-                      ? "商家後台｜百業共創"
-                      : "找不到頁面｜百業共創");
+                      ? "商家後台｜創百業智慧鏈"
+                      : "找不到頁面｜創百業智慧鏈");
     document.title = title;
     const description =
-      "建立自己的商家網站、展示服務與作品，找到客戶、供應商與跨業合作夥伴。";
+      "創百業智慧鏈整合 AI 智慧網站、LINE 預約、會員 CRM、數位行銷與商家營運工具，協助各行各業快速完成數位升級。";
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);

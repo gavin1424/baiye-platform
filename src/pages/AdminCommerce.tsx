@@ -43,7 +43,7 @@ function emptyProduct(): ShopProduct {
     active: false,
     isExample: false,
     brandName: "",
-    sellerName: "百業共創平台",
+    sellerName: "創百業智慧鏈平台",
     sourceName: "平台正式商品",
     createdAt: new Date().toISOString(),
   };

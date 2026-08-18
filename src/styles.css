@@ -436,6 +436,17 @@ button:disabled {
   flex: 0 0 auto;
 }
 
+.platform-logo .brand-logo {
+  width: 160px;
+  height: 42px;
+  object-fit: contain;
+  display: block;
+}
+
+.platform-logo:hover {
+  opacity: 0.97;
+}
+
 .brand-mark {
   width: 38px;
   height: 38px;
@@ -11006,6 +11017,11 @@ button:disabled {
 
   .site-header {
     height: 66px;
+  }
+
+  .platform-logo .brand-logo {
+    width: 122px;
+    height: 32px;
   }
 
   .site-header .container {

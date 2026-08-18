@@ -91,7 +91,7 @@ export function LoginPage() {
     <AuthShell>
       <div className="auth-card">
         <span className="eyebrow">歡迎回來</span>
-        <h1>登入百業共創</h1>
+        <h1>登入創百業智慧鏈</h1>
         <p>繼續商城購物，或管理已完成上架註冊的商家。</p>
         <form className="form-stack auth-form" onSubmit={submit}>
           {error && (
@@ -243,7 +243,7 @@ export function RegisterPage() {
           <small>建立帳號</small>
         </div>
         <span className="eyebrow">建立會員資料</span>
-        <h1>{step === 1 ? "你想如何使用平台？" : "建立你的百業共創帳號"}</h1>
+        <h1>{step === 1 ? "你想如何使用平台？" : "建立你的創百業智慧鏈帳號"}</h1>
         <p>
           {step === 1
             ? "免費會員只用於商城購物；商家功能需完成一次性上架註冊。"

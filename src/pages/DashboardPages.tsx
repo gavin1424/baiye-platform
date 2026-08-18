@@ -699,9 +699,9 @@ export function SiteEditorPage() {
                 <fieldset className="font-options">
                   <legend>字體風格</legend>
                   {[
-                    ["modern", "現代俐落", "Aa 百業共創"],
-                    ["humanist", "親和專業", "Aa 百業共創"],
-                    ["classic", "穩重經典", "Aa 百業共創"],
+                    ["modern", "現代俐落", "Aa 創百業智慧鏈"],
+                    ["humanist", "親和專業", "Aa 創百業智慧鏈"],
+                    ["classic", "穩重經典", "Aa 創百業智慧鏈"],
                   ].map(([id, title, sample]) => (
                     <label key={id} className={draft.fontStyle === id ? "selected" : ""}>
                       <input

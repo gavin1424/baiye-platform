@@ -304,7 +304,7 @@ export function DemoSitesPage() {
         <div className="container">
           <span className="eyebrow">五大產業示範網站</span>
           <h1>不是同一個模板換照片，而是讓每個行業長得像自己的生意。</h1>
-          <p>美妝、服飾、漁業、美食與零售五種商業情境，示範百業共創如何把品牌、服務、商品與信任資訊整理成真正能拿去接客的網站。</p>
+          <p>美妝、服飾、漁業、美食與零售五種商業情境，示範創百業智慧鏈如何把品牌、服務、商品與信任資訊整理成真正能拿去接客的網站。</p>
         </div>
       </section>
       <section className="section">
@@ -359,7 +359,7 @@ export function IndustryDemoSitePage() {
     <div className={`demo-site-shell ${themeClass}`} style={vars}>
       <DemoStyles />
       <div className="demo-platform-bar">
-        <span>百業共創 · 產業示範網站</span>
+        <span>創百業智慧鏈 · 產業示範網站</span>
         <Link to="/demo-sites"><ArrowLeft /> 返回五大示範</Link>
       </div>
       <header className="demo-brand-nav">
@@ -393,7 +393,7 @@ export function IndustryDemoSitePage() {
             <img src={site.hero} alt={`${site.brand} 品牌主視覺`} />
             <div className="demo-hero-badge">
               <strong>{site.industry}示範站</strong>
-              <span><MapPin /> {site.location} · 百業共創商家網站範例</span>
+              <span><MapPin /> {site.location} · 創百業智慧鏈商家網站範例</span>
             </div>
           </div>
         </section>
@@ -468,7 +468,7 @@ export function IndustryDemoSitePage() {
 
         <section id="contact" className="demo-contact">
           <small>READY TO START</small>
-          <h2>如果你的商家也想長成這樣，百業共創可以直接從行業需求開始。</h2>
+        <h2>如果你的商家也想長成這樣，創百業智慧鏈可以直接從行業需求開始。</h2>
           <p>這是一個可實際點開的商家示範網站。正式商家上架後，可再替換品牌名稱、圖片、商品、聯絡方式與內容。</p>
           <Link to="/pricing" className="demo-primary-btn">商家上架 NT$18,000 <ArrowRight /></Link>
         </section>
@@ -476,7 +476,7 @@ export function IndustryDemoSitePage() {
 
       <footer className="demo-mini-footer">
         <strong>{site.brand} · {site.english}</strong>
-        <span>百業共創產業示範網站 · 此頁為展示用虛構品牌</span>
+        <span>創百業智慧鏈產業示範網站 · 此頁為展示用虛構品牌</span>
       </footer>
     </div>
   );

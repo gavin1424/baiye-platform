@@ -66,14 +66,15 @@ import type { Business, CollaborationNeed, Product } from "./types";
 
 export function PlatformLogo({ compact = false }: { compact?: boolean }) {
   return (
-    <Link to="/" className="platform-logo" aria-label="百業共創首頁">
-      <span className="brand-mark" aria-hidden="true">
-        <CirclesFour weight="fill" />
-      </span>
+    <Link to="/" className="platform-logo" aria-label="創百業智慧鏈首頁">
+      <img
+        src={`${import.meta.env.BASE_URL}brand/chuang-baiye-smart-chain-logo.png`}
+        alt="創百業智慧鏈"
+        className="brand-logo"
+      />
       {!compact && (
         <span className="brand-copy">
-          <strong>百業共創</strong>
-          <small>百工百業合作平台</small>
+          <small>AI 智慧網站與百業數位升級平台</small>
         </span>
       )}
     </Link>
@@ -226,7 +227,7 @@ export function Footer() {
         <div className="footer-brand">
           <PlatformLogo />
           <p>每個行業，都值得擁有自己的網站。</p>
-          <span>展示專業、尋找合作、媒合商機，讓全台百工百業在這裡被看見。</span>
+          <span>展示專業、媒合合作、加速商業成長，讓全台百業在這裡被看見。</span>
         </div>
         <div className="footer-columns">
           <div>
@@ -254,7 +255,7 @@ export function Footer() {
         </div>
       </div>
       <div className="container footer-bottom">
-        <span>© 2026 百業共創｜MVP 示範平台</span>
+        <span>© 2026 創百業智慧鏈｜AI 智慧網站與百業數位升級平台</span>
         <div>
           <Link to="/privacy">隱私權政策</Link>
           <Link to="/terms">使用條款</Link>

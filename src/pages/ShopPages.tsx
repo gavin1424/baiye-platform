@@ -166,9 +166,9 @@ export function ShopHomePage() {
       <section className="shop-hero">
         <div className="container shop-hero-grid">
           <div className="shop-hero-copy">
-            <span className="eyebrow"><Storefront weight="duotone" /> 百業共創平台直營商城</span>
+            <span className="eyebrow"><Storefront weight="duotone" /> 創百業智慧鏈平台直營商城</span>
             <h1>精選在地好物與專業服務，<br />一次安心選購</h1>
-            <p>商品由百業共創平台統一上架與管理。一般訪客即可直接選購，不需申請商家帳號。</p>
+            <p>商品由創百業智慧鏈平台統一上架與管理。一般訪客即可直接選購，不需申請商家帳號。</p>
             <form className="shop-hero-search" onSubmit={submitSearch} role="search">
               <MagnifyingGlass />
               <input

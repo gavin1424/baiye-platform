@@ -63,7 +63,7 @@ export function CategoriesPage() {
     <PublicLayout>
       <section className="page-hero compact-page-hero">
         <div className="container">
-          <span className="eyebrow">百工百業分類</span>
+          <span className="eyebrow">行業分類</span>
           <h1>從 26 個產業，找到最適合的專業</h1>
           <p>依服務類型探索職人、工作室、供應商與企業團隊。</p>
           <SearchBar variant="compact" />
