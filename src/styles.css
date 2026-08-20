@@ -14730,7 +14730,7 @@ button:disabled {
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 80;
+  z-index: 1000;
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -14762,7 +14762,7 @@ button:disabled {
   position: fixed;
   right: 24px;
   bottom: 88px;
-  z-index: 80;
+  z-index: 1000;
   width: min(390px, calc(100vw - 32px));
   overflow: hidden;
   background: var(--white);
