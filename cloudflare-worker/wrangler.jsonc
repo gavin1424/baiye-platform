@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chuang-baiye-ai",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-20",
+  "ai": {
+    "binding": "AI"
+  },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://gavin1424.github.io,http://127.0.0.1:4173,http://localhost:4173"
+  }
+}

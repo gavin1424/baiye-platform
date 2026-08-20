@@ -36,6 +36,7 @@ import {
   SiteEditorPage,
 } from "./pages/DashboardPages";
 import { AdminPage } from "./pages/AdminPage";
+import { AiChatWidget } from "./components/AiChatWidget";
 import { DemoSitesPage, IndustryDemoSitePage } from "./pages/IndustryDemoSites";
 import {
   AboutPage,
@@ -294,6 +295,7 @@ export function App() {
         <Route path="/not-found-demo" element={<NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      <AiChatWidget />
     </>
   );
 }

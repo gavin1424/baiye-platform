@@ -18,6 +18,9 @@ design-qa.md
 *.tar
 *.tar.gz
 .wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 .vercel/
 .netlify/
 .DS_Store
