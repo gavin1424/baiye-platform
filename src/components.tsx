@@ -68,13 +68,14 @@ export function PlatformLogo({ compact = false }: { compact?: boolean }) {
   return (
     <Link to="/" className="platform-logo" aria-label="創百業智慧鏈首頁">
       <img
-        src={`${import.meta.env.BASE_URL}brand/chuang-baiye-smart-chain-logo.png`}
-        alt="創百業智慧鏈"
+        src={`${import.meta.env.BASE_URL}brand/chuang-baiye-header-logo.png`}
+        alt="創百業智慧鏈藍金 AI 智慧鏈圖騰"
         className="brand-logo"
       />
       {!compact && (
         <span className="brand-copy">
-          <small>AI 智慧網站與百業數位升級平台</small>
+          <strong>創百業智慧鏈</strong>
+          <small>AI INDUSTRY SMART CHAIN</small>
         </span>
       )}
     </Link>
