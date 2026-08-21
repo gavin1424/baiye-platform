@@ -1,4 +1,5 @@
 import { AI_MODEL, BUSINESS, HUMAN_HANDOFF, SYSTEM_PROMPT } from "./business.js";
+import { handleFinanceRequest } from "./finance.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -22,8 +23,8 @@ function corsHeaders(origin) {
   return origin
     ? {
         "access-control-allow-origin": origin,
-        "access-control-allow-methods": "POST, OPTIONS",
-        "access-control-allow-headers": "content-type",
+        "access-control-allow-methods": "GET, POST, PATCH, OPTIONS",
+        "access-control-allow-headers": "content-type, authorization",
         "access-control-max-age": "86400",
         vary: "Origin",
       }
@@ -129,6 +130,12 @@ export default {
 
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, service: "創百業智慧鏈 AI" });
+    }
+
+    if (url.pathname.startsWith("/api/finance") || url.pathname.startsWith("/api/payments/webhook/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (url.pathname.startsWith("/api/finance") && !origin) return json({ error: "Origin not allowed" }, 403);
+      return handleFinanceRequest(request, env, url, cors);
     }
 
     if (url.pathname === "/chat") {

@@ -14257,6 +14257,18 @@ button:disabled {
 }
 
 /* Admin shop management */
+.finance-shell { max-width: 1440px; margin: 0 auto; padding: 2rem; color: #123047; background: #f5f8f7; min-height: 100vh; }
+.finance-hero { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1.25rem; }
+.finance-hero h1 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.5rem); }
+.finance-hero p { color: #527084; margin: .5rem 0 0; }
+.finance-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin-bottom: 1.25rem; }
+.finance-metric, .finance-panel { background: #fff; border: 1px solid #dce7e6; border-radius: 16px; box-shadow: 0 8px 22px rgba(18,48,71,.06); }
+.finance-metric { padding: 1rem; }.finance-metric span { color: #5a7484; font-size: .84rem; }.finance-metric strong { display:block; margin-top:.45rem; font-size:1.35rem; }
+.finance-layout { display:grid; grid-template-columns: minmax(0, 2fr) minmax(270px, 1fr); gap:1rem; }.finance-panel { padding:1.1rem; margin-bottom:1rem; overflow:hidden; }.finance-panel h2 { margin:0 0 1rem; font-size:1.1rem; }
+.finance-table { width:100%; border-collapse:collapse; font-size:.88rem; }.finance-table th,.finance-table td { padding:.7rem .45rem; border-bottom:1px solid #e8efee; text-align:left; white-space:nowrap; }.finance-table th { color:#63808c; font-weight:600; }
+.finance-form { display:grid; gap:.7rem; }.finance-form input,.finance-form select { width:100%; box-sizing:border-box; padding:.7rem; border:1px solid #cbd9d8; border-radius:9px; background:#fff; }.finance-form button,.finance-hero button { border:0; border-radius:9px; padding:.7rem 1rem; background:#0d5268; color:#fff; font-weight:700; cursor:pointer; }
+.finance-note { padding:.75rem; border-radius:10px; background:#fff7df; color:#6c5100; font-size:.88rem; }.finance-status { display:inline-block; padding:.2rem .5rem; border-radius:999px; background:#e4f3eb; color:#187344; font-size:.75rem; }.finance-login { max-width:440px; margin:12vh auto; }.finance-login .finance-panel { padding:1.5rem; }.finance-actions { display:flex; gap:.6rem; flex-wrap:wrap; }
+@media (max-width: 800px) { .finance-shell { padding:1rem; }.finance-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.finance-layout { grid-template-columns:1fr; }.finance-table thead { display:none; }.finance-table,.finance-table tbody,.finance-table tr,.finance-table td { display:block; width:100%; box-sizing:border-box; }.finance-table tr { padding:.55rem 0; border-bottom:1px solid #e8efee; }.finance-table td { border:0; padding:.18rem .25rem; white-space:normal; }.finance-table td::before { content:attr(data-label); display:inline-block; width:6.2rem; color:#69828d; font-size:.78rem; }.finance-hero { flex-direction:column; } }
 .admin-commerce-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

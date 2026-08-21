@@ -1,3 +1,10 @@
 # Copy this file to .dev.vars for local Worker development. Never commit real values.
 LINE_CHANNEL_SECRET=
 LINE_CHANNEL_ACCESS_TOKEN=
+FINANCE_ADMIN_PASSWORD=
+FINANCE_SESSION_SECRET=
+# Configure a provider-specific secret only after that provider is contracted.
+# PAYMENT_ECPAY_WEBHOOK_SECRET=
+# PAYMENT_NEWEBPAY_WEBHOOK_SECRET=
+# PAYMENT_LINEPAY_WEBHOOK_SECRET=
+# PAYMENT_STRIPE_WEBHOOK_SECRET=

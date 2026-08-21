@@ -36,6 +36,7 @@ import {
   SiteEditorPage,
 } from "./pages/DashboardPages";
 import { AdminPage } from "./pages/AdminPage";
+import { AdminFinancePage } from "./pages/AdminFinance";
 import { AiChatWidget } from "./components/AiChatWidget";
 import { DemoSitesPage, IndustryDemoSitePage } from "./pages/IndustryDemoSites";
 import {
@@ -85,6 +86,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/terms": "使用條款｜創百業智慧鏈",
   "/report": "檢舉內容｜創百業智慧鏈",
   "/admin": "平台管理員後台｜創百業智慧鏈",
+  "/admin/finance": "財務管理｜創百業智慧鏈",
 };
 
 function ScrollAndMetadata() {
@@ -289,6 +291,14 @@ export function App() {
           element={
             <AdminRoute>
               <AdminPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/finance"
+          element={
+            <AdminRoute>
+              <AdminFinancePage />
             </AdminRoute>
           }
         />
