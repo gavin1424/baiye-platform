@@ -1,5 +1,6 @@
 import { AI_MODEL, BUSINESS, HUMAN_HANDOFF, SYSTEM_PROMPT } from "./business.js";
 import { handleFinanceRequest } from "./finance.js";
+import { handlePartnerRequest } from "./partner.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -26,6 +27,7 @@ function corsHeaders(origin) {
         "access-control-allow-methods": "GET, POST, PATCH, OPTIONS",
         "access-control-allow-headers": "content-type, authorization",
         "access-control-max-age": "86400",
+        "access-control-allow-credentials": "true",
         vary: "Origin",
       }
     : {};
@@ -136,6 +138,12 @@ export default {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (url.pathname.startsWith("/api/finance") && !origin) return json({ error: "Origin not allowed" }, 403);
       return handleFinanceRequest(request, env, url, cors);
+    }
+
+    if (url.pathname.startsWith("/api/partner") || url.pathname.startsWith("/api/admin/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return handlePartnerRequest(request, env, url, cors);
     }
 
     if (url.pathname === "/chat") {
