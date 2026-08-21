@@ -9,4 +9,4 @@ Disallow: /login
 Disallow: /register
 Disallow: /forgot-password
 
-Sitemap: https://gavin1424.github.io/baiye-platform/sitemap.xml
+Sitemap: https://baiyeconnect.com/sitemap.xml

@@ -17,7 +17,7 @@ export const BUSINESS = {
     name: "美玲拼布",
     url: "https://meilingpatchwork.com/",
   },
-  website: "https://gavin1424.github.io/baiye-platform/",
+  website: "https://baiyeconnect.com/",
 };
 
 export const HUMAN_HANDOFF = "這個問題我目前沒有足夠資料，建議由專人為您確認。您可以留下需求，或透過 LINE 聯絡我們。";
