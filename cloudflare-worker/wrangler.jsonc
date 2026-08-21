@@ -13,6 +13,12 @@
       "database_id": "1662c6ab-57d7-4df7-8056-935fbead2d8c"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "CONTRACTS_BUCKET",
+      "bucket_name": "baiye-contracts"
+    }
+  ],
   "vars": {
     "ALLOWED_ORIGINS": "https://baiyeconnect.com,https://www.baiyeconnect.com,https://gavin1424.github.io,http://127.0.0.1:4173,http://localhost:4173"
   }
