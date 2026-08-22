@@ -11619,6 +11619,15 @@ button:disabled {
     width: 100%;
   }
 
+  .steps-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .steps-grid::before {
+    display: none;
+  }
+
   .search-bar-hero {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
