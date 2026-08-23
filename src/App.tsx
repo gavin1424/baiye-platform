@@ -89,6 +89,12 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin": "平台管理員後台｜創百業智慧鏈",
   "/admin/finance": "財務管理｜創百業智慧鏈",
   "/partner": "夥伴中心｜創百業智慧鏈",
+  "/partner/apply": "業務合作申請｜創百業智慧鏈",
+  "/partner/activate": "啟用合作夥伴帳號｜創百業智慧鏈",
+  "/partner/login": "夥伴登入｜創百業智慧鏈",
+  "/partner/dashboard": "合作夥伴儀表板｜創百業智慧鏈",
+  "/partner/contract": "線上合作契約｜創百業智慧鏈",
+  "/admin/partners": "合作夥伴管理｜創百業智慧鏈",
 };
 
 function ScrollAndMetadata() {
