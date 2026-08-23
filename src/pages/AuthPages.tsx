@@ -26,7 +26,7 @@ function AuthShell({ children, kind = "login" }: { children: ReactNode; kind?: "
         <div className="auth-visual-copy">
           <span className="eyebrow">每個行業，都值得擁有自己的網站。</span>
           <h1>{kind === "register" ? "免費購物，或讓商家正式上架" : "一個帳號，開始購物或管理商家"}</h1>
-          <p>免費會員專注商城購物；完成商家上架註冊後，才會開通完整商家功能。</p>
+          <p>免費會員專注商城購物；完成商家 AI 行銷推廣方案後，才會開通完整商家功能。</p>
           <div className="auth-benefits">
             {[
               [ShoppingCart, "商城購物", "瀏覽商品、購物車與結帳"],
@@ -92,7 +92,7 @@ export function LoginPage() {
       <div className="auth-card">
         <span className="eyebrow">歡迎回來</span>
         <h1>登入創百業智慧鏈</h1>
-        <p>繼續商城購物，或管理已完成上架註冊的商家。</p>
+        <p>繼續商城購物，或管理已完成 AI 行銷推廣方案的商家。</p>
         <form className="form-stack auth-form" onSubmit={submit}>
           {error && (
             <div className="form-error" role="alert">
@@ -155,7 +155,7 @@ export function LoginPage() {
           >
             <Storefront />
             <span>
-              <b>商家上架帳號</b>
+              <b>商家推廣方案帳號</b>
               demo@baiye.local
             </span>
           </button>
@@ -222,12 +222,12 @@ export function RegisterPage() {
     {
       id: "merchant" as const,
       icon: Storefront,
-      title: "商家上架註冊",
+      title: "商家 AI 行銷推廣方案",
       price: "NT$18,000",
-      billing: "一次性開通",
-      text: "完成後開通完整商家功能",
+      billing: "推廣優惠價（原價 NT$30,000）",
+      text: "行銷推廣、平台上架與數位服務費；標準網站免費附贈",
       features: ["商家正式上架", "專屬商家頁", "商品／服務與作品", "合作媒合與商家後台"],
-      cta: "申請商家上架",
+      cta: "申請商家推廣上架",
     },
   ];
   const selectedRegistration = registrationTypes.find((item) => item.id === registrationType)!;
@@ -246,7 +246,7 @@ export function RegisterPage() {
         <h1>{step === 1 ? "你想如何使用平台？" : "建立你的創百業智慧鏈帳號"}</h1>
         <p>
           {step === 1
-            ? "免費會員只用於商城購物；商家功能需完成一次性上架註冊。"
+            ? "免費會員只用於商城購物；商家功能需完成 AI 行銷推廣方案。"
             : registrationType === "merchant"
               ? "完成後將開通商家公開頁、網站與完整商家後台。"
               : "完成後即可瀏覽商城、使用購物車並結帳。"}
@@ -368,7 +368,7 @@ export function MemberAccountPage() {
             </span>
             <span className="eyebrow">免費會員</span>
             <h1>{session.name || "購物會員"}</h1>
-            <p>你的帳號可使用商城購物、購物車與結帳；商家功能需另外完成商家上架註冊。</p>
+            <p>你的帳號可使用商城購物、購物車與結帳；商家功能需另外完成商家 AI 行銷推廣方案。</p>
             <div className="member-account-stats">
               <div>
                 <span>會員費用</span>

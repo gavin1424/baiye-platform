@@ -169,8 +169,8 @@ export function DashboardLayout({
           <span>
             <Sparkle weight="fill" />
           </span>
-          <strong>商家上架已開通</strong>
-          <p>NT$18,000 一次性，完整商家功能可使用。</p>
+          <strong>AI 行銷推廣方案已開通</strong>
+          <p>現階段推廣優惠價 NT$18,000；標準規格網站基礎建置免費附贈。</p>
           <i>
             <b />
           </i>
@@ -1654,12 +1654,12 @@ const genericConfig: Record<
     ],
   },
   plans: {
-    title: "商家上架",
-    description: "查看商家上架資格與已開通功能。",
+    title: "AI 行銷推廣方案",
+    description: "查看商家推廣方案資格與已開通功能。",
     icon: Sparkle,
     rows: [
-      ["目前資格", "商家上架已開通", "有效"],
-      ["開通費用", "NT$18,000", "一次性"],
+      ["目前資格", "AI 行銷推廣方案已開通", "有效"],
+      ["推廣優惠價", "NT$18,000（原價 NT$30,000）", "標準網站免費附贈"],
       ["商家公開頁", "已啟用", "可使用"],
       ["商家後台", "完整功能", "可使用"],
     ],

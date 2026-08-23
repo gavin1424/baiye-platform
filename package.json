@@ -10,7 +10,8 @@
     "build:sites": "vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "payment:server": "node --env-file-if-exists=.env server/payment-api.mjs",
-    "test:commerce": "node --test server/*.test.mjs"
+    "test:commerce": "node --test server/*.test.mjs",
+    "test:contractor": "node --test cloudflare-worker/contractor-policy.test.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

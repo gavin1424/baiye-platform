@@ -236,7 +236,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       registerMerchant: (name, email) => {
         setSession({ role: "business", name, email });
         setMembershipPlan("merchant");
-        notify("商家上架註冊完成，商家功能已開通。");
+        notify("商家 AI 行銷推廣方案已完成，商家功能已開通。");
       },
       logout: () => {
         setSession(defaultSession);
@@ -264,7 +264,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
       addToInquiry: (id) => {
         if (session.role !== "business" && session.role !== "admin") {
-          notify("商家詢價功能需完成 NT$18,000 一次性商家上架註冊。", "warning");
+          notify("商家詢價功能需完成 AI 行銷推廣方案；現階段推廣優惠價 NT$18,000。", "warning");
           return;
         }
         setInquiryCart((list) => (list.includes(id) ? list : [...list, id]));
@@ -276,7 +276,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
       submitProposal: (id) => {
         if (session.role !== "business" && session.role !== "admin") {
-          notify("商家提案功能需完成 NT$18,000 一次性商家上架註冊。", "warning");
+          notify("商家提案功能需完成 AI 行銷推廣方案；現階段推廣優惠價 NT$18,000。", "warning");
           return;
         }
         setProposals((list) => (list.includes(id) ? list : [...list, id]));

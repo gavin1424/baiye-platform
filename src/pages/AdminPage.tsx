@@ -566,7 +566,7 @@ function AdminDataSection({
     if (tab === "plans")
       return [
         ["免費會員", "32,680 位會員・NT$0・一般購物會員", "公開中"],
-        ["商家上架註冊", "17,606 位會員・NT$18,000／次・一次性開通", "公開中"],
+        ["商家 AI 行銷推廣方案", "17,606 位會員・原價 NT$30,000・推廣優惠價 NT$18,000", "公開中"],
       ].map((item, index) => ({ id: index + 1, title: item[0], subtitle: item[1], meta: "資格正常", status: item[2] }));
     if (tab === "ads")
       return [

@@ -69,7 +69,7 @@ export async function createSignedContractPdf(input) {
     signatureHash: input.signatureHash, legalName: input.legalName, signedAt: input.signedAt,
   }));
   const body = [
-    "創百業智慧鏈｜業務合作契約", `文件識別碼：${input.contractId}`,
+    "創百業智慧鏈｜承攬夥伴合作契約", `文件識別碼：${input.contractId}`,
     `合約版本：${input.version}　甲方：陳靈有限公司　乙方：${input.legalName}`,
     `簽署時間：${input.signedAt}`, "",
     ...contractLines(input.contentHtml), "", "電子簽署證據", `簽署姓名：${input.legalName}`,

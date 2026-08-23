@@ -281,7 +281,7 @@ export function CollaborationDetailPage() {
       if (!proposals.includes(need.id)) setProposalOpen(true);
       return;
     }
-    notify("商家提案功能需完成 NT$18,000 一次性商家上架註冊。", "warning");
+    notify("商家提案功能需完成 AI 行銷推廣方案；現階段推廣優惠價 NT$18,000。", "warning");
     navigate(session.role === "guest" ? "/login" : "/pricing");
   };
 

@@ -56,11 +56,15 @@ const LEVELS = [
   { key: "high", label: "高階承攬夥伴", min: 71, max: 120, rate: 2500, monthly: 3, fallback: 2000 },
   { key: "senior", label: "資深承攬夥伴", min: 121, max: Number.POSITIVE_INFINITY, rate: 3000, monthly: 4, fallback: 2500 },
 ];
-function levelForCount(count) {
+export function contractorLevelForCompletedSales(count) {
   const n = Math.max(1, Number(count || 0));
   return LEVELS.find((level) => n >= level.min && n <= level.max) || LEVELS[LEVELS.length - 1];
 }
-export function commissionTier(number) { return levelForCount(number).rate; }
+const levelForCount = contractorLevelForCompletedSales;
+// The tier applies from the *next* valid sale after a threshold is reached.
+// `priorValidSales` is the completed historical count before the new sale.
+export function commissionTier(priorValidSales) { return levelForCount(Math.max(1, Number(priorValidSales || 0))).rate; }
+export function monthlyRequirementForCompletedSales(count) { return levelForCount(count).monthly; }
 
 function taipeiYearMonth(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit" }).formatToParts(date);
@@ -128,7 +132,7 @@ function addYearsSafe(date, years) {
   if (copy.getUTCMonth() !== month) copy.setUTCDate(0);
   return copy;
 }
-function vipCycle(activatedAt, at = new Date()) {
+export function vipCycleForActivation(activatedAt, at = new Date()) {
   const activation = new Date(activatedAt || at.toISOString());
   let cycleNo = 1;
   let start = activation;
@@ -136,11 +140,19 @@ function vipCycle(activatedAt, at = new Date()) {
   while (at >= end) { start = end; end = addYearsSafe(start, 3); cycleNo += 1; }
   return { cycleNo, start: start.toISOString(), end: end.toISOString() };
 }
+const vipCycle = vipCycleForActivation;
+
+export function shouldTerminateStarterForInactivity({ activatedAt, status, previousMonthSales, monthBeforePreviousSales, referenceDate = new Date() }) {
+  if (status !== "active" || !activatedAt) return false;
+  const firstFull = firstFullMonthStart(activatedAt);
+  const m2 = monthWindow(-2, referenceDate);
+  return Boolean(firstFull && new Date(m2.start) >= new Date(firstFull) && Number(previousMonthSales) < 1 && Number(monthBeforePreviousSales) < 1);
+}
 async function syncVipReward(db, partnerId) {
   const partner = await db.prepare("SELECT id,activated_at FROM partners WHERE id=?").bind(partnerId).first();
   if (!partner?.activated_at) return null;
   const cycle = vipCycle(partner.activated_at);
-  const countRow = await db.prepare("SELECT COUNT(DISTINCT o.merchant_id) count FROM commissions c JOIN orders o ON o.id=c.order_id WHERE c.partner_id=? AND c.commission_type='sales' AND o.payment_status='paid' AND datetime(c.earned_at)>=datetime(?) AND datetime(c.earned_at)<datetime(?)")
+  const countRow = await db.prepare("SELECT COUNT(DISTINCT o.merchant_id) count FROM commissions c JOIN orders o ON o.id=c.order_id JOIN partner_leads l ON l.id=o.lead_id AND l.partner_id=c.partner_id AND l.merchant_id=o.merchant_id WHERE c.partner_id=? AND c.commission_type='sales' AND o.payment_status='paid' AND o.partner_vip_eligible=1 AND datetime(c.earned_at)>=datetime(?) AND datetime(c.earned_at)<datetime(?)")
     .bind(partnerId, cycle.start, cycle.end).first();
   const count = Number(countRow?.count || 0);
   const existing = await db.prepare("SELECT * FROM partner_vip_rewards WHERE partner_id=? AND cycle_no=?").bind(partnerId, cycle.cycleNo).first();
@@ -166,7 +178,8 @@ export async function awardCommissionForOrder(db, orderId, paymentId) {
   if (!partner || partner.status !== "active") return;
   const prior = await validSalesCount(db, order.partner_id);
   const sequence = prior + 1;
-  const reward = await currentRewardContext(db, partner, sequence);
+  // A threshold is earned by this sale and applies from the following valid sale.
+  const reward = await currentRewardContext(db, partner, Math.max(1, prior));
   await db.prepare("INSERT INTO commissions (id,partner_id,order_id,payment_id,commission_type,base_amount,service_bonus,adjustment_amount,final_amount,tier,status,earned_at,confirmed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
     .bind(id("commission"), order.partner_id, orderId, paymentId, "sales", reward.effectiveRate, 0, 0, reward.effectiveRate, sequence, "confirmed", now(), now()).run();
   await syncPartnerTotals(db, order.partner_id);
@@ -245,11 +258,9 @@ async function evaluateInactivityForPartner(db, partner) {
   await upsertQualification(db, partner, monthWindow(-1), currentLevel);
   await upsertQualification(db, partner, monthWindow(-2), currentLevel);
   if (currentLevel.key !== "starter") return false;
-  const firstFull = firstFullMonthStart(partner.activated_at);
   const m1 = monthWindow(-1), m2 = monthWindow(-2);
-  if (!firstFull || new Date(m2.start) < new Date(firstFull)) return false;
   const [sales1, sales2] = await Promise.all([validSalesInWindow(db, partner.id, m1.start, m1.end), validSalesInWindow(db, partner.id, m2.start, m2.end)]);
-  if (sales1 >= 1 || sales2 >= 1) return false;
+  if (!shouldTerminateStarterForInactivity({ activatedAt: partner.activated_at, status: partner.status, previousMonthSales: sales1, monthBeforePreviousSales: sales2 })) return false;
   const timestamp = now();
   await db.prepare("UPDATE partners SET status='terminated',terminated_for_inactivity_at=?,updated_at=? WHERE id=? AND status='active'").bind(timestamp, timestamp, partner.id).run();
   await audit(db, null, "system", "monthly_qualification", "partner_auto_terminated_inactivity", "partner", partner.id, { months: [m2.key, m1.key], reason: "two_consecutive_full_months_without_valid_sale" });
@@ -466,7 +477,7 @@ export async function handlePartnerRequest(request, env, url, cors) {
     }
 
     const bonus = path.match(/^\/api\/admin\/commissions\/([^/]+)\/service-bonus$/);
-    if (bonus) return json({ error: "單案輔導獎金已於 V1.3 停用，請依承攬夥伴分級獎勵與 VIP 百萬推廣獎勵制度辦理。" }, 410, cors);
+    if (bonus) return json({ error: "此舊版獎勵操作已停用，請依承攬夥伴分級獎勵與 VIP 百萬推廣獎勵制度辦理。" }, 410, cors);
 
     if (path === "/api/admin/vip-rewards" && request.method === "GET") {
       const rows = await db.prepare("SELECT v.*,p.display_name,p.partner_code FROM partner_vip_rewards v JOIN partners p ON p.id=v.partner_id ORDER BY v.updated_at DESC").all();

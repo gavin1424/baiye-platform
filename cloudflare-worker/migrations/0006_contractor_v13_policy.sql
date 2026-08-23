@@ -2,6 +2,15 @@
 ALTER TABLE partners ADD COLUMN activated_at TEXT;
 ALTER TABLE partners ADD COLUMN terminated_for_inactivity_at TEXT;
 
+-- VIP eligibility is deliberately explicit and independent of the promotional price.
+-- Existing financial records remain excluded until an authorized reviewer marks a
+-- qualifying, attributable standard-promotion order as eligible.
+ALTER TABLE orders ADD COLUMN partner_order_kind TEXT NOT NULL DEFAULT 'other'
+  CHECK(partner_order_kind IN ('standard_merchant_promotion','renewal','custom','test','other'));
+ALTER TABLE orders ADD COLUMN partner_vip_eligible INTEGER NOT NULL DEFAULT 0
+  CHECK(partner_vip_eligible IN (0,1));
+ALTER TABLE orders ADD COLUMN partner_vip_eligibility_note TEXT;
+
 CREATE TABLE IF NOT EXISTS partner_monthly_qualifications (
   id TEXT PRIMARY KEY,
   partner_id TEXT NOT NULL REFERENCES partners(id),
@@ -35,6 +44,7 @@ CREATE TABLE IF NOT EXISTS partner_vip_rewards (
 
 CREATE INDEX IF NOT EXISTS idx_partner_monthly_qualifications_partner ON partner_monthly_qualifications(partner_id, month_start);
 CREATE INDEX IF NOT EXISTS idx_partner_vip_rewards_partner ON partner_vip_rewards(partner_id, cycle_no, status);
+CREATE INDEX IF NOT EXISTS idx_orders_partner_vip_eligible ON orders(partner_id, partner_vip_eligible, payment_status);
 
 UPDATE partners
 SET activated_at = COALESCE(activated_at, contract_signed_at, approved_at, created_at)

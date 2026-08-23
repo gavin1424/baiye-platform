@@ -128,7 +128,7 @@ export function Header() {
             {shopCartCount > 0 && <span className="count-badge">{shopCartCount}</span>}
           </Link>
           <Link to="/partner" className="btn btn-outline btn-sm header-partner-link">
-            合作夥伴
+            承攬夥伴
           </Link>
           {isBusiness && (
             <>
@@ -201,7 +201,7 @@ export function Header() {
             <CaretRight />
           </NavLink>
           <NavLink to="/partner">
-            合作夥伴／業務專區
+            承攬夥伴專區
             <CaretRight />
           </NavLink>
           {session.role === "guest" ? (
@@ -254,10 +254,10 @@ export function Footer() {
             <Link to="/success-stories">成功案例</Link>
           </div>
           <div>
-            <strong>合作夥伴</strong>
-            <Link to="/partner/apply">加入合作夥伴</Link>
-            <Link to="/partner/login">夥伴登入</Link>
-            <Link to="/partner">合作夥伴中心</Link>
+            <strong>承攬夥伴</strong>
+            <Link to="/partner/apply">申請成為承攬夥伴</Link>
+            <Link to="/partner/login">承攬夥伴登入</Link>
+            <Link to="/partner">承攬夥伴中心</Link>
           </div>
           <div>
             <strong>關於我們</strong>
