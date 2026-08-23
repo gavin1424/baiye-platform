@@ -11046,6 +11046,22 @@ button:disabled {
 }
 
 @media (max-width: 820px) {
+  .home-cta .container {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .home-cta-actions {
+    align-items: flex-start;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .home-cta-actions > span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
   body {
     padding-bottom: 68px;
   }
