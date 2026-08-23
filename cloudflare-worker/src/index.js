@@ -1,6 +1,6 @@
 import { AI_MODEL, BUSINESS, HUMAN_HANDOFF, SYSTEM_PROMPT } from "./business.js";
 import { handleFinanceRequest } from "./finance.js";
-import { handlePartnerRequest } from "./partner.js";
+import { handlePartnerRequest, runPartnerDailyMaintenance } from "./partner.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -174,5 +174,9 @@ export default {
     }
 
     return json({ error: "Not found" }, 404);
+  },
+
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(runPartnerDailyMaintenance(env));
   },
 };
