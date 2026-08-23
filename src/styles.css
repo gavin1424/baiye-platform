@@ -557,6 +557,18 @@ button:disabled {
   gap: 9px;
 }
 
+.header-partner-link {
+  white-space: nowrap;
+  border-color: rgba(20, 104, 123, 0.45);
+  color: var(--teal-700);
+}
+
+.header-partner-link:hover {
+  color: var(--navy-900);
+  border-color: var(--teal-700);
+  background: #f2fbfa;
+}
+
 .header-icon {
   position: relative;
   width: 38px;
@@ -738,7 +750,7 @@ button:disabled {
 
 .footer-columns {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 32px;
 }
 
@@ -10910,6 +10922,7 @@ button:disabled {
   }
 
   .desktop-nav,
+  .header-actions .header-partner-link,
   .header-actions .header-login,
   .header-actions .header-register {
     display: none;
@@ -15095,6 +15108,111 @@ button:disabled {
 
   .ai-chat-messages {
     height: min(330px, calc(100dvh - 300px));
+  }
+}
+
+/* Partner portal entry and landing — kept separate from finance/contract logic. */
+.partner-hero {
+  padding: clamp(1.7rem, 5vw, 3.5rem);
+}
+
+.partner-hero h1 {
+  max-width: 760px;
+  margin: 0.35rem 0 0.8rem;
+}
+
+.partner-eyebrow {
+  margin: 0;
+  color: #9de7d4;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.partner-lead {
+  max-width: 660px;
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.08rem, 2vw, 1.35rem);
+  font-weight: 700;
+}
+
+.partner-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+}
+
+.partner-hero .btn-outline {
+  border-color: rgba(255, 255, 255, 0.78);
+  color: #fff;
+  background: transparent;
+}
+
+.partner-hero .btn-outline:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.partner-commission-summary {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid #d9e4e2;
+  border-radius: 20px;
+  background: #fff;
+}
+
+.partner-commission-summary h2 {
+  margin: 0.35rem 0 0.65rem;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+}
+
+.partner-commission-summary p:not(.partner-eyebrow) {
+  margin: 0;
+  color: #58717a;
+  line-height: 1.65;
+}
+
+.partner-commission-summary ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.partner-commission-summary li {
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.85rem;
+  border: 1px solid #e0ebe9;
+  border-radius: 12px;
+  background: #f7fbfa;
+}
+
+.partner-commission-summary li span {
+  color: #58717a;
+  font-size: 0.86rem;
+}
+
+.partner-commission-summary li strong {
+  color: #0d5264;
+  font-size: 1rem;
+}
+
+.partner-guidance-note {
+  grid-column: 1 / -1;
+  padding-top: 0.15rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 650px) {
+  .partner-commission-summary,
+  .partner-commission-summary ul {
+    grid-template-columns: 1fr;
   }
 }
 

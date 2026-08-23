@@ -16,7 +16,7 @@ async function adminApi(path: string, token: string, init: RequestInit = {}) { r
 function copyText(value: string) { return navigator.clipboard?.writeText(value); }
 
 export function PartnerLanding() {
-  return <main className="partner-shell"><section className="partner-hero"><p>創百業智慧鏈｜夥伴中心</p><h1>以成果合作，共創百業數位升級</h1><p>獨立承攬／居間合作夥伴計畫，不設打卡、工時、排班或工作地點管理。</p><Link className="btn btn-primary" to="/partner/apply">加入合作夥伴</Link> <Link className="btn btn-outline" to="/partner/login">夥伴登入</Link></section></main>;
+  return <main className="partner-shell"><section className="partner-hero"><p className="partner-eyebrow">創百業智慧鏈｜夥伴中心</p><h1>以成果合作，共創百業數位升級</h1><p className="partner-lead">推薦商家、累積成交、依有效成交取得合作獎金。</p><p>本計畫採獨立承攬／居間合作性質，不設打卡、工時、排班或工作地點管理。</p><div className="partner-hero-actions"><Link className="btn btn-primary" to="/partner/apply">加入合作夥伴</Link><Link className="btn btn-outline" to="/partner/login">夥伴登入</Link></div></section><section className="partner-commission-summary" aria-labelledby="partner-commission-title"><div><p className="partner-eyebrow">合作獎金參考</p><h2 id="partner-commission-title">依有效成交件數計算</h2><p>實際資格、認列與發放，以平台核准、契約及結算結果為準。</p></div><ul><li><span>第 1～10 件</span><strong>NT$1,000／件</strong></li><li><span>第 11～60 件</span><strong>NT$1,500／件</strong></li><li><span>第 61～120 件</span><strong>NT$2,000／件</strong></li><li><span>第 121 件起</span><strong>NT$3,000／件</strong></li></ul><p className="partner-guidance-note">另有單案 NT$0～1,000 輔導獎金，依核准結果。</p></section></main>;
 }
 
 export function PartnerApply() {

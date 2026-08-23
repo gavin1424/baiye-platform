@@ -127,6 +127,9 @@ export function Header() {
             <ShoppingCart />
             {shopCartCount > 0 && <span className="count-badge">{shopCartCount}</span>}
           </Link>
+          <Link to="/partner" className="btn btn-outline btn-sm header-partner-link">
+            合作夥伴
+          </Link>
           {isBusiness && (
             <>
               <Link to="/inquiry-cart" className="header-icon" aria-label={`詢價單，${inquiryCart.length} 個項目`}>
@@ -141,10 +144,10 @@ export function Header() {
           )}
           {session.role === "guest" ? (
             <>
-              <Link to="/login" className="btn btn-ghost btn-sm">
+              <Link to="/login" className="btn btn-ghost btn-sm header-login">
                 登入
               </Link>
-              <Link to="/register" className="btn btn-primary btn-sm">
+              <Link to="/register" className="btn btn-primary btn-sm header-register">
                 加入平台
               </Link>
             </>
@@ -197,6 +200,10 @@ export function Header() {
             方案與價格
             <CaretRight />
           </NavLink>
+          <NavLink to="/partner">
+            合作夥伴／業務專區
+            <CaretRight />
+          </NavLink>
           {session.role === "guest" ? (
             <div className="mobile-menu-actions">
               <Link to="/login" className="btn btn-outline">
@@ -245,6 +252,12 @@ export function Footer() {
             <Link to="/pricing">方案與價格</Link>
             <Link to="/how-it-works">如何運作</Link>
             <Link to="/success-stories">成功案例</Link>
+          </div>
+          <div>
+            <strong>合作夥伴</strong>
+            <Link to="/partner/apply">加入合作夥伴</Link>
+            <Link to="/partner/login">夥伴登入</Link>
+            <Link to="/partner">合作夥伴中心</Link>
           </div>
           <div>
             <strong>關於我們</strong>
