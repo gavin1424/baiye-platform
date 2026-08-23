@@ -37,7 +37,7 @@ import {
 } from "./pages/DashboardPages";
 import { AdminPage } from "./pages/AdminPage";
 import { AdminFinancePage } from "./pages/AdminFinance";
-import { AdminPartners, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
+import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
 import { AiChatWidget } from "./components/AiChatWidget";
 import { DemoSitesPage, IndustryDemoSitePage } from "./pages/IndustryDemoSites";
 import {
@@ -290,6 +290,7 @@ export function App() {
         <Route path="/report" element={<ReportPage />} />
         <Route path="/partner" element={<PartnerLanding />} />
         <Route path="/partner/apply" element={<PartnerApply />} />
+        <Route path="/partner/activate" element={<PartnerActivate />} />
         <Route path="/partner/login" element={<PartnerLogin />} />
         <Route path="/partner/contract" element={<PartnerContract />} />
         <Route path="/partner/dashboard" element={<PartnerDashboard />} />
