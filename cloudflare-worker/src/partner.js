@@ -148,6 +148,7 @@ export function shouldTerminateStarterForInactivity({ activatedAt, status, previ
   const m2 = monthWindow(-2, referenceDate);
   return Boolean(firstFull && new Date(m2.start) >= new Date(firstFull) && Number(previousMonthSales) < 1 && Number(monthBeforePreviousSales) < 1);
 }
+export function vipReviewStatusForCount(validNewMerchants) { return Number(validNewMerchants) >= 1000 ? "pending_review" : "tracking"; }
 async function syncVipReward(db, partnerId) {
   const partner = await db.prepare("SELECT id,activated_at FROM partners WHERE id=?").bind(partnerId).first();
   if (!partner?.activated_at) return null;
@@ -156,7 +157,7 @@ async function syncVipReward(db, partnerId) {
     .bind(partnerId, cycle.start, cycle.end).first();
   const count = Number(countRow?.count || 0);
   const existing = await db.prepare("SELECT * FROM partner_vip_rewards WHERE partner_id=? AND cycle_no=?").bind(partnerId, cycle.cycleNo).first();
-  const desired = count >= 1000 ? "pending_review" : "tracking";
+  const desired = vipReviewStatusForCount(count);
   if (!existing) {
     await db.prepare("INSERT INTO partner_vip_rewards (id,partner_id,cycle_no,cycle_start,cycle_end,valid_new_merchants,status,qualified_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)")
       .bind(id("vip"), partnerId, cycle.cycleNo, cycle.start, cycle.end, count, desired, count >= 1000 ? now() : null, now()).run();

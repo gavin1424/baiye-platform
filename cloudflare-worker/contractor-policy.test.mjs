@@ -5,6 +5,7 @@ import {
   contractorLevelForCompletedSales,
   monthlyRequirementForCompletedSales,
   shouldTerminateStarterForInactivity,
+  vipReviewStatusForCount,
   vipCycleForActivation,
 } from "./src/partner.js";
 
@@ -46,4 +47,10 @@ test("VIP cycles reset every three years from activation", () => {
   const cycleTwo = vipCycleForActivation(activation, new Date("2029-09-01T00:00:00+08:00"));
   assert.equal(cycleTwo.cycleNo, 2);
   assert.equal(cycleTwo.start, "2029-08-31T16:00:00.000Z");
+});
+
+test("VIP reward remains under review until 1,000 eligible distinct merchants are reached", () => {
+  assert.equal(vipReviewStatusForCount(999), "tracking");
+  assert.equal(vipReviewStatusForCount(1000), "pending_review");
+  assert.equal(vipReviewStatusForCount(1001), "pending_review");
 });
