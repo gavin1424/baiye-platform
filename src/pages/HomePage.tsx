@@ -69,10 +69,10 @@ export function HomePage() {
               <br />
               <em>被更多人看見</em>
             </h1>
-            <p>建立自己的商家網站、展示服務與作品，找到客戶、供應商與跨業合作夥伴。</p>
+            <p>AI 行銷推廣、平台上架與數位門面一次整合；標準規格商家網站基礎建置免費附贈。</p>
             <div className="hero-actions">
               <Link to={siteEditorPath} className="btn btn-primary btn-lg">
-                {session.role === "business" ? "管理商家網站" : "申請商家上架"}
+                {session.role === "business" ? "管理商家網站" : "了解 AI 推廣方案"}
                 <ArrowRight />
               </Link>
               <Link to="/businesses" className="btn btn-outline btn-lg">
@@ -256,98 +256,42 @@ export function HomePage() {
               次跨業合作。
             </p>
             <div className="success-metrics">
-              <div>
-                <strong>6 次</strong>
-                <span>持續合作</span>
-              </div>
-              <div>
-                <strong>+42%</strong>
-                <span>企業詢問</span>
-              </div>
-              <div>
-                <strong>18 天</strong>
-                <span>首次媒合</span>
-              </div>
+              <div><strong>6 次</strong><span>持續合作</span></div>
+              <div><strong>+42%</strong><span>企業詢問</span></div>
+              <div><strong>18 天</strong><span>首次媒合</span></div>
             </div>
-            <Link to="/success-stories" className="text-link">
-              閱讀更多合作故事
-              <ArrowRight />
-            </Link>
+            <Link to="/success-stories" className="text-link">閱讀更多合作故事<ArrowRight /></Link>
           </div>
         </div>
       </section>
 
       <section id="website-cases" className="section section-website-cases">
         <div className="container">
-          <SectionHeading
-            eyebrow="網站實績"
-            title="看看我們實際做出的網站"
-            description="不只是模板，而是真正可以營運、展示品牌與承接客戶的網站。"
-          />
+          <SectionHeading eyebrow="網站實績" title="看看我們實際做出的網站" description="不只是模板，而是真正可以營運、展示品牌與承接客戶的網站。" />
           <div className="website-cases-grid">
             {officialCases.map((caseItem) => (
               <article className="website-case-card" key={caseItem.name}>
                 <img src={caseItem.image} alt={caseItem.name} loading="lazy" />
                 <div className="website-case-content">
-                  <p className="website-case-category">{caseItem.industry}</p>
-                  <h3>{caseItem.name}</h3>
-                  <p>{caseItem.summary}</p>
+                  <p className="website-case-category">{caseItem.industry}</p><h3>{caseItem.name}</h3><p>{caseItem.summary}</p>
                   <span className="website-case-status status-badge status-success">{caseItem.tag}</span>
-                  <a
-                    href={caseItem.url}
-                    className="text-link website-case-link"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    查看正式網站
-                    <ArrowRight />
-                  </a>
+                  <a href={caseItem.url} className="text-link website-case-link" target="_blank" rel="noreferrer">查看正式網站<ArrowRight /></a>
                 </div>
               </article>
             ))}
           </div>
         </div>
       </section>
+
       <section className="section section-how">
         <div className="container">
-          <SectionHeading
-            eyebrow="三步開始"
-            title="把專業帶上線，今天就能開始"
-            description="不需要懂程式，跟著步驟完成網站，接著開始曝光與合作。"
-          />
+          <SectionHeading eyebrow="三步開始" title="把專業帶上線，今天就能開始" description="不需要懂程式，跟著步驟完成網站，接著開始曝光與合作。" />
           <div className="steps-grid">
             {[
-              {
-                number: "01",
-                icon: Storefront,
-                title: "建立專屬網站",
-                text: "選擇版型，填入介紹、服務、作品與聯絡方式。",
-              },
-              {
-                number: "02",
-                icon: GlobeHemisphereWest,
-                title: "發布並累積信任",
-                text: "完成認證、分享網址，讓搜尋者快速理解你的專業。",
-              },
-              {
-                number: "03",
-                icon: Handshake,
-                title: "開始媒合合作",
-                text: "接收詢價、回覆需求，與客戶和跨業夥伴展開合作。",
-              },
-            ].map((step) => {
-              const Icon = step.icon;
-              return (
-                <div className="step-card" key={step.number}>
-                  <span className="step-number">{step.number}</span>
-                  <span className="step-icon">
-                    <Icon weight="duotone" />
-                  </span>
-                  <h3>{step.title}</h3>
-                  <p>{step.text}</p>
-                </div>
-              );
-            })}
+              { number: "01", icon: Storefront, title: "確認 AI 行銷推廣方案", text: "確認推廣內容、平台上架與免費附贈標準網站範圍。" },
+              { number: "02", icon: GlobeHemisphereWest, title: "免費建置基礎網站", text: "提供品牌與商家資料，由建置端依標準規格完成網站基礎版本。" },
+              { number: "03", icon: Handshake, title: "正式上線並開始推廣", text: "完成商家公開頁、網站與後台，開始曝光、詢價與合作。" },
+            ].map((step) => { const Icon = step.icon; return <div className="step-card" key={step.number}><span className="step-number">{step.number}</span><span className="step-icon"><Icon weight="duotone" /></span><h3>{step.title}</h3><p>{step.text}</p></div>; })}
           </div>
         </div>
       </section>
@@ -355,65 +299,33 @@ export function HomePage() {
       <section className="section section-pricing-preview">
         <div className="container pricing-preview-shell">
           <div className="pricing-preview-copy">
-            <span className="eyebrow">免費會員</span>
-            <h2>免費加入會員</h2>
-            <div className="price">
-              <strong>NT$0</strong>
-              <span>開始購物</span>
-            </div>
+            <span className="eyebrow">免費會員</span><h2>免費加入會員</h2>
+            <div className="price"><strong>NT$0</strong><span>開始購物</span></div>
             <p>免費註冊後即可瀏覽商城、查看商品、使用購物車並完成結帳。</p>
-            <Link to="/register?type=member" className="btn btn-outline">
-              免費註冊
-              <ArrowRight />
-            </Link>
+            <Link to="/register?type=member" className="btn btn-outline">免費註冊<ArrowRight /></Link>
           </div>
           <div className="price-spotlight">
-            <div className="price-label">
-              <span>商家想在平台正式上架</span>
-              商家上架註冊
-            </div>
-            <div className="price">
-              <strong>NT$18,000</strong>
-              <span>一次性開通</span>
-            </div>
+            <div className="price-label"><span>商家 AI 行銷推廣</span>標準網站免費附贈</div>
+            <p><del>原價 NT$30,000</del></p>
+            <div className="price"><strong>NT$18,000</strong><span>現階段推廣促銷價</span></div>
             <ul>
-              <li>
-                <Check /> 完整多區塊商家網站
-              </li>
-              <li>
-                <Check /> 商品／服務與作品上架
-              </li>
-              <li>
-                <Check /> 合作媒合與完整商家後台
-              </li>
+              <li><Check /> NT$18,000 為行銷推廣／平台上架服務費</li>
+              <li><Check /> 標準規格商家網站基礎建置免費附贈（NT$0）</li>
+              <li><Check /> 前 2 年上架、網域與後台／網站維持納入方案</li>
+              <li><Check /> 原方案外新增頁面、功能或串接另行報價</li>
             </ul>
-            <Link to="/register?type=merchant" className="btn btn-primary">
-              申請商家上架
-            </Link>
+            <Link to="/pricing" className="btn btn-primary">查看完整方案</Link>
+            <small>響應政府推動 AI 應用及產業數位轉型政策之公司自主促銷，非政府補助、核准或保證。</small>
           </div>
         </div>
       </section>
 
       <section className="section section-faq">
         <div className="container faq-layout">
-          <div className="faq-intro">
-            <span className="eyebrow">常見問題</span>
-            <h2>開始前，你可能想知道</h2>
-            <p>還有其他問題？我們很樂意協助你找到適合的開始方式。</p>
-            <Link to="/contact" className="text-link">
-              聯絡平台團隊
-              <ArrowRight />
-            </Link>
-          </div>
+          <div className="faq-intro"><span className="eyebrow">常見問題</span><h2>開始前，你可能想知道</h2><p>還有其他問題？我們很樂意協助你找到適合的開始方式。</p><Link to="/faq" className="text-link">查看方案常見問題<ArrowRight /></Link></div>
           <div className="faq-list">
             {faqs.slice(0, 4).map((item, index) => (
-              <div className={`faq-item ${openFaq === index ? "open" : ""}`} key={item.q}>
-                <button type="button" onClick={() => setOpenFaq(openFaq === index ? -1 : index)}>
-                  <span>{item.q}</span>
-                  <Plus weight="bold" />
-                </button>
-                {openFaq === index && <p>{item.a}</p>}
-              </div>
+              <div className={`faq-item ${openFaq === index ? "open" : ""}`} key={item.q}><button type="button" onClick={() => setOpenFaq(openFaq === index ? -1 : index)}><span>{item.q}</span><Plus weight="bold" /></button>{openFaq === index && <p>{item.a}</p>}</div>
             ))}
           </div>
         </div>
@@ -421,22 +333,10 @@ export function HomePage() {
 
       <section className="home-cta">
         <div className="container">
-          <div>
-            <span>每個行業，都值得擁有自己的網站。</span>
-            <h2>今天，讓你的專業正式被看見</h2>
-            <p>建立商家資料、編輯網站內容，加入全台百業夥伴的合作網絡。</p>
-          </div>
-          <div className="home-cta-actions">
-            <Link to={siteEditorPath} className="btn btn-accent btn-lg">
-              {session.role === "business" ? "管理商家網站" : "申請商家上架"}
-              <ArrowRight />
-            </Link>
-            <span>NT$18,000 一次性開通完整商家功能</span>
-          </div>
+          <div><span>每個行業，都值得擁有自己的網站。</span><h2>今天，讓你的專業正式被看見</h2><p>AI 行銷推廣、平台上架與免費附贈標準網站基礎建置，一次開始。</p></div>
+          <div className="home-cta-actions"><Link to={siteEditorPath} className="btn btn-accent btn-lg">{session.role === "business" ? "管理商家網站" : "了解 AI 推廣方案"}<ArrowRight /></Link><span>原價 NT$30,000｜現階段推廣促銷價 NT$18,000｜標準網站基礎建置免費附贈</span></div>
         </div>
       </section>
     </PublicLayout>
   );
 }
-
-
