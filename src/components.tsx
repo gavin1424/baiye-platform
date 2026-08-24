@@ -201,7 +201,7 @@ export function Header() {
             <CaretRight />
           </NavLink>
           <NavLink to="/partner">
-            承攬夥伴專區
+            承攬夥伴
             <CaretRight />
           </NavLink>
           {session.role === "guest" ? (

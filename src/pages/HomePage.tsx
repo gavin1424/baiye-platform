@@ -76,7 +76,7 @@ export function HomePage() {
                 <ArrowRight />
               </Link>
               <Link to="/businesses" className="btn btn-outline btn-lg">
-                尋找合作夥伴
+                尋找商家與服務
               </Link>
             </div>
             <div className="hero-proof">
@@ -316,6 +316,23 @@ export function HomePage() {
             </ul>
             <Link to="/pricing" className="btn btn-primary">查看完整方案</Link>
             <small>響應政府推動 AI 應用及產業數位轉型政策之公司自主促銷，非政府補助、核准或保證。</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="section contractor-partner-section" aria-labelledby="contractor-partner-title">
+        <div className="container contractor-partner-shell">
+          <div className="contractor-partner-copy">
+            <span className="eyebrow"><Handshake weight="fill" />承攬夥伴專區</span>
+            <h2 id="contractor-partner-title">推薦商家，共創推廣成果</h2>
+            <p>推薦商家加入創百業智慧鏈，依有效成交累積承攬夥伴等級與推廣獎勵。</p>
+            <p>本合作採獨立承攬／居間合作形式，可線上申請、啟用帳號、簽署承攬夥伴合作契約，並於夥伴中心查看成交與獎勵進度。</p>
+            <p className="contractor-partner-contract-note">已通過審核的承攬夥伴，可登入後線上閱讀、簽署並下載承攬夥伴合作契約 PDF。</p>
+          </div>
+          <div className="contractor-partner-actions" aria-label="承攬夥伴入口">
+            <Link to="/partner" className="btn btn-primary btn-lg">了解承攬合作<ArrowRight /></Link>
+            <Link to="/partner/apply" className="btn btn-outline btn-lg">申請成為承攬夥伴</Link>
+            <Link to="/partner/login" className="btn btn-ghost btn-lg">登入／簽署契約</Link>
           </div>
         </div>
       </section>
