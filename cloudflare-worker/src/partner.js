@@ -49,6 +49,34 @@ async function financeAdmin(request, env) {
   try { return JSON.parse(D.decode(ub64(payload))).exp > Date.now(); } catch { return false; }
 }
 
+export function partnerWorkflowStatus(partner, latestInvite = null, at = new Date()) {
+  if (!partner) return { code: "APPLICATION_NOT_FOUND", state: "not_found", message: "查無可確認的申請紀錄，請檢查 Email，或重新提出申請。" };
+  if (partner.status === "active") return { code: "PARTNER_ACTIVE", state: "active", message: "此 Email 已有承攬夥伴帳號，請直接登入。" };
+  if (partner.status === "rejected") return { code: "PARTNER_REJECTED", state: "rejected", message: "此承攬夥伴申請目前未通過審核；如需協助，請聯絡平台客服。" };
+  if (partner.status === "suspended") return { code: "PARTNER_SUSPENDED", state: "suspended", message: "此承攬夥伴帳號目前已暫停使用，請聯絡平台客服確認。" };
+  if (partner.status === "terminated") return { code: "PARTNER_TERMINATED", state: "terminated", message: "此承攬夥伴帳號的合作關係已終止；如有疑問，請聯絡平台客服。" };
+  if (!partner.approved_at) return { code: "PARTNER_PENDING_REVIEW", state: "pending_review", message: "您的承攬夥伴申請已收到，目前正在等待管理員審核。審核完成後，系統會提供帳號啟用方式。" };
+  const validInvite = Boolean(latestInvite && !latestInvite.used_at && new Date(latestInvite.expires_at) > at);
+  const expiredInvite = Boolean(latestInvite && !latestInvite.used_at && new Date(latestInvite.expires_at) <= at);
+  if (expiredInvite) return { code: "PARTNER_INVITE_EXPIRED", state: "invite_expired", message: "您的帳號已通過審核，但啟用連結已失效。" };
+  return { code: "PARTNER_PENDING_ACTIVATION", state: "pending_activation", has_valid_invite: validInvite, message: validInvite ? "您的承攬夥伴申請已通過，但帳號尚未完成啟用。請使用已收到的安全啟用通知。" : "您的承攬夥伴申請已通過，但帳號尚未完成啟用。" };
+}
+
+async function workflowForEmail(db, email) {
+  const partner = await db.prepare("SELECT id,status,approved_at,activated_at FROM partners WHERE email=? LIMIT 1").bind(email).first();
+  if (!partner) return { partner: null, latestInvite: null, workflow: partnerWorkflowStatus(null) };
+  const latestInvite = await db.prepare("SELECT id,expires_at,used_at,created_at FROM partner_invites WHERE partner_id=? ORDER BY created_at DESC LIMIT 1").bind(partner.id).first();
+  return { partner, latestInvite, workflow: partnerWorkflowStatus(partner, latestInvite) };
+}
+
+async function publicStatusRateLimit(db, request, email, action) {
+  const actorId = await hash(`${action}:${email}`);
+  const recent = await db.prepare("SELECT COUNT(*) count FROM audit_logs WHERE actor_type='public' AND actor_id=? AND action=? AND created_at>datetime('now','-15 minutes')").bind(actorId, action).first();
+  if (Number(recent?.count || 0) >= 5) return { limited: true, actorId };
+  await audit(db, request, "public", actorId, action, "partner_application", actorId);
+  return { limited: false, actorId };
+}
+
 const LEVELS = [
   { key: "starter", label: "初階承攬夥伴", min: 1, max: 10, rate: 1000, monthly: 1, fallback: 1000 },
   { key: "advanced", label: "進階承攬夥伴", min: 11, max: 30, rate: 1500, monthly: 1, fallback: 1000 },
@@ -289,13 +317,37 @@ export async function handlePartnerRequest(request, env, url, cors) {
   if (path === "/api/partner/apply" && request.method === "POST") {
     const input = await body(request);
     if (!input.legal_name || !input.email || !input.phone || !input.consent) return json({ error: "請完整填寫必填資料，並確認獨立承攬／居間合作聲明。" }, 400, cors);
+    const email = String(input.email).trim().toLowerCase();
+    const existing = await workflowForEmail(db, email);
+    if (existing.partner) return json({ error: existing.workflow.message, ...existing.workflow }, 409, cors);
     const partnerId = id("partner"), partnerCode = `AG${String(Date.now()).slice(-6)}`;
     try {
       await db.prepare("INSERT INTO partners (id,partner_code,legal_name,display_name,email,phone,company_name,tax_id,status,referral_code) VALUES (?,?,?,?,?,?,?,?,?,?)")
-        .bind(partnerId, partnerCode, String(input.legal_name).slice(0, 80), String(input.display_name || input.legal_name).slice(0, 80), String(input.email).toLowerCase(), String(input.phone).slice(0, 30), input.company_name || null, input.tax_id || null, "pending_contract", partnerCode).run();
+        .bind(partnerId, partnerCode, String(input.legal_name).slice(0, 80), String(input.display_name || input.legal_name).slice(0, 80), email, String(input.phone).slice(0, 30), input.company_name || null, input.tax_id || null, "pending_contract", partnerCode).run();
       await audit(db, request, "partner", partnerId, "contractor_applied", "partner", partnerId, { independent_contractor_consent: true });
       return json({ id: partnerId, partner_code: partnerCode, status: "pending_contract" }, 201, cors);
-    } catch { return json({ error: "此 Email 已申請過承攬夥伴。若您已收到啟用通知，請前往承攬夥伴登入；若尚未完成審核，請等待管理員審核。", code: "PARTNER_EMAIL_EXISTS" }, 409, cors); }
+    } catch { return json({ error: "申請暫時無法送出，請稍後再試。" }, 503, cors); }
+  }
+
+  if (path === "/api/partner/status" && request.method === "POST") {
+    const input = await body(request), email = String(input.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) return json({ error: "請輸入有效的 Email。" }, 400, cors);
+    const rate = await publicStatusRateLimit(db, request, email, "partner_status_checked");
+    if (rate.limited) return json({ error: "查詢次數過多，請 15 分鐘後再試。" }, 429, cors);
+    const result = await workflowForEmail(db, email);
+    return json({ ...result.workflow }, 200, { ...cors, "cache-control": "no-store" });
+  }
+
+  if (path === "/api/partner/activation/request" && request.method === "POST") {
+    const input = await body(request), email = String(input.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) return json({ error: "請輸入有效的 Email。" }, 400, cors);
+    const rate = await publicStatusRateLimit(db, request, email, "partner_activation_reissue_requested");
+    if (rate.limited) return json({ error: "申請次數過多，請 15 分鐘後再試。" }, 429, cors);
+    const result = await workflowForEmail(db, email);
+    if (result.partner && ["pending_activation", "invite_expired"].includes(result.workflow.state)) {
+      await audit(db, request, "public", rate.actorId, "partner_activation_reissue_pending", "partner", result.partner.id, { workflow_state: result.workflow.state });
+    }
+    return json({ ok: true, message: "若此 Email 已通過審核且需要新的啟用連結，平台管理員將依安全流程處理；我們不會在畫面或紀錄中顯示啟用 Token。" }, 202, { ...cors, "cache-control": "no-store" });
   }
 
   if (path === "/api/partner/invite/validate" && request.method === "POST") {
@@ -326,13 +378,18 @@ export async function handlePartnerRequest(request, env, url, cors) {
   }
 
   if (path === "/api/partner/login" && request.method === "POST") {
-    const input = await body(request), email = String(input.email || "").toLowerCase();
+    const input = await body(request), email = String(input.email || "").trim().toLowerCase();
     const recent = await db.prepare("SELECT COUNT(*) count FROM partner_login_attempts WHERE email=? AND attempted_at>datetime('now','-15 minutes')").bind(email).first();
     if (Number(recent.count) >= 5) return json({ error: "登入嘗試次數過多，請 15 分鐘後再試。" }, 429, cors);
     const partner = await db.prepare("SELECT * FROM partners WHERE email=?").bind(email).first();
     const valid = Boolean(partner?.password_hash && env.PARTNER_SESSION_SECRET && await passwordHash(String(input.password || ""), partner.password_salt, env.PARTNER_SESSION_SECRET) === partner.password_hash);
     await db.prepare("INSERT INTO partner_login_attempts (id,email,success) VALUES (?,?,?)").bind(id("login"), email, valid ? 1 : 0).run();
-    if (!valid || partner.status !== "active") return json({ error: "帳號密碼錯誤，或承攬夥伴帳號尚未啟用／已終止。" }, 401, cors);
+    if (!partner) return json({ error: "Email 或密碼錯誤。", code: "INVALID_CREDENTIALS" }, 401, cors);
+    if (partner.status !== "active") {
+      const result = await workflowForEmail(db, email);
+      return json({ error: result.workflow.message, ...result.workflow }, 403, cors);
+    }
+    if (!valid) return json({ error: "Email 或密碼錯誤。", code: "INVALID_CREDENTIALS" }, 401, cors);
     await audit(db, request, "partner", partner.id, "contractor_login", "partner", partner.id);
     return json({ ok: true }, 200, { ...cors, "set-cookie": `partner_session=${await partnerSession(partner, env)}; HttpOnly; Secure; SameSite=None; Partitioned; Path=/api/partner; Max-Age=604800` });
   }
@@ -366,7 +423,7 @@ export async function handlePartnerRequest(request, env, url, cors) {
 
     if (path === "/api/admin/partners" && request.method === "GET") {
       const search = `%${url.searchParams.get("q") || ""}%`;
-      const rows = await db.prepare("SELECT id,partner_code,legal_name,display_name,email,phone,company_name,tax_id,status,approved_at,activated_at,contract_status,contract_version,contract_signed_at,total_valid_sales,total_sales_amount,terminated_for_inactivity_at,created_at FROM partners WHERE partner_code LIKE ? OR legal_name LIKE ? OR email LIKE ? ORDER BY created_at DESC").bind(search, search, search).all();
+      const rows = await db.prepare("SELECT p.id,p.partner_code,p.legal_name,p.display_name,p.email,p.phone,p.company_name,p.tax_id,p.status,p.approved_at,p.activated_at,p.contract_status,p.contract_version,p.contract_signed_at,p.total_valid_sales,p.total_sales_amount,p.terminated_for_inactivity_at,p.created_at,(SELECT MAX(a.created_at) FROM audit_logs a WHERE a.entity_type='partner' AND a.entity_id=p.id AND a.action='partner_activation_reissue_pending') activation_requested_at FROM partners p WHERE p.partner_code LIKE ? OR p.legal_name LIKE ? OR p.email LIKE ? ORDER BY p.created_at DESC").bind(search, search, search).all();
       return json({ items: rows.results }, 200, cors);
     }
 
@@ -404,6 +461,7 @@ export async function handlePartnerRequest(request, env, url, cors) {
         db.prepare("UPDATE partner_invites SET used_at=? WHERE partner_id=? AND used_at IS NULL AND expires_at>?").bind(issuedAt, partner.id, issuedAt),
         db.prepare("INSERT INTO partner_invites (id,partner_id,token_hash,expires_at) VALUES (?,?,?,?)").bind(id("invite"), partner.id, await hash(raw), expiresAt),
       ]);
+      await db.prepare("UPDATE audit_logs SET action='partner_activation_reissue_processed' WHERE entity_type='partner' AND entity_id=? AND action='partner_activation_reissue_pending'").bind(partner.id).run();
       await audit(db, request, "admin", "finance", "contractor_invited", "partner", partner.id, { expires_at: expiresAt });
       return json({ invite_url: `https://baiyeconnect.com/#/partner/activate?token=${encodeURIComponent(raw)}`, expires_at: expiresAt }, 201, cors);
     }

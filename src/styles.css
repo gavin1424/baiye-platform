@@ -15270,10 +15270,40 @@ button:disabled {
   margin-top: 1.5rem;
 }
 
+.partner-status-lookup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.5rem;
+  margin-top: 1.25rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid #cfe0dd;
+  border-radius: 20px;
+  background: #f7fbfa;
+}
+
+.partner-status-lookup h2 { margin: .35rem 0 .5rem; }
+.partner-status-lookup p { margin: 0; color: #58717a; line-height: 1.6; }
+.partner-status-lookup form { display: grid; gap: .7rem; align-content: center; }
+.partner-status-lookup label { display: grid; gap: .4rem; font-weight: 700; }
+.partner-status-lookup input { width: 100%; box-sizing: border-box; padding: .75rem; border: 1px solid #bdcfcc; border-radius: 8px; background: #fff; }
+.partner-workflow-card { display: grid; grid-column: 1 / -1; gap: .8rem; padding: 1rem; border: 1px solid #d9e4e2; border-radius: 14px; background: #fff; line-height: 1.55; }
+.partner-workflow-card.state-pending_review,.partner-workflow-card.state-pending_activation,.partner-workflow-card.state-invite_expired { border-color: #ebcf83; background: #fff9e8; }
+.partner-workflow-card.state-active { border-color: #8fcaa8; background: #eef9f3; }
+.partner-workflow-card.state-rejected,.partner-workflow-card.state-suspended,.partner-workflow-card.state-terminated { border-color: #e4aaa5; background: #fff4f2; }
+.partner-workflow-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+.partner-attention { color: #995e00 !important; font-weight: 700; }
+
 .partner-hero .btn-outline {
   border-color: rgba(255, 255, 255, 0.78);
   color: #fff;
   background: transparent;
+}
+
+@media (max-width: 650px) {
+  .partner-status-lookup { grid-template-columns: 1fr; }
+  .partner-workflow-actions { display: grid; grid-template-columns: 1fr; }
+  .partner-workflow-actions .btn { width: 100%; justify-content: center; }
+  .partner-form .partner-workflow-card { margin-top: 1rem; }
 }
 
 .partner-hero .btn-outline:hover {
