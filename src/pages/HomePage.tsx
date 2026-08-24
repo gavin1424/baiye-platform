@@ -133,6 +133,54 @@ export function HomePage() {
         </div>
       </section>
 
+      <section className="section home-story-video-section" aria-labelledby="home-story-video-title">
+        <div className="container home-story-video-grid">
+          <div className="home-story-video-player">
+            <video
+              controls
+              playsInline
+              preload="metadata"
+              poster={`${import.meta.env.BASE_URL}media/baiye_intro_story_poster.webp`}
+              aria-label="創百業智慧鏈一分鐘品牌故事影片"
+            >
+              <source
+                src={`${import.meta.env.BASE_URL}media/baiye_intro_story_60s.mp4`}
+                type="video/mp4"
+              />
+              您的瀏覽器不支援影片播放。
+            </video>
+          </div>
+          <div className="home-story-video-copy">
+            <span className="eyebrow">品牌故事</span>
+            <h2 id="home-story-video-title">一分鐘，看懂創百業智慧鏈</h2>
+            <p className="home-story-video-lead">
+              從一間忙碌的小店開始，看官網、LINE 預約、會員 CRM 與 AI 行銷，如何串成一套真正能幫商家經營的系統。
+            </p>
+            <p>
+              阿晴每天忙著接客、回訊息、記預約，努力卻總是手忙腳亂。直到官網、LINE 預約、會員 CRM 與 AI
+              行銷被串在一起，經營開始真正變簡單。
+            </p>
+            <ul className="home-story-video-highlights" aria-label="創百業智慧鏈四大重點">
+              {["品牌官網", "LINE 智慧預約", "會員 CRM", "AI 行銷"].map((item) => (
+                <li key={item}>
+                  <Check weight="bold" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <div className="home-story-video-actions">
+              <Link to="/pricing" className="btn btn-primary btn-lg">
+                了解完整方案
+                <ArrowRight />
+              </Link>
+              <Link to="/contact" className="btn btn-outline btn-lg">
+                立即洽詢
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="platform-stats-section" aria-label="平台數據">
         <div className="container stats-ribbon">
           {platformStats.map((stat, index) => {
