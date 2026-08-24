@@ -1,6 +1,9 @@
 # Copy this file to .dev.vars for local Worker development. Never commit real values.
 LINE_CHANNEL_SECRET=
 LINE_CHANNEL_ACCESS_TOKEN=
+LINE_MEILING_CHANNEL_SECRET=
+LINE_MEILING_CHANNEL_ACCESS_TOKEN=
+OPENAI_API_KEY=
 FINANCE_ADMIN_PASSWORD=
 FINANCE_SESSION_SECRET=
 # Configure a provider-specific secret only after that provider is contracted.

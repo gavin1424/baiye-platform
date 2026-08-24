@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "payment:server": "node --env-file-if-exists=.env server/payment-api.mjs",
     "test:commerce": "node --test server/*.test.mjs",
-    "test:contractor": "node --test cloudflare-worker/contractor-policy.test.mjs"
+    "test:contractor": "node --test cloudflare-worker/contractor-policy.test.mjs",
+    "test:worker": "node --test cloudflare-worker/tests/*.test.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
