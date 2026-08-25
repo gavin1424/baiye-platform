@@ -15735,3 +15735,9 @@ button:disabled {
 @media (max-width: 520px) {
   .demo-mode-banner { align-items:flex-start; flex-direction:column; gap:4px; padding:8px 12px; text-align:left; }
 }
+
+@media (max-width: 380px) {
+  .account-chip > span:not(.avatar),
+  .account-chip > svg { display:none; }
+  .account-chip { padding:2px; border:0; }
+}
