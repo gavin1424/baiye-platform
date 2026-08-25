@@ -20,6 +20,7 @@ import type {
   ShopPaymentMethod,
   ShopProduct,
 } from "./shop-types";
+import { getAdminSession, loginAdmin, logoutAdmin } from "./admin-auth-client";
 
 export type Role = "guest" | "member" | "business" | "admin";
 export type MembershipPlan = "free" | "merchant";
@@ -43,7 +44,7 @@ type AppStoreValue = {
   shopProducts: ShopProduct[];
   shopCart: ShopCartItem[];
   shopOrders: ShopOrder[];
-  login: (email: string, password: string) => { ok: boolean; message: string; role?: Role };
+  login: (email: string, password: string) => Promise<{ ok: boolean; message: string; role?: Role }>;
   register: (name: string, email: string) => void;
   registerMerchant: (name: string, email: string) => void;
   logout: () => void;
@@ -159,7 +160,7 @@ function toggleId(list: number[], id: number) {
 }
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useStoredState<Session>("session", defaultSession, migrateSession);
+  const [session, setSession] = useState<Session>(defaultSession);
   const [businessFavorites, setBusinessFavorites] = useStoredState<number[]>("favorite-businesses", []);
   const [productFavorites, setProductFavorites] = useStoredState<number[]>("favorite-products", []);
   const [needFavorites, setNeedFavorites] = useStoredState<number[]>("favorite-needs", []);
@@ -177,6 +178,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [shopCart, setShopCart] = useStoredState<ShopCartItem[]>("shop-cart", []);
   const [shopOrders, setShopOrders] = useStoredState<ShopOrder[]>("shop-orders", []);
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  useEffect(() => {
+    window.localStorage.removeItem("baiye:session");
+    void getAdminSession().then((user) => {
+      if (user) setSession({ role: "admin", name: user.name, email: user.email });
+    });
+  }, []);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "success") => {
     const id = Date.now() + Math.random();
@@ -208,25 +216,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       shopProducts,
       shopCart,
       shopOrders,
-      login: (email, password) => {
-        if (email === "member@baiye.local" && password === "Member1234") {
-          setSession({ role: "member", name: "購物會員", email });
-          setMembershipPlan("free");
-          notify("登入成功，歡迎開始購物！");
-          return { ok: true, message: "登入成功", role: "member" };
-        }
-        if (email === "demo@baiye.local" && password === "Demo1234") {
-          setSession({ role: "business", name: "強哥水族", email });
-          setMembershipPlan("merchant");
-          notify("登入成功，歡迎回來！");
-          return { ok: true, message: "登入成功", role: "business" };
-        }
-        if (email === "admin@baiye.local" && password === "Admin1234") {
-          setSession({ role: "admin", name: "平台管理員", email });
+      login: async (email, password) => {
+        try {
+          const user = await loginAdmin(email, password);
+          setSession({ role: "admin", name: user.name, email: user.email });
           notify("管理員登入成功");
           return { ok: true, message: "登入成功", role: "admin" };
+        } catch (error) {
+          return { ok: false, message: error instanceof Error ? error.message : "Email 或密碼錯誤。" };
         }
-        return { ok: false, message: "Email 或密碼不正確，請使用頁面上的測試帳號。" };
       },
       register: (name, email) => {
         setSession({ role: "member", name, email });
@@ -239,6 +237,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         notify("商家 AI 行銷推廣方案已完成，商家功能已開通。");
       },
       logout: () => {
+        void logoutAdmin();
         setSession(defaultSession);
         notify("已安全登出", "info");
       },

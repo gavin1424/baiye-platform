@@ -310,7 +310,7 @@ export async function runPartnerDailyMaintenance(env) {
   return { ok: true, checked: partners.results.length, terminated };
 }
 
-export async function handlePartnerRequest(request, env, url, cors) {
+export async function handlePartnerRequest(request, env, url, cors, adminAuthorized = false) {
   const db = env.FINANCE_DB, path = url.pathname;
   if (!db) return json({ error: "財務資料庫目前無法使用。" }, 503, cors);
 
@@ -409,7 +409,7 @@ export async function handlePartnerRequest(request, env, url, cors) {
   if (path === "/api/partner/logout" && request.method === "POST") return json({ ok: true }, 200, { ...cors, "set-cookie": "partner_session=; HttpOnly; Secure; SameSite=None; Partitioned; Path=/api/partner; Max-Age=0" });
 
   if (path.startsWith("/api/admin/")) {
-    if (!(await financeAdmin(request, env))) return json({ error: "需要財務管理員授權。" }, 401, cors);
+    if (!adminAuthorized && !(await financeAdmin(request, env))) return json({ error: "需要財務管理員授權。" }, 401, cors);
 
     const adminPdf = path.match(/^\/api\/admin\/contracts\/([^/]+)\/pdf$/);
     if (adminPdf && request.method === "GET") {

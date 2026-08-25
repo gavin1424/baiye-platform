@@ -496,9 +496,9 @@ async function adminAudit(db, request, action, merchantId, metadata = {}) {
   ).bind(id("audit"), "admin", "finance", action, "merchant_ai_settings", merchantId, JSON.stringify(metadata), clientIp(request)).run();
 }
 
-export async function handleAiAdminRequest(request, env, url, cors = {}) {
+export async function handleAiAdminRequest(request, env, url, cors = {}, adminAuthorized = false) {
   if (!env.FINANCE_DB) return json({ error: "AI database is not configured" }, 503, cors);
-  if (!(await financeAdminAuthorized(request, env))) return json({ error: "需要財務管理員授權。" }, 401, cors);
+  if (!adminAuthorized && !(await financeAdminAuthorized(request, env))) return json({ error: "需要財務管理員授權。" }, 401, cors);
   const path = url.pathname;
   const period = String(url.searchParams.get("month") || periodMonth()).slice(0, 7);
   if (path === "/api/admin/ai/usage" && request.method === "GET") {

@@ -3,6 +3,7 @@ import { handleFinanceRequest } from "./finance.js";
 import { handlePartnerRequest, runPartnerDailyMaintenance } from "./partner.js";
 import { handleAiAdminRequest, handleMeilingWebsiteChat, processMeilingLineText } from "./meiling-ai.js";
 import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } from "./booking.js";
+import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -27,7 +28,7 @@ function corsHeaders(origin) {
     ? {
         "access-control-allow-origin": origin,
         "access-control-allow-methods": "GET, POST, PATCH, OPTIONS",
-        "access-control-allow-headers": "content-type, authorization, idempotency-key",
+        "access-control-allow-headers": "content-type, authorization, idempotency-key, x-csrf-token",
         "access-control-max-age": "86400",
         "access-control-allow-credentials": "true",
         vary: "Origin",
@@ -185,7 +186,13 @@ export default {
     const cors = corsHeaders(origin);
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "創百業智慧鏈 AI" });
+      return json({ ok: true, service: "創百業智慧鏈", checks: { worker: "ok", d1: Boolean(env.FINANCE_DB), r2: Boolean(env.CONTRACTS_BUCKET), ai: Boolean(env.OPENAI_API_KEY), line: Boolean(env.LINE_MEILING_CHANNEL_SECRET) } });
+    }
+
+    if (url.pathname.startsWith("/api/admin/auth/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleAdminAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname === "/widgets/meiling-chat-widget.js" && request.method === "GET") {
@@ -203,15 +210,18 @@ export default {
     if (url.pathname.startsWith("/api/finance") || url.pathname.startsWith("/api/payments/webhook/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (url.pathname.startsWith("/api/finance") && !origin) return json({ error: "Origin not allowed" }, 403);
-      return handleFinanceRequest(request, env, url, cors);
+      if (!url.pathname.startsWith("/api/payments/webhook/") && !(await requireAdmin(request, env))) return json({ error: "需要正式管理員授權。" }, 401, cors);
+      return handleFinanceRequest(request, env, url, cors, true);
     }
 
     if (url.pathname.startsWith("/api/partner") || url.pathname.startsWith("/api/admin/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
-      if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors);
-      if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors);
-      return handlePartnerRequest(request, env, url, cors);
+      const adminSession = url.pathname.startsWith("/api/admin/") ? await requireAdmin(request, env) : null;
+      if (url.pathname.startsWith("/api/admin/") && !adminSession) return json({ error: "需要正式管理員授權。" }, 401, cors);
+      if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors, true);
+      if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors, true);
+      return handlePartnerRequest(request, env, url, cors, Boolean(adminSession));
     }
 
     if (url.pathname.startsWith("/api/merchant/") && url.pathname.includes("/booking")) {

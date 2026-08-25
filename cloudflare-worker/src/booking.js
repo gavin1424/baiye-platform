@@ -247,9 +247,9 @@ export async function handleBookingRequest(request, env, url, cors = {}) {
   }
 }
 
-export async function handleBookingAdminRequest(request, env, url, cors = {}) {
+export async function handleBookingAdminRequest(request, env, url, cors = {}, adminAuthorized = false) {
   if (!env.FINANCE_DB) return json({ error: CUSTOMER_ERROR }, 503, cors);
-  if (!(await financeAdmin(request, env))) return json({ error: "需要平台管理員授權。" }, 401, cors);
+  if (!adminAuthorized && !(await financeAdmin(request, env))) return json({ error: "需要平台管理員授權。" }, 401, cors);
   const db = env.FINANCE_DB, merchantId = clean(url.searchParams.get("merchant_id") || "meiling_patchwork", 100);
   if (url.pathname === "/api/admin/bookings" && request.method === "GET") {
     const rows = await db.prepare(`SELECT b.booking_code,b.start_at,b.end_at,b.status,b.source,b.customer_name,b.customer_phone,s.name service_name,st.display_name staff_name FROM merchant_bookings b JOIN merchant_booking_services s ON s.merchant_id=b.merchant_id AND s.id=b.service_id JOIN merchant_booking_staff st ON st.merchant_id=b.merchant_id AND st.id=b.staff_id WHERE b.merchant_id=? ORDER BY datetime(b.start_at) DESC LIMIT 500`).bind(merchantId).all();

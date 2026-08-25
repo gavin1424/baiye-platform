@@ -48,10 +48,7 @@ function AuthShell({ children, kind = "login" }: { children: ReactNode; kind?: "
             })}
           </div>
         </div>
-        <div className="auth-visual-quote">
-          <p>「上線兩週後，收到第一筆來自企業的合作詢問。」</p>
-          <span>木日木工工作室・商家會員</span>
-        </div>
+        <div className="auth-visual-quote"><p>正式商家加入與帳號開通皆由平台完成審核。</p></div>
       </aside>
       <main className="auth-main">
         <div className="auth-mobile-logo">
@@ -66,25 +63,23 @@ function AuthShell({ children, kind = "login" }: { children: ReactNode; kind?: "
 export function LoginPage() {
   const { login } = useAppStore();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("demo@baiye.local");
-  const [password, setPassword] = useState("Demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setLoading(true);
-    window.setTimeout(() => {
-      const result = login(email, password);
+      const result = await login(email, password);
       setLoading(false);
       if (!result.ok) {
         setError(result.message);
         return;
       }
       navigate(result.role === "admin" ? "/admin" : result.role === "business" ? "/dashboard" : "/account");
-    }, 520);
   };
 
   return (
@@ -131,51 +126,7 @@ export function LoginPage() {
             {!loading && <ArrowRight />}
           </button>
         </form>
-        <div className="demo-accounts">
-          <strong>快速填入測試帳號</strong>
-          <button
-            type="button"
-            onClick={() => {
-              setEmail("member@baiye.local");
-              setPassword("Member1234");
-            }}
-          >
-            <ShoppingCart />
-            <span>
-              <b>免費會員</b>
-              member@baiye.local
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEmail("demo@baiye.local");
-              setPassword("Demo1234");
-            }}
-          >
-            <Storefront />
-            <span>
-              <b>商家推廣方案帳號</b>
-              demo@baiye.local
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEmail("admin@baiye.local");
-              setPassword("Admin1234");
-            }}
-          >
-            <ShieldCheck />
-            <span>
-              <b>平台管理員</b>
-              admin@baiye.local
-            </span>
-          </button>
-        </div>
-        <p className="auth-switch">
-          還沒有帳號？<Link to="/register">註冊會員</Link>
-        </p>
+        <p className="auth-switch">商家加入請先了解方案並完成平台審核。<Link to="/pricing">了解商家方案</Link></p>
       </div>
     </AuthShell>
   );
