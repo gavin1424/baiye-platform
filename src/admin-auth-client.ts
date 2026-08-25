@@ -4,10 +4,16 @@ let csrfToken = "";
 type AdminUser = { email: string; name: string; role: "admin" | "super_admin" };
 
 async function request(path: string, init: RequestInit = {}) {
+  const method = String(init.method || "GET").toUpperCase();
+  const headers: Record<string, string> = {
+    ...(init.body ? { "content-type": "application/json" } : {}),
+    ...(csrfToken && !["GET", "HEAD", "OPTIONS"].includes(method) ? { "x-csrf-token": csrfToken } : {}),
+    ...((init.headers || {}) as Record<string, string>),
+  };
   const response = await fetch(`${API}${path}`, {
     ...init,
     credentials: "include",
-    headers: { "content-type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}), ...init.headers },
+    headers,
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "驗證服務暫時無法使用。" );
