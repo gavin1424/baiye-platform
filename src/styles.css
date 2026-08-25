@@ -15706,3 +15706,32 @@ button:disabled {
   }
 }
 
+/* Demo snapshot safety banner. Only rendered when VITE_APP_MODE=demo or on pages.dev. */
+.demo-mode-banner {
+  position: relative;
+  z-index: 1000;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 18px;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+  background: linear-gradient(90deg, #0d3550, #126b67);
+}
+
+.demo-mode-banner strong {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  color: #17384d;
+  font-size: 10px;
+  background: #f7c96f;
+  border-radius: 999px;
+}
+
+@media (max-width: 520px) {
+  .demo-mode-banner { align-items:flex-start; flex-direction:column; gap:4px; padding:8px 12px; text-align:left; }
+}

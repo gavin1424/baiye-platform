@@ -1,7 +1,9 @@
+import { rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: process.env.VITE_BASE_PATH || "/",
   build: {
     outDir: "dist/client",
@@ -27,5 +29,16 @@ export default defineConfig({
       clientFiles: ["./src/main.tsx"],
     },
   },
-  plugins: [react()],
-});
+  plugins: [
+    react(),
+    mode === "demo" && {
+      name: "baiye-demo-deployment-safety",
+      async closeBundle() {
+        const output = resolve("dist/client");
+        await writeFile(resolve(output, "robots.txt"), "User-agent: *\nDisallow: /\n", "utf8");
+        await writeFile(resolve(output, "_headers"), "/*\n  X-Robots-Tag: noindex, nofollow\n", "utf8");
+        await rm(resolve(output, "CNAME"), { force: true });
+      },
+    },
+  ].filter(Boolean),
+}));

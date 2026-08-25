@@ -40,6 +40,7 @@ import { AdminFinancePage } from "./pages/AdminFinance";
 import { AdminBookings } from "./pages/AdminBookings";
 import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
 import { AiChatWidget } from "./components/AiChatWidget";
+import { DemoModeBanner } from "./components/DemoModeBanner";
 import { DemoSitesPage, IndustryDemoSitePage } from "./pages/IndustryDemoSites";
 import {
   AboutPage,
@@ -166,6 +167,7 @@ function AdminRoute({ children }: { children: ReactNode }) {
 export function App() {
   return (
     <>
+      <DemoModeBanner />
       <ScrollAndMetadata />
       <Routes>
         <Route path="/" element={<HomePage />} />
