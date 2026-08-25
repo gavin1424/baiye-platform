@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
+import { adminApi } from "../admin-auth-client";
 
-const API = "https://chuang-baiye-ai.baiye-platform.workers.dev/api/finance";
 const labels: Record<string, string> = {
   card: "信用卡 / 金融卡",
   atm: "ATM",
@@ -44,10 +44,6 @@ type Merchant = { id: string; name: string };
 type Payment = Record<string, string | number | null>;
 
 export function AdminFinancePage() {
-  const [token, setToken] = useState(
-    () => sessionStorage.getItem("baiye_finance_session") || "",
-  );
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -60,17 +56,7 @@ export function AdminFinancePage() {
     status: "paid",
   });
   const request = async (path: string, init: RequestInit = {}) => {
-    const response = await fetch(`${API}${path}`, {
-      ...init,
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${token}`,
-        ...init.headers,
-      },
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Request failed");
-    return data;
+    return adminApi(`/api/finance${path}`, init);
   };
   const load = async () => {
     try {
@@ -89,26 +75,8 @@ export function AdminFinancePage() {
     }
   };
   useEffect(() => {
-    if (token) void load();
-  }, [token]);
-  const login = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    try {
-      const response = await fetch(`${API}/auth/login`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "登入失敗");
-      sessionStorage.setItem("baiye_finance_session", data.token);
-      setToken(data.token);
-      setPassword("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "登入失敗");
-    }
-  };
+    void load();
+  }, []);
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -184,27 +152,6 @@ export function AdminFinancePage() {
         : [],
     [summary],
   );
-  if (!token)
-    return (
-      <main className="finance-shell finance-login">
-        <AdminModuleNav current="finance" />
-        <section className="finance-panel">
-          <h1>財務管理 / 金流帳本</h1>
-          <p>此區使用 Worker 後端驗證，不使用公開前端管理員帳密。</p>
-          <form className="finance-form" onSubmit={login}>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="財務管理密碼"
-              required
-            />
-            <button>安全登入財務帳本</button>
-          </form>
-          {error && <p className="finance-note">{error}</p>}
-        </section>
-      </main>
-    );
   return (
     <main className="finance-shell">
       <AdminModuleNav current="finance" />
@@ -215,14 +162,6 @@ export function AdminFinancePage() {
         </div>
         <div className="finance-actions">
           <button onClick={exportCsv}>匯出 CSV</button>
-          <button
-            onClick={() => {
-              sessionStorage.removeItem("baiye_finance_session");
-              setToken("");
-            }}
-          >
-            登出
-          </button>
         </div>
       </header>
       {error && <p className="finance-note">{error}</p>}

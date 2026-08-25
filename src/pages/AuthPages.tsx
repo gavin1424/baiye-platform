@@ -25,8 +25,8 @@ function AuthShell({ children, kind = "login" }: { children: ReactNode; kind?: "
         <PlatformLogo />
         <div className="auth-visual-copy">
           <span className="eyebrow">每個行業，都值得擁有自己的網站。</span>
-          <h1>{kind === "register" ? "免費購物，或讓商家正式上架" : "一個帳號，開始購物或管理商家"}</h1>
-          <p>免費會員專注商城購物；完成商家 AI 行銷推廣方案後，才會開通完整商家功能。</p>
+          <h1>正式帳號，安全管理平台</h1>
+          <p>此入口僅供已建立的正式平台管理員使用；承攬夥伴請使用獨立登入入口。</p>
           <div className="auth-benefits">
             {[
               [ShoppingCart, "商城購物", "瀏覽商品、購物車與結帳"],
@@ -86,8 +86,8 @@ export function LoginPage() {
     <AuthShell>
       <div className="auth-card">
         <span className="eyebrow">歡迎回來</span>
-        <h1>登入創百業智慧鏈</h1>
-        <p>繼續商城購物，或管理已完成 AI 行銷推廣方案的商家。</p>
+        <h1>平台管理員登入</h1>
+        <p>使用後端驗證與安全工作階段登入正式營運控制中心。</p>
         <form className="form-stack auth-form" onSubmit={submit}>
           {error && (
             <div className="form-error" role="alert">
@@ -114,18 +114,12 @@ export function LoginPage() {
               </button>
             </div>
           </label>
-          <div className="auth-form-row">
-            <label className="check-row">
-              <input type="checkbox" defaultChecked />
-              <span>記住我</span>
-            </label>
-            <Link to="/forgot-password">忘記密碼？</Link>
-          </div>
           <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
             {loading ? "登入中…" : "登入"}
             {!loading && <ArrowRight />}
           </button>
         </form>
+        <p className="auth-switch">承攬夥伴請使用獨立入口。<Link to="/partner/login">承攬夥伴登入</Link></p>
         <p className="auth-switch">商家加入請先了解方案並完成平台審核。<Link to="/pricing">了解商家方案</Link></p>
       </div>
     </AuthShell>

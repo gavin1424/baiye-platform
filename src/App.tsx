@@ -2,54 +2,14 @@ import { useEffect, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAppStore } from "./store";
 import { HomePage } from "./pages/HomePage";
-import {
-  BusinessPage,
-  BusinessesPage,
-  CategoriesPage,
-  CategoryDetailPage,
-} from "./pages/BusinessPages";
-import {
-  CollaborationDetailPage,
-  CollaborationsPage,
-  NewCollaborationPage,
-} from "./pages/CollaborationPages";
-import {
-  InquiryCartPage,
-  MarketplacePage,
-  ProductDetailPage,
-} from "./pages/MarketplacePages";
-import {
-  CheckoutPage,
-  PaymentResultPage,
-  ShopCartPage,
-  ShopHomePage,
-  ShopProductPage,
-} from "./pages/ShopPages";
-import { ForgotPasswordPage, LoginPage, MemberAccountPage, RegisterPage } from "./pages/AuthPages";
-import {
-  CollaborationManagementPage,
-  DashboardOverviewPage,
-  GenericDashboardPage,
-  MessagesPage,
-  NotificationsPage,
-  ProductManagementPage,
-  SiteEditorPage,
-} from "./pages/DashboardPages";
-import { AdminPage } from "./pages/AdminPage";
+import { LoginPage } from "./pages/AuthPages";
 import { AdminFinancePage } from "./pages/AdminFinance";
 import { AdminBookings } from "./pages/AdminBookings";
 import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
 import { AiChatWidget } from "./components/AiChatWidget";
-import { DemoSitesPage, IndustryDemoSitePage } from "./pages/IndustryDemoSites";
-import {
-  AboutPage,
-  ContactPage,
-  NotFoundPage,
-  PrivacyPage,
-  ReportPage,
-  SuccessStoriesPage,
-} from "./pages/StaticPages";
 import { FaqPageV13, HowItWorksPageV13, PricingPageV13, TermsPageV13 } from "./pages/CommercialV13Pages";
+import { AccountUnavailablePage, CatalogUnavailablePage, EmptyCollaborationPage, MerchantAccessUnavailablePage, ProductionContactPage, ProductionNotFoundPage, ProductionPrivacyPage, VerifiedBusinessesPage } from "./pages/ProductionPublicPages";
+import { ProductionAdminOverview } from "./pages/ProductionAdminOverview";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
 const PAGE_TITLES: Record<string, string> = {
@@ -156,7 +116,8 @@ function MemberRoute({ children }: { children: ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: ReactNode }) {
-  const { session } = useAppStore();
+  const { session, authReady } = useAppStore();
+  if (!authReady) return <main className="route-loading" aria-busy="true">正在驗證管理員權限…</main>;
   if (session.role === "guest") return <Navigate to="/login" replace />;
   if (session.role === "member") return <Navigate to="/pricing" replace />;
   if (session.role === "business") return <Navigate to="/dashboard" replace />;
@@ -169,46 +130,46 @@ export function App() {
       <ScrollAndMetadata />
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/categories" element={<CategoriesPage />} />
-        <Route path="/categories/:category" element={<CategoryDetailPage />} />
-        <Route path="/businesses" element={<BusinessesPage />} />
-        <Route path="/search" element={<BusinessesPage searchTitle />} />
-        <Route path="/business/:slug" element={<BusinessPage />} />
-        <Route path="/demo-sites" element={<DemoSitesPage />} />
-        <Route path="/demo-sites/:slug" element={<IndustryDemoSitePage />} />
-        <Route path="/collaborations" element={<CollaborationsPage />} />
-        <Route path="/collaborations/new" element={<MerchantRoute><NewCollaborationPage /></MerchantRoute>} />
-        <Route path="/collaborations/:id" element={<CollaborationDetailPage />} />
-        <Route path="/marketplace" element={<MarketplacePage />} />
-        <Route path="/marketplace/:slug" element={<ProductDetailPage />} />
-        <Route path="/inquiry-cart" element={<MerchantRoute><InquiryCartPage /></MerchantRoute>} />
-        <Route path="/shop" element={<ShopHomePage />} />
-        <Route path="/shop/:slug" element={<ShopProductPage />} />
-        <Route path="/cart" element={<ShopCartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/payment/:result" element={<PaymentResultPage />} />
+        <Route path="/categories" element={<VerifiedBusinessesPage />} />
+        <Route path="/categories/:category" element={<VerifiedBusinessesPage />} />
+        <Route path="/businesses" element={<VerifiedBusinessesPage />} />
+        <Route path="/search" element={<VerifiedBusinessesPage />} />
+        <Route path="/business/:slug" element={<VerifiedBusinessesPage />} />
+        <Route path="/demo-sites" element={<Navigate to="/" replace />} />
+        <Route path="/demo-sites/:slug" element={<Navigate to="/" replace />} />
+        <Route path="/collaborations" element={<EmptyCollaborationPage />} />
+        <Route path="/collaborations/new" element={<EmptyCollaborationPage />} />
+        <Route path="/collaborations/:id" element={<EmptyCollaborationPage />} />
+        <Route path="/marketplace" element={<CatalogUnavailablePage />} />
+        <Route path="/marketplace/:slug" element={<CatalogUnavailablePage />} />
+        <Route path="/inquiry-cart" element={<CatalogUnavailablePage />} />
+        <Route path="/shop" element={<CatalogUnavailablePage />} />
+        <Route path="/shop/:slug" element={<CatalogUnavailablePage />} />
+        <Route path="/cart" element={<CatalogUnavailablePage />} />
+        <Route path="/checkout" element={<CatalogUnavailablePage />} />
+        <Route path="/payment/:result" element={<CatalogUnavailablePage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/account" element={<MemberRoute><MemberAccountPage /></MemberRoute>} />
-        <Route path="/dashboard" element={<MerchantRoute><DashboardOverviewPage /></MerchantRoute>} />
-        <Route path="/dashboard/site-editor" element={<MerchantRoute><SiteEditorPage /></MerchantRoute>} />
-        <Route path="/dashboard/products" element={<MerchantRoute><ProductManagementPage /></MerchantRoute>} />
-        <Route path="/dashboard/collaborations" element={<MerchantRoute><CollaborationManagementPage /></MerchantRoute>} />
+        <Route path="/register" element={<AccountUnavailablePage />} />
+        <Route path="/forgot-password" element={<AccountUnavailablePage />} />
+        <Route path="/account" element={<AccountUnavailablePage />} />
+        <Route path="/dashboard" element={<MerchantAccessUnavailablePage />} />
+        <Route path="/dashboard/site-editor" element={<MerchantAccessUnavailablePage />} />
+        <Route path="/dashboard/products" element={<MerchantAccessUnavailablePage />} />
+        <Route path="/dashboard/collaborations" element={<MerchantAccessUnavailablePage />} />
         {["profile","portfolio","received-proposals","my-proposals","inquiries","quotes","orders","favorites","reviews","analytics","plans","settings"].map((section) => (
-          <Route key={section} path={`/dashboard/${section}`} element={<MerchantRoute><GenericDashboardPage section={section} /></MerchantRoute>} />
+          <Route key={section} path={`/dashboard/${section}`} element={<MerchantAccessUnavailablePage />} />
         ))}
-        <Route path="/messages" element={<MerchantRoute><MessagesPage /></MerchantRoute>} />
-        <Route path="/notifications" element={<MerchantRoute><NotificationsPage /></MerchantRoute>} />
+        <Route path="/messages" element={<MerchantAccessUnavailablePage />} />
+        <Route path="/notifications" element={<MerchantAccessUnavailablePage />} />
         <Route path="/pricing" element={<PricingPageV13 />} />
-        <Route path="/about" element={<AboutPage />} />
+        <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="/how-it-works" element={<HowItWorksPageV13 />} />
-        <Route path="/success-stories" element={<SuccessStoriesPage />} />
+        <Route path="/success-stories" element={<VerifiedBusinessesPage />} />
         <Route path="/faq" element={<FaqPageV13 />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/contact" element={<ProductionContactPage />} />
+        <Route path="/privacy" element={<ProductionPrivacyPage />} />
         <Route path="/terms" element={<TermsPageV13 />} />
-        <Route path="/report" element={<ReportPage />} />
+        <Route path="/report" element={<ProductionContactPage />} />
         <Route path="/partner" element={<PartnerLanding />} />
         <Route path="/partner/apply" element={<PartnerApply />} />
         <Route path="/partner/activate" element={<PartnerActivate />} />
@@ -217,12 +178,11 @@ export function App() {
         <Route path="/partner/dashboard" element={<PartnerDashboard />} />
         <Route path="/partner/commissions" element={<PartnerDashboard />} />
         <Route path="/join" element={<PartnerReferralJoin />} />
-        <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+        <Route path="/admin" element={<AdminRoute><ProductionAdminOverview /></AdminRoute>} />
         <Route path="/admin/finance" element={<AdminRoute><AdminFinancePage /></AdminRoute>} />
         <Route path="/admin/bookings" element={<AdminRoute><AdminBookings /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
-        <Route path="/not-found-demo" element={<NotFoundPage />} />
-        <Route path="*" element={<NotFoundPage />} />
+        <Route path="*" element={<ProductionNotFoundPage />} />
       </Routes>
       <AiChatWidget />
     </>

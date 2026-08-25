@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
+import { adminApi } from "../admin-auth-client";
 
 const API = "https://chuang-baiye-ai.baiye-platform.workers.dev";
-const MERCHANT_ID = "meiling_patchwork";
+const DEFAULT_MERCHANT_ID = "meiling_patchwork";
 const weekdays = [
   "星期日",
   "星期一",
@@ -67,12 +68,11 @@ type Settings = {
   default_buffer_after_minutes: number;
   reminders_enabled: number;
 };
+type MerchantOption = { id: string; name: string; merchant_code?: string };
 
 export function AdminBookings() {
-  const [token, setToken] = useState(
-    () => sessionStorage.getItem("baiye_finance_session") || "",
-  );
-  const [password, setPassword] = useState("");
+  const [merchantId, setMerchantId] = useState(DEFAULT_MERCHANT_ID);
+  const [merchants, setMerchants] = useState<MerchantOption[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -95,34 +95,23 @@ export function AdminBookings() {
   const [statusFilter, setStatusFilter] = useState("");
   const request = async (path: string, init: RequestInit = {}) => {
     const join = path.includes("?") ? "&" : "?";
-    const response = await fetch(
-      `${API}${path}${join}merchant_id=${MERCHANT_ID}`,
-      {
-        ...init,
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-          ...init.headers,
-        },
-      },
-    );
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "操作失敗");
-    return data;
+    return adminApi(`${path}${join}merchant_id=${encodeURIComponent(merchantId)}`, init);
   };
   const load = async () => {
     setLoading(true);
     setMessage("");
     try {
-      const [config, list] = await Promise.all([
+      const [config, list, merchantList] = await Promise.all([
         request("/api/admin/booking/settings"),
         request("/api/admin/bookings"),
+        adminApi("/api/finance/merchants"),
       ]);
       setSettings(config.settings);
       setServices(config.services);
       setHours(config.hours);
       setBlackouts(config.blackouts);
       setBookings(list.items);
+      setMerchants(merchantList.items || []);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "讀取失敗");
     } finally {
@@ -130,26 +119,8 @@ export function AdminBookings() {
     }
   };
   useEffect(() => {
-    if (token) void load();
-  }, [token]);
-  const login = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setMessage("");
-    try {
-      const response = await fetch(`${API}/api/finance/auth/login`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "登入失敗");
-      sessionStorage.setItem("baiye_finance_session", data.token);
-      setToken(data.token);
-      setPassword("");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "登入失敗");
-    }
-  };
+    void load();
+  }, [merchantId]);
   const saveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!settings) return;
@@ -270,34 +241,14 @@ export function AdminBookings() {
           )),
     );
   }, [bookings, view, query, statusFilter]);
-  if (!token)
-    return (
-      <main className="finance-shell finance-login">
-        <AdminModuleNav current="bookings" />
-        <section className="finance-panel">
-          <h1>美玲拼布｜預約管理</h1>
-          <p>使用平台管理員驗證後管理開放時段與預約。</p>
-          <form className="finance-form" onSubmit={login}>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="財務管理密碼"
-              required
-            />
-            <button>安全登入預約後台</button>
-          </form>
-          {message && <p className="finance-note">{message}</p>}
-        </section>
-      </main>
-    );
   return (
     <main className="finance-shell booking-admin">
       <AdminModuleNav current="bookings" />
       <header className="finance-hero">
         <div>
-          <h1>美玲拼布｜預約管理</h1>
-          <p>merchant_id：{MERCHANT_ID}，所有預約均依商家隔離。</p>
+          <h1>商家預約管理</h1>
+          <p>所有管理 API 均經正式管理員驗證，並依 merchant_id 查詢。</p>
+          <label className="field"><span>管理商家</span><select value={merchantId} onChange={(event) => setMerchantId(event.target.value)}>{merchants.length === 0 && <option value={merchantId}>{merchantId}</option>}{merchants.map((merchant) => <option key={merchant.id} value={merchant.id}>{merchant.name}（{merchant.merchant_code || merchant.id}）</option>)}</select></label>
         </div>
         <div className="finance-actions">
           <a
@@ -308,14 +259,6 @@ export function AdminBookings() {
           >
             開啟顧客預約頁
           </a>
-          <button
-            onClick={() => {
-              sessionStorage.removeItem("baiye_finance_session");
-              setToken("");
-            }}
-          >
-            登出
-          </button>
         </div>
       </header>
       {message && <p className="finance-note">{message}</p>}

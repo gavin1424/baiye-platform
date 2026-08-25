@@ -60,9 +60,12 @@ import {
   type ReactNode,
 } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { businesses } from "./data";
 import { useAppStore } from "./store";
 import type { Business, CollaborationNeed, Product } from "./types";
+
+// Production V2 does not bundle the legacy showcase catalogue. Public merchant data
+// is rendered only by the verified production directory.
+const businesses: Business[] = [];
 
 export function PlatformLogo({ compact = false }: { compact?: boolean }) {
   return (
@@ -83,10 +86,9 @@ export function PlatformLogo({ compact = false }: { compact?: boolean }) {
 }
 
 const navItems = [
-  ["找服務", "/businesses"],
-  ["合作需求", "/collaborations"],
-  ["商城", "/shop"],
-  ["成功案例", "/success-stories"],
+  ["找商家", "/businesses"],
+  ["商家方案", "/pricing"],
+  ["正式案例", "/businesses"],
   ["如何運作", "/how-it-works"],
 ];
 
@@ -123,10 +125,6 @@ export function Header() {
           ))}
         </nav>
         <div className="header-actions">
-          <Link to="/cart" className="header-icon" aria-label={`購物車，${shopCartCount} 件商品`} data-testid="header-shop-cart">
-            <ShoppingCart />
-            {shopCartCount > 0 && <span className="count-badge">{shopCartCount}</span>}
-          </Link>
           <Link to="/partner" className="btn btn-outline btn-sm header-partner-link">
             承攬夥伴
           </Link>
@@ -145,10 +143,10 @@ export function Header() {
           {session.role === "guest" ? (
             <>
               <Link to="/login" className="btn btn-ghost btn-sm header-login">
-                登入
+                管理員登入
               </Link>
-              <Link to="/register" className="btn btn-primary btn-sm header-register">
-                加入平台
+              <Link to="/pricing" className="btn btn-primary btn-sm header-register">
+                商家加入
               </Link>
             </>
           ) : (
@@ -192,10 +190,6 @@ export function Header() {
               <CaretRight />
             </NavLink>
           ))}
-          <NavLink to="/categories">
-            全部行業分類
-            <CaretRight />
-          </NavLink>
           <NavLink to="/pricing">
             方案與價格
             <CaretRight />
@@ -207,10 +201,10 @@ export function Header() {
           {session.role === "guest" ? (
             <div className="mobile-menu-actions">
               <Link to="/login" className="btn btn-outline">
-                登入
+                管理員登入
               </Link>
-              <Link to="/register" className="btn btn-primary">
-                加入平台
+              <Link to="/pricing" className="btn btn-primary">
+                商家加入
               </Link>
             </div>
           ) : (
@@ -242,13 +236,11 @@ export function Footer() {
             <strong>探索平台</strong>
             <Link to="/businesses">找商家</Link>
             <Link to="/collaborations">合作需求</Link>
-            <Link to="/shop">平台商城</Link>
-            <Link to="/marketplace">商品服務市集</Link>
-            <Link to="/categories">行業分類</Link>
+            <Link to="/pricing">商家方案</Link>
           </div>
           <div>
             <strong>商家服務</strong>
-            <Link to={siteEditorPath}>建立網站</Link>
+            <Link to="/pricing">商家 AI 數位升級</Link>
             <Link to="/pricing">方案與價格</Link>
             <Link to="/how-it-works">如何運作</Link>
             <Link to="/success-stories">成功案例</Link>
@@ -292,12 +284,12 @@ export function MobileBottomNav() {
         ]
       : [
           { label: "首頁", to: "/", icon: House },
-          { label: "商城", to: "/shop", icon: Storefront },
-          { label: "購物車", to: "/cart", icon: ShoppingCart, primary: true },
-          { label: "商家上架", to: "/pricing", icon: Briefcase },
+          { label: "找商家", to: "/businesses", icon: Storefront },
+          { label: "商家加入", to: "/pricing", icon: Briefcase, primary: true },
+          { label: "承攬夥伴", to: "/partner", icon: Handshake },
           {
             label: "我的",
-            to: session.role === "admin" ? "/admin" : session.role === "member" ? "/account" : "/login",
+            to: session.role === "admin" ? "/admin" : "/login",
             icon: UserCircle,
           },
         ];

@@ -1,14 +1,12 @@
 import { ArrowLeft, CalendarBlank, Handshake, Receipt } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 
-type AdminModule = "finance" | "bookings" | "partners";
+type AdminModule = "overview" | "finance" | "bookings" | "partners";
 
 export function AdminModuleNav({ current }: { current: AdminModule }) {
   return (
     <nav className="admin-module-nav" aria-label="管理模組導覽">
-      <Link to="/admin" className="admin-module-nav-home">
-        <ArrowLeft /> 返回平台總覽
-      </Link>
+      {current !== "overview" && <Link to="/admin" className="admin-module-nav-home"><ArrowLeft /> 返回平台總覽</Link>}
       {current !== "finance" && (
         <Link to="/admin/finance">
           <Receipt /> 金流與記帳

@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import type { SiteSettings } from "./types";
-import { defaultShopProducts } from "./shop-data";
 import type {
   CartOperationResult,
   FulfillmentType,
@@ -33,6 +32,7 @@ type Session = {
 
 type AppStoreValue = {
   session: Session;
+  authReady: boolean;
   businessFavorites: number[];
   productFavorites: number[];
   needFavorites: number[];
@@ -81,12 +81,11 @@ type Toast = {
 };
 
 const defaultSiteSettings: SiteSettings = {
-  name: "強哥水族",
-  tagline: "專業水族造景・水族工程設計與維護",
-  intro:
-    "從空間評估、缸體規劃、魚種搭配到後續保養，提供一站式水族工程服務。",
+  name: "尚未開通商家",
+  tagline: "商家資料將於正式審核後建立",
+  intro: "Production 不載入範例商家資料。",
   logo: "",
-  cover: `${import.meta.env.BASE_URL}assets/business-aquarium-cover.jpg`,
+  cover: "",
   primaryColor: "#116b5d",
   template: "professional",
   fontStyle: "humanist",
@@ -161,6 +160,7 @@ function toggleId(list: number[], id: number) {
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session>(defaultSession);
+  const [authReady, setAuthReady] = useState(false);
   const [businessFavorites, setBusinessFavorites] = useStoredState<number[]>("favorite-businesses", []);
   const [productFavorites, setProductFavorites] = useStoredState<number[]>("favorite-products", []);
   const [needFavorites, setNeedFavorites] = useStoredState<number[]>("favorite-needs", []);
@@ -168,22 +168,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [inquiryCart, setInquiryCart] = useStoredState<number[]>("inquiry-cart", []);
   const [proposals, setProposals] = useStoredState<number[]>("proposals", []);
   const [notificationsRead, setNotificationsRead] = useStoredState<number[]>("notifications-read", []);
-  const [siteSettings, setSiteSettings] = useStoredState<SiteSettings>("site-settings", defaultSiteSettings);
-  const [membershipPlan, setMembershipPlan] = useStoredState<MembershipPlan>(
-    "membership-plan",
-    "free",
-    migrateMembershipPlan,
-  );
-  const [shopProducts, setShopProducts] = useStoredState<ShopProduct[]>("shop-products", defaultShopProducts);
-  const [shopCart, setShopCart] = useStoredState<ShopCartItem[]>("shop-cart", []);
-  const [shopOrders, setShopOrders] = useStoredState<ShopOrder[]>("shop-orders", []);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
+  const [membershipPlan, setMembershipPlan] = useState<MembershipPlan>("free");
+  const [shopProducts, setShopProducts] = useState<ShopProduct[]>([]);
+  const [shopCart, setShopCart] = useState<ShopCartItem[]>([]);
+  const [shopOrders, setShopOrders] = useState<ShopOrder[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   useEffect(() => {
-    window.localStorage.removeItem("baiye:session");
-    void getAdminSession().then((user) => {
-      if (user) setSession({ role: "admin", name: user.name, email: user.email });
-    });
+    ["session", "shop-products", "shop-cart", "shop-orders", "site-settings", "membership-plan"].forEach((key) => window.localStorage.removeItem(`baiye:${key}`));
+    void getAdminSession()
+      .then((user) => {
+        if (user) setSession({ role: "admin", name: user.name, email: user.email });
+      })
+      .finally(() => setAuthReady(true));
   }, []);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "success") => {
@@ -205,6 +203,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppStoreValue>(
     () => ({
       session,
+      authReady,
       businessFavorites,
       productFavorites,
       needFavorites,

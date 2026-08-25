@@ -23,6 +23,6 @@
     "crons": ["5 16 * * *"]
   },
   "vars": {
-    "ALLOWED_ORIGINS": "https://baiyeconnect.com,https://www.baiyeconnect.com,https://baiye-platform.pages.dev,https://gavin1424.github.io,https://meilingpatchwork.com,https://www.meilingpatchwork.com,http://127.0.0.1:4173,http://localhost:4173"
+    "ALLOWED_ORIGINS": "https://baiyeconnect.com,https://www.baiyeconnect.com,https://meilingpatchwork.com,https://www.meilingpatchwork.com"
   }
 }

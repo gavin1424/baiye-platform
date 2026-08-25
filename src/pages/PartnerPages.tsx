@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
+import { adminApi as secureAdminApi } from "../admin-auth-client";
 
 const API = "https://chuang-baiye-ai.baiye-platform.workers.dev";
 const formatDate = (value?: string | null) =>
@@ -38,12 +39,6 @@ async function api(path: string, init: RequestInit = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new ApiError(data);
   return data;
-}
-async function adminApi(path: string, token: string, init: RequestInit = {}) {
-  return api(path, {
-    ...init,
-    headers: { authorization: `Bearer ${token}`, ...init.headers },
-  });
 }
 function copyText(value: string) {
   return navigator.clipboard?.writeText(value);
@@ -870,10 +865,6 @@ const statusLabel = (partner: Partner) =>
         rejected: "已拒絕",
       }[partner.status] || partner.status;
 export function AdminPartners() {
-  const [token, setToken] = useState(
-    () => sessionStorage.getItem("baiye_finance_session") || "",
-  );
-  const [password, setPassword] = useState("");
   const [partners, setPartners] = useState<Partner[]>([]);
   const [vipRewards, setVipRewards] = useState<VipReward[]>([]);
   const [message, setMessage] = useState("");
@@ -885,8 +876,8 @@ export function AdminPartners() {
   const load = async () => {
     try {
       const [partnerResult, vipResult] = await Promise.all([
-        adminApi("/api/admin/partners", token),
-        adminApi("/api/admin/vip-rewards", token),
+        secureAdminApi("/api/admin/partners"),
+        secureAdminApi("/api/admin/vip-rewards"),
       ]);
       setPartners(partnerResult.items);
       setVipRewards(vipResult.items);
@@ -895,32 +886,13 @@ export function AdminPartners() {
     }
   };
   useEffect(() => {
-    if (token) void load();
-  }, [token]);
-  const login = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setMessage("");
-    try {
-      const result = await fetch(`${API}/api/finance/auth/login`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      const data = await result.json();
-      if (!result.ok) throw new Error(data.error || "財務管理員登入失敗。");
-      sessionStorage.setItem("baiye_finance_session", data.token);
-      setPassword("");
-      setToken(data.token);
-    } catch (error) {
-      setMessage(errorText(error));
-    }
-  };
+    void load();
+  }, []);
   const action = async (partner: Partner, name: string) => {
     setMessage("");
     try {
-      const result = await adminApi(
+      const result = await secureAdminApi(
         `/api/admin/partners/${partner.id}`,
-        token,
         { method: "PATCH", body: JSON.stringify({ action: name }) },
       );
       setMessage(
@@ -934,9 +906,8 @@ export function AdminPartners() {
   const createInvite = async (partner: Partner) => {
     setMessage("");
     try {
-      const result = await adminApi(
+      const result = await secureAdminApi(
         `/api/admin/partners/${partner.id}/invite`,
-        token,
         { method: "POST" },
       );
       setInvite({
@@ -955,7 +926,7 @@ export function AdminPartners() {
   ) => {
     setMessage("");
     try {
-      await adminApi(`/api/admin/vip-rewards/${reward.id}`, token, {
+      await secureAdminApi(`/api/admin/vip-rewards/${reward.id}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
@@ -967,30 +938,6 @@ export function AdminPartners() {
       setMessage(errorText(error));
     }
   };
-  if (!token)
-    return (
-      <main className="partner-shell partner-form">
-        <AdminModuleNav current="partners" />
-        <h1>承攬夥伴管理</h1>
-        <p>
-          請以財務管理員密碼完成後端授權；密碼不會寫入前端程式或保存於瀏覽器。
-        </p>
-        <form onSubmit={login}>
-          <label>
-            財務管理員密碼
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </label>
-          <button className="btn btn-primary">安全登入承攬夥伴管理</button>
-        </form>
-        {message && <p className="partner-message">{message}</p>}
-      </main>
-    );
   return (
     <main className="partner-shell partner-admin">
       <AdminModuleNav current="partners" />
@@ -999,15 +946,6 @@ export function AdminPartners() {
           <h1>承攬夥伴管理</h1>
           <p>審核、啟用、契約、有效成交與終止狀態均保留後端稽核紀錄。</p>
         </div>
-        <button
-          className="btn btn-outline btn-sm"
-          onClick={() => {
-            sessionStorage.removeItem("baiye_finance_session");
-            setToken("");
-          }}
-        >
-          登出管理授權
-        </button>
       </header>
       {message && <p className="partner-message">{message}</p>}
       {invite && (
