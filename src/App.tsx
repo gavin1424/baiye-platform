@@ -37,6 +37,7 @@ import {
 } from "./pages/DashboardPages";
 import { AdminPage } from "./pages/AdminPage";
 import { AdminFinancePage } from "./pages/AdminFinance";
+import { AdminBookings } from "./pages/AdminBookings";
 import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
 import { AiChatWidget } from "./components/AiChatWidget";
 import { DemoSitesPage, IndustryDemoSitePage } from "./pages/IndustryDemoSites";
@@ -85,6 +86,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/report": "檢舉內容｜創百業智慧鏈",
   "/admin": "平台管理員後台｜創百業智慧鏈",
   "/admin/finance": "財務管理｜創百業智慧鏈",
+  "/admin/bookings": "預約管理｜創百業智慧鏈",
   "/partner": "承攬夥伴中心｜創百業智慧鏈",
   "/partner/apply": "承攬夥伴合作申請｜創百業智慧鏈",
   "/partner/activate": "啟用承攬夥伴帳號｜創百業智慧鏈",
@@ -217,6 +219,7 @@ export function App() {
         <Route path="/join" element={<PartnerReferralJoin />} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
         <Route path="/admin/finance" element={<AdminRoute><AdminFinancePage /></AdminRoute>} />
+        <Route path="/admin/bookings" element={<AdminRoute><AdminBookings /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
         <Route path="/not-found-demo" element={<NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />

@@ -2,6 +2,7 @@ import {
   ArrowRight,
   Bell,
   Buildings,
+  CalendarBlank,
   CaretDown,
   ChartBar,
   ChartLineUp,
@@ -140,6 +141,9 @@ function AdminLayout({
             <kbd>⌘ K</kbd>
           </div>
           <div className="admin-top-actions">
+            <Link to="/admin/bookings" className="btn btn-outline btn-sm">
+              <CalendarBlank /> 預約管理
+            </Link>
             <Link to="/" className="btn btn-outline btn-sm">
               <Eye /> 查看平台
             </Link>

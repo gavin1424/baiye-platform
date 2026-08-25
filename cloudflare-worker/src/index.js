@@ -2,6 +2,7 @@ import { AI_MODEL, BUSINESS, HUMAN_HANDOFF, SYSTEM_PROMPT } from "./business.js"
 import { handleFinanceRequest } from "./finance.js";
 import { handlePartnerRequest, runPartnerDailyMaintenance } from "./partner.js";
 import { handleAiAdminRequest, handleMeilingWebsiteChat, processMeilingLineText } from "./meiling-ai.js";
+import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } from "./booking.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -193,6 +194,12 @@ export default {
       return new Response(widget.body, { headers: { "content-type": "application/javascript; charset=UTF-8", "cache-control": "public, max-age=300, s-maxage=3600", "access-control-allow-origin": "*", etag: widget.httpEtag } });
     }
 
+    if (url.pathname === "/widgets/meiling-booking.js" && request.method === "GET") {
+      const widget = await env.CONTRACTS_BUCKET.get("public/meiling-booking.js");
+      if (!widget) return json({ error: "Booking widget not found" }, 404);
+      return new Response(widget.body, { headers: { "content-type": "application/javascript; charset=UTF-8", "cache-control": "public, max-age=300, s-maxage=3600", "access-control-allow-origin": "*", etag: widget.httpEtag } });
+    }
+
     if (url.pathname.startsWith("/api/finance") || url.pathname.startsWith("/api/payments/webhook/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (url.pathname.startsWith("/api/finance") && !origin) return json({ error: "Origin not allowed" }, 403);
@@ -203,7 +210,14 @@ export default {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors);
+      if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors);
       return handlePartnerRequest(request, env, url, cors);
+    }
+
+    if (url.pathname.startsWith("/api/merchant/") && url.pathname.includes("/booking")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleBookingRequest(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname === "/api/merchant/meiling/chat") {
@@ -258,5 +272,6 @@ export default {
 
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(runPartnerDailyMaintenance(env));
+    ctx.waitUntil(runBookingReminders(env));
   },
 };

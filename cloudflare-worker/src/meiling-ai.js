@@ -1,3 +1,5 @@
+import { bookingAvailabilityReply } from "./booking.js";
+
 export const MEILING_MERCHANT_ID = "meiling_patchwork";
 export const MEILING_MONTHLY_LIMIT = 60;
 export const MEILING_MODEL = "gpt-5.6-luna";
@@ -31,6 +33,13 @@ export const MEILING_KEYWORD_REPLIES = new Map([
   ["商品", "可以點選下方「商品選購」查看目前作品與商品。如果看到喜歡的作品，也可以直接截圖傳給我們詢問。"],
   ["地址", "上課或取件地點請直接留言確認，我們會提供最新資訊。"],
   ["怎麼去", "上課或取件地點請直接留言確認，我們會提供最新資訊。"],
+]);
+
+export const MEILING_BOOKING_REPLIES = new Map([
+  ["我要預約", "可以，請到美玲拼布線上預約頁選擇服務、日期與時間：https://meilingpatchwork.com/booking/"],
+  ["想預約", "可以，請到美玲拼布線上預約頁選擇服務、日期與時間：https://meilingpatchwork.com/booking/"],
+  ["預約課程", "可以，請到美玲拼布線上預約頁選擇服務、日期與時間：https://meilingpatchwork.com/booking/"],
+  ["我要報名", "可以，請到美玲拼布線上預約頁選擇服務、日期與時間：https://meilingpatchwork.com/booking/"],
 ]);
 
 export const MEILING_KNOWLEDGE = Object.freeze({
@@ -389,14 +398,16 @@ export async function processMeilingLineText(event, env, deliver) {
   const requestId = String(event.webhookEventId || event.message?.id || "").slice(0, 200);
   if (!requestId) return { ignored: true };
   const fixed = fixedReplyFor(message);
-  const eventType = fixed ? "RULE_REPLY" : requiresMeilingHuman(message) ? "POLICY_HANDOFF" : "AI_REPLY";
+  const bookingReply = MEILING_BOOKING_REPLIES.get(message) || (!fixed && !requiresMeilingHuman(message) ? await bookingAvailabilityReply(message, env) : null);
+  const eventType = fixed ? "RULE_REPLY" : bookingReply ? "BOOKING_REPLY" : requiresMeilingHuman(message) ? "POLICY_HANDOFF" : "AI_REPLY";
   if (!(await claimRequest(db, "line", requestId, eventType))) {
     lineAiStage("line", requestId, "dedupe", { duplicate: true });
     return { duplicate: true };
   }
   lineAiStage("line", requestId, "dedupe", { duplicate: false });
-  lineAiStage("line", requestId, "keyword_match", { matched: Boolean(fixed), route: fixed ? "fixed" : eventType === "POLICY_HANDOFF" ? "policy" : "ai" });
+  lineAiStage("line", requestId, "keyword_match", { matched: Boolean(fixed || bookingReply), route: fixed ? "fixed" : bookingReply ? "booking" : eventType === "POLICY_HANDOFF" ? "policy" : "ai" });
   if (fixed) return recordRuleReply(db, "line", requestId, "RULE_REPLY", deliver, fixed);
+  if (bookingReply) return recordRuleReply(db, "line", requestId, "BOOKING_REPLY", deliver, bookingReply);
   if (requiresMeilingHuman(message)) return recordRuleReply(db, "line", requestId, "POLICY_HANDOFF", deliver, MEILING_HUMAN_HANDOFF);
   const sourceId = event.source?.userId || event.source?.groupId || event.source?.roomId || requestId;
   return runAiFlow({ db, channel: "line", requestId, message, history: [], env, safetySource: `line:${sourceId}`, deliver });
