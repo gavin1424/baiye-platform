@@ -190,6 +190,8 @@ export async function handleBookingRequest(request, env, url, cors = {}) {
     if (request.method === "GET" && resource === "availability") {
       const serviceId = clean(url.searchParams.get("service_id"), 100), date = clean(url.searchParams.get("date"), 10), staffId = clean(url.searchParams.get("staff_id"), 100);
       if (!serviceId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "請提供服務與日期。" }, 400, cors);
+      const exists = await db.prepare(`SELECT id FROM merchant_booking_services WHERE merchant_id=? AND id=? AND active=1`).bind(route.merchant_id, serviceId).first();
+      if (!exists) return json({ error: "找不到可預約的服務。" }, 400, cors);
       const slots = await availableSlots(db, route, serviceId, date, staffId);
       return json({ date, timezone: route.timezone, items: slots, message: slots.length ? null : "目前預約時段尚未開放，請透過 LINE 詢問。" }, 200, cors);
     }

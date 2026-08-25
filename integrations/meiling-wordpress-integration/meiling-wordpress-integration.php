@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 美玲拼布｜LINE 與 AI 智能客服
  * Description: 載入美玲拼布 AI 客服、LINE 入口與正式線上預約頁。
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: 創百業
  */
 
@@ -17,11 +17,11 @@ const MEILING_BOOKING_URL = 'https://meilingpatchwork.com/booking/';
 const MEILING_LINE_QR_URL = 'https://meilingpatchwork.com/wp-content/themes/meiling-patchwork/assets/images/social/meiling-line-qr.jpg';
 
 function meiling_customer_service_assets() {
-    wp_enqueue_script('meiling-ai-chat-widget', MEILING_AI_WIDGET_URL, array(), '1.1.0', true);
+    wp_enqueue_script('meiling-ai-chat-widget', MEILING_AI_WIDGET_URL, array(), '1.1.1', true);
     if (is_page('booking')) {
-        wp_enqueue_script('meiling-booking-widget', MEILING_BOOKING_WIDGET_URL, array(), '1.1.0', true);
+        wp_enqueue_script('meiling-booking-widget', MEILING_BOOKING_WIDGET_URL, array(), '1.1.1', true);
     }
-    wp_register_style('meiling-customer-service', false, array(), '1.1.0');
+    wp_register_style('meiling-customer-service', false, array(), '1.1.1');
     wp_enqueue_style('meiling-customer-service');
     wp_add_inline_style('meiling-customer-service', '
       .meiling-line-cta{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:999px;background:#06c755;color:#fff!important;text-decoration:none!important;font-weight:700;padding:.65rem 1rem;box-shadow:0 8px 24px rgba(6,199,85,.22)}
@@ -30,6 +30,7 @@ function meiling_customer_service_assets() {
       .meiling-line-mobile{display:none;position:fixed;left:12px;bottom:12px;z-index:2147482000}
       .meiling-contact-line{margin:2rem 0;padding:1.5rem;border:1px solid #ead8c8;border-radius:18px;background:#fff9ef;text-align:center}
       .meiling-contact-line img{display:block;width:min(220px,70vw);height:auto;margin:1rem auto;border-radius:12px}
+      .meiling-course-booking-entry{max-width:760px;margin:2rem auto;padding:1.4rem;border:1px solid #e5d6c6;border-radius:20px;background:#fffaf0;text-align:center;color:#59463a}.meiling-course-booking-entry h2{margin:.2rem 0 .6rem;color:#6b4f3e}
       .meiling-booking-page{max-width:900px;margin:2rem auto;padding:1rem;color:#59463a}
       .mb-card{padding:clamp(1rem,4vw,2.2rem);border:1px solid #e5d6c6;border-radius:24px;background:#fffaf0;box-shadow:0 16px 45px rgba(104,76,55,.1)}
       .mb-eyebrow{color:#7c8b68;font-weight:800;letter-spacing:.08em}.mb-step{display:inline-block;padding:.3rem .65rem;border-radius:999px;background:#e9eee1;color:#5f704e;font-size:.8rem;font-weight:800}
@@ -39,10 +40,12 @@ function meiling_customer_service_assets() {
 
     $line_url = wp_json_encode(MEILING_LINE_URL);
     $qr_url = wp_json_encode(MEILING_LINE_QR_URL);
+    $booking_url = wp_json_encode(MEILING_BOOKING_URL);
     wp_add_inline_script('meiling-ai-chat-widget', "
       document.addEventListener('DOMContentLoaded', function () {
         const lineUrl = {$line_url};
         const qrUrl = {$qr_url};
+        const bookingUrl = {$booking_url};
         const makeLink = (className, text) => {
           const link = document.createElement('a');
           link.href = lineUrl;
@@ -69,6 +72,16 @@ function meiling_customer_service_assets() {
           footer.appendChild(wrap);
         }
         if (!document.querySelector('.meiling-line-mobile')) document.body.appendChild(makeLink('meiling-line-mobile', 'LINE 聯絡'));
+        if (/\/courses\/?$/.test(location.pathname)) {
+          const main = document.querySelector('main');
+          if (main && !main.querySelector('.meiling-course-booking-entry')) {
+            const section = document.createElement('section');
+            section.className = 'meiling-course-booking-entry';
+            section.setAttribute('aria-label', '線上預約課程');
+            section.innerHTML = '<h2>想預約課程或先確認需求？</h2><p>可先選擇服務與商家實際開放時段，課程內容與費用仍由店家確認。</p><p><a class=\"meiling-line-cta\" href=\"' + bookingUrl + '\">立即預約課程／諮詢</a></p>';
+            main.appendChild(section);
+          }
+        }
         document.querySelectorAll('footer p').forEach(function (paragraph) {
           if (paragraph.textContent.includes('正式聯絡方式整理中') || paragraph.textContent.includes('線上表單尚在設定中')) {
             paragraph.textContent = '課程、作品、商品與客製需求，歡迎透過 LINE 聯絡。';
@@ -100,9 +113,9 @@ function meiling_booking_activate() {
 register_activation_hook(__FILE__, 'meiling_booking_activate');
 
 function meiling_booking_ensure_page() {
-    if (get_option('meiling_booking_schema_version') === '1.1.0') return;
+    if (get_option('meiling_booking_schema_version') === '1.1.1') return;
     meiling_booking_activate();
-    update_option('meiling_booking_schema_version', '1.1.0', false);
+    update_option('meiling_booking_schema_version', '1.1.1', false);
 }
 add_action('init', 'meiling_booking_ensure_page');
 

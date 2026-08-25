@@ -67,6 +67,8 @@ test("D: reschedule transaction releases old slot and occupies the new one", asy
 test("E/F/G: invalid service, closed hours and blackout are rejected", async () => {
   const db = new TestD1();
   assert.equal((await createBooking(db, route, { ...input(), service_id: "missing" }, "website")).status, 400);
+  const availability = new Request(`https://worker.test/api/merchant/meiling/booking/availability?service_id=missing&date=${futureDate()}`);
+  assert.equal((await handleBookingRequest(availability, { FINANCE_DB: db }, new URL(availability.url), {})).status, 400);
   assert.equal((await createBooking(db, route, input(), "website")).status, 409);
   openEveryDay(db);
   const start = new Date(`${futureDate()}T01:30:00.000Z`), end = new Date(start.getTime() + 3 * 3600000);
