@@ -11,8 +11,12 @@ if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || password.length < 14) {
   throw new Error("請以環境變數提供 ADMIN_EMAIL 與至少 14 字元的 ADMIN_PASSWORD。憑證不會寫入 Git。" );
 }
 const salt = randomBytes(24).toString("base64url");
-const iterations = 310000;
-const hash = pbkdf2Sync(password, Buffer.from(salt, "base64url"), iterations, 32, "sha256").toString("base64url");
+const iterations = 400000;
+let derived = Buffer.from(password, "utf8");
+for (let round = 0; round < iterations / 100000; round += 1) {
+  derived = pbkdf2Sync(derived, Buffer.from(`${salt}:${round}`, "utf8"), 100000, 32, "sha256");
+}
+const hash = derived.toString("base64url");
 const quote = (value) => `'${String(value).replaceAll("'", "''")}'`;
 const sql = `INSERT INTO admin_users (id,email,display_name,password_hash,password_salt,password_iterations,role,status) VALUES (${quote(`admin_${randomUUID()}`)},${quote(email)},${quote(name)},${quote(hash)},${quote(salt)},${iterations},'super_admin','active') ON CONFLICT(email) DO UPDATE SET display_name=excluded.display_name,password_hash=excluded.password_hash,password_salt=excluded.password_salt,password_iterations=excluded.password_iterations,role='super_admin',status='active',updated_at=CURRENT_TIMESTAMP;`;
 const dir = await mkdtemp(join(tmpdir(), "baiye-admin-bootstrap-"));

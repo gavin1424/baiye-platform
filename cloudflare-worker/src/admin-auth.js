@@ -1,7 +1,8 @@
 const E = new TextEncoder();
 const D = new TextDecoder();
 const COOKIE = "baiye_admin_session";
-const ITERATIONS = 310000;
+const ITERATIONS = 400000;
+const PBKDF2_ROUND_LIMIT = 100000;
 const SESSION_SECONDS = 8 * 60 * 60;
 
 const b64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
@@ -15,8 +16,13 @@ const cookieValue = (request) => (request.headers.get("cookie") || "").match(new
 const sessionCookie = (token, maxAge = SESSION_SECONDS) => `${COOKIE}=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}; Partitioned`;
 
 export async function deriveAdminPassword(password, salt, iterations = ITERATIONS) {
-  const material = await crypto.subtle.importKey("raw", E.encode(password), "PBKDF2", false, ["deriveBits"]);
-  return b64(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromB64(salt), iterations }, material, 256));
+  const rounds = Math.max(1, Math.ceil(Number(iterations || ITERATIONS) / PBKDF2_ROUND_LIMIT));
+  let materialBytes = E.encode(password);
+  for (let round = 0; round < rounds; round += 1) {
+    const material = await crypto.subtle.importKey("raw", materialBytes, "PBKDF2", false, ["deriveBits"]);
+    materialBytes = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: E.encode(`${salt}:${round}`), iterations: PBKDF2_ROUND_LIMIT }, material, 256));
+  }
+  return b64(materialBytes);
 }
 
 async function audit(db, request, actorId, action, metadata = {}) {
