@@ -5,6 +5,9 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => ({
   base: process.env.VITE_BASE_PATH || "/",
+  define: {
+    "import.meta.env.VITE_APP_MODE": JSON.stringify(mode === "demo" ? "demo" : process.env.VITE_APP_MODE || ""),
+  },
   build: {
     outDir: "dist/client",
     rollupOptions: {
