@@ -45,10 +45,18 @@ test("A/B: atomic conditional insert allows only one concurrent booking", async 
   assert.equal(db.row("SELECT COUNT(*) count FROM merchant_bookings").count, 1);
 });
 
-test("C: cancellation preserves the row and releases the slot", async () => {
+test("C: secure lookup and cancellation preserve the row and release the slot", async () => {
   const db = new TestD1(); openEveryDay(db);
   const created = await createBooking(db, route, input(), "website");
-  db.sqlite.prepare("UPDATE merchant_bookings SET status='cancelled',cancelled_at=CURRENT_TIMESTAMP WHERE booking_code=?").run(created.booking.booking_code);
+  const lookupRequest = new Request("https://worker.test/api/merchant/meiling/booking/lookup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ booking_code: created.booking.booking_code, customer_phone: "0912345678" }) });
+  const lookupResponse = await handleBookingRequest(lookupRequest, { FINANCE_DB: db }, new URL(lookupRequest.url), {});
+  assert.equal(lookupResponse.status, 200);
+  const lookup = await lookupResponse.json();
+  assert.ok(lookup.manage_token);
+  assert.equal("customer_phone" in lookup.booking, false);
+  const cancelRequest = new Request(`https://worker.test/api/merchant/meiling/booking/${created.booking.booking_code}/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ manage_token: lookup.manage_token, reason: "行程變更" }) });
+  const cancelResponse = await handleBookingRequest(cancelRequest, { FINANCE_DB: db }, new URL(cancelRequest.url), {});
+  assert.equal(cancelResponse.status, 200);
   const replacement = await createBooking(db, route, input(), "website");
   assert.equal(replacement.ok, true);
   assert.equal(db.row("SELECT COUNT(*) count FROM merchant_bookings WHERE status='cancelled'").count, 1);
