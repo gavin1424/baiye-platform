@@ -109,6 +109,18 @@ function AdminLayout({
             );
           })}
         </nav>
+        <div className="admin-operations-nav" aria-label="營運工具">
+          <strong>營運工具</strong>
+          <Link to="/admin/finance" onClick={() => setOpen(false)}>
+            <Receipt /> <span>金流與記帳</span>
+          </Link>
+          <Link to="/admin/bookings" onClick={() => setOpen(false)}>
+            <CalendarBlank /> <span>預約管理</span>
+          </Link>
+          <Link to="/admin/partners" onClick={() => setOpen(false)}>
+            <Handshake /> <span>承攬夥伴管理</span>
+          </Link>
+        </div>
         <div className="admin-sidebar-footer">
           <div>
             <span className="avatar">管</span>
@@ -141,9 +153,20 @@ function AdminLayout({
             <kbd>⌘ K</kbd>
           </div>
           <div className="admin-top-actions">
-            <Link to="/admin/bookings" className="btn btn-outline btn-sm">
-              <CalendarBlank /> 預約管理
-            </Link>
+            <div className="admin-top-shortcuts" aria-label="管理快捷入口">
+              <Link to="/admin" className="btn btn-outline btn-sm">
+                <ChartBar /> 平台總覽
+              </Link>
+              <Link to="/admin/finance" className="btn btn-outline btn-sm">
+                <Receipt /> 金流與記帳
+              </Link>
+              <Link to="/admin/bookings" className="btn btn-outline btn-sm">
+                <CalendarBlank /> 預約管理
+              </Link>
+              <Link to="/admin/partners" className="btn btn-outline btn-sm">
+                <Handshake /> 承攬夥伴
+              </Link>
+            </div>
             <Link to="/" className="btn btn-outline btn-sm">
               <Eye /> 查看平台
             </Link>
@@ -343,6 +366,45 @@ function AdminOverview({
             </article>
           );
         })}
+      </section>
+      <section className="admin-operations-center" aria-labelledby="admin-operations-title">
+        <div className="admin-operations-heading">
+          <div>
+            <span>營運管理</span>
+            <h2 id="admin-operations-title">營運控制中心</h2>
+          </div>
+          <p>從同一處快速進入平台的核心管理功能。</p>
+        </div>
+        <div className="admin-operations-grid">
+          <article>
+            <span className="admin-operation-icon"><Receipt weight="duotone" /></span>
+            <small>● 正式後端</small>
+            <h3>金流與記帳</h3>
+            <p>管理收款、退款、手續費、淨收入、待收款、支出與營運損益。</p>
+            <Link to="/admin/finance">進入財務管理 <ArrowRight /></Link>
+          </article>
+          <article>
+            <span className="admin-operation-icon"><CalendarBlank weight="duotone" /></span>
+            <small>● Production</small>
+            <h3>預約管理</h3>
+            <p>管理服務、營業時間、可預約時段、預約、改期、取消與行事曆。</p>
+            <Link to="/admin/bookings">進入預約管理 <ArrowRight /></Link>
+          </article>
+          <article>
+            <span className="admin-operation-icon"><Handshake weight="duotone" /></span>
+            <small>● 線上簽約</small>
+            <h3>承攬夥伴管理</h3>
+            <p>管理承攬申請、審核、啟用、成交、獎勵、VIP 與契約狀態。</p>
+            <Link to="/admin/partners">管理承攬夥伴 <ArrowRight /></Link>
+          </article>
+          <article>
+            <span className="admin-operation-icon"><ChartBar weight="duotone" /></span>
+            <small>● 管理中心</small>
+            <h3>平台管理</h3>
+            <p>管理會員、商家、商城、內容、分類、審核與平台設定。</p>
+            <button type="button" onClick={() => onTab("overview")}>平台管理 <ArrowRight /></button>
+          </article>
+        </div>
       </section>
       <section className="admin-overview-grid">
         <article className="admin-card admin-growth-card">
