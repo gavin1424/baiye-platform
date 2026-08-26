@@ -11,7 +11,9 @@ type ChatMessage = {
 const STORAGE_KEY = "chuang_baiye_ai_chat";
 const MAX_HISTORY_MESSAGES = 10;
 const WORKER_URL = String(
-  import.meta.env.VITE_AI_CHAT_URL || "https://chuang-baiye-ai.baiye-platform.workers.dev",
+  import.meta.env.VITE_AI_CHAT_URL ||
+    import.meta.env.VITE_PLATFORM_API_URL ||
+    "https://chuang-baiye-ai.baiye-platform.workers.dev",
 ).replace(/\/$/, "");
 const WELCOME_MESSAGE = "您好，我是創百業智慧鏈 AI 智能客服，有網站建置、LINE 整合或數位升級相關問題都可以問我。";
 

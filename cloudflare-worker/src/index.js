@@ -210,8 +210,9 @@ export default {
     if (url.pathname.startsWith("/api/finance") || url.pathname.startsWith("/api/payments/webhook/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (url.pathname.startsWith("/api/finance") && !origin) return json({ error: "Origin not allowed" }, 403);
-      if (!url.pathname.startsWith("/api/payments/webhook/") && !(await requireAdmin(request, env))) return json({ error: "需要正式管理員授權。" }, 401, cors);
-      return handleFinanceRequest(request, env, url, cors, true);
+      const adminSession = url.pathname.startsWith("/api/payments/webhook/") ? null : await requireAdmin(request, env);
+      if (!url.pathname.startsWith("/api/payments/webhook/") && !adminSession) return json({ error: "需要正式管理員授權。" }, 401, cors);
+      return handleFinanceRequest(request, env, url, cors, adminSession);
     }
 
     if (url.pathname.startsWith("/api/partner") || url.pathname.startsWith("/api/admin/")) {

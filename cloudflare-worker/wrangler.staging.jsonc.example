@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chuang-baiye-ai-staging",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-20",
+  "d1_databases": [
+    {
+      "binding": "FINANCE_DB",
+      "database_name": "baiye-finance-staging",
+      "database_id": "REPLACE_WITH_STAGING_D1_ID"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "CONTRACTS_BUCKET",
+      "bucket_name": "baiye-contracts-staging"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "REPLACE_WITH_STAGING_PAGES_ORIGIN",
+    "APP_MODE": "staging",
+    "AI_MODE": "disabled",
+    "LINE_MODE": "disabled",
+    "PAYMENT_MODE": "disabled"
+  }
+}
