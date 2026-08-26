@@ -15509,6 +15509,18 @@ button:disabled {
   .partner-form .partner-workflow-card { margin-top: 1rem; }
 }
 
+@media (max-width: 900px) {
+  .finance-rule-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+  .finance-rule-grid,
+  .finance-preview { grid-template-columns: 1fr; }
+  .finance-dialog { padding: 1rem; }
+  .finance-detail dl { grid-template-columns: 1fr; }
+  .finance-detail dd { margin-bottom: .5rem; }
+}
+
 /* Deposit settlement V1 */
 .deposit-hero { padding: clamp(4rem,8vw,7rem) 0; background: linear-gradient(135deg,#f2fbf8 0%,#fff7e9 100%); }
 .deposit-hero-grid,.deposit-offset-grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(280px,.8fr); align-items:center; gap:clamp(2rem,5vw,5rem); }
@@ -15537,6 +15549,21 @@ button:disabled {
 .finance-button-row,.finance-row-actions { display:flex; flex-wrap:wrap; gap:.45rem; }.finance-button-row button:disabled { opacity:.45; cursor:not-allowed; }
 .settlement-rules { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }.settlement-rules .check-row { display:flex; align-items:center; gap:.55rem; }.settlement-rules .check-row input { width:auto; min-height:auto; }.settlement-rules>button { min-height:46px; border:0; border-radius:10px; background:#13786f; color:#fff; font-weight:800; }
 .statement-detail pre { max-height:480px; overflow:auto; padding:1rem; border-radius:10px; background:#102a36; color:#dff8ef; white-space:pre-wrap; overflow-wrap:anywhere; }
+.finance-panel-heading,.finance-filters,.finance-dialog-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem; }
+.finance-table-scroll { width:100%; overflow-x:auto; }
+.finance-filters { justify-content:flex-start; margin:1rem 0; }
+.finance-filters input,.finance-filters select { min-height:42px; padding:.6rem .75rem; border:1px solid #cbdad7; border-radius:9px; background:#fff; }
+.finance-success,.finance-error,.finance-warning { padding:.8rem 1rem; border-radius:10px; }
+.finance-success { background:#e8f7f1; color:#15684f; }.finance-error { background:#fff0f0; color:#a32424; }.finance-warning { background:#fff6dc; color:#755600; }
+.finance-link { border:0; background:transparent; color:#0f746c; cursor:pointer; font-weight:800; text-decoration:underline; }
+.finance-preview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; margin-top:1rem; padding:1rem; border-radius:12px; background:#f5faf9; }
+.finance-preview p { margin:0; }.finance-preview button { min-height:42px; }
+.finance-detail dl { display:grid; grid-template-columns:minmax(120px,.4fr) 1fr; gap:.5rem 1rem; }.finance-detail dt { font-weight:800; }.finance-detail dd { margin:0; }
+.finance-detail pre { max-height:260px; overflow:auto; padding:1rem; border-radius:10px; background:#f4f7f7; white-space:pre-wrap; overflow-wrap:anywhere; }
+.finance-dialog-backdrop { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:1rem; background:rgba(11,32,41,.62); }
+.finance-dialog { width:min(520px,100%); max-height:90vh; overflow:auto; padding:1.5rem; border-radius:16px; background:#fff; box-shadow:0 24px 70px rgba(0,0,0,.24); }
+.finance-dialog-actions { justify-content:flex-end; margin-top:.5rem; }.finance-dialog-actions button { min-height:42px; padding:.65rem 1rem; }
+.finance-rule-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }.finance-rule-grid label { display:grid; gap:.4rem; }.finance-rule-grid .finance-confirm { grid-column:1/-1; display:flex; flex-direction:row; align-items:center; }.finance-rule-grid>button { min-height:44px; }
 .route-loading h1 { margin:.75rem 0; }.route-loading p { max-width:560px; text-align:center; }
 @media (max-width:900px){.deposit-hero-grid,.deposit-offset-grid,.deposit-calculator{grid-template-columns:1fr}.settlement-rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:520px){.deposit-hero{padding:3rem 0}.deposit-hero-grid,.deposit-offset-grid{gap:1.25rem}.deposit-hero aside,.deposit-offset-grid>div,.deposit-calculator{border-radius:18px}.settlement-rules{grid-template-columns:1fr}.finance-tabs{margin-inline:-.25rem}.finance-row-actions button{flex:1 1 44%}.deposit-results p{align-items:flex-start;flex-direction:column;gap:.25rem}}
