@@ -36,6 +36,19 @@ const csvValue = (value: unknown) =>
   `"${String(value ?? "").replaceAll('"', '""')}"`;
 const idempotencyKey = (action: string, id: string) =>
   `${action}-${id}-${crypto.randomUUID()}`;
+const decimalToMinor = (value: string, allowNegative = false) => {
+  const pattern = allowNegative ? /^-?\d+(?:\.\d{1,2})?$/ : /^\d+(?:\.\d{1,2})?$/;
+  if (!pattern.test(value.trim())) return null;
+  const negative = value.startsWith("-");
+  const normalized = negative ? value.slice(1) : value;
+  const [whole, fraction = ""] = normalized.split(".");
+  const amount = BigInt(whole) * 100n + BigInt((fraction + "00").slice(0, 2));
+  const signed = negative ? -amount : amount;
+  return signed >= BigInt(Number.MIN_SAFE_INTEGER) &&
+    signed <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number(signed)
+    : null;
+};
 
 type Tab =
   | "overview"
@@ -73,7 +86,13 @@ type Summary = {
   }>;
 };
 type DialogState = null | {
-  action: "mark-paid" | "void" | "adjustments" | "source" | "variance-lock";
+  action:
+    | "mark-paid"
+    | "void"
+    | "adjustments"
+    | "source"
+    | "variance-lock"
+    | "review-adjustment";
   item: Statement | Payment;
 };
 
@@ -242,7 +261,7 @@ function PaymentLedger({
     event.preventDefault();
     await adminApi("/api/finance/payments/manual", {
       method: "POST",
-      body: JSON.stringify({ ...form, amount: Number(form.amount) }),
+      body: JSON.stringify({ ...form, amount: form.amount }),
     });
     setForm((value) => ({ ...value, amount: "", note: "" }));
     await onSaved("人工付款已寫入統一帳本。");
@@ -411,6 +430,16 @@ function ActionDialog({
     actual_collected: "",
     variance_reason: "",
     effective_date: getTaipeiToday(),
+    decision: "approved",
+    deposit_reversal: String(dialog.item.deposit_reversal_minor ?? 0),
+    platform_fee_reversal: String(
+      dialog.item.platform_fee_reversal_minor ?? 0,
+    ),
+    offset_reversal: String(dialog.item.offset_reversal_minor ?? 0),
+    provider_fee_reversal: String(
+      dialog.item.provider_fee_reversal_minor ?? 0,
+    ),
+    provider_fee_refund_reference: "",
   });
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -424,7 +453,7 @@ function ActionDialog({
     if (dialog.action === "adjustments")
       onSubmit({
         reason: form.reason,
-        amount_minor: Math.round(Number(form.amount) * 100),
+        amount_minor: decimalToMinor(form.amount, true),
         adjustment_type: Number(form.amount) < 0 ? "refund" : "correction",
         effective_date: form.effective_date,
         confirm_review: true,
@@ -438,11 +467,25 @@ function ActionDialog({
       onSubmit({
         collection_role: form.collection_role,
         settlement_eligible: form.collection_role === "platform_deposit",
-        order_total_amount_minor: Math.round(Number(form.order_total) * 100),
-        actual_collected_amount_minor: Math.round(
-          Number(form.actual_collected) * 100,
-        ),
+        order_total_amount_minor: decimalToMinor(form.order_total),
+        actual_collected_amount_minor: decimalToMinor(form.actual_collected),
         confirm_source_review: true,
+      });
+    if (dialog.action === "review-adjustment")
+      onSubmit({
+        decision: form.decision,
+        confirmed_deposit_reversal_minor: Number(form.deposit_reversal),
+        confirmed_platform_fee_reversal_minor: Number(
+          form.platform_fee_reversal,
+        ),
+        confirmed_offset_reversal_minor: Number(form.offset_reversal),
+        confirmed_provider_fee_reversal_minor: Number(
+          form.provider_fee_reversal,
+        ),
+        provider_fee_refund_reference:
+          form.provider_fee_refund_reference || null,
+        reason: form.reason,
+        confirm_professional_review: true,
       });
   };
   return (
@@ -462,6 +505,8 @@ function ActionDialog({
                 ? "建立下一期調整"
                 : dialog.action === "source"
                   ? "覆核付款來源"
+                  : dialog.action === "review-adjustment"
+                    ? "覆核退款調整"
                   : "覆核訂金差異"}
         </h2>
         <form className="finance-form" onSubmit={submit}>
@@ -549,6 +594,65 @@ function ActionDialog({
                 required
               />
             </label>
+          )}
+          {dialog.action === "review-adjustment" && (
+            <>
+              <label>
+                覆核決策
+                <select
+                  value={form.decision}
+                  onChange={(event) =>
+                    setForm({ ...form, decision: event.target.value })
+                  }
+                >
+                  <option value="approved">核准</option>
+                  <option value="rejected">拒絕</option>
+                </select>
+              </label>
+              {[
+                ["訂金回沖（分）", "deposit_reversal"],
+                ["平台費回沖（分）", "platform_fee_reversal"],
+                ["抵付回沖（分）", "offset_reversal"],
+                ["Provider 費退回（分）", "provider_fee_reversal"],
+              ].map(([label, field]) => (
+                <label key={field}>
+                  {label}
+                  <input
+                    inputMode="numeric"
+                    value={form[field]}
+                    onChange={(event) =>
+                      setForm({ ...form, [field]: event.target.value })
+                    }
+                    required
+                  />
+                </label>
+              ))}
+              <label>
+                Provider 退費 reference（Provider 費有退回時必填）
+                <input
+                  value={form.provider_fee_refund_reference}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      provider_fee_refund_reference: event.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                覆核原因
+                <textarea
+                  value={form.reason}
+                  onChange={(event) =>
+                    setForm({ ...form, reason: event.target.value })
+                  }
+                  required
+                />
+              </label>
+              <p className="finance-warning">
+                確認送出代表已依契約與專業覆核結果檢查各項回沖。
+              </p>
+            </>
           )}
           {dialog.action === "source" && (
             <>
@@ -778,6 +882,7 @@ export function AdminFinancePage() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [statements, setStatements] = useState<Statement[]>([]);
   const [auditEvents, setAuditEvents] = useState<Payment[]>([]);
+  const [pendingAdjustments, setPendingAdjustments] = useState<Payment[]>([]);
   const [selected, setSelected] = useState<Record<string, unknown> | null>(
     null,
   );
@@ -810,6 +915,7 @@ export function AdminFinancePage() {
         statementData,
         auditData,
         sourceData,
+        adjustmentData,
       ] = await Promise.all([
         request("/summary"),
         request("/payments"),
@@ -817,6 +923,7 @@ export function AdminFinancePage() {
         request("/settlements?limit=100"),
         request("/settlements/audit"),
         request("/settlement-sources"),
+        request("/settlement-adjustments?review_status=pending&limit=100"),
       ]);
       setSummary(summaryData);
       setPayments(paymentData.items || []);
@@ -824,6 +931,7 @@ export function AdminFinancePage() {
       setStatements(statementData.items || []);
       setAuditEvents(auditData.items || []);
       setSources(sourceData.items || []);
+      setPendingAdjustments(adjustmentData.items || []);
       const first = merchantData.items?.[0]?.id || "";
       setPeriod((value) => ({
         ...value,
@@ -1049,6 +1157,75 @@ export function AdminFinancePage() {
       )}
       {!loading && tab === "statements" && (
         <>
+          <article className="finance-panel">
+            <h2>待覆核調整</h2>
+            <p className="finance-note">
+              待覆核退款會阻止相關期間結帳；請依契約、Provider
+              退費資料及專業確認結果核准或拒絕。
+            </p>
+            <div className="finance-table-scroll">
+              <table className="finance-table">
+                <thead>
+                  <tr>
+                    <th>商家</th>
+                    <th>退款／付款</th>
+                    <th>原對帳單</th>
+                    <th>退款日期</th>
+                    <th>訂金／平台費回沖</th>
+                    <th>抵付／Provider 費</th>
+                    <th>政策</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingAdjustments.length ? (
+                    pendingAdjustments.map((item) => (
+                      <tr key={String(item.id)}>
+                        <td>{String(item.merchant_name)}</td>
+                        <td>
+                          {String(item.source_refund_id || "—")}
+                          <br />
+                          {String(item.source_payment_id || "—")}
+                        </td>
+                        <td>{String(item.source_statement_no || "—")}</td>
+                        <td>{String(item.effective_date)}</td>
+                        <td>
+                          {moneyMinor(item.deposit_reversal_minor)} /{" "}
+                          {moneyMinor(item.platform_fee_reversal_minor)}
+                        </td>
+                        <td>
+                          {moneyMinor(item.offset_reversal_minor)} /{" "}
+                          {moneyMinor(item.provider_fee_reversal_minor)}
+                        </td>
+                        <td>
+                          {String(item.refund_platform_fee_policy)} /{" "}
+                          {String(item.refund_offset_policy)} /{" "}
+                          {String(item.provider_fee_refund_policy)}
+                        </td>
+                        <td>
+                          <button
+                            disabled={busy}
+                            onClick={() =>
+                              setDialog({
+                                action: "review-adjustment",
+                                item,
+                              })
+                            }
+                          >
+                            正式覆核
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8}>目前沒有待覆核調整</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </article>
           <article className="finance-panel">
             <h2>月結對帳單</h2>
             <div className="finance-filters">
@@ -1450,6 +1627,28 @@ export function AdminFinancePage() {
                 .then(() => refresh("付款來源資格已覆核。"))
                 .catch((cause) =>
                   setError(cause instanceof Error ? cause.message : "覆核失敗"),
+                )
+                .finally(() => {
+                  setBusy(false);
+                  setDialog(null);
+                });
+            } else if (dialog.action === "review-adjustment") {
+              const item = dialog.item as Payment;
+              const key = idempotencyKey("adjustment-review", String(item.id));
+              setBusy(true);
+              request(
+                `/settlement-adjustments/${encodeURIComponent(String(item.id))}/review`,
+                {
+                  method: "POST",
+                  headers: { "idempotency-key": key },
+                  body: JSON.stringify({ ...data, idempotency_key: key }),
+                },
+              )
+                .then(() => refresh("退款調整覆核已完成並記錄 Audit。"))
+                .catch((cause) =>
+                  setError(
+                    cause instanceof Error ? cause.message : "覆核調整失敗",
+                  ),
                 )
                 .finally(() => {
                   setBusy(false);

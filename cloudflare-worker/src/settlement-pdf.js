@@ -143,6 +143,7 @@ export function settlementCsv(statement, items = [], adjustments = []) {
     ["商家", statement.merchant_name || statement.merchant_id],
     ["期間", `${statement.period_start}~${statement.period_end}`],
     ["狀態", statement.status],
+    ["規則版本", statement.calculation_version],
     ["訂單總額(分)", statement.total_order_amount_minor],
     ["預期訂金(分)", statement.expected_deposit_amount_minor],
     ["實際代收訂金(分)", statement.actual_deposit_collected_minor],

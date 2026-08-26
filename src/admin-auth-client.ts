@@ -1,4 +1,7 @@
-const API = "https://chuang-baiye-ai.baiye-platform.workers.dev";
+const API = (
+  import.meta.env.VITE_PLATFORM_API_URL ||
+  "https://chuang-baiye-ai.baiye-platform.workers.dev"
+).replace(/\/$/, "");
 let csrfToken = "";
 
 type AdminUser = { email: string; name: string; role: "admin" | "super_admin" };

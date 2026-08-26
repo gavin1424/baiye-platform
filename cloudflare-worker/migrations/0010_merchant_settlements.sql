@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_profiles (
   accounting_review_status TEXT NOT NULL DEFAULT 'pending' CHECK(accounting_review_status IN ('pending','approved','rejected')),
   effective_from TEXT,
   effective_to TEXT,
-  calculation_version TEXT NOT NULL DEFAULT 'settlement-v2',
+  calculation_version TEXT NOT NULL DEFAULT 'settlement-v3',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CHECK(effective_to IS NULL OR effective_from IS NULL OR effective_to >= effective_from)
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS merchant_settlements (
   period_start_utc TEXT NOT NULL,
   period_end_exclusive_utc TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','review','locked','paid','void')),
-  currency TEXT NOT NULL DEFAULT 'TWD' CHECK(length(currency)=3),
+  currency TEXT NOT NULL DEFAULT 'TWD' CHECK(currency='TWD'),
   total_order_amount_minor INTEGER NOT NULL DEFAULT 0 CHECK(total_order_amount_minor >= 0),
   expected_deposit_amount_minor INTEGER NOT NULL DEFAULT 0 CHECK(expected_deposit_amount_minor >= 0),
   actual_deposit_collected_minor INTEGER NOT NULL DEFAULT 0 CHECK(actual_deposit_collected_minor >= 0),
@@ -180,7 +180,11 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_adjustments (
   source_payment_id TEXT REFERENCES payments(id) ON DELETE RESTRICT,
   source_statement_id TEXT REFERENCES merchant_settlements(id) ON DELETE RESTRICT,
   review_status TEXT NOT NULL DEFAULT 'approved' CHECK(review_status IN ('pending','approved','rejected')),
-  idempotency_key TEXT NOT NULL UNIQUE,
+  review_reason TEXT,
+  provider_fee_refund_reference TEXT,
+  reviewed_by TEXT,
+  reviewed_at TEXT,
+  idempotency_key TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','applied','void')),
   created_by TEXT NOT NULL,
   approved_by TEXT,
@@ -188,7 +192,9 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_adjustments (
   applied_at TEXT,
   voided_at TEXT,
   FOREIGN KEY(source_settlement_id, merchant_id) REFERENCES merchant_settlements(id, merchant_id) ON DELETE RESTRICT,
-  FOREIGN KEY(applied_settlement_id, merchant_id) REFERENCES merchant_settlements(id, merchant_id) ON DELETE RESTRICT
+  FOREIGN KEY(applied_settlement_id, merchant_id) REFERENCES merchant_settlements(id, merchant_id) ON DELETE RESTRICT,
+  UNIQUE(id, merchant_id),
+  UNIQUE(merchant_id, source_settlement_id, idempotency_key)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_active_refund_adjustment
@@ -222,7 +228,7 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_events (
   idempotency_key TEXT,
   metadata_json TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(metadata_json)),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(event_type, idempotency_key),
+  UNIQUE(settlement_id, event_type, idempotency_key),
   FOREIGN KEY(settlement_id, merchant_id) REFERENCES merchant_settlements(id, merchant_id) ON DELETE RESTRICT
 );
 
@@ -248,7 +254,7 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_operations (
   operation_type TEXT NOT NULL,
   operation_scope TEXT NOT NULL,
   idempotency_key TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('processing','completed')),
+  status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('processing','completed','failed')),
   expires_at TEXT NOT NULL,
   reconciliation_status TEXT NOT NULL DEFAULT 'pending' CHECK(reconciliation_status IN ('pending','reconciled','failed')),
   http_status INTEGER,
@@ -297,6 +303,10 @@ CREATE INDEX IF NOT EXISTS idx_settlement_adjustments_effective ON merchant_sett
 CREATE INDEX IF NOT EXISTS idx_offset_ledger_balance ON merchant_offset_ledger(merchant_id, status, effective_at);
 CREATE INDEX IF NOT EXISTS idx_settlement_events_statement ON merchant_settlement_events(settlement_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_settlement_documents_statement ON settlement_document_versions(settlement_id, pdf_version DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_settlement_processing_operation
+  ON merchant_settlement_operations(merchant_id, operation_scope, operation_type)
+  WHERE status='processing';
 
 CREATE TRIGGER IF NOT EXISTS trg_locked_settlement_amounts_immutable
 BEFORE UPDATE OF total_order_amount_minor,expected_deposit_amount_minor,actual_deposit_collected_minor,deposit_variance_minor,
@@ -356,6 +366,21 @@ CREATE TRIGGER IF NOT EXISTS trg_settlement_document_immutable_delete
 BEFORE DELETE ON settlement_document_versions
 BEGIN SELECT RAISE(ABORT, 'settlement document version is immutable'); END;
 
+CREATE TRIGGER IF NOT EXISTS trg_adjustment_review_final
+BEFORE UPDATE OF review_status ON merchant_settlement_adjustments
+WHEN OLD.review_status IN ('approved','rejected') AND NEW.review_status<>OLD.review_status
+BEGIN SELECT RAISE(ABORT, 'adjustment review decision is final'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_applied_adjustment_immutable
+BEFORE UPDATE OF merchant_id,source_settlement_id,applied_settlement_id,adjustment_type,
+  deposit_reversal_minor,platform_fee_reversal_minor,offset_reversal_minor,
+  provider_fee_retained_minor,provider_fee_reversal_minor,amount_minor,effective_date,
+  eligible_period_start,source_refund_id,source_payment_id,source_statement_id,
+  review_status,idempotency_key
+ON merchant_settlement_adjustments
+WHEN OLD.status IN ('applied','void')
+BEGIN SELECT RAISE(ABORT, 'applied adjustment is immutable'); END;
+
 CREATE TRIGGER IF NOT EXISTS trg_offset_ledger_balance_bounds
 BEFORE INSERT ON merchant_offset_ledger
 WHEN NEW.status='posted' AND (
@@ -364,3 +389,68 @@ WHEN NEW.status='posted' AND (
      COALESCE((SELECT offset_target_amount_minor FROM merchant_settlement_profiles WHERE merchant_id=NEW.merchant_id),0)
 )
 BEGIN SELECT RAISE(ABORT, 'offset ledger balance out of bounds'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_offset_ledger_immutable_update
+BEFORE UPDATE ON merchant_offset_ledger
+BEGIN SELECT RAISE(ABORT, 'offset ledger entry is immutable'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_offset_ledger_immutable_delete
+BEFORE DELETE ON merchant_offset_ledger
+BEGIN SELECT RAISE(ABORT, 'offset ledger entry is immutable'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_offset_ledger_merchant_matches_settlement
+BEFORE INSERT ON merchant_offset_ledger
+WHEN NEW.settlement_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM merchant_settlements
+  WHERE id=NEW.settlement_id AND merchant_id=NEW.merchant_id
+)
+BEGIN SELECT RAISE(ABORT, 'offset ledger settlement merchant mismatch'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_offset_ledger_merchant_matches_adjustment
+BEFORE INSERT ON merchant_offset_ledger
+WHEN NEW.adjustment_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM merchant_settlement_adjustments
+  WHERE id=NEW.adjustment_id AND merchant_id=NEW.merchant_id
+)
+BEGIN SELECT RAISE(ABORT, 'offset ledger adjustment merchant mismatch'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_profile_offset_target_not_below_ledger
+BEFORE UPDATE OF offset_target_amount_minor ON merchant_settlement_profiles
+WHEN NEW.offset_target_amount_minor < COALESCE((
+  SELECT SUM(amount_minor) FROM merchant_offset_ledger
+  WHERE merchant_id=OLD.merchant_id AND status='posted'
+),0)
+BEGIN SELECT RAISE(ABORT, 'offset target is below posted ledger balance'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_profile_plan_change_requires_clear_ledger
+BEFORE UPDATE OF payment_plan ON merchant_settlement_profiles
+WHEN OLD.payment_plan='sales_offset_18000'
+ AND NEW.payment_plan='upfront_18000'
+ AND EXISTS (
+   SELECT 1 FROM merchant_offset_ledger
+   WHERE merchant_id=OLD.merchant_id AND status='posted'
+ )
+BEGIN SELECT RAISE(ABORT, 'payment plan change requires formal settlement'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_settlement_period_overlap_insert
+BEFORE INSERT ON merchant_settlements
+WHEN NEW.status<>'void' AND EXISTS (
+  SELECT 1 FROM merchant_settlements existing
+  WHERE existing.merchant_id=NEW.merchant_id
+    AND existing.status<>'void'
+    AND NEW.period_start<=existing.period_end
+    AND NEW.period_end>=existing.period_start
+)
+BEGIN SELECT RAISE(ABORT, 'settlement period overlaps an active statement'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_settlement_period_overlap_update
+BEFORE UPDATE OF merchant_id,period_start,period_end,status ON merchant_settlements
+WHEN NEW.status<>'void' AND EXISTS (
+  SELECT 1 FROM merchant_settlements existing
+  WHERE existing.merchant_id=NEW.merchant_id
+    AND existing.id<>OLD.id
+    AND existing.status<>'void'
+    AND NEW.period_start<=existing.period_end
+    AND NEW.period_end>=existing.period_start
+)
+BEGIN SELECT RAISE(ABORT, 'settlement period overlaps an active statement'); END;
