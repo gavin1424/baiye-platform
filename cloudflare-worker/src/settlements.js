@@ -1462,7 +1462,6 @@ export async function handleSettlementRequest(
       if (!key)
         return json({ error: "建立草稿需要 Idempotency-Key。" }, 400, cors);
       const range = period(input.period_start, input.period_end);
-      await assertPeriodIntegrity(db, input.merchant_id, range);
       const createScope = `${input.merchant_id}:${range.start}:${range.end}`;
       const replay = await db
         .prepare(
@@ -1475,6 +1474,7 @@ export async function handleSettlementRequest(
           ...cors,
           "idempotent-replay": "true",
         });
+      await assertPeriodIntegrity(db, input.merchant_id, range);
       const computed = await computation(db, input.merchant_id, range, input);
       const statementId = uid("stmt");
       const statementNo = statementNumber(range.start);
