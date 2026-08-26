@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { adminApi } from "../admin-auth-client";
 
-const API = "https://chuang-baiye-ai.baiye-platform.workers.dev";
+const API = (
+  import.meta.env.VITE_PLATFORM_API_URL ||
+  "https://chuang-baiye-ai.baiye-platform.workers.dev"
+).replace(/\/$/, "");
 const DEFAULT_MERCHANT_ID = "meiling_patchwork";
 const weekdays = [
   "星期日",

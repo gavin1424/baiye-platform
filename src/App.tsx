@@ -10,6 +10,7 @@ import { AiChatWidget } from "./components/AiChatWidget";
 import { FaqPageV13, HowItWorksPageV13, PricingPageV13, TermsPageV13 } from "./pages/CommercialV13Pages";
 import { AccountUnavailablePage, CatalogUnavailablePage, EmptyCollaborationPage, MerchantAccessUnavailablePage, ProductionContactPage, ProductionNotFoundPage, ProductionPrivacyPage, VerifiedBusinessesPage } from "./pages/ProductionPublicPages";
 import { ProductionAdminOverview } from "./pages/ProductionAdminOverview";
+import { DepositSettlementPage, MerchantSettlementsUnavailablePage } from "./pages/DepositSettlementPage";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
 const PAGE_TITLES: Record<string, string> = {
@@ -47,6 +48,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin": "平台管理員後台｜創百業智慧鏈",
   "/admin/finance": "財務管理｜創百業智慧鏈",
   "/admin/bookings": "預約管理｜創百業智慧鏈",
+  "/services/deposit-settlement": "訂金代收與月結對帳服務｜創百業智慧鏈",
+  "/merchant/settlements": "商家月結對帳｜創百業智慧鏈",
   "/partner": "承攬夥伴中心｜創百業智慧鏈",
   "/partner/apply": "承攬夥伴合作申請｜創百業智慧鏈",
   "/partner/activate": "啟用承攬夥伴帳號｜創百業智慧鏈",
@@ -117,7 +120,7 @@ function MemberRoute({ children }: { children: ReactNode }) {
 
 function AdminRoute({ children }: { children: ReactNode }) {
   const { session, authReady } = useAppStore();
-  if (!authReady) return <main className="route-loading" aria-busy="true">正在驗證管理員權限…</main>;
+  if (!authReady) return <Navigate to="/login" replace />;
   if (session.role === "guest") return <Navigate to="/login" replace />;
   if (session.role === "member") return <Navigate to="/pricing" replace />;
   if (session.role === "business") return <Navigate to="/dashboard" replace />;
@@ -162,6 +165,8 @@ export function App() {
         <Route path="/messages" element={<MerchantAccessUnavailablePage />} />
         <Route path="/notifications" element={<MerchantAccessUnavailablePage />} />
         <Route path="/pricing" element={<PricingPageV13 />} />
+        <Route path="/services/deposit-settlement" element={<DepositSettlementPage />} />
+        <Route path="/merchant/settlements" element={<MerchantSettlementsUnavailablePage />} />
         <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="/how-it-works" element={<HowItWorksPageV13 />} />
         <Route path="/success-stories" element={<VerifiedBusinessesPage />} />

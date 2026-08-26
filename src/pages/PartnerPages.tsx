@@ -4,7 +4,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
 
-const API = "https://chuang-baiye-ai.baiye-platform.workers.dev";
+const API = (
+  import.meta.env.VITE_PLATFORM_API_URL ||
+  "https://chuang-baiye-ai.baiye-platform.workers.dev"
+).replace(/\/$/, "");
 const formatDate = (value?: string | null) =>
   value
     ? new Intl.DateTimeFormat("zh-TW", {
