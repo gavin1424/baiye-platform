@@ -67,6 +67,10 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_sources (
   UNIQUE(id, merchant_id)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_eligible_platform_deposit_per_order
+  ON merchant_settlement_sources(merchant_id, order_id)
+  WHERE collection_role = 'platform_deposit' AND settlement_eligible = 1;
+
 CREATE TABLE IF NOT EXISTS merchant_settlements (
   id TEXT PRIMARY KEY,
   statement_no TEXT NOT NULL UNIQUE,
@@ -93,7 +97,10 @@ CREATE TABLE IF NOT EXISTS merchant_settlements (
   tax_reserve_minor INTEGER NOT NULL DEFAULT 0 CHECK(tax_reserve_minor >= 0),
   withholding_minor INTEGER NOT NULL DEFAULT 0 CHECK(withholding_minor >= 0),
   adjustments_minor INTEGER NOT NULL DEFAULT 0,
+  net_settlement_minor INTEGER NOT NULL DEFAULT 0,
   merchant_payable_minor INTEGER NOT NULL DEFAULT 0 CHECK(merchant_payable_minor >= 0),
+  merchant_due_to_platform_minor INTEGER NOT NULL DEFAULT 0 CHECK(merchant_due_to_platform_minor >= 0),
+  carry_forward_balance_minor INTEGER NOT NULL DEFAULT 0,
   prior_offset_amount_minor INTEGER NOT NULL DEFAULT 0 CHECK(prior_offset_amount_minor >= 0),
   current_offset_amount_minor INTEGER NOT NULL DEFAULT 0 CHECK(current_offset_amount_minor >= 0),
   cumulative_offset_amount_minor INTEGER NOT NULL DEFAULT 0 CHECK(cumulative_offset_amount_minor >= 0),
@@ -163,9 +170,16 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_adjustments (
   platform_fee_reversal_minor INTEGER NOT NULL DEFAULT 0,
   offset_reversal_minor INTEGER NOT NULL DEFAULT 0,
   provider_fee_retained_minor INTEGER NOT NULL DEFAULT 0 CHECK(provider_fee_retained_minor >= 0),
+  provider_fee_reversal_minor INTEGER NOT NULL DEFAULT 0 CHECK(provider_fee_reversal_minor >= 0),
   amount_minor INTEGER NOT NULL CHECK(amount_minor != 0),
   reason TEXT NOT NULL,
   source_reference TEXT,
+  effective_date TEXT NOT NULL,
+  eligible_period_start TEXT NOT NULL,
+  source_refund_id TEXT REFERENCES refunds(id) ON DELETE RESTRICT,
+  source_payment_id TEXT REFERENCES payments(id) ON DELETE RESTRICT,
+  source_statement_id TEXT REFERENCES merchant_settlements(id) ON DELETE RESTRICT,
+  review_status TEXT NOT NULL DEFAULT 'approved' CHECK(review_status IN ('pending','approved','rejected')),
   idempotency_key TEXT NOT NULL UNIQUE,
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','applied','void')),
   created_by TEXT NOT NULL,
@@ -175,6 +189,25 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_adjustments (
   voided_at TEXT,
   FOREIGN KEY(source_settlement_id, merchant_id) REFERENCES merchant_settlements(id, merchant_id) ON DELETE RESTRICT,
   FOREIGN KEY(applied_settlement_id, merchant_id) REFERENCES merchant_settlements(id, merchant_id) ON DELETE RESTRICT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_active_refund_adjustment
+  ON merchant_settlement_adjustments(source_refund_id)
+  WHERE source_refund_id IS NOT NULL AND status <> 'void';
+
+CREATE TABLE IF NOT EXISTS merchant_offset_ledger (
+  id TEXT PRIMARY KEY,
+  merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE RESTRICT,
+  settlement_id TEXT REFERENCES merchant_settlements(id) ON DELETE RESTRICT,
+  adjustment_id TEXT REFERENCES merchant_settlement_adjustments(id) ON DELETE RESTRICT,
+  entry_type TEXT NOT NULL CHECK(entry_type IN ('offset_earned','refund_reversal','manual_correction','correction_reversal')),
+  amount_minor INTEGER NOT NULL CHECK(amount_minor != 0),
+  effective_at TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'posted' CHECK(status IN ('posted','reversed')),
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(merchant_id, idempotency_key)
 );
 
 CREATE TABLE IF NOT EXISTS merchant_settlement_events (
@@ -213,16 +246,45 @@ CREATE TABLE IF NOT EXISTS merchant_settlement_operations (
   settlement_id TEXT REFERENCES merchant_settlements(id) ON DELETE RESTRICT,
   merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE RESTRICT,
   operation_type TEXT NOT NULL,
+  operation_scope TEXT NOT NULL,
   idempotency_key TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('processing','completed')),
+  expires_at TEXT NOT NULL,
+  reconciliation_status TEXT NOT NULL DEFAULT 'pending' CHECK(reconciliation_status IN ('pending','reconciled','failed')),
   http_status INTEGER,
   response_json TEXT CHECK(response_json IS NULL OR json_valid(response_json)),
   created_by TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   completed_at TEXT,
-  UNIQUE(operation_type, idempotency_key),
+  UNIQUE(merchant_id, operation_scope, operation_type, idempotency_key),
   FOREIGN KEY(settlement_id, merchant_id) REFERENCES merchant_settlements(id, merchant_id) ON DELETE RESTRICT
 );
+
+CREATE TABLE IF NOT EXISTS finance_refund_operations (
+  id TEXT PRIMARY KEY,
+  payment_id TEXT NOT NULL REFERENCES payments(id) ON DELETE RESTRICT,
+  merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE RESTRICT,
+  idempotency_key TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('processing','completed')),
+  refund_id TEXT REFERENCES refunds(id) ON DELETE RESTRICT,
+  response_json TEXT CHECK(response_json IS NULL OR json_valid(response_json)),
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TEXT,
+  UNIQUE(payment_id, idempotency_key)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_refunds_provider_refund_id
+  ON refunds(provider_refund_id)
+  WHERE provider_refund_id IS NOT NULL AND provider_refund_id <> '';
+
+CREATE TRIGGER IF NOT EXISTS trg_refund_prevent_over_refund
+BEFORE INSERT ON refunds
+WHEN NEW.status IN ('pending','refunded') AND (
+  COALESCE((SELECT SUM(amount) FROM refunds WHERE payment_id=NEW.payment_id AND status IN ('pending','refunded')),0) + NEW.amount >
+  COALESCE((SELECT gross_amount FROM payments WHERE id=NEW.payment_id),0)
+)
+BEGIN SELECT RAISE(ABORT, 'refund total exceeds payment gross amount'); END;
 
 CREATE INDEX IF NOT EXISTS idx_settlement_profiles_enabled ON merchant_settlement_profiles(enabled, payment_plan);
 CREATE INDEX IF NOT EXISTS idx_settlement_sources_eligible ON merchant_settlement_sources(merchant_id, settlement_eligible, occurred_at);
@@ -231,6 +293,8 @@ CREATE INDEX IF NOT EXISTS idx_settlements_merchant_period ON merchant_settlemen
 CREATE INDEX IF NOT EXISTS idx_settlements_status ON merchant_settlements(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_settlement_items_statement ON merchant_settlement_items(settlement_id, item_type);
 CREATE INDEX IF NOT EXISTS idx_settlement_adjustments_pending ON merchant_settlement_adjustments(merchant_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_settlement_adjustments_effective ON merchant_settlement_adjustments(merchant_id, status, eligible_period_start);
+CREATE INDEX IF NOT EXISTS idx_offset_ledger_balance ON merchant_offset_ledger(merchant_id, status, effective_at);
 CREATE INDEX IF NOT EXISTS idx_settlement_events_statement ON merchant_settlement_events(settlement_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_settlement_documents_statement ON settlement_document_versions(settlement_id, pdf_version DESC);
 
@@ -238,6 +302,7 @@ CREATE TRIGGER IF NOT EXISTS trg_locked_settlement_amounts_immutable
 BEFORE UPDATE OF total_order_amount_minor,expected_deposit_amount_minor,actual_deposit_collected_minor,deposit_variance_minor,
   processing_fee_minor,actual_fee_total_minor,estimated_fee_total_minor,missing_actual_fee_count,
   platform_service_fee_minor,tax_reserve_minor,withholding_minor,adjustments_minor,merchant_payable_minor,
+  net_settlement_minor,merchant_due_to_platform_minor,carry_forward_balance_minor,
   prior_offset_amount_minor,current_offset_amount_minor,cumulative_offset_amount_minor,remaining_offset_amount_minor,
   ongoing_platform_fee_minor,calculation_version,rules_snapshot_json
 ON merchant_settlements
@@ -265,3 +330,37 @@ WHEN NEW.settlement_source_id IS NOT NULL
     ''
   ) <> NEW.settlement_id
 BEGIN SELECT RAISE(ABORT, 'settlement source is not reserved by this statement'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_settlement_source_reserved_immutable
+BEFORE UPDATE OF merchant_id,payment_id,order_id,collection_role,settlement_eligible,order_total_amount_minor,
+  expected_deposit_amount_minor,actual_collected_amount_minor,provider_fee_actual_minor,occurred_at
+ON merchant_settlement_sources
+WHEN OLD.reserved_statement_id IS NOT NULL
+BEGIN SELECT RAISE(ABORT, 'reserved settlement source is immutable'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_settlement_source_single_active_statement
+BEFORE INSERT ON merchant_settlement_items
+WHEN NEW.settlement_source_id IS NOT NULL AND EXISTS (
+  SELECT 1 FROM merchant_settlement_items existing
+  JOIN merchant_settlements statement ON statement.id=existing.settlement_id
+  WHERE existing.settlement_source_id=NEW.settlement_source_id
+    AND existing.settlement_id<>NEW.settlement_id AND statement.status<>'void'
+)
+BEGIN SELECT RAISE(ABORT, 'settlement source already belongs to an active statement'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_settlement_document_immutable_update
+BEFORE UPDATE ON settlement_document_versions
+BEGIN SELECT RAISE(ABORT, 'settlement document version is immutable'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_settlement_document_immutable_delete
+BEFORE DELETE ON settlement_document_versions
+BEGIN SELECT RAISE(ABORT, 'settlement document version is immutable'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_offset_ledger_balance_bounds
+BEFORE INSERT ON merchant_offset_ledger
+WHEN NEW.status='posted' AND (
+  COALESCE((SELECT SUM(amount_minor) FROM merchant_offset_ledger WHERE merchant_id=NEW.merchant_id AND status='posted'),0) + NEW.amount_minor < 0
+  OR COALESCE((SELECT SUM(amount_minor) FROM merchant_offset_ledger WHERE merchant_id=NEW.merchant_id AND status='posted'),0) + NEW.amount_minor >
+     COALESCE((SELECT offset_target_amount_minor FROM merchant_settlement_profiles WHERE merchant_id=NEW.merchant_id),0)
+)
+BEGIN SELECT RAISE(ABORT, 'offset ledger balance out of bounds'); END;

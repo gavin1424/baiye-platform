@@ -9,6 +9,7 @@ import {
 import { createSettlementPdf, settlementCsv } from "./settlement-pdf.js";
 import { sha256 } from "./contract-pdf.js";
 import {
+  formatTaipeiDate,
   isDate,
   taipeiDateToUtcEndExclusive,
   taipeiDateToUtcStart,
@@ -156,9 +157,9 @@ async function beginOperation(db, session, statement, type, key) {
     return { error: json({ error: "此操作需要 Idempotency-Key。" }, 400) };
   const previous = await db
     .prepare(
-      "SELECT status,http_status,response_json FROM merchant_settlement_operations WHERE operation_type=? AND idempotency_key=?",
+      "SELECT status,http_status,response_json,expires_at FROM merchant_settlement_operations WHERE merchant_id=? AND operation_scope=? AND operation_type=? AND idempotency_key=?",
     )
-    .bind(type, key)
+    .bind(statement.merchant_id, statement.id, type, key)
     .first();
   if (previous?.status === "completed")
     return {
@@ -168,20 +169,53 @@ async function beginOperation(db, session, statement, type, key) {
         { "idempotent-replay": "true" },
       ),
     };
-  if (previous)
+  if (
+    previous?.status === "processing" &&
+    ((type === "lock" && ["locked", "paid"].includes(statement.status)) ||
+      (type === "mark-paid" && statement.status === "paid") ||
+      (type === "submit-review" && statement.status === "review") ||
+      (type === "return-draft" && statement.status === "draft") ||
+      (type === "void" && statement.status === "void"))
+  ) {
+    const payload = {
+      ok: true,
+      status: statement.status,
+      statement_hash: statement.statement_hash || undefined,
+      pdf_hash: statement.pdf_hash || undefined,
+      pdf_version: statement.current_pdf_version || undefined,
+      reconciled_after_interruption: true,
+    };
+    await db
+      .prepare(
+        "UPDATE merchant_settlement_operations SET status='completed',reconciliation_status='reconciled',http_status=200,response_json=?,completed_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND operation_scope=? AND operation_type=? AND idempotency_key=?",
+      )
+      .bind(
+        JSON.stringify(payload),
+        statement.merchant_id,
+        statement.id,
+        type,
+        key,
+      )
+      .run();
+    return {
+      replay: json(payload, 200, { "idempotent-replay": "true" }),
+    };
+  }
+  if (previous && String(previous.expires_at) > now())
     return {
       error: json({ error: "相同操作仍在處理中，請勿重複送出。" }, 409),
     };
   try {
     await db
       .prepare(
-        "INSERT INTO merchant_settlement_operations(id,settlement_id,merchant_id,operation_type,idempotency_key,created_by) VALUES (?,?,?,?,?,?)",
+        "INSERT INTO merchant_settlement_operations(id,settlement_id,merchant_id,operation_type,operation_scope,idempotency_key,expires_at,reconciliation_status,created_by) VALUES (?,?,?,?,?,?,datetime('now','+10 minutes'),'pending',?) ON CONFLICT(merchant_id,operation_scope,operation_type,idempotency_key) DO UPDATE SET status='processing',expires_at=datetime('now','+10 minutes'),reconciliation_status='pending',response_json=NULL,http_status=NULL,completed_at=NULL WHERE merchant_settlement_operations.status='processing' AND merchant_settlement_operations.expires_at<=CURRENT_TIMESTAMP",
       )
       .bind(
         uid("stop"),
         statement.id,
         statement.merchant_id,
         type,
+        statement.id,
         key,
         actor(session),
       )
@@ -192,21 +226,21 @@ async function beginOperation(db, session, statement, type, key) {
   }
 }
 
-async function completeOperation(db, type, key, payload, status = 200) {
+async function completeOperation(db, statement, type, key, payload, status = 200) {
   await db
     .prepare(
-      "UPDATE merchant_settlement_operations SET status='completed',http_status=?,response_json=?,completed_at=CURRENT_TIMESTAMP WHERE operation_type=? AND idempotency_key=? AND status='processing'",
+      "UPDATE merchant_settlement_operations SET status='completed',reconciliation_status='reconciled',http_status=?,response_json=?,completed_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND operation_scope=? AND operation_type=? AND idempotency_key=? AND status='processing'",
     )
-    .bind(status, JSON.stringify(payload), type, key)
+    .bind(status, JSON.stringify(payload), statement.merchant_id, statement.id, type, key)
     .run();
 }
 
-async function abandonOperation(db, type, key) {
+async function abandonOperation(db, statement, type, key) {
   await db
     .prepare(
-      "DELETE FROM merchant_settlement_operations WHERE operation_type=? AND idempotency_key=? AND status='processing'",
+      "UPDATE merchant_settlement_operations SET reconciliation_status='failed',expires_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND operation_scope=? AND operation_type=? AND idempotency_key=? AND status='processing'",
     )
-    .bind(type, key)
+    .bind(statement.merchant_id, statement.id, type, key)
     .run();
 }
 
@@ -229,7 +263,7 @@ async function eligibleSources(
 ) {
   const rows = await db
     .prepare(
-      `SELECT s.*,p.status payment_status,p.source payment_source,p.gross_amount,p.fee_amount,p.payment_no,o.order_no
+      `SELECT s.*,p.status payment_status,p.source payment_source,p.gross_amount,p.fee_amount,p.payment_no,p.paid_at,o.order_no
     FROM merchant_settlement_sources s
     JOIN payments p ON p.id=s.payment_id AND p.merchant_id=s.merchant_id
     JOIN orders o ON o.id=s.order_id AND o.merchant_id=s.merchant_id
@@ -258,6 +292,11 @@ async function eligibleSources(
       anomalies.push({
         payment_id: row.payment_id,
         reason: "付款尚未成功 captured／paid",
+      });
+    if (!row.paid_at || row.occurred_at !== row.paid_at)
+      anomalies.push({
+        payment_id: row.payment_id,
+        reason: "付款缺少 paid_at，或來源月份不是依實際 paid_at 建立",
       });
     if (
       row.payment_source === "manual" &&
@@ -301,19 +340,30 @@ async function eligibleSources(
         payment_id: row.payment_id,
         reason: "退款政策需要人工覆核",
       });
-    const effectiveOrderTotal =
+    const basePlatformFee = roundByBasisPoints(
+      Number(row.order_total_amount_minor),
+      Number(selectedProfile?.platform_fee_rate_bp || 0),
+    );
+    const platformFeeAmount =
       refundMinor > 0 &&
       selectedProfile?.refund_platform_fee_policy === "pro_rata_reverse"
-        ? roundByBasisPoints(Number(row.order_total_amount_minor), ratioBp)
-        : Number(row.order_total_amount_minor);
+        ? roundByBasisPoints(basePlatformFee, ratioBp)
+        : basePlatformFee;
+    const offsetFeeAmount =
+      refundMinor > 0 &&
+      selectedProfile?.refund_offset_policy === "pro_rata_reverse"
+        ? roundByBasisPoints(basePlatformFee, ratioBp)
+        : basePlatformFee;
     sources.push({
       ...row,
-      order_total_amount_minor: effectiveOrderTotal,
+      order_total_amount_minor: Number(row.order_total_amount_minor),
       expected_deposit_amount_minor: roundByBasisPoints(
-        effectiveOrderTotal,
+        Number(row.order_total_amount_minor),
         Number(selectedProfile?.deposit_rate_bp || 0),
       ),
       actual_collected_amount_minor: actual,
+      platform_fee_amount_minor: platformFeeAmount,
+      offset_fee_amount_minor: offsetFeeAmount,
       provider_fee_actual_minor:
         row.provider_fee_actual_minor == null
           ? null
@@ -321,6 +371,17 @@ async function eligibleSources(
       refunds: refunds.results,
       refund_minor: refundMinor,
     });
+  }
+  const orderPayments = new Map();
+  for (const source of sources) {
+    if (orderPayments.has(source.order_id))
+      anomalies.push({
+        order_id: source.order_id,
+        payment_id: source.payment_id,
+        existing_payment_id: orderPayments.get(source.order_id),
+        reason: "同一訂單存在多筆合格平台訂金",
+      });
+    else orderPayments.set(source.order_id, source.payment_id);
   }
   if (anomalies.length)
     throw Object.assign(
@@ -330,12 +391,12 @@ async function eligibleSources(
   return sources;
 }
 
-async function pendingAdjustments(db, merchantId) {
+async function pendingAdjustments(db, merchantId, range) {
   const rows = await db
     .prepare(
-      "SELECT * FROM merchant_settlement_adjustments WHERE merchant_id=? AND status='pending' ORDER BY created_at,id",
+      "SELECT * FROM merchant_settlement_adjustments WHERE merchant_id=? AND status='pending' AND review_status='approved' AND eligible_period_start<=? AND effective_date<=? ORDER BY effective_date,id",
     )
-    .bind(merchantId)
+    .bind(merchantId, range.end, range.end)
     .all();
   return rows.results;
 }
@@ -343,18 +404,38 @@ async function pendingAdjustments(db, merchantId) {
 async function priorOffset(db, merchantId, excludeId = null) {
   const row = await db
     .prepare(
-      `SELECT COALESCE(MAX(cumulative_offset_amount_minor),0) total FROM merchant_settlements
-    WHERE merchant_id=? AND status IN ('locked','paid') ${excludeId ? "AND id<>?" : ""}`,
+      `SELECT COALESCE(SUM(amount_minor),0) total FROM merchant_offset_ledger
+    WHERE merchant_id=? AND status='posted' ${excludeId ? "AND (settlement_id IS NULL OR settlement_id<>?)" : ""}`,
     )
     .bind(...(excludeId ? [merchantId, excludeId] : [merchantId]))
     .first();
-  const reversals = await db
+  return Math.max(0, Number(row?.total || 0));
+}
+
+async function priorCarryForward(db, merchantId, excludeId = null) {
+  const row = await db
     .prepare(
-      "SELECT COALESCE(SUM(offset_reversal_minor),0) total FROM merchant_settlement_adjustments WHERE merchant_id=? AND status='pending'",
+      `SELECT carry_forward_balance_minor FROM merchant_settlements
+       WHERE merchant_id=? AND status IN ('locked','paid') ${excludeId ? "AND id<>?" : ""}
+       ORDER BY period_end DESC,locked_at DESC LIMIT 1`,
+    )
+    .bind(...(excludeId ? [merchantId, excludeId] : [merchantId]))
+    .first();
+  return Number(row?.carry_forward_balance_minor || 0);
+}
+
+async function reconcileRefunds(db, session, merchantId) {
+  const rows = await db
+    .prepare(
+      `SELECT DISTINCT r.id FROM refunds r
+       JOIN merchant_settlement_items i ON i.payment_id=r.payment_id
+       JOIN merchant_settlements s ON s.id=i.settlement_id
+       WHERE s.merchant_id=? AND s.status<>'void' AND r.status='refunded'`,
     )
     .bind(merchantId)
-    .first();
-  return Math.max(0, Number(row?.total || 0) + Number(reversals?.total || 0));
+    .all();
+  for (const row of rows.results)
+    await createSettlementRefundAdjustment(db, session, row.id);
 }
 
 async function computation(
@@ -364,6 +445,7 @@ async function computation(
   manual = {},
   excludeId = null,
 ) {
+  await reconcileRefunds(db, { admin_user_id: "system_reconciliation" }, merchantId);
   const selectedProfile = await profile(db, merchantId);
   if (!selectedProfile)
     throw Object.assign(new Error("此商家尚未建立訂金代收規則。"), {
@@ -381,15 +463,36 @@ async function computation(
   )
     throw new TypeError("對帳期間不在有效契約期間內。");
   const sources = await eligibleSources(db, merchantId, range, excludeId);
-  const adjustmentRows = await pendingAdjustments(db, merchantId);
+  const adjustmentRows = await pendingAdjustments(db, merchantId, range);
+  const blockedReview = await db
+    .prepare(
+      "SELECT id,source_refund_id FROM merchant_settlement_adjustments WHERE merchant_id=? AND status='pending' AND review_status='pending' AND eligible_period_start<=? LIMIT 1",
+    )
+    .bind(merchantId, range.end)
+    .first();
+  if (blockedReview)
+    throw Object.assign(new Error("退款政策尚待正式覆核，無法產生或鎖定本期對帳單。"), {
+      status: 422,
+      anomalies: [blockedReview],
+    });
   const adjustments = adjustmentRows.reduce(
     (sum, row) => sum + Number(row.amount_minor),
     0,
   );
+  const pendingOffsetReversal = adjustmentRows.reduce(
+    (sum, row) => sum + Number(row.offset_reversal_minor || 0),
+    0,
+  );
+  const ledgerOffset = await priorOffset(db, merchantId, excludeId);
   const result = calculateSettlement({
     profile: selectedProfile,
     sources,
-    prior_offset_amount_minor: await priorOffset(db, merchantId, excludeId),
+    prior_offset_amount_minor: Math.max(0, ledgerOffset + pendingOffsetReversal),
+    prior_carry_forward_minor: await priorCarryForward(
+      db,
+      merchantId,
+      excludeId,
+    ),
     adjustments_minor: adjustments,
     manual_tax_reserve_minor: manual.manual_tax_reserve_minor,
     manual_withholding_minor: manual.manual_withholding_minor,
@@ -445,7 +548,10 @@ function statementValues(id, no, merchantId, profileId, range, result) {
     result.tax_reserve_minor,
     result.withholding_minor,
     result.adjustments_minor,
+    result.net_settlement_minor,
     result.merchant_payable_minor,
+    result.merchant_due_to_platform_minor,
+    result.carry_forward_balance_minor,
     result.prior_offset_amount_minor,
     result.current_offset_amount_minor,
     result.cumulative_offset_amount_minor,
@@ -497,16 +603,19 @@ async function getStatement(db, id) {
 export async function createSettlementRefundAdjustment(db, session, refundId) {
   const row = await db
     .prepare(
-      `SELECT r.id,r.amount,r.refunded_at,p.id payment_id,i.settlement_id,i.actual_deposit_amount_minor item_deposit_minor,i.order_total_amount_minor item_order_total_minor,i.processing_fee_minor item_processing_fee_minor,s.merchant_id,s.status,s.total_order_amount_minor,s.platform_service_fee_minor,s.current_offset_amount_minor,sp.refund_platform_fee_policy,sp.refund_offset_policy,sp.provider_fee_refund_policy
+      `SELECT r.id,r.amount,r.refunded_at,r.created_at,p.id payment_id,i.settlement_id,i.actual_deposit_amount_minor item_deposit_minor,i.order_total_amount_minor item_order_total_minor,i.processing_fee_minor item_processing_fee_minor,s.merchant_id,s.status,s.period_end,s.total_order_amount_minor,s.platform_service_fee_minor,s.current_offset_amount_minor,sp.refund_platform_fee_policy,sp.refund_offset_policy,sp.provider_fee_refund_policy
     FROM refunds r JOIN payments p ON p.id=r.payment_id
     JOIN merchant_settlement_items i ON i.payment_id=p.id
     JOIN merchant_settlements s ON s.id=i.settlement_id
     JOIN merchant_settlement_profiles sp ON sp.id=s.profile_id
-    WHERE r.id=? AND r.status='refunded' AND s.status IN ('locked','paid') LIMIT 1`,
+    WHERE r.id=? AND r.status='refunded' AND s.status<>'void' LIMIT 1`,
     )
     .bind(refundId)
     .first();
   if (!row) return null;
+  const effectiveDate = formatTaipeiDate(row.refunded_at || row.created_at);
+  if (!["locked", "paid"].includes(row.status) && effectiveDate <= row.period_end)
+    return { in_period: true, effective_date: effectiveDate };
   const itemShareBp =
     Number(row.total_order_amount_minor) > 0
       ? Number(
@@ -529,16 +638,21 @@ export async function createSettlementRefundAdjustment(db, session, refundId) {
     refundMinor: major(row.amount),
     profile: row,
   });
-  if (reversal.requires_manual_review) return { requires_manual_review: true };
+  const reviewStatus =
+    reversal.requires_manual_review || reversal.requires_provider_fee_review
+      ? "pending"
+      : "approved";
   const amount =
-    reversal.deposit_reversal_minor - reversal.platform_fee_reversal_minor;
+    reversal.deposit_reversal_minor -
+    reversal.platform_fee_reversal_minor +
+    reversal.provider_fee_reversal_minor;
   const key = `refund:${refundId}`;
   try {
     await db
       .prepare(
         `INSERT INTO merchant_settlement_adjustments
-      (id,merchant_id,source_settlement_id,adjustment_type,deposit_reversal_minor,platform_fee_reversal_minor,offset_reversal_minor,provider_fee_retained_minor,amount_minor,reason,source_reference,idempotency_key,created_by)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      (id,merchant_id,source_settlement_id,adjustment_type,deposit_reversal_minor,platform_fee_reversal_minor,offset_reversal_minor,provider_fee_retained_minor,provider_fee_reversal_minor,amount_minor,reason,source_reference,effective_date,eligible_period_start,source_refund_id,source_payment_id,source_statement_id,review_status,idempotency_key,created_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
       .bind(
         uid("stad"),
@@ -549,9 +663,16 @@ export async function createSettlementRefundAdjustment(db, session, refundId) {
         reversal.platform_fee_reversal_minor,
         reversal.offset_reversal_minor,
         reversal.provider_fee_retained_minor,
+        reversal.provider_fee_reversal_minor,
         amount,
         "鎖定後退款自動帶入下一期",
         refundId,
+        effectiveDate,
+        effectiveDate,
+        refundId,
+        row.payment_id,
+        row.settlement_id,
+        reviewStatus,
         key,
         actor(session),
       )
@@ -567,7 +688,7 @@ export async function createSettlementRefundAdjustment(db, session, refundId) {
       { refund_id: refundId, ...reversal },
       key,
     );
-    return { ...reversal, amount_minor: amount };
+    return { ...reversal, amount_minor: amount, review_status: reviewStatus };
   } catch (error) {
     if (/UNIQUE/.test(String(error?.message))) return { duplicate: true };
     throw error;
@@ -665,6 +786,27 @@ export async function handleSettlementRequest(
         .bind(paymentId)
         .first();
       if (!payment) return json({ error: "找不到付款。" }, 404, cors);
+      if (
+        !["paid", "partially_refunded", "refunded"].includes(payment.status) ||
+        !payment.paid_at
+      )
+        return json(
+          { error: "付款尚未完成或缺少實際 paid_at，請先人工修復付款日期。" },
+          422,
+          cors,
+        );
+      const existingSource = await db
+        .prepare(
+          "SELECT reserved_statement_id FROM merchant_settlement_sources WHERE payment_id=?",
+        )
+        .bind(paymentId)
+        .first();
+      if (existingSource?.reserved_statement_id)
+        return json(
+          { error: "此來源已保留於對帳單，請先作廢並釋放來源後再重新覆核。" },
+          409,
+          cors,
+        );
       const role = collectionRoles.has(input.collection_role)
         ? input.collection_role
         : "manual_unclassified";
@@ -681,6 +823,23 @@ export async function handleSettlementRequest(
           400,
           cors,
         );
+      if (eligible) {
+        const duplicate = await db
+          .prepare(
+            "SELECT payment_id FROM merchant_settlement_sources WHERE merchant_id=? AND order_id=? AND collection_role='platform_deposit' AND settlement_eligible=1 AND payment_id<>? LIMIT 1",
+          )
+          .bind(payment.merchant_id, payment.order_id, payment.id)
+          .first();
+        if (duplicate)
+          return json(
+            {
+              error: "同一訂單已有另一筆合格平台訂金。",
+              existing_payment_id: duplicate.payment_id,
+            },
+            409,
+            cors,
+          );
+      }
       const orderTotal =
         input.order_total_amount_minor == null
           ? payment.amount_due == null
@@ -710,8 +869,9 @@ export async function handleSettlementRequest(
         orderTotal,
         Number(selectedProfile?.deposit_rate_bp || 3000),
       );
-      await db
-        .prepare(
+      try {
+        await db
+          .prepare(
           `INSERT INTO merchant_settlement_sources(id,merchant_id,payment_id,order_id,collection_role,settlement_eligible,order_total_amount_minor,expected_deposit_amount_minor,actual_collected_amount_minor,provider_fee_actual_minor,occurred_at,reviewed_by,reviewed_at,updated_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
         ON CONFLICT(payment_id) DO UPDATE SET collection_role=excluded.collection_role,settlement_eligible=excluded.settlement_eligible,order_total_amount_minor=excluded.order_total_amount_minor,expected_deposit_amount_minor=excluded.expected_deposit_amount_minor,actual_collected_amount_minor=excluded.actual_collected_amount_minor,provider_fee_actual_minor=excluded.provider_fee_actual_minor,occurred_at=excluded.occurred_at,reviewed_by=excluded.reviewed_by,reviewed_at=CURRENT_TIMESTAMP,source_version='settlement-source-v1',updated_at=CURRENT_TIMESTAMP`,
@@ -727,10 +887,29 @@ export async function handleSettlementRequest(
           expected,
           actual,
           fee,
-          payment.paid_at || payment.created_at,
+          payment.paid_at,
           actor(adminSession),
         )
-        .run();
+          .run();
+      } catch (error) {
+        if (/UNIQUE/.test(String(error))) {
+          const duplicate = await db
+            .prepare(
+              "SELECT payment_id FROM merchant_settlement_sources WHERE merchant_id=? AND order_id=? AND collection_role='platform_deposit' AND settlement_eligible=1 LIMIT 1",
+            )
+            .bind(payment.merchant_id, payment.order_id)
+            .first();
+          return json(
+            {
+              error: "同一訂單已有另一筆合格平台訂金。",
+              existing_payment_id: duplicate?.payment_id || null,
+            },
+            409,
+            cors,
+          );
+        }
+        throw error;
+      }
       await audit(
         db,
         adminSession,
@@ -875,13 +1054,29 @@ export async function handleSettlementRequest(
   ) {
     const input = await readJson(request);
     try {
+      const key = operationKey(request, input);
+      if (!key)
+        return json({ error: "建立草稿需要 Idempotency-Key。" }, 400, cors);
       const range = period(input.period_start, input.period_end);
+      const createScope = `${input.merchant_id}:${range.start}:${range.end}`;
+      const replay = await db
+        .prepare(
+          "SELECT http_status,response_json FROM merchant_settlement_operations WHERE merchant_id=? AND operation_scope=? AND operation_type='create' AND idempotency_key=? AND status='completed'",
+        )
+        .bind(input.merchant_id, createScope, key)
+        .first();
+      if (replay)
+        return json(JSON.parse(replay.response_json), Number(replay.http_status), {
+          ...cors,
+          "idempotent-replay": "true",
+        });
       const computed = await computation(db, input.merchant_id, range, input);
       const statementId = uid("stmt");
       const statementNo = statementNumber(range.start);
+      const responsePayload = { id: statementId, statement_no: statementNo };
       const sql = `INSERT INTO merchant_settlements
-        (id,statement_no,merchant_id,profile_id,period_start,period_end,period_start_utc,period_end_exclusive_utc,status,currency,total_order_amount_minor,expected_deposit_amount_minor,actual_deposit_collected_minor,deposit_variance_minor,processing_fee_minor,actual_fee_total_minor,estimated_fee_total_minor,missing_actual_fee_count,platform_service_fee_minor,tax_reserve_minor,withholding_minor,adjustments_minor,merchant_payable_minor,prior_offset_amount_minor,current_offset_amount_minor,cumulative_offset_amount_minor,remaining_offset_amount_minor,ongoing_platform_fee_minor,calculation_version,rules_snapshot_json)
-        VALUES (${Array(30).fill("?").join(",")})`;
+        (id,statement_no,merchant_id,profile_id,period_start,period_end,period_start_utc,period_end_exclusive_utc,status,currency,total_order_amount_minor,expected_deposit_amount_minor,actual_deposit_collected_minor,deposit_variance_minor,processing_fee_minor,actual_fee_total_minor,estimated_fee_total_minor,missing_actual_fee_count,platform_service_fee_minor,tax_reserve_minor,withholding_minor,adjustments_minor,net_settlement_minor,merchant_payable_minor,merchant_due_to_platform_minor,carry_forward_balance_minor,prior_offset_amount_minor,current_offset_amount_minor,cumulative_offset_amount_minor,remaining_offset_amount_minor,ongoing_platform_fee_minor,calculation_version,rules_snapshot_json)
+        VALUES (${Array(33).fill("?").join(",")})`;
       const batch = [
         db
           .prepare(sql)
@@ -906,6 +1101,21 @@ export async function handleSettlementRequest(
         );
       for (const item of computed.items)
         batch.push(itemStatement(db, statementId, input.merchant_id, item));
+      batch.push(
+        db
+          .prepare(
+            "INSERT INTO merchant_settlement_operations(id,settlement_id,merchant_id,operation_type,operation_scope,idempotency_key,status,expires_at,reconciliation_status,http_status,response_json,created_by,completed_at) VALUES (?,?,?,'create',?,?,'completed',datetime('now','+10 minutes'),'reconciled',201,?,?,CURRENT_TIMESTAMP)",
+          )
+          .bind(
+            uid("stop"),
+            statementId,
+            input.merchant_id,
+            createScope,
+            key,
+            JSON.stringify(responsePayload),
+            actor(adminSession),
+          ),
+      );
       await db.batch(batch);
       await event(
         db,
@@ -921,7 +1131,7 @@ export async function handleSettlementRequest(
           period_end: range.end,
         },
       );
-      return json({ id: statementId, statement_no: statementNo }, 201, cors);
+      return json(responsePayload, 201, cors);
     } catch (error) {
       return json(
         {
@@ -1088,10 +1298,10 @@ export async function handleSettlementRequest(
         { reason },
         key,
       );
-      await completeOperation(db, action, key, payload);
+      await completeOperation(db, statement, action, key, payload);
       return json(payload, 200, cors);
     } catch (error) {
-      await abandonOperation(db, action, key);
+      await abandonOperation(db, statement, action, key);
       return json(
         { error: error.message || "狀態操作失敗。" },
         error.status || 409,
@@ -1193,6 +1403,13 @@ export async function handleSettlementRequest(
         },
       });
       const timestamp = now();
+      const payload = {
+        ok: true,
+        status: "locked",
+        statement_hash: statementHash,
+        pdf_hash: pdf.pdfHash,
+        pdf_version: version,
+      };
       const updates = [
         db
           .prepare(
@@ -1204,7 +1421,7 @@ export async function handleSettlementRequest(
         ),
         db
           .prepare(
-            `UPDATE merchant_settlements SET total_order_amount_minor=?,expected_deposit_amount_minor=?,actual_deposit_collected_minor=?,deposit_variance_minor=?,deposit_variance_reason=?,deposit_variance_reviewed_by=?,deposit_variance_reviewed_at=?,processing_fee_minor=?,actual_fee_total_minor=?,estimated_fee_total_minor=?,missing_actual_fee_count=?,platform_service_fee_minor=?,tax_reserve_minor=?,withholding_minor=?,adjustments_minor=?,merchant_payable_minor=?,prior_offset_amount_minor=?,current_offset_amount_minor=?,cumulative_offset_amount_minor=?,remaining_offset_amount_minor=?,ongoing_platform_fee_minor=?,calculation_version=?,rules_snapshot_json=?,statement_hash=?,current_pdf_version=?,pdf_object_key=?,pdf_hash=?,status='locked',locked_at=?,updated_at=? WHERE id=? AND status='review'`,
+            `UPDATE merchant_settlements SET total_order_amount_minor=?,expected_deposit_amount_minor=?,actual_deposit_collected_minor=?,deposit_variance_minor=?,deposit_variance_reason=?,deposit_variance_reviewed_by=?,deposit_variance_reviewed_at=?,processing_fee_minor=?,actual_fee_total_minor=?,estimated_fee_total_minor=?,missing_actual_fee_count=?,platform_service_fee_minor=?,tax_reserve_minor=?,withholding_minor=?,adjustments_minor=?,net_settlement_minor=?,merchant_payable_minor=?,merchant_due_to_platform_minor=?,carry_forward_balance_minor=?,prior_offset_amount_minor=?,current_offset_amount_minor=?,cumulative_offset_amount_minor=?,remaining_offset_amount_minor=?,ongoing_platform_fee_minor=?,calculation_version=?,rules_snapshot_json=?,statement_hash=?,current_pdf_version=?,pdf_object_key=?,pdf_hash=?,status='locked',locked_at=?,updated_at=? WHERE id=? AND status='review'`,
           )
           .bind(
             computed.result.total_order_amount_minor,
@@ -1222,7 +1439,10 @@ export async function handleSettlementRequest(
             computed.result.tax_reserve_minor,
             computed.result.withholding_minor,
             computed.result.adjustments_minor,
+            computed.result.net_settlement_minor,
             computed.result.merchant_payable_minor,
+            computed.result.merchant_due_to_platform_minor,
+            computed.result.carry_forward_balance_minor,
             computed.result.prior_offset_amount_minor,
             computed.result.current_offset_amount_minor,
             computed.result.cumulative_offset_amount_minor,
@@ -1260,32 +1480,76 @@ export async function handleSettlementRequest(
             )
             .bind(statementId, actor(adminSession), timestamp, row.id),
         ),
+        ...computed.adjustmentRows
+          .filter((row) => Number(row.offset_reversal_minor) < 0)
+          .map((row) =>
+            db
+              .prepare(
+                "INSERT INTO merchant_offset_ledger(id,merchant_id,settlement_id,adjustment_id,entry_type,amount_minor,effective_at,idempotency_key,status,created_by) VALUES (?,?,?,?,'refund_reversal',?,?,?,'posted',?)",
+              )
+              .bind(
+                uid("off"),
+                statement.merchant_id,
+                statementId,
+                row.id,
+                Number(row.offset_reversal_minor),
+                timestamp,
+                `adjustment:${row.id}:offset`,
+                actor(adminSession),
+              ),
+          ),
+        ...(computed.result.current_offset_amount_minor > 0
+          ? [
+              db
+                .prepare(
+                  "INSERT INTO merchant_offset_ledger(id,merchant_id,settlement_id,entry_type,amount_minor,effective_at,idempotency_key,status,created_by) VALUES (?,?,?,'offset_earned',?,?,?,'posted',?)",
+                )
+                .bind(
+                  uid("off"),
+                  statement.merchant_id,
+                  statementId,
+                  computed.result.current_offset_amount_minor,
+                  timestamp,
+                  `lock:${statementId}:offset-earned`,
+                  actor(adminSession),
+                ),
+            ]
+          : []),
+        db
+          .prepare(
+            "INSERT INTO merchant_settlement_events(id,settlement_id,merchant_id,actor_type,actor_id,event_type,from_status,to_status,idempotency_key,metadata_json) VALUES (?,?,?,'admin',?,'locked','review','locked',?,?)",
+          )
+          .bind(
+            uid("stev"),
+            statementId,
+            statement.merchant_id,
+            actor(adminSession),
+            key,
+            JSON.stringify(payload),
+          ),
+        db
+          .prepare(
+            "INSERT INTO audit_logs(id,actor_type,actor_id,action,entity_type,entity_id,metadata) VALUES (?,'admin',?,'merchant_settlement_locked','merchant_settlement',?,?)",
+          )
+          .bind(
+            uid("audit"),
+            actor(adminSession),
+            statementId,
+            JSON.stringify(payload),
+          ),
+        db
+          .prepare(
+            "UPDATE merchant_settlement_operations SET status='completed',reconciliation_status='reconciled',http_status=200,response_json=?,completed_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND operation_scope=? AND operation_type='lock' AND idempotency_key=? AND status='processing'",
+          )
+          .bind(
+            JSON.stringify(payload),
+            statement.merchant_id,
+            statementId,
+            key,
+          ),
       ];
       await db.batch(updates);
       dbCommitted = true;
-      const payload = {
-        ok: true,
-        status: "locked",
-        statement_hash: statementHash,
-        pdf_hash: pdf.pdfHash,
-        pdf_version: version,
-      };
-      await event(
-        db,
-        adminSession,
-        statementId,
-        statement.merchant_id,
-        "locked",
-        "review",
-        "locked",
-        {
-          statement_hash: statementHash,
-          pdf_hash: pdf.pdfHash,
-          pdf_version: version,
-        },
-        key,
-      );
-      await completeOperation(db, "lock", key, payload);
       return json(payload, 200, cors);
     } catch (error) {
       if (
@@ -1294,7 +1558,7 @@ export async function handleSettlementRequest(
         typeof env.CONTRACTS_BUCKET?.delete === "function"
       )
         await env.CONTRACTS_BUCKET.delete(r2Key);
-      await abandonOperation(db, "lock", key);
+      await abandonOperation(db, statement, "lock", key);
       return json(
         { error: error.message || "鎖定失敗。" },
         error.status || 409,
@@ -1366,6 +1630,7 @@ export async function handleSettlementRequest(
         },
       });
       const timestamp = now();
+      const payload = { ok: true, status: "paid", pdf_version: version };
       await db.batch([
         db
           .prepare(
@@ -1403,26 +1668,45 @@ export async function handleSettlementRequest(
             Number(statement.current_pdf_version || 0) || null,
             actor(adminSession),
           ),
+        db
+          .prepare(
+            "INSERT INTO merchant_settlement_events(id,settlement_id,merchant_id,actor_type,actor_id,event_type,from_status,to_status,idempotency_key,metadata_json) VALUES (?,?,?,'admin',?,'paid','locked','paid',?,?)",
+          )
+          .bind(
+            uid("stev"),
+            statementId,
+            statement.merchant_id,
+            actor(adminSession),
+            key,
+            JSON.stringify({
+              ...payload,
+              transfer_amount_minor: amount,
+              transfer_date: transferDate,
+              transfer_reference: reference,
+            }),
+          ),
+        db
+          .prepare(
+            "INSERT INTO audit_logs(id,actor_type,actor_id,action,entity_type,entity_id,metadata) VALUES (?,'admin',?,'merchant_settlement_paid','merchant_settlement',?,?)",
+          )
+          .bind(
+            uid("audit"),
+            actor(adminSession),
+            statementId,
+            JSON.stringify(payload),
+          ),
+        db
+          .prepare(
+            "UPDATE merchant_settlement_operations SET status='completed',reconciliation_status='reconciled',http_status=200,response_json=?,completed_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND operation_scope=? AND operation_type='mark-paid' AND idempotency_key=? AND status='processing'",
+          )
+          .bind(
+            JSON.stringify(payload),
+            statement.merchant_id,
+            statementId,
+            key,
+          ),
       ]);
       dbCommitted = true;
-      const payload = { ok: true, status: "paid", pdf_version: version };
-      await event(
-        db,
-        adminSession,
-        statementId,
-        statement.merchant_id,
-        "paid",
-        "locked",
-        "paid",
-        {
-          transfer_amount_minor: amount,
-          transfer_date: transferDate,
-          transfer_reference: reference,
-          pdf_version: version,
-        },
-        key,
-      );
-      await completeOperation(db, "mark-paid", key, payload);
       return json(payload, 200, cors);
     } catch (error) {
       if (
@@ -1431,7 +1715,7 @@ export async function handleSettlementRequest(
         typeof env.CONTRACTS_BUCKET?.delete === "function"
       )
         await env.CONTRACTS_BUCKET.delete(r2Key);
-      await abandonOperation(db, "mark-paid", key);
+      await abandonOperation(db, statement, "mark-paid", key);
       return json(
         { error: error.message || "標記匯款失敗。" },
         error.status || 409,
@@ -1462,14 +1746,23 @@ export async function handleSettlementRequest(
         ? input.adjustment_type
         : null;
       const reason = safeText(input.reason, 500);
-      if (!Number.isSafeInteger(amount) || amount === 0 || !type || !reason)
+      const effectiveDate = isDate(input.effective_date)
+        ? input.effective_date
+        : null;
+      if (
+        !Number.isSafeInteger(amount) ||
+        amount === 0 ||
+        !type ||
+        !reason ||
+        !effectiveDate
+      )
         throw Object.assign(new Error("調整資料格式錯誤。"), { status: 400 });
       const adjustmentId = uid("stad");
       await db
         .prepare(
           `INSERT INTO merchant_settlement_adjustments
-        (id,merchant_id,source_settlement_id,adjustment_type,deposit_reversal_minor,platform_fee_reversal_minor,offset_reversal_minor,provider_fee_retained_minor,amount_minor,reason,source_reference,idempotency_key,created_by)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        (id,merchant_id,source_settlement_id,adjustment_type,deposit_reversal_minor,platform_fee_reversal_minor,offset_reversal_minor,provider_fee_retained_minor,provider_fee_reversal_minor,amount_minor,reason,source_reference,effective_date,eligible_period_start,review_status,idempotency_key,created_by)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         )
         .bind(
           adjustmentId,
@@ -1480,9 +1773,13 @@ export async function handleSettlementRequest(
           Number(input.platform_fee_reversal_minor || 0),
           Number(input.offset_reversal_minor || 0),
           Number(input.provider_fee_retained_minor || 0),
+          Number(input.provider_fee_reversal_minor || 0),
           amount,
           reason,
           safeText(input.source_reference, 150) || null,
+          effectiveDate,
+          effectiveDate,
+          input.confirm_review === true ? "approved" : "pending",
           key,
           actor(adminSession),
         )
@@ -1503,10 +1800,10 @@ export async function handleSettlementRequest(
         { adjustment_id: adjustmentId, amount_minor: amount, type },
         key,
       );
-      await completeOperation(db, "adjustment", key, payload, 201);
+      await completeOperation(db, statement, "adjustment", key, payload, 201);
       return json(payload, 201, cors);
     } catch (error) {
-      await abandonOperation(db, "adjustment", key);
+      await abandonOperation(db, statement, "adjustment", key);
       return json(
         { error: error.message || "建立調整失敗。" },
         error.status || 400,

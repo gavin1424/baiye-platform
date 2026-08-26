@@ -1,7 +1,14 @@
 export const TAIPEI_TIME_ZONE = "Asia/Taipei";
 
 export function isDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+  const text = String(value || "");
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return false;
+  return day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 export function taipeiDateToUtcStart(value) {

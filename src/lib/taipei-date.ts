@@ -30,9 +30,23 @@ export function getTaipeiMonthEnd(now = new Date()) {
 }
 
 export function taipeiDateToUtcStart(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
+  if (!isTaipeiCalendarDate(value))
     throw new TypeError("台灣日期格式錯誤");
   return new Date(`${value}T00:00:00+08:00`).toISOString();
+}
+
+export function isTaipeiCalendarDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return (
+    month >= 1 &&
+    month <= 12 &&
+    day >= 1 &&
+    day <= new Date(Date.UTC(year, month, 0)).getUTCDate()
+  );
 }
 
 export function taipeiDateToUtcEndExclusive(value: string) {

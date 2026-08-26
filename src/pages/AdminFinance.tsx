@@ -410,6 +410,7 @@ function ActionDialog({
     order_total: "",
     actual_collected: "",
     variance_reason: "",
+    effective_date: getTaipeiToday(),
   });
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -425,6 +426,8 @@ function ActionDialog({
         reason: form.reason,
         amount_minor: Math.round(Number(form.amount) * 100),
         adjustment_type: Number(form.amount) < 0 ? "refund" : "correction",
+        effective_date: form.effective_date,
+        confirm_review: true,
       });
     if (dialog.action === "variance-lock")
       onSubmit({
@@ -508,6 +511,17 @@ function ActionDialog({
                   value={form.amount}
                   onChange={(event) =>
                     setForm({ ...form, amount: event.target.value })
+                  }
+                  required
+                />
+              </label>
+              <label>
+                生效日期（Asia/Taipei）
+                <input
+                  type="date"
+                  value={form.effective_date}
+                  onChange={(event) =>
+                    setForm({ ...form, effective_date: event.target.value })
                   }
                   required
                 />
@@ -780,6 +794,7 @@ export function AdminFinancePage() {
     period_end: getTaipeiMonthEnd(),
   });
   const [preview, setPreview] = useState<Record<string, number> | null>(null);
+  const [draftIdempotencyKey, setDraftIdempotencyKey] = useState("");
   const [transactionCount, setTransactionCount] = useState(0);
   const request = (path: string, init: RequestInit = {}) =>
     adminApi(`/api/finance${path}`, init);
@@ -836,6 +851,12 @@ export function AdminFinancePage() {
         body: JSON.stringify(period),
       });
       setPreview(data.preview);
+      setDraftIdempotencyKey(
+        idempotencyKey(
+          "create",
+          `${period.merchant_id}-${period.period_start}-${period.period_end}`,
+        ),
+      );
       setTransactionCount(data.transaction_count);
       setNotice("預覽已依 Asia/Taipei 重新計算，尚未寫入資料。");
     } catch (cause) {
@@ -850,7 +871,11 @@ export function AdminFinancePage() {
     try {
       const data = await request("/settlements", {
         method: "POST",
-        body: JSON.stringify(period),
+        headers: { "idempotency-key": draftIdempotencyKey },
+        body: JSON.stringify({
+          ...period,
+          idempotency_key: draftIdempotencyKey,
+        }),
       });
       setPreview(null);
       setTab("statements");
@@ -1080,6 +1105,8 @@ export function AdminFinancePage() {
                     <th>預期／實際訂金</th>
                     <th>手續費</th>
                     <th>應撥</th>
+                    <th>待返還平台</th>
+                    <th>下期承接</th>
                     <th>狀態</th>
                     <th>操作</th>
                   </tr>
@@ -1116,6 +1143,8 @@ export function AdminFinancePage() {
                           估算 {moneyMinor(item.estimated_fee_total_minor)}
                         </td>
                         <td>{moneyMinor(item.merchant_payable_minor)}</td>
+                        <td>{moneyMinor(item.merchant_due_to_platform_minor)}</td>
+                        <td>{moneyMinor(item.carry_forward_balance_minor)}</td>
                         <td>{item.status}</td>
                         <td className="finance-row-actions">
                           {item.status === "draft" && (
@@ -1391,6 +1420,13 @@ export function AdminFinancePage() {
                 平台服務費：{moneyMinor(preview.platform_service_fee_minor)}
               </p>
               <p>應撥款：{moneyMinor(preview.merchant_payable_minor)}</p>
+              <p>
+                店家待返還平台：
+                {moneyMinor(preview.merchant_due_to_platform_minor)}
+              </p>
+              <p>
+                下期承接餘額：{moneyMinor(preview.carry_forward_balance_minor)}
+              </p>
               <button disabled={busy} onClick={() => void createDraft()}>
                 建立草稿
               </button>

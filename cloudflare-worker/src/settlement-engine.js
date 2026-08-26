@@ -1,4 +1,4 @@
-export const SETTLEMENT_CALCULATION_VERSION = "settlement-v2";
+export const SETTLEMENT_CALCULATION_VERSION = "settlement-v3";
 export const DEFAULT_OFFSET_TARGET_MINOR = 1_800_000;
 const BP_DENOMINATOR = 10_000n;
 const POLICY_VALUES = ["pro_rata_reverse", "no_reverse", "manual_review"];
@@ -228,6 +228,8 @@ export function calculateRefundReversal({
   currentOffsetMinor,
   providerFeeMinor = 0,
   refundMinor,
+  providerFeeRefundMinor = null,
+  providerFeeRefundReviewed = false,
   profile,
 }) {
   const refunded = Math.min(
@@ -243,25 +245,38 @@ export function calculateRefundReversal({
       : 0;
   const policyAmount = (policy, amount) =>
     policy === "pro_rata_reverse" ? roundByBasisPoints(amount, ratioBp) : 0;
+  const negative = (value) => (value === 0 ? 0 : -value);
+  const providerPolicy = profile.provider_fee_refund_policy;
+  const providerProRata = policyAmount("pro_rata_reverse", providerFeeMinor);
+  const providerFeeReversal =
+    providerPolicy === "pro_rata_reverse" && providerFeeRefundReviewed
+      ? Math.min(
+          providerProRata,
+          integer(providerFeeRefundMinor ?? providerProRata) ?? 0,
+        )
+      : 0;
   return {
     deposit_reversal_minor: -refunded,
-    platform_fee_reversal_minor: -policyAmount(
+    platform_fee_reversal_minor: negative(policyAmount(
       profile.refund_platform_fee_policy,
       platformFeeMinor,
-    ),
-    offset_reversal_minor: -policyAmount(
+    )),
+    offset_reversal_minor: negative(policyAmount(
       profile.refund_offset_policy,
       currentOffsetMinor,
-    ),
+    )),
     provider_fee_retained_minor:
-      profile.provider_fee_refund_policy === "no_reverse"
+      providerPolicy === "no_reverse"
         ? providerFeeMinor
-        : 0,
+        : Math.max(0, providerProRata - providerFeeReversal),
+    provider_fee_reversal_minor: providerFeeReversal,
     requires_manual_review: [
       profile.refund_platform_fee_policy,
       profile.refund_offset_policy,
-      profile.provider_fee_refund_policy,
+      providerPolicy,
     ].includes("manual_review"),
+    requires_provider_fee_review:
+      providerPolicy === "pro_rata_reverse" && !providerFeeRefundReviewed,
   };
 }
 
@@ -283,14 +298,30 @@ export function calculateSettlement(input) {
     input.manual_withholding_minor == null
       ? 0
       : integer(input.manual_withholding_minor);
-  if ([priorOffset, adjustments, manualTax, manualWithholding].includes(null))
+  const priorCarry = integer(input.prior_carry_forward_minor ?? 0, {
+    min: Number.MIN_SAFE_INTEGER,
+    signed: true,
+  });
+  if (
+    [priorOffset, adjustments, manualTax, manualWithholding, priorCarry].includes(
+      null,
+    )
+  )
     throw new TypeError("Invalid settlement amount");
 
-  const orderTotal = sources.reduce(
+  const uniqueOrders = new Map();
+  for (const source of sources) {
+    const orderKey = source.order_id || source.orderId || "single-order";
+    if (uniqueOrders.has(orderKey))
+      throw new TypeError(`同一訂單不可有多筆合格平台訂金：${orderKey}`);
+    uniqueOrders.set(orderKey, source);
+  }
+  const orderSources = [...uniqueOrders.values()];
+  const orderTotal = orderSources.reduce(
     (sum, source) => sum + source.order_total_amount_minor,
     0,
   );
-  const expectedDeposit = sources.reduce(
+  const expectedDeposit = orderSources.reduce(
     (sum, source) => sum + source.expected_deposit_amount_minor,
     0,
   );
@@ -309,10 +340,30 @@ export function calculateSettlement(input) {
       "Actual processing fee is required for every eligible payment",
     );
 
-  const rawPlatformFee = roundByBasisPoints(
-    orderTotal,
-    profile.platform_fee_rate_bp,
+  const rawPlatformFee = orderSources.reduce(
+    (sum, source) =>
+      sum +
+      (source.platform_fee_amount_minor == null
+        ? roundByBasisPoints(
+            source.order_total_amount_minor,
+            profile.platform_fee_rate_bp,
+          )
+        : integer(source.platform_fee_amount_minor)),
+    0,
   );
+  const offsetEligibleFee = orderSources.reduce(
+    (sum, source) =>
+      sum +
+      (source.offset_fee_amount_minor == null
+        ? roundByBasisPoints(
+            source.order_total_amount_minor,
+            profile.platform_fee_rate_bp,
+          )
+        : integer(source.offset_fee_amount_minor)),
+    0,
+  );
+  if ([rawPlatformFee, offsetEligibleFee].includes(null))
+    throw new TypeError("Invalid refund fee calculation");
   const taxReserve =
     profile.tax_reserve_mode === "disabled"
       ? 0
@@ -340,7 +391,7 @@ export function calculateSettlement(input) {
       0,
       profile.offset_target_amount_minor - eligiblePrior,
     );
-    currentOffset = Math.min(rawPlatformFee, remainingBefore);
+    currentOffset = Math.min(offsetEligibleFee, remainingBefore);
     cumulativeOffset = eligiblePrior + currentOffset;
     remainingOffset = Math.max(
       0,
@@ -353,15 +404,18 @@ export function calculateSettlement(input) {
   }
   if (profile.payment_plan === "upfront_18000") ongoingFee = rawPlatformFee;
 
-  const payable =
+  const net =
     actualDeposit -
     fees.processing_fee_minor -
     chargedPlatformFee -
     taxReserve -
     withholding +
-    adjustments;
-  if (!Number.isSafeInteger(payable) || payable < 0)
-    throw new RangeError("Merchant payable cannot be negative");
+    adjustments +
+    priorCarry;
+  if (!Number.isSafeInteger(net))
+    throw new RangeError("Settlement net exceeds safe integer range");
+  const payable = Math.max(0, net);
+  const dueToPlatform = Math.max(0, -net);
   return {
     total_order_amount_minor: orderTotal,
     expected_deposit_amount_minor: expectedDeposit,
@@ -386,7 +440,10 @@ export function calculateSettlement(input) {
     tax_reserve_minor: taxReserve,
     withholding_minor: withholding,
     adjustments_minor: adjustments,
+    net_settlement_minor: net,
     merchant_payable_minor: payable,
+    merchant_due_to_platform_minor: dueToPlatform,
+    carry_forward_balance_minor: net < 0 ? net : 0,
     prior_offset_amount_minor:
       profile.payment_plan === "sales_offset_18000"
         ? Math.min(priorOffset, profile.offset_target_amount_minor)

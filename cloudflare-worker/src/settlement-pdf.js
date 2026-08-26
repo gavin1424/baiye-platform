@@ -70,7 +70,10 @@ export async function createSettlementPdf(input) {
     `稅務預留款：${money(input.tax_reserve_minor)}`,
     `扣繳款：${money(input.withholding_minor)}`,
     `調整項目：${money(input.adjustments_minor)}`,
+    `本期淨結算：${money(input.net_settlement_minor)}`,
     `應撥店家金額：${money(input.merchant_payable_minor)}`,
+    `店家待返還平台：${money(input.merchant_due_to_platform_minor)}`,
+    `下期承接餘額：${money(input.carry_forward_balance_minor)}`,
     "",
     `上期抵付：${money(input.prior_offset_amount_minor)}`,
     `本期抵付：${money(input.current_offset_amount_minor)}`,
@@ -151,7 +154,10 @@ export function settlementCsv(statement, items = [], adjustments = []) {
     ["稅務預留(分)", statement.tax_reserve_minor],
     ["扣繳(分)", statement.withholding_minor],
     ["調整(分)", statement.adjustments_minor],
+    ["淨結算(分)", statement.net_settlement_minor],
     ["應撥店家(分)", statement.merchant_payable_minor],
+    ["店家待返還平台(分)", statement.merchant_due_to_platform_minor],
+    ["下期承接餘額(分)", statement.carry_forward_balance_minor],
     [],
     [
       "類型",
@@ -178,12 +184,12 @@ export function settlementCsv(statement, items = [], adjustments = []) {
     ...adjustments.map((item) => [
       item.adjustment_type,
       item.source_reference || item.id,
-      "",
-      "",
-      "",
+      `deposit=${item.deposit_reversal_minor || 0}`,
+      `platform=${item.platform_fee_reversal_minor || 0}`,
+      `provider=${item.provider_fee_reversal_minor || 0}`,
       "",
       item.amount_minor,
-      item.created_at,
+      item.effective_date || item.created_at,
     ]),
   ];
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
