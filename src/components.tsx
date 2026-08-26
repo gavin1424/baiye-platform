@@ -243,6 +243,7 @@ export function Footer() {
             <Link to="/pricing">商家 AI 數位升級</Link>
             <Link to="/pricing">方案與價格</Link>
             <Link to="/how-it-works">如何運作</Link>
+            <Link to="/services/deposit-settlement">訂金代收與月結對帳</Link>
             <Link to="/success-stories">成功案例</Link>
           </div>
           <div>

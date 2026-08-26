@@ -10,7 +10,7 @@ import {
   ShoppingCart,
   Storefront,
 } from "@phosphor-icons/react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PlatformLogo, PublicLayout } from "../components";
 import { useAppStore } from "../store";
@@ -61,13 +61,17 @@ function AuthShell({ children, kind = "login" }: { children: ReactNode; kind?: "
 }
 
 export function LoginPage() {
-  const { login } = useAppStore();
+  const { login, session } = useAppStore();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (session.role === "admin") navigate("/admin", { replace: true });
+  }, [navigate, session.role]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

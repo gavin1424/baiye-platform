@@ -177,11 +177,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     ["session", "shop-products", "shop-cart", "shop-orders", "site-settings", "membership-plan"].forEach((key) => window.localStorage.removeItem(`baiye:${key}`));
+    const readinessTimeout = window.setTimeout(() => setAuthReady(true), 6000);
     void getAdminSession()
       .then((user) => {
         if (user) setSession({ role: "admin", name: user.name, email: user.email });
       })
-      .finally(() => setAuthReady(true));
+      .finally(() => {
+        window.clearTimeout(readinessTimeout);
+        setAuthReady(true);
+      });
+    return () => window.clearTimeout(readinessTimeout);
   }, []);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "success") => {

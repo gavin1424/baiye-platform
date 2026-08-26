@@ -1,0 +1,9 @@
+DROP TRIGGER IF EXISTS trg_locked_settlement_items_immutable_delete;
+DROP TRIGGER IF EXISTS trg_locked_settlement_items_immutable_update;
+DROP TRIGGER IF EXISTS trg_locked_settlement_amounts_immutable;
+DROP TABLE IF EXISTS merchant_settlement_events;
+DROP TABLE IF EXISTS merchant_settlement_adjustments;
+DROP TABLE IF EXISTS merchant_settlement_items;
+DROP TABLE IF EXISTS merchant_settlements;
+DROP TABLE IF EXISTS merchant_settlement_profiles;
+DROP TABLE IF EXISTS platform_finance_settings;

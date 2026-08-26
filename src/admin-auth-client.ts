@@ -10,11 +10,17 @@ async function request(path: string, init: RequestInit = {}) {
     ...(csrfToken && !["GET", "HEAD", "OPTIONS"].includes(method) ? { "x-csrf-token": csrfToken } : {}),
     ...((init.headers || {}) as Record<string, string>),
   };
-  const response = await fetch(`${API}${path}`, {
-    ...init,
-    credentials: "include",
-    headers,
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 5000);
+  let response: Response;
+  try {
+    response = await Promise.race([
+      fetch(`${API}${path}`, { ...init, credentials: "include", headers, signal: init.signal || controller.signal }),
+      new Promise<Response>((_, reject) => window.setTimeout(() => reject(new Error("驗證服務連線逾時。")), 5500)),
+    ]);
+  } finally {
+    window.clearTimeout(timeout);
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "驗證服務暫時無法使用。" );
   if (typeof data.csrf_token === "string") csrfToken = data.csrf_token;
@@ -35,3 +41,12 @@ export async function logoutAdmin() {
 }
 
 export async function adminApi(path: string, init: RequestInit = {}) { return request(path, init); }
+
+export async function adminDownload(path: string) {
+  const response = await fetch(`${API}${path}`, { credentials: "include" });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || "檔案下載失敗。" );
+  }
+  return { blob: await response.blob(), filename: response.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] || "download" };
+}

@@ -1,306 +1,52 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
-import { adminApi } from "../admin-auth-client";
+import { adminApi, adminDownload } from "../admin-auth-client";
 
-const labels: Record<string, string> = {
-  card: "信用卡 / 金融卡",
-  atm: "ATM",
-  virtual_account: "虛擬帳號",
-  bank_transfer: "銀行轉帳",
-  line_pay: "LINE Pay",
-  apple_pay: "Apple Pay",
-  google_pay: "Google Pay",
-  e_wallet: "電子支付",
-  convenience_store: "超商付款",
-  cash: "現金",
-  cheque: "支票",
-  other: "其他",
-};
-const money = (value: unknown) =>
-  new Intl.NumberFormat("zh-TW", {
-    style: "currency",
-    currency: "TWD",
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
-type Summary = {
-  month_gross: number;
-  month_refunds: number;
-  month_fees: number;
-  month_net: number;
-  pending: number;
-  expenses: number;
-  profit: number;
-  payment_count: number;
-  methods: Array<{ payment_method: string; total: number }>;
-  merchants: Array<{
-    id: string;
-    merchant_code: string;
-    name: string;
-    amount_due: number;
-    amount_paid: number;
-  }>;
-};
-type Merchant = { id: string; name: string };
-type Payment = Record<string, string | number | null>;
+const paymentLabels: Record<string,string> = { card:"信用卡 / 金融卡",atm:"ATM",virtual_account:"虛擬帳號",bank_transfer:"銀行轉帳",line_pay:"LINE Pay",apple_pay:"Apple Pay",google_pay:"Google Pay",e_wallet:"電子支付",convenience_store:"超商付款",cash:"現金",cheque:"支票",other:"其他" };
+const moneyMajor = (value: unknown) => `NT$${new Intl.NumberFormat("zh-TW",{maximumFractionDigits:0}).format(Number(value||0))}`;
+const moneyMinor = (value: unknown) => moneyMajor(Number(value||0)/100);
+const today = new Date().toISOString().slice(0,10), monthStart = `${today.slice(0,7)}-01`, monthEnd = new Date(Number(today.slice(0,4)),Number(today.slice(5,7)),0).toISOString().slice(0,10);
+type Tab = "overview"|"payments"|"deposits"|"statements"|"offset"|"rules"|"audit";
+type Merchant = {id:string;name:string;merchant_code?:string}; type Payment = Record<string,string|number|null>;
+type Summary = {month_gross:number;month_refunds:number;month_fees:number;month_net:number;pending:number;expenses:number;profit:number;payment_count:number;methods:Array<{payment_method:string;total:number}>;merchants:Array<{id:string;name:string;amount_due:number;amount_paid:number}>};
+type Statement = Record<string,string|number|null> & {id:string;statement_no:string;merchant_id:string;merchant_name:string;status:string};
+type ProfileForm = {enabled:boolean;payment_plan:"upfront_18000"|"sales_offset_18000";deposit_rate:string;platform_rate:string;processing_fee_mode:string;processing_fee_basis:string;estimated_processing_rate:string;tax_reserve_mode:string;tax_reserve_rate:string;withholding_mode:string;withholding_rate:string;withholding_income_type:string;offset_target:string;continue_platform_fee_after_offset:boolean;settlement_day:string;legal_review_status:string;accounting_review_status:string;effective_from:string;effective_to:string};
+const defaultProfile: ProfileForm = {enabled:false,payment_plan:"upfront_18000",deposit_rate:"30",platform_rate:"2",processing_fee_mode:"actual_or_estimated",processing_fee_basis:"deposit_collected",estimated_processing_rate:"0",tax_reserve_mode:"disabled",tax_reserve_rate:"0",withholding_mode:"disabled",withholding_rate:"0",withholding_income_type:"",offset_target:"18000",continue_platform_fee_after_offset:false,settlement_day:"10",legal_review_status:"pending",accounting_review_status:"pending",effective_from:"",effective_to:""};
 
-export function AdminFinancePage() {
-  const [error, setError] = useState("");
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [merchants, setMerchants] = useState<Merchant[]>([]);
-  const [form, setForm] = useState({
-    merchant_id: "",
-    amount: "",
-    payment_method: "bank_transfer",
-    note: "",
-    status: "paid",
-  });
-  const request = async (path: string, init: RequestInit = {}) => {
-    return adminApi(`/api/finance${path}`, init);
-  };
-  const load = async () => {
-    try {
-      const [s, p, m] = await Promise.all([
-        request("/summary"),
-        request("/payments"),
-        request("/merchants"),
-      ]);
-      setSummary(s);
-      setPayments(p.items);
-      setMerchants(m.items);
-      if (!form.merchant_id && m.items[0])
-        setForm((v) => ({ ...v, merchant_id: m.items[0].id }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "讀取失敗");
-    }
-  };
-  useEffect(() => {
-    void load();
-  }, []);
-  const add = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await request("/payments/manual", {
-        method: "POST",
-        body: JSON.stringify({ ...form, amount: Number(form.amount) }),
-      });
-      setForm((v) => ({ ...v, amount: "", note: "" }));
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "新增失敗");
-    }
-  };
-  const exportCsv = () => {
-    const rows = [
-      [
-        "日期",
-        "商家",
-        "訂單",
-        "付款方式",
-        "支付平台",
-        "金額",
-        "手續費",
-        "淨額",
-        "狀態",
-        "交易編號",
-      ],
-      ...payments.map((p) => [
-        String(p.paid_at || p.created_at || ""),
-        String(p.merchant_name || ""),
-        String(p.order_no || ""),
-        labels[String(p.payment_method)] || String(p.payment_method || ""),
-        String(p.payment_provider || ""),
-        String(p.gross_amount || ""),
-        String(p.fee_amount || ""),
-        String(p.net_amount || ""),
-        String(p.status || ""),
-        String(p.provider_trade_no || p.payment_no || ""),
-      ]),
-    ];
-    const url = URL.createObjectURL(
-      new Blob(
-        [
-          "\uFEFF" +
-            rows
-              .map((r) =>
-                r.map((v) => `\"${v.replaceAll('"', '""')}\"`).join(","),
-              )
-              .join("\n"),
-        ],
-        { type: "text/csv" },
-      ),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "baiye-finance-payments.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  const metrics = useMemo(
-    () =>
-      summary
-        ? [
-            ["本月總收款", summary.month_gross],
-            ["本月退款", summary.month_refunds],
-            ["本月手續費", summary.month_fees],
-            ["本月淨收入", summary.month_net],
-            ["待收款", summary.pending],
-            ["本月支出", summary.expenses],
-            ["本月損益", summary.profit],
-            ["付款筆數", summary.payment_count],
-          ]
-        : [],
-    [summary],
-  );
-  return (
-    <main className="finance-shell">
-      <AdminModuleNav current="finance" />
-      <header className="finance-hero">
-        <div>
-          <h1>財務管理 / 金流帳本</h1>
-          <p>所有付款方式統一入帳；自動 Webhook 與人工確認清楚區分。</p>
-        </div>
-        <div className="finance-actions">
-          <button onClick={exportCsv}>匯出 CSV</button>
-        </div>
-      </header>
-      {error && <p className="finance-note">{error}</p>}
-      <section className="finance-grid">
-        {metrics.map(([name, value]) => (
-          <article className="finance-metric" key={String(name)}>
-            <span>{name}</span>
-            <strong>{name === "付款筆數" ? value : money(value)}</strong>
-          </article>
-        ))}
-      </section>
-      <div className="finance-layout">
-        <section>
-          <article className="finance-panel">
-            <h2>付款紀錄</h2>
-            <table className="finance-table">
-              <thead>
-                <tr>
-                  <th>日期</th>
-                  <th>商家 / 訂單</th>
-                  <th>付款方式</th>
-                  <th>實收</th>
-                  <th>手續費</th>
-                  <th>淨額</th>
-                  <th>狀態</th>
-                  <th>來源</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map((p) => (
-                  <tr key={String(p.id)}>
-                    <td data-label="日期">
-                      {String(p.paid_at || p.created_at || "").slice(0, 10)}
-                    </td>
-                    <td data-label="商家 / 訂單">
-                      {String(p.merchant_name || "")}
-                      <br />
-                      <small>{String(p.order_no || p.payment_no || "")}</small>
-                    </td>
-                    <td data-label="付款方式">
-                      {labels[String(p.payment_method)] ||
-                        String(p.payment_method || "")}
-                    </td>
-                    <td data-label="實收">{money(p.gross_amount)}</td>
-                    <td data-label="手續費">{money(p.fee_amount)}</td>
-                    <td data-label="淨額">{money(p.net_amount)}</td>
-                    <td data-label="狀態">
-                      <span className="finance-status">{String(p.status)}</span>
-                    </td>
-                    <td data-label="來源">
-                      {p.source === "manual" ? "人工確認" : "自動入帳"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </article>
-          <article className="finance-panel">
-            <h2>付款方式統計</h2>
-            <table className="finance-table">
-              <tbody>
-                {summary?.methods.map((m) => (
-                  <tr key={m.payment_method}>
-                    <td>{labels[m.payment_method] || m.payment_method}</td>
-                    <td>{money(m.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </article>
-        </section>
-        <aside>
-          <article className="finance-panel">
-            <h2>新增人工付款</h2>
-            <p className="finance-note">
-              銀行轉帳、現金、支票與其他線下付款，確認後才會計入收入。
-            </p>
-            <form className="finance-form" onSubmit={add}>
-              <select
-                value={form.merchant_id}
-                onChange={(e) =>
-                  setForm({ ...form, merchant_id: e.target.value })
-                }
-              >
-                {merchants.map((m) => (
-                  <option value={m.id} key={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                inputMode="decimal"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                placeholder="收款金額"
-                required
-              />
-              <select
-                value={form.payment_method}
-                onChange={(e) =>
-                  setForm({ ...form, payment_method: e.target.value })
-                }
-              >
-                {Object.entries(labels).map(([k, v]) => (
-                  <option value={k} key={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              >
-                <option value="paid">已確認收款</option>
-                <option value="pending">待確認</option>
-              </select>
-              <input
-                value={form.note}
-                onChange={(e) => setForm({ ...form, note: e.target.value })}
-                placeholder="備註，例如帳號末五碼"
-              />
-              <button>寫入統一帳本</button>
-            </form>
-          </article>
-          <article className="finance-panel">
-            <h2>商家統計</h2>
-            {summary?.merchants.map((m) => (
-              <p key={m.id}>
-                <strong>{m.name}</strong>
-                <br />
-                <small>
-                  應收 {money(m.amount_due)} ・ 已收 {money(m.amount_paid)} ・
-                  待收 {money(m.amount_due - m.amount_paid)}
-                </small>
-              </p>
-            ))}
-          </article>
-        </aside>
-      </div>
-    </main>
-  );
+export function AdminFinancePage(){
+  const [tab,setTab]=useState<Tab>("overview"),[loading,setLoading]=useState(true),[error,setError]=useState(""),[notice,setNotice]=useState("");
+  const [summary,setSummary]=useState<Summary|null>(null),[payments,setPayments]=useState<Payment[]>([]),[merchants,setMerchants]=useState<Merchant[]>([]),[statements,setStatements]=useState<Statement[]>([]),[auditEvents,setAuditEvents]=useState<Array<Record<string,string|number|null>>>([]),[selected,setSelected]=useState<Record<string,unknown>|null>(null);
+  const [paymentForm,setPaymentForm]=useState({merchant_id:"",amount:"",payment_method:"bank_transfer",note:"",status:"paid"});
+  const [period,setPeriod]=useState({merchant_id:"",period_start:monthStart,period_end:monthEnd}),[manualTax,setManualTax]=useState("0"),[manualWithholding,setManualWithholding]=useState("0"),[preview,setPreview]=useState<Record<string,number|string>|null>(null),[transactionCount,setTransactionCount]=useState(0);
+  const [profileForm,setProfileForm]=useState<ProfileForm>(defaultProfile);
+  const [platformSettings,setPlatformSettings]=useState({brand_name:"創百業智慧鏈",legal_entity_name:"",tax_id:"",invoice_title:"",invoice_address:""});
+  const request=(path:string,init:RequestInit={})=>adminApi(`/api/finance${path}`,init);
+  const load=async()=>{setLoading(true);setError("");try{const [s,p,m,st,au,ps]=await Promise.all([request("/summary"),request("/payments"),request("/merchants"),request("/settlements"),request("/settlements/audit"),request("/settlement-settings/platform")]);setSummary(s);setPayments(p.items||[]);setMerchants(m.items||[]);setStatements(st.items||[]);setAuditEvents(au.items||[]);setPlatformSettings({brand_name:ps.settings.brand_name||"創百業智慧鏈",legal_entity_name:ps.settings.legal_entity_name||"",tax_id:ps.settings.tax_id||"",invoice_title:ps.settings.invoice_title||"",invoice_address:ps.settings.invoice_address||""});const first=m.items?.[0]?.id||"";setPaymentForm(v=>({...v,merchant_id:v.merchant_id||first}));setPeriod(v=>({...v,merchant_id:v.merchant_id||first}));}catch(e){setError(e instanceof Error?e.message:"讀取失敗");}finally{setLoading(false)}};
+  useEffect(()=>{void load()},[]);
+  const metrics=useMemo(()=>summary?[["本月總收款",summary.month_gross],["本月退款",summary.month_refunds],["本月手續費",summary.month_fees],["本月淨收入",summary.month_net],["待收款",summary.pending],["本月支出",summary.expenses],["本月損益",summary.profit],["付款筆數",summary.payment_count]]:[],[summary]);
+  const show=(message:string)=>{setNotice(message);setError("")};
+  const addPayment=async(e:React.FormEvent)=>{e.preventDefault();try{await request("/payments/manual",{method:"POST",body:JSON.stringify({...paymentForm,amount:Number(paymentForm.amount)})});setPaymentForm(v=>({...v,amount:"",note:""}));show("人工付款已寫入統一帳本。");await load()}catch(e){setError(e instanceof Error?e.message:"新增失敗")}};
+  const periodPayload=()=>({...period,manual_tax_reserve_minor:Math.round(Number(manualTax||0)*100),manual_withholding_minor:Math.round(Number(manualWithholding||0)*100)});
+  const previewSettlement=async()=>{try{const data=await request("/settlements/preview",{method:"POST",body:JSON.stringify(periodPayload())});setPreview(data.preview);setTransactionCount(data.transaction_count);show("預覽已重新計算；尚未寫入正式資料。")}catch(e){setError(e instanceof Error?e.message:"預覽失敗")}};
+  const createDraft=async()=>{if(!preview)return;try{const data=await request("/settlements",{method:"POST",body:JSON.stringify(periodPayload())});show(`已建立草稿 ${data.statement_no}`);setPreview(null);await load();setTab("statements")}catch(e){setError(e instanceof Error?e.message:"建立草稿失敗")}};
+  const viewStatement=async(id:string)=>{try{setSelected(await request(`/settlements/${id}`))}catch(e){setError(e instanceof Error?e.message:"讀取對帳單失敗")}};
+  const mutateStatement=async(item:Statement,action:"lock"|"mark-paid"|"void"|"adjustments")=>{try{let body:Record<string,unknown>={};if(action==="lock"&&!confirm("鎖定後金額與來源項目不可直接修改，確定重新計算並鎖定？"))return;if(action==="mark-paid"){const reference=prompt("請輸入匯款 reference");if(!reference)return;body={transfer_amount_minor:Number(item.merchant_payable_minor),transfer_date:today,transfer_reference:reference}}if(action==="void"){const reason=prompt("請輸入作廢原因");if(!reason)return;body={reason}}if(action==="adjustments"){const amount=prompt("輸入下一期調整金額（新台幣元；退款請輸入負數）"),reason=prompt("輸入調整原因");if(!amount||!reason)return;body={amount_minor:Math.round(Number(amount)*100),adjustment_type:Number(amount)<0?"refund":"correction",reason,idempotency_key:`admin-${item.id}-${Date.now()}`}}await request(`/settlements/${item.id}/${action}`,{method:"POST",body:JSON.stringify(body)});show("對帳單狀態已更新並記錄 Audit。");await load();if(selected)await viewStatement(item.id)}catch(e){setError(e instanceof Error?e.message:"操作失敗")}};
+  const download=async(item:Statement,kind:"pdf"|"csv")=>{try{const file=await adminDownload(`/api/finance/settlements/${item.id}/${kind}`),url=URL.createObjectURL(file.blob),a=document.createElement("a");a.href=url;a.download=file.filename;a.click();URL.revokeObjectURL(url)}catch(e){setError(e instanceof Error?e.message:"下載失敗")}};
+  const loadProfile=async(merchantId:string)=>{setPeriod(v=>({...v,merchant_id:merchantId}));try{const p=await request(`/settlement-profiles/${encodeURIComponent(merchantId)}`);setProfileForm({enabled:Boolean(p.enabled),payment_plan:p.payment_plan,deposit_rate:String(Number(p.deposit_rate_bp)/100),platform_rate:String(Number(p.platform_fee_rate_bp)/100),processing_fee_mode:p.processing_fee_mode,processing_fee_basis:p.processing_fee_basis,estimated_processing_rate:String(Number(p.estimated_processing_fee_rate_bp)/100),tax_reserve_mode:p.tax_reserve_mode,tax_reserve_rate:String(Number(p.tax_reserve_rate_bp)/100),withholding_mode:p.withholding_mode,withholding_rate:String(Number(p.withholding_rate_bp)/100),withholding_income_type:p.withholding_income_type||"",offset_target:String(Number(p.offset_target_amount_minor)/100),continue_platform_fee_after_offset:Boolean(p.continue_platform_fee_after_offset),settlement_day:String(p.settlement_day),legal_review_status:p.legal_review_status,accounting_review_status:p.accounting_review_status,effective_from:p.effective_from||"",effective_to:p.effective_to||""});}catch{setProfileForm(defaultProfile)}};
+  useEffect(()=>{if(tab==="rules"&&period.merchant_id)void loadProfile(period.merchant_id)},[tab]);
+  const saveProfile=async(e:React.FormEvent)=>{e.preventDefault();const risky=profileForm.tax_reserve_mode!=="disabled"||profileForm.withholding_mode!=="disabled";if(risky&&!confirm("稅務預留／扣繳只能依記帳士或稅務專業人員確認結果設定。確定已取得正式核准？"))return;try{await request(`/settlement-profiles/${encodeURIComponent(period.merchant_id)}`,{method:"PATCH",body:JSON.stringify({enabled:profileForm.enabled,payment_plan:profileForm.payment_plan,deposit_rate_bp:Math.round(Number(profileForm.deposit_rate)*100),platform_fee_rate_bp:Math.round(Number(profileForm.platform_rate)*100),processing_fee_mode:profileForm.processing_fee_mode,processing_fee_basis:profileForm.processing_fee_basis,estimated_processing_fee_rate_bp:Math.round(Number(profileForm.estimated_processing_rate)*100),tax_reserve_mode:profileForm.tax_reserve_mode,tax_reserve_rate_bp:Math.round(Number(profileForm.tax_reserve_rate)*100),withholding_mode:profileForm.withholding_mode,withholding_rate_bp:Math.round(Number(profileForm.withholding_rate)*100),withholding_income_type:profileForm.withholding_income_type||null,offset_target_amount_minor:Math.round(Number(profileForm.offset_target)*100),continue_platform_fee_after_offset:profileForm.continue_platform_fee_after_offset,settlement_day:Number(profileForm.settlement_day),legal_review_status:profileForm.legal_review_status,accounting_review_status:profileForm.accounting_review_status,effective_from:profileForm.effective_from||null,effective_to:profileForm.effective_to||null,confirm_high_risk:risky})});show("規則設定已保存並寫入 Audit。此動作不會自動啟用金流 Provider。")}catch(e){setError(e instanceof Error?e.message:"規則保存失敗")}};
+  const savePlatformSettings=async(e:React.FormEvent)=>{e.preventDefault();if(!confirm("即將更新對帳單使用的公司法律主體、統編與發票抬頭。確定資料已由公司正式確認？"))return;try{await request("/settlement-settings/platform",{method:"PATCH",body:JSON.stringify({...platformSettings,confirm_legal_identity:true})});show("公司法律主體設定已保存並寫入 Audit。")}catch(e){setError(e instanceof Error?e.message:"公司資料保存失敗")}};
+  const tabs:Array<[Tab,string]>=[["overview","財務總覽"],["payments","付款紀錄"],["deposits","訂金代收"],["statements","月結對帳單"],["offset","NT$18,000 抵付進度"],["rules","規則設定"],["audit","Audit"]];
+  return <main className="finance-shell"><AdminModuleNav current="finance"/><header className="finance-hero"><div><h1>金流與記帳</h1><p>付款、退款、訂金代收、月結對帳與抵付進度使用同一套正式管理員權限。</p></div></header>
+    <nav className="finance-tabs" aria-label="財務功能">{tabs.map(([key,label])=><button type="button" className={tab===key?"active":""} onClick={()=>setTab(key)} key={key}>{label}</button>)}</nav>
+    {loading&&<div className="finance-panel" aria-busy="true">正在載入正式財務資料…</div>}{error&&<p className="finance-alert error" role="alert">{error}</p>}{notice&&<p className="finance-alert success" role="status">{notice}</p>}
+    {!loading&&tab==="overview"&&<><section className="finance-grid">{metrics.map(([name,value])=><article className="finance-metric" key={String(name)}><span>{name}</span><strong>{name==="付款筆數"?value:moneyMajor(value)}</strong></article>)}</section><div className="finance-layout"><article className="finance-panel"><h2>付款方式統計</h2>{summary?.methods.length?<table className="finance-table"><tbody>{summary.methods.map(m=><tr key={m.payment_method}><td>{paymentLabels[m.payment_method]||m.payment_method}</td><td>{moneyMajor(m.total)}</td></tr>)}</tbody></table>:<p className="finance-note">目前沒有付款資料。</p>}</article><article className="finance-panel"><h2>商家應收摘要</h2>{summary?.merchants.length?summary.merchants.map(m=><p key={m.id}><strong>{m.name}</strong><br/><small>應收 {moneyMajor(m.amount_due)} ・ 已收 {moneyMajor(m.amount_paid)} ・ 待收 {moneyMajor(m.amount_due-m.amount_paid)}</small></p>):<p className="finance-note">目前沒有商家應收資料。</p>}</article></div></>}
+    {!loading&&tab==="payments"&&<div className="finance-layout"><article className="finance-panel"><h2>付款紀錄</h2>{payments.length?<table className="finance-table"><thead><tr><th>日期</th><th>商家 / 訂單</th><th>付款方式</th><th>實收</th><th>手續費</th><th>狀態</th></tr></thead><tbody>{payments.map(p=><tr key={String(p.id)}><td data-label="日期">{String(p.paid_at||p.created_at||"").slice(0,10)}</td><td data-label="商家 / 訂單">{String(p.merchant_name||"")}<br/><small>{String(p.order_no||p.payment_no||"")}</small></td><td data-label="付款方式">{paymentLabels[String(p.payment_method)]||String(p.payment_method||"")}</td><td data-label="實收">{moneyMajor(p.gross_amount)}</td><td data-label="手續費">{moneyMajor(p.fee_amount)}</td><td data-label="狀態"><span className="finance-status">{String(p.status)}</span></td></tr>)}</tbody></table>:<p className="finance-note">目前沒有付款紀錄。</p>}</article><aside><article className="finance-panel"><h2>新增人工付款</h2><p className="finance-note">只記錄已真實發生的線下款項，不會啟動金流 Provider。</p><form className="finance-form" onSubmit={addPayment}><select aria-label="商家" value={paymentForm.merchant_id} onChange={e=>setPaymentForm({...paymentForm,merchant_id:e.target.value})}>{merchants.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select><input aria-label="收款金額" inputMode="decimal" value={paymentForm.amount} onChange={e=>setPaymentForm({...paymentForm,amount:e.target.value})} placeholder="收款金額" required/><select aria-label="付款方式" value={paymentForm.payment_method} onChange={e=>setPaymentForm({...paymentForm,payment_method:e.target.value})}>{Object.entries(paymentLabels).map(([k,v])=><option value={k} key={k}>{v}</option>)}</select><input aria-label="備註" value={paymentForm.note} onChange={e=>setPaymentForm({...paymentForm,note:e.target.value})} placeholder="備註"/><button>寫入統一帳本</button></form></article></aside></div>}
+    {!loading&&tab==="deposits"&&<div className="finance-layout"><article className="finance-panel"><h2>訂金代收預覽</h2><div className="finance-form grid"><label>商家<select value={period.merchant_id} onChange={e=>setPeriod({...period,merchant_id:e.target.value})}>{merchants.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>對帳起日<input type="date" value={period.period_start} onChange={e=>setPeriod({...period,period_start:e.target.value})}/></label><label>對帳迄日<input type="date" value={period.period_end} onChange={e=>setPeriod({...period,period_end:e.target.value})}/></label><label>核准稅務預留 NT$<input inputMode="decimal" value={manualTax} onChange={e=>setManualTax(e.target.value)}/></label><label>核准扣繳 NT$<input inputMode="decimal" value={manualWithholding} onChange={e=>setManualWithholding(e.target.value)}/></label><div className="finance-button-row"><button type="button" onClick={previewSettlement}>產生預覽</button><button type="button" disabled={!preview} onClick={createDraft}>建立草稿</button></div></div><p className="finance-note">預覽不寫入資料；鎖定時後端會再次讀取來源交易並重新計算。稅務預留與扣繳只在規則模式為 manual 且已有專業核准時生效。</p></article>{preview?<article className="finance-panel"><h2>預覽結果</h2><p>交易筆數 <strong>{transactionCount}</strong></p>{[["訂單總額","total_order_amount_minor"],["代收訂金","deposit_collected_minor"],["實際／預估金流費","processing_fee_minor"],["平台服務費","platform_service_fee_minor"],["稅務預留","tax_reserve_minor"],["扣繳","withholding_minor"],["退款／調整","adjustments_minor"],["應撥店家","merchant_payable_minor"]].map(([label,key])=><p key={key}><span>{label}</span> <strong>{moneyMinor(preview[key])}</strong></p>)}</article>:<article className="finance-panel empty-state"><h2>尚未產生預覽</h2><p>先選擇已啟用本服務的商家與對帳期間。</p></article>}</div>}
+    {!loading&&tab==="statements"&&<><article className="finance-panel"><h2>月結對帳單</h2>{statements.length?<table className="finance-table"><thead><tr><th>編號</th><th>商家</th><th>期間</th><th>應撥</th><th>狀態</th><th>操作</th></tr></thead><tbody>{statements.map(s=><tr key={s.id}><td data-label="編號">{s.statement_no}</td><td data-label="商家">{s.merchant_name}</td><td data-label="期間">{String(s.period_start)}～{String(s.period_end)}</td><td data-label="應撥">{moneyMinor(s.merchant_payable_minor)}</td><td data-label="狀態"><span className="finance-status">{s.status}</span></td><td data-label="操作"><div className="finance-row-actions"><button type="button" onClick={()=>viewStatement(s.id)}>預覽</button>{["draft","review"].includes(s.status)&&<button type="button" onClick={()=>mutateStatement(s,"lock")}>鎖定</button>}{s.status==="locked"&&<button type="button" onClick={()=>mutateStatement(s,"mark-paid")}>標記已匯款</button>}{["locked","paid"].includes(s.status)&&<button type="button" onClick={()=>mutateStatement(s,"adjustments")}>建立調整</button>}{s.pdf_object_key&&<button type="button" onClick={()=>download(s,"pdf")}>PDF</button>}<button type="button" onClick={()=>download(s,"csv")}>CSV</button>{!["paid","void"].includes(s.status)&&<button type="button" onClick={()=>mutateStatement(s,"void")}>作廢</button>}</div></td></tr>)}</tbody></table>:<div className="empty-state"><h3>目前沒有月結對帳單</h3><p>先到「訂金代收」產生預覽與草稿。</p></div>}</article>{selected&&<article className="finance-panel statement-detail"><h2>對帳單明細</h2><pre>{JSON.stringify(selected,null,2)}</pre></article>}</>}
+    {!loading&&tab==="offset"&&<article className="finance-panel"><h2>NT$18,000 抵付進度</h2>{statements.filter(s=>Number(s.current_offset_amount_minor)>0||Number(s.remaining_offset_amount_minor)>0).length?<table className="finance-table"><thead><tr><th>商家</th><th>本期抵付</th><th>已抵付</th><th>剩餘</th><th>完成</th><th>抵付後平台費</th></tr></thead><tbody>{statements.filter(s=>Number(s.current_offset_amount_minor)>0||Number(s.remaining_offset_amount_minor)>0).map(s=>{const target=Number(s.cumulative_offset_amount_minor)+Number(s.remaining_offset_amount_minor),percent=target?Math.min(100,Math.round(Number(s.cumulative_offset_amount_minor)/target*100)):0;return <tr key={s.id}><td data-label="商家">{s.merchant_name}</td><td data-label="本期抵付">{moneyMinor(s.current_offset_amount_minor)}</td><td data-label="已抵付">{moneyMinor(s.cumulative_offset_amount_minor)}</td><td data-label="剩餘">{moneyMinor(s.remaining_offset_amount_minor)}</td><td data-label="完成">{percent}%</td><td data-label="抵付後平台費">{moneyMinor(s.ongoing_platform_fee_minor)}</td></tr>})}</tbody></table>:<div className="empty-state"><h3>目前沒有銷售抵付資料</h3><p>upfront_18000 商家不會建立抵付進度。</p></div>}</article>}
+    {!loading&&tab==="rules"&&<article className="finance-panel"><h2>規則設定</h2><p className="finance-alert warning">稅務預留與扣繳須依記帳士／稅務專業人員確認結果設定。啟用服務前也須完成契約／法務確認。</p><form className="settlement-rules" onSubmit={saveProfile}><label>商家<select value={period.merchant_id} onChange={e=>void loadProfile(e.target.value)}>{merchants.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label className="check-row"><input type="checkbox" checked={profileForm.enabled} onChange={e=>setProfileForm({...profileForm,enabled:e.target.checked})}/>啟用訂金代收與月結對帳</label><label>付款方案<select value={profileForm.payment_plan} onChange={e=>setProfileForm({...profileForm,payment_plan:e.target.value as ProfileForm["payment_plan"]})}><option value="upfront_18000">upfront_18000（已一次支付）</option><option value="sales_offset_18000">sales_offset_18000（逐期抵付）</option></select></label><label>訂金比例 %<input value={profileForm.deposit_rate} onChange={e=>setProfileForm({...profileForm,deposit_rate:e.target.value})}/></label><label>平台作業費率 %<input value={profileForm.platform_rate} onChange={e=>setProfileForm({...profileForm,platform_rate:e.target.value})}/></label><label>金流費模式<select value={profileForm.processing_fee_mode} onChange={e=>setProfileForm({...profileForm,processing_fee_mode:e.target.value})}><option value="actual_or_estimated">有實際費用優先，否則估算</option><option value="actual_only">只接受 Provider 實際費用</option><option value="estimated">只使用核准估算</option></select></label><label>預估金流費率 %<input value={profileForm.estimated_processing_rate} onChange={e=>setProfileForm({...profileForm,estimated_processing_rate:e.target.value})}/></label><label>金流費基礎<select value={profileForm.processing_fee_basis} onChange={e=>setProfileForm({...profileForm,processing_fee_basis:e.target.value})}><option value="deposit_collected">代收訂金</option><option value="order_total">完整訂單總額（僅契約明定時）</option></select></label><label>稅務預留<select value={profileForm.tax_reserve_mode} onChange={e=>setProfileForm({...profileForm,tax_reserve_mode:e.target.value})}><option value="disabled">停用</option><option value="manual">人工核准金額</option><option value="percentage">核准比例</option></select></label>{profileForm.tax_reserve_mode==="percentage"&&<label>核准稅務預留比例 %<input value={profileForm.tax_reserve_rate} onChange={e=>setProfileForm({...profileForm,tax_reserve_rate:e.target.value})}/></label>}<label>扣繳<select value={profileForm.withholding_mode} onChange={e=>setProfileForm({...profileForm,withholding_mode:e.target.value})}><option value="disabled">停用</option><option value="manual">人工核准金額</option><option value="percentage">核准比例</option></select></label>{profileForm.withholding_mode!=="disabled"&&<><label>核准扣繳比例 %<input value={profileForm.withholding_rate} onChange={e=>setProfileForm({...profileForm,withholding_rate:e.target.value})}/></label><label>所得類別<input value={profileForm.withholding_income_type} onChange={e=>setProfileForm({...profileForm,withholding_income_type:e.target.value})}/></label></>}<label>抵付目標 NT$<input value={profileForm.offset_target} onChange={e=>setProfileForm({...profileForm,offset_target:e.target.value})}/></label><label className="check-row"><input type="checkbox" checked={profileForm.continue_platform_fee_after_offset} onChange={e=>setProfileForm({...profileForm,continue_platform_fee_after_offset:e.target.checked})}/>抵付完成後依契約繼續收平台費</label><label>每月結算日<input type="number" min="1" max="28" value={profileForm.settlement_day} onChange={e=>setProfileForm({...profileForm,settlement_day:e.target.value})}/></label><label>法務／契約審核<select value={profileForm.legal_review_status} onChange={e=>setProfileForm({...profileForm,legal_review_status:e.target.value})}><option value="pending">待確認</option><option value="approved">已核准</option><option value="rejected">不核准</option></select></label><label>會計／稅務審核<select value={profileForm.accounting_review_status} onChange={e=>setProfileForm({...profileForm,accounting_review_status:e.target.value})}><option value="pending">待確認</option><option value="approved">已核准</option><option value="rejected">不核准</option></select></label><label>契約生效日<input type="date" value={profileForm.effective_from} onChange={e=>setProfileForm({...profileForm,effective_from:e.target.value})}/></label><label>契約失效日<input type="date" value={profileForm.effective_to} onChange={e=>setProfileForm({...profileForm,effective_to:e.target.value})}/></label><button>保存規則設定</button></form></article>}
+    {!loading&&tab==="audit"&&<article className="finance-panel"><h2>Settlement Audit</h2>{auditEvents.length?<table className="finance-table"><thead><tr><th>時間</th><th>對帳單</th><th>商家</th><th>事件</th><th>狀態</th><th>操作者</th></tr></thead><tbody>{auditEvents.map(e=><tr key={String(e.id)}><td data-label="時間">{String(e.created_at)}</td><td data-label="對帳單">{String(e.statement_no||"—")}</td><td data-label="商家">{String(e.merchant_name)}</td><td data-label="事件">{String(e.event_type)}</td><td data-label="狀態">{String(e.from_status||"—")} → {String(e.to_status||"—")}</td><td data-label="操作者">{String(e.actor_id||e.actor_type)}</td></tr>)}</tbody></table>:<p className="finance-note">目前沒有 Audit 資料。</p>}</article>}
+    {!loading&&tab==="rules"&&<article className="finance-panel"><h2>平台公司／發票資料</h2><p className="finance-note">對帳單不會硬寫公司名稱。請由正式管理員確認法律主體、統編與發票資料後保存。</p><form className="settlement-rules platform-settings" onSubmit={savePlatformSettings}><label>品牌名稱<input value={platformSettings.brand_name} onChange={e=>setPlatformSettings({...platformSettings,brand_name:e.target.value})}/></label><label>公司法律主體<input required value={platformSettings.legal_entity_name} onChange={e=>setPlatformSettings({...platformSettings,legal_entity_name:e.target.value})}/></label><label>統一編號<input required value={platformSettings.tax_id} onChange={e=>setPlatformSettings({...platformSettings,tax_id:e.target.value})}/></label><label>發票抬頭<input value={platformSettings.invoice_title} onChange={e=>setPlatformSettings({...platformSettings,invoice_title:e.target.value})}/></label><label>發票地址<input value={platformSettings.invoice_address} onChange={e=>setPlatformSettings({...platformSettings,invoice_address:e.target.value})}/></label><button>確認並保存公司資料</button></form></article>}
+  </main>;
 }
