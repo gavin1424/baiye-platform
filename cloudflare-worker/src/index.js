@@ -6,8 +6,9 @@ import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } 
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
 import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
 import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from "./member-integrations.js";
-import { handleMerchantAuth, requireMerchant } from "./merchant-auth.js";
+import { authorizeMerchant, handleMerchantAuth } from "./merchant-auth.js";
 import { handleCommerce } from "./commerce-core.js";
+import { permissionForRequest } from "./merchant-permissions.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -221,11 +222,10 @@ export default {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const isPublicCommerceRoute = url.pathname.startsWith("/api/commerce/public/");
-      const permission = url.pathname.startsWith("/api/commerce/pages") ? "cms.manage"
-        : url.pathname.startsWith("/api/commerce/products") ? "catalog.manage"
-          : url.pathname.startsWith("/api/commerce/inventory") ? "inventory.manage" : "";
-      const merchantContext = isPublicCommerceRoute ? null : await requireMerchant(request, env, permission);
-      if (!isPublicCommerceRoute && !merchantContext) return json({ error: "未授權" }, 401, cors);
+      const permission = permissionForRequest(url.pathname, request.method);
+      const authorization = isPublicCommerceRoute ? null : await authorizeMerchant(request, env, permission);
+      if (authorization && !authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      const merchantContext = authorization?.session || null;
       return handleCommerce(request, env, url, cors, merchantContext);
     }
 

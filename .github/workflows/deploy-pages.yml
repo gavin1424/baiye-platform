@@ -32,6 +32,8 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          VITE_PLATFORM_API_URL: https://chuang-baiye-ai.baiye-platform.workers.dev
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

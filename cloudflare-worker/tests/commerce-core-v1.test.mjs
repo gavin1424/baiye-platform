@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { handleCommerce, calculateCart, hasEntitlement } from "../src/commerce-core.js";
+import { handleCommerce, calculateCart, hasEntitlement, transitionStockReservations } from "../src/commerce-core.js";
 import { PAYMENT_PROVIDERS, SHIPPING_PROVIDERS, INVOICE_PROVIDERS, assertProviderEnabled } from "../src/commerce-providers.js";
 
 class D1Statement {
@@ -95,13 +95,17 @@ test("merchant product and page APIs isolate tenants", async () => {
 
 test("checkout recalculates price from variants and replays idempotently", async () => {
   const { d1, sqlite } = database();
-  const product = await call(d1, "/api/commerce/products", "POST", { title: "正式商品", slug: "real-price", price_minor: 12345 });
+  const product = await call(d1, "/api/commerce/products", "POST", { title: "正式商品", slug: "real-price", product_type: "digital", price_minor: 12345 });
   sqlite.prepare("UPDATE commerce_product_variants SET active=1 WHERE id=?").run(product.body.variant_id);
+  sqlite.prepare("UPDATE commerce_products SET status='active' WHERE id=?").run(product.body.id);
   const cart = await call(d1, "/api/commerce/public/merchant_a/carts", "POST", {});
-  await call(d1, `/api/commerce/public/merchant_a/carts/${cart.body.id}/items`, "POST", { variant_id: product.body.variant_id, quantity: 2 });
+  const auth = { authorization: `Bearer ${cart.body.guest_token}` };
+  const denied = await call(d1, `/api/commerce/public/merchant_a/carts/${cart.body.id}/items`, "POST", { variant_id: product.body.variant_id, quantity: 2 });
+  assert.equal(denied.response.status, 401);
+  await call(d1, `/api/commerce/public/merchant_a/carts/${cart.body.id}/items`, "POST", { variant_id: product.body.variant_id, quantity: 2 }, "merchant_a", auth);
   const payload = { cart_id: cart.body.id, terms_consent: true, total_minor: 1 };
-  const first = await call(d1, "/api/commerce/public/merchant_a/checkout", "POST", payload, "merchant_a", { "idempotency-key": "checkout-test-0001" });
-  const replay = await call(d1, "/api/commerce/public/merchant_a/checkout", "POST", payload, "merchant_a", { "idempotency-key": "checkout-test-0001" });
+  const first = await call(d1, "/api/commerce/public/merchant_a/checkout", "POST", payload, "merchant_a", { ...auth, "idempotency-key": "checkout-test-0001" });
+  const replay = await call(d1, "/api/commerce/public/merchant_a/checkout", "POST", payload, "merchant_a", { ...auth, "idempotency-key": "checkout-test-0001" });
   assert.equal(first.response.status, 201);
   assert.equal(first.body.order.total_minor, 24690);
   assert.equal(replay.response.status, 200);
@@ -135,4 +139,24 @@ test("every external provider remains disabled until reviewed credentials exist"
     assert.equal(provider.productionReady, false);
     assert.throws(() => assertProviderEnabled(provider), /PROVIDER_NOT_READY/);
   }
+});
+
+test("two carts racing for the last physical unit produce one order and one stock conflict", async () => {
+  const { d1, sqlite } = database();
+  const product = await call(d1, "/api/commerce/products", "POST", { title: "最後一件", slug: "last-unit", product_type: "physical", price_minor: 30000 });
+  sqlite.prepare("UPDATE commerce_products SET status='active' WHERE id=?").run(product.body.id);
+  sqlite.prepare("UPDATE commerce_product_variants SET active=1 WHERE id=?").run(product.body.variant_id);
+  sqlite.prepare("INSERT INTO commerce_inventory_locations(id,merchant_id,name,active) VALUES('race_loc','merchant_a','Race',1)").run();
+  sqlite.prepare("INSERT INTO commerce_inventory_items(id,merchant_id,variant_id,location_id,on_hand,reserved) VALUES('race_inv','merchant_a',?,'race_loc',1,0)").run(product.body.variant_id);
+  const carts = await Promise.all([call(d1, "/api/commerce/public/merchant_a/carts", "POST", {}), call(d1, "/api/commerce/public/merchant_a/carts", "POST", {})]);
+  for (const cart of carts) await call(d1, `/api/commerce/public/merchant_a/carts/${cart.body.id}/items`, "POST", { variant_id: product.body.variant_id, quantity: 1 }, "merchant_a", { authorization: `Bearer ${cart.body.guest_token}` });
+  const results = await Promise.all(carts.map((cart, index) => call(d1, "/api/commerce/public/merchant_a/checkout", "POST", { cart_id: cart.body.id, terms_consent: true }, "merchant_a", { authorization: `Bearer ${cart.body.guest_token}`, "idempotency-key": `race-checkout-${index}` })));
+  assert.deepEqual(results.map((result) => result.response.status).sort(), [201, 409]);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM commerce_orders").get().n, 1);
+  assert.equal(sqlite.prepare("SELECT reserved FROM commerce_inventory_items WHERE id='race_inv'").get().reserved, 1);
+  const order = sqlite.prepare("SELECT id FROM commerce_orders").get();
+  await transitionStockReservations(d1, "merchant_a", order.id, "consumed");
+  const remainingInventory = sqlite.prepare("SELECT on_hand,reserved FROM commerce_inventory_items WHERE id='race_inv'").get();
+  assert.equal(remainingInventory.on_hand, 0);
+  assert.equal(remainingInventory.reserved, 0);
 });

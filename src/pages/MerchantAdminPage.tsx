@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
-const API_BASE = (import.meta.env.VITE_PLATFORM_API_URL || import.meta.env.VITE_API_BASE_URL || "https://chuang-baiye-commerce-staging.workers.dev").replace(/\/$/, "");
+const API_BASE = String(import.meta.env.VITE_PLATFORM_API_URL || "").replace(/\/$/, "");
+if (!API_BASE) throw new Error("VITE_PLATFORM_API_URL is required");
 
 const sections = [
   ["dashboard", "營運總覽"], ["site", "網站管理"], ["pages", "頁面"],
