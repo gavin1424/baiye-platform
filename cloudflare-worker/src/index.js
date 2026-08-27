@@ -1,6 +1,8 @@
 import { AI_MODEL, BUSINESS, HUMAN_HANDOFF, SYSTEM_PROMPT } from "./business.js";
 import { handleFinanceRequest } from "./finance.js";
 import { handlePartnerRequest } from "./partner.js";
+import { handleMembershipRequest } from "./membership.js";
+import { handleAiAdminRequest, handleMeilingWebsiteChat, processMeilingLineText } from "./meiling-ai.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -25,7 +27,7 @@ function corsHeaders(origin) {
     ? {
         "access-control-allow-origin": origin,
         "access-control-allow-methods": "GET, POST, PATCH, OPTIONS",
-        "access-control-allow-headers": "content-type, authorization",
+        "access-control-allow-headers": "content-type, authorization, idempotency-key",
         "access-control-max-age": "86400",
         "access-control-allow-credentials": "true",
         vary: "Origin",
@@ -100,6 +102,7 @@ async function replyToLine(replyToken, reply, accessToken) {
     body: JSON.stringify({ replyToken, messages: [{ type: "text", text: reply.slice(0, 5000) }] }),
   });
   if (!response.ok) console.error("LINE Reply API failed", response.status);
+  return response.ok;
 }
 
 async function handleLine(request, env) {
@@ -124,8 +127,38 @@ async function handleLine(request, env) {
   return json({ ok: true });
 }
 
+async function handleMeilingLine(request, env, ctx) {
+  if (!env.LINE_MEILING_CHANNEL_SECRET || !env.LINE_MEILING_CHANNEL_ACCESS_TOKEN) {
+    return json({ error: "Meiling LINE integration is not configured" }, 503);
+  }
+
+  const body = await request.text();
+  const signature = request.headers.get("x-line-signature") || "";
+  const channelSecret = env.LINE_MEILING_CHANNEL_SECRET.match(/[a-f0-9]{32}/i)?.[0] || env.LINE_MEILING_CHANNEL_SECRET;
+  if (!(await validLineSignature(body, signature, channelSecret))) {
+    return json({ error: "Invalid LINE signature" }, 401);
+  }
+
+  const payload = JSON.parse(body);
+  const events = Array.isArray(payload.events) ? payload.events : [];
+  const processing = Promise.all(events.map(async (event) => {
+    if (event.type !== "message" || event.message?.type !== "text" || !event.replyToken) return;
+    await processMeilingLineText(event, env, (reply) => replyToLine(event.replyToken, reply, env.LINE_MEILING_CHANNEL_ACCESS_TOKEN));
+  }));
+
+  if (ctx?.waitUntil) {
+    ctx.waitUntil(processing.catch((error) => {
+      console.error("Meiling LINE background processing failed", error instanceof Error ? error.message : "unknown error");
+    }));
+  } else {
+    await processing;
+  }
+
+  return json({ ok: true, merchant_id: "meiling_patchwork" });
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = allowedOrigin(request, env);
     const cors = corsHeaders(origin);
@@ -134,16 +167,50 @@ export default {
       return json({ ok: true, service: "創百業智慧鏈 AI" });
     }
 
+    if (url.pathname === "/widgets/meiling-chat-widget.js" && request.method === "GET") {
+      const widget = await env.CONTRACTS_BUCKET.get("public/meiling-chat-widget.js");
+      if (!widget) return json({ error: "Widget not found" }, 404);
+      return new Response(widget.body, {
+        headers: {
+          "content-type": "application/javascript; charset=UTF-8",
+          "cache-control": "public, max-age=300, s-maxage=3600",
+          "access-control-allow-origin": "*",
+          etag: widget.httpEtag,
+        },
+      });
+    }
+
     if (url.pathname.startsWith("/api/finance") || url.pathname.startsWith("/api/payments/webhook/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (url.pathname.startsWith("/api/finance") && !origin) return json({ error: "Origin not allowed" }, 403);
       return handleFinanceRequest(request, env, url, cors);
     }
 
+    if (url.pathname.startsWith("/api/member") || url.pathname.startsWith("/api/join") || url.pathname.startsWith("/api/merchant/qr-codes") || url.pathname.startsWith("/api/admin/merchant-admins")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return handleMembershipRequest(request, env, url, cors);
+    }
+
     if (url.pathname.startsWith("/api/partner") || url.pathname.startsWith("/api/admin/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
+      if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors);
       return handlePartnerRequest(request, env, url, cors);
+    }
+
+    if (url.pathname === "/api/merchant/meiling/chat") {
+      if (request.method === "OPTIONS") {
+        return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      }
+      if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, cors);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      try {
+        return await handleMeilingWebsiteChat(request, env, cors);
+      } catch (error) {
+        console.error("Meiling website AI failed", error instanceof Error ? error.message : "unknown error");
+        return json({ reply: "智能客服目前暫時忙碌中，請稍後再試，或直接留言讓店家協助您。", code: "AI_INTERNAL_ERROR" }, 200, cors);
+      }
     }
 
     if (url.pathname === "/chat") {
@@ -170,6 +237,15 @@ export default {
       } catch (error) {
         console.error("LINE webhook failed", error instanceof Error ? error.message : "unknown error");
         return json({ error: "LINE webhook failed" }, 500);
+      }
+    }
+
+    if (url.pathname === "/webhooks/line/meiling" && request.method === "POST") {
+      try {
+        return await handleMeilingLine(request, env, ctx);
+      } catch (error) {
+        console.error("Meiling LINE webhook failed", error instanceof Error ? error.message : "unknown error");
+        return json({ error: "Meiling LINE webhook failed" }, 500);
       }
     }
 

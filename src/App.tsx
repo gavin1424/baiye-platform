@@ -26,6 +26,7 @@ import {
   ShopProductPage,
 } from "./pages/ShopPages";
 import { ForgotPasswordPage, LoginPage, MemberAccountPage, RegisterPage } from "./pages/AuthPages";
+import { MemberLoginPage, MerchantQrCodesPage, QrMembershipJoinPage } from "./pages/QrMembershipPages";
 import {
   CollaborationManagementPage,
   DashboardOverviewPage,
@@ -70,6 +71,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/register": "會員註冊｜創百業智慧鏈",
   "/forgot-password": "忘記密碼｜創百業智慧鏈",
   "/account": "免費會員帳號｜創百業智慧鏈",
+  "/member/login": "平台會員登入｜創百業智慧鏈",
+  "/dashboard/qr-codes": "掃碼入會 QR Code｜創百業智慧鏈",
   "/dashboard": "商家後台總覽｜創百業智慧鏈",
   "/dashboard/site-editor": "我的網站編輯器｜創百業智慧鏈",
   "/dashboard/products": "商品與服務管理｜創百業智慧鏈",
@@ -202,6 +205,8 @@ export function App() {
         <Route path="/cart" element={<ShopCartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/payment/:result" element={<PaymentResultPage />} />
+        <Route path="/join/:merchantSlug" element={<QrMembershipJoinPage />} />
+        <Route path="/member/login" element={<MemberLoginPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -310,6 +315,7 @@ export function App() {
             </AdminRoute>
           }
         />
+        <Route path="/dashboard/qr-codes" element={<MerchantQrCodesPage />} />
         <Route
           path="/admin/finance"
           element={
