@@ -225,7 +225,7 @@ export default {
       if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors, true);
       if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors, true);
       if (url.pathname.startsWith("/api/admin/ordering") || url.pathname.startsWith("/api/admin/financing")) {
-        const integrationResponse = await handleMemberIntegrationsAdmin(request, env, url, cors, true);
+        const integrationResponse = await handleMemberIntegrationsAdmin(request, env, url, cors, adminSession);
         if (integrationResponse) return integrationResponse;
         return handleOrderingAdminRequest(request, env, url, cors, true);
       }

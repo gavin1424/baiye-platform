@@ -15767,3 +15767,5 @@ button:disabled {
   }
 }
 
+/* Growth referral consent form */
+.growth-referral-form{margin-top:28px;padding:24px;border:1px solid rgba(17,62,91,.16);border-radius:20px;background:#fff;display:grid;gap:14px}.growth-referral-form label{display:grid;gap:6px;font-weight:700}.growth-referral-form input{min-width:0;padding:12px 14px;border:1px solid rgba(17,62,91,.25);border-radius:10px;font:inherit}.growth-referral-form .growth-consent{grid-template-columns:auto 1fr;align-items:start;font-weight:500}.growth-preview{padding:14px;border-radius:12px;background:#f5f0df}
