@@ -1,4 +1,4 @@
-const E=new TextEncoder(),ITERATIONS=210000,COOKIE="baiye_merchant_session";
+const E=new TextEncoder(),ITERATIONS=100000,COOKIE="baiye_merchant_session";
 const json=(d,s=200,h={})=>new Response(JSON.stringify(d),{status:s,headers:{"content-type":"application/json; charset=UTF-8","cache-control":"no-store",...h}});
 const b64=a=>btoa(String.fromCharCode(...a)).replaceAll("+","-").replaceAll("/","_").replaceAll("=","");
 const random=()=>b64(crypto.getRandomValues(new Uint8Array(32)));
