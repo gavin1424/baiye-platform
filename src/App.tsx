@@ -11,6 +11,8 @@ import { FaqPageV13, HowItWorksPageV13, PricingPageV13, TermsPageV13 } from "./p
 import { AccountUnavailablePage, CatalogUnavailablePage, EmptyCollaborationPage, MerchantAccessUnavailablePage, ProductionContactPage, ProductionNotFoundPage, ProductionPrivacyPage, VerifiedBusinessesPage } from "./pages/ProductionPublicPages";
 import { ProductionAdminOverview } from "./pages/ProductionAdminOverview";
 import { DepositSettlementPage, MerchantSettlementsUnavailablePage } from "./pages/DepositSettlementPage";
+import { QrOrderingPage } from "./pages/QrOrderingPage";
+import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
 const PAGE_TITLES: Record<string, string> = {
@@ -48,6 +50,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin": "平台管理員後台｜創百業智慧鏈",
   "/admin/finance": "財務管理｜創百業智慧鏈",
   "/admin/bookings": "預約管理｜創百業智慧鏈",
+  "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
   "/services/deposit-settlement": "訂金代收與月結對帳服務｜創百業智慧鏈",
   "/merchant/settlements": "商家月結對帳｜創百業智慧鏈",
   "/partner": "承攬夥伴中心｜創百業智慧鏈",
@@ -67,23 +70,25 @@ function ScrollAndMetadata() {
     const path = location.pathname;
     const title =
       PAGE_TITLES[path] ||
-      (path.startsWith("/business/")
-        ? "商家專屬網站｜創百業智慧鏈"
-        : path.startsWith("/demo-sites/")
-          ? "產業示範網站｜創百業智慧鏈"
-          : path.startsWith("/collaborations/")
-            ? "合作需求詳情｜創百業智慧鏈"
-            : path.startsWith("/marketplace/")
-              ? "商品服務詳情｜創百業智慧鏈"
-              : path.startsWith("/shop/")
-                ? "商城商品詳情｜創百業智慧鏈"
-                : path.startsWith("/payment/")
-                  ? "付款結果｜創百業智慧鏈"
-                  : path.startsWith("/categories/")
-                    ? "行業分類｜創百業智慧鏈"
-                    : path.startsWith("/dashboard/")
-                      ? "商家後台｜創百業智慧鏈"
-                      : "找不到頁面｜創百業智慧鏈");
+      (path.startsWith("/q/")
+        ? "掃碼加入會員與手機點餐｜創百業智慧鏈"
+        : path.startsWith("/business/")
+          ? "商家專屬網站｜創百業智慧鏈"
+          : path.startsWith("/demo-sites/")
+            ? "產業示範網站｜創百業智慧鏈"
+            : path.startsWith("/collaborations/")
+              ? "合作需求詳情｜創百業智慧鏈"
+              : path.startsWith("/marketplace/")
+                ? "商品服務詳情｜創百業智慧鏈"
+                : path.startsWith("/shop/")
+                  ? "商城商品詳情｜創百業智慧鏈"
+                  : path.startsWith("/payment/")
+                    ? "付款結果｜創百業智慧鏈"
+                    : path.startsWith("/categories/")
+                      ? "行業分類｜創百業智慧鏈"
+                      : path.startsWith("/dashboard/")
+                        ? "商家後台｜創百業智慧鏈"
+                        : "找不到頁面｜創百業智慧鏈");
     document.title = title;
     const description =
       "創百業智慧鏈提供 AI 行銷推廣、平台上架與商家數位營運服務，現階段推廣促銷價 NT$18,000，標準規格網站基礎建置免費附贈。";
@@ -127,12 +132,19 @@ function AdminRoute({ children }: { children: ReactNode }) {
   return children;
 }
 
+function ContextualAiChatWidget() {
+  const location = useLocation();
+  if (location.pathname.startsWith("/q/")) return null;
+  return <AiChatWidget />;
+}
+
 export function App() {
   return (
     <>
       <ScrollAndMetadata />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/categories" element={<VerifiedBusinessesPage />} />
         <Route path="/categories/:category" element={<VerifiedBusinessesPage />} />
         <Route path="/businesses" element={<VerifiedBusinessesPage />} />
@@ -186,10 +198,11 @@ export function App() {
         <Route path="/admin" element={<AdminRoute><ProductionAdminOverview /></AdminRoute>} />
         <Route path="/admin/finance" element={<AdminRoute><AdminFinancePage /></AdminRoute>} />
         <Route path="/admin/bookings" element={<AdminRoute><AdminBookings /></AdminRoute>} />
+        <Route path="/admin/ordering" element={<AdminRoute><AdminQrOrderingPage /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
         <Route path="*" element={<ProductionNotFoundPage />} />
       </Routes>
-      <AiChatWidget />
+      <ContextualAiChatWidget />
     </>
   );
 }

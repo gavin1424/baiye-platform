@@ -4,6 +4,7 @@ import { handlePartnerRequest, runPartnerDailyMaintenance } from "./partner.js";
 import { handleAiAdminRequest, handleMeilingWebsiteChat, processMeilingLineText } from "./meiling-ai.js";
 import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } from "./booking.js";
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
+import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -186,7 +187,7 @@ export default {
     const cors = corsHeaders(origin);
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return json({ ok: true, service: "創百業智慧鏈", checks: { worker: "ok", d1: Boolean(env.FINANCE_DB), r2: Boolean(env.CONTRACTS_BUCKET), ai: Boolean(env.OPENAI_API_KEY), line: Boolean(env.LINE_MEILING_CHANNEL_SECRET) } });
+      return json({ ok: true, service: "創百業智慧鏈", checks: { worker: "ok", d1: Boolean(env.FINANCE_DB), r2: Boolean(env.CONTRACTS_BUCKET), ai: Boolean(env.OPENAI_API_KEY), line: Boolean(env.LINE_MEILING_CHANNEL_SECRET), ordering: Boolean(env.FINANCE_DB) } });
     }
 
     if (url.pathname.startsWith("/api/admin/auth/")) {
@@ -222,7 +223,14 @@ export default {
       if (url.pathname.startsWith("/api/admin/") && !adminSession) return json({ error: "需要正式管理員授權。" }, 401, cors);
       if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors, true);
       if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors, true);
+      if (url.pathname.startsWith("/api/admin/ordering")) return handleOrderingAdminRequest(request, env, url, cors, true);
       return handlePartnerRequest(request, env, url, cors, Boolean(adminSession));
+    }
+
+    if (url.pathname.startsWith("/api/ordering/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return handleOrderingRequest(request, env, url, cors);
     }
 
     if (url.pathname.startsWith("/api/merchant/") && url.pathname.includes("/booking")) {
