@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarCheck, Check, CirclesFour, GlobeHemisphereWest, Handshake, Receipt, Robot, Storefront } from "@phosphor-icons/react";
+import { ArrowRight, CalendarCheck, Check, CirclesFour, CreditCard, Gift, GlobeHemisphereWest, HandCoins, Handshake, Motorcycle, Receipt, Robot, Storefront } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 import { PublicLayout, SectionHeading } from "../components";
 
@@ -8,6 +8,10 @@ const capabilities = [
   { icon: CalendarCheck, title: "線上預約", text: "服務、時段、防撞單、改期與取消整合管理。" },
   { icon: Storefront, title: "數位營運", text: "商家資料、顧客互動與營運工具逐步整合。" },
   { icon: Receipt, title: "訂金代收與月結對帳", text: "依商家契約整合訂金代收、費用拆分、月結對帳與抵付進度。" },
+  { icon: Gift, title: "加入會員領 NT$100 禮券", text: "掃碼加入已開通活動的合作商家會員，符合資格即可領取。" },
+  { icon: CreditCard, title: "悠遊支付", text: "依商家實際開通狀態，提供悠遊付 QR 或到店悠遊卡感應付款。" },
+  { icon: Motorcycle, title: "外送平台串接", text: "可連結 Uber Eats、foodpanda、LINE 與商家自有訂購服務。" },
+  { icon: HandCoins, title: "商家融資合作", text: "提供經審核合作機構資訊及申請轉介，實際條件以合作機構審核為準。" },
 ];
 
 export function HomePage() {

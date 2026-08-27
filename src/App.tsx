@@ -13,6 +13,7 @@ import { ProductionAdminOverview } from "./pages/ProductionAdminOverview";
 import { DepositSettlementPage, MerchantSettlementsUnavailablePage } from "./pages/DepositSettlementPage";
 import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
+import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
 const PAGE_TITLES: Record<string, string> = {
@@ -51,6 +52,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/finance": "財務管理｜創百業智慧鏈",
   "/admin/bookings": "預約管理｜創百業智慧鏈",
   "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
+  "/member-benefits": "會員百元禮券｜創百業智慧鏈",
+  "/business-financing": "商家融資合作專區｜創百業智慧鏈",
+  "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
   "/services/deposit-settlement": "訂金代收與月結對帳服務｜創百業智慧鏈",
   "/merchant/settlements": "商家月結對帳｜創百業智慧鏈",
   "/partner": "承攬夥伴中心｜創百業智慧鏈",
@@ -145,6 +149,8 @@ export function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
+        <Route path="/member-benefits" element={<MemberBenefitsPage />} />
+        <Route path="/business-financing" element={<BusinessFinancingPage />} />
         <Route path="/categories" element={<VerifiedBusinessesPage />} />
         <Route path="/categories/:category" element={<VerifiedBusinessesPage />} />
         <Route path="/businesses" element={<VerifiedBusinessesPage />} />
@@ -199,6 +205,7 @@ export function App() {
         <Route path="/admin/finance" element={<AdminRoute><AdminFinancePage /></AdminRoute>} />
         <Route path="/admin/bookings" element={<AdminRoute><AdminBookings /></AdminRoute>} />
         <Route path="/admin/ordering" element={<AdminRoute><AdminQrOrderingPage /></AdminRoute>} />
+        <Route path="/admin/financing" element={<AdminRoute><AdminFinancingPage /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
         <Route path="*" element={<ProductionNotFoundPage />} />
       </Routes>

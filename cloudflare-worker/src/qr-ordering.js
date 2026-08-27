@@ -1,3 +1,5 @@
+import { couponOrderStateStatements, issueWelcomeCoupon, prepareCouponForOrder } from "./member-integrations.js";
+
 const E = new TextEncoder();
 const SESSION_DAYS = 180;
 const MAX_ORDER_LINES = 50;
@@ -200,7 +202,8 @@ async function orderWithItems(db, merchantId, membershipId, orderCodeValue) {
     SELECT name_snapshot,unit_price_minor,quantity,line_total_minor,note
     FROM merchant_food_order_items WHERE order_id=? ORDER BY created_at,id
   `).bind(row.id).all();
-  return publicOrder(row, items.results || []);
+  const pricing = await db.prepare(`SELECT gross_subtotal_minor,coupon_discount_minor,payable_total_minor,coupon_id FROM merchant_order_pricing WHERE order_id=?`).bind(row.id).first();
+  return { ...publicOrder(row, items.results || []), pricing: pricing || { gross_subtotal_minor: Number(row.subtotal_minor), coupon_discount_minor: 0, payable_total_minor: Number(row.total_minor), coupon_id: null } };
 }
 
 export function calculateOrderLines(requestItems, catalogItems) {
@@ -294,6 +297,7 @@ async function handleJoin(request, db, context, cors) {
     RETURNING id,display_name,phone_normalized
   `).bind(uid("customer"), displayName, phone, phone, email || null).first();
 
+  const previousMembership = await db.prepare(`SELECT m.id FROM merchant_memberships m JOIN ordering_customers c ON c.id=m.customer_id WHERE m.merchant_id=? AND c.phone_normalized=? LIMIT 1`).bind(context.merchant_id, phone).first();
   const membership = await db.prepare(`
     INSERT INTO merchant_memberships
       (id,merchant_id,customer_id,membership_no,status,joined_via_qr_id,consent_version,consented_at,visit_count,last_seen_at)
@@ -315,6 +319,7 @@ async function handleJoin(request, db, context, cors) {
     return json({ error: "此會員狀態目前無法使用，請洽店家協助。" }, 403, cors);
   }
   const session = await issueSession(db, context.merchant_id, membership.membership_id);
+  const coupon = await issueWelcomeCoupon(db, { merchantId: context.merchant_id, membershipId: membership.membership_id, phoneVerified: Boolean(customer.phone_verified), newlyCreated: !previousMembership });
   await audit(db, context.merchant_id, "customer", membership.membership_id, "member_joined_or_returned", "membership", membership.membership_id, { qr_id: context.id });
   return json({
     message: "加入會員成功，現在可以開始點餐。",
@@ -325,6 +330,7 @@ async function handleJoin(request, db, context, cors) {
       phone_masked: maskPhone(customer.phone_normalized),
     },
     session,
+    coupon,
   }, 201, cors);
 }
 
@@ -374,6 +380,13 @@ async function handleCreateOrder(request, db, context, cors) {
 
   const orderId = uid("foodorder");
   const code = orderCode();
+  let couponPricing;
+  try {
+    couponPricing = await prepareCouponForOrder(db, { merchantId: context.merchant_id, membershipId: session.membership_id, couponId: clean(input?.coupon_id, 120), gross: calculation.subtotal_minor, orderId, idempotencyKey });
+  } catch (error) {
+    const messages = { COUPON_NOT_AVAILABLE: "此禮券目前無法使用。", COUPON_MINIMUM_NOT_MET: "此訂單尚未達到禮券最低消費。", PHONE_VERIFICATION_REQUIRED: "請先完成手機驗證再使用禮券。" };
+    return json({ error: messages[error instanceof Error ? error.message : ""] || "禮券驗證失敗。" }, 409, cors);
+  }
   const statements = [
     db.prepare(`
       INSERT INTO merchant_food_orders
@@ -388,6 +401,8 @@ async function handleCreateOrder(request, db, context, cors) {
         (id,order_id,menu_item_id,name_snapshot,unit_price_minor,quantity,line_total_minor,note)
       VALUES (?,?,?,?,?,?,?,?)
     `).bind(uid("fooditem"), orderId, line.menu_item_id, line.name_snapshot, line.unit_price_minor, line.quantity, line.line_total_minor, line.note)),
+    db.prepare(`INSERT INTO merchant_order_pricing(order_id,merchant_id,gross_subtotal_minor,coupon_discount_minor,payable_total_minor,coupon_id,merchant_funded_minor,platform_funded_minor) VALUES(?,?,?,?,?,?,?,0)`).bind(orderId, context.merchant_id, calculation.subtotal_minor, couponPricing.discount, Math.max(calculation.subtotal_minor - couponPricing.discount, 0), couponPricing.couponId, couponPricing.discount),
+    ...couponPricing.statements,
     db.prepare(`UPDATE merchant_memberships SET order_count=order_count+1,last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?`).bind(context.merchant_id, session.membership_id),
     db.prepare(`
       INSERT INTO merchant_ordering_audit_logs
@@ -684,7 +699,8 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       const paymentStatus = clean(input.payment_status ?? current.payment_status, 20);
       if (!canTransitionOrderStatus(current.status, nextStatus)) return json({ error: `訂單無法由 ${current.status} 直接變更為 ${nextStatus}。` }, 409, cors);
       if (!["unpaid", "paid", "refunded"].includes(paymentStatus)) return json({ error: "付款狀態不正確。" }, 400, cors);
-      await db.prepare(`
+      const couponStatements = await couponOrderStateStatements(db, current, nextStatus, paymentStatus);
+      await db.batch([db.prepare(`
         UPDATE merchant_food_orders SET
           status=?,payment_status=?,
           accepted_at=CASE WHEN ?='accepted' AND accepted_at IS NULL THEN CURRENT_TIMESTAMP ELSE accepted_at END,
@@ -692,8 +708,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
           cancelled_at=CASE WHEN ?='cancelled' THEN CURRENT_TIMESTAMP ELSE cancelled_at END,
           updated_at=CURRENT_TIMESTAMP
         WHERE merchant_id=? AND id=?
-      `).bind(nextStatus, paymentStatus, nextStatus, nextStatus, nextStatus, merchantId, current.id).run();
-      await audit(db, merchantId, "admin", "admin", "order_status_updated", "order", current.id, { from: current.status, to: nextStatus, payment_status: paymentStatus });
+      `).bind(nextStatus, paymentStatus, nextStatus, nextStatus, nextStatus, merchantId, current.id), ...couponStatements, db.prepare(`INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?)`).bind(uid("ordaudit"), merchantId, "admin", "admin", "order_status_updated", "order", current.id, JSON.stringify({ from: current.status, to: nextStatus, payment_status: paymentStatus }))]);
       return json({ ok: true, status: nextStatus, payment_status: paymentStatus }, 200, cors);
     }
 

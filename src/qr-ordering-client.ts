@@ -78,7 +78,11 @@ export type OrderingOrder = {
   items: OrderingOrderItem[];
   customer_name?: string;
   phone_masked?: string;
+  pricing?: { gross_subtotal_minor: number; coupon_discount_minor: number; payable_total_minor: number; coupon_id?: string | null };
 };
+export type OrderingCoupon={id:string;status:"pending_verification"|"active"|"reserved"|"redeemed"|"expired"|"revoked";expires_at:string;name?:string;discount_value_minor:number;minimum_spend_minor:number;terms_version:string};
+export type OrderingPaymentOption={id:string;provider:"easywallet"|"easycard";mode:"easywallet_qr_manual"|"easycard_terminal_counter";display_name:string;official_qr_asset_key?:string;official_payment_url?:string};
+export type OrderingDeliveryLink={id:string;provider:"uber_eats"|"foodpanda"|"line"|"custom";display_name:string;order_url:string};
 
 export type QrContextResponse = {
   context: OrderingContext;

@@ -5,6 +5,7 @@ import { handleAiAdminRequest, handleMeilingWebsiteChat, processMeilingLineText 
 import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } from "./booking.js";
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
 import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
+import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from "./member-integrations.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -223,13 +224,19 @@ export default {
       if (url.pathname.startsWith("/api/admin/") && !adminSession) return json({ error: "需要正式管理員授權。" }, 401, cors);
       if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors, true);
       if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors, true);
-      if (url.pathname.startsWith("/api/admin/ordering")) return handleOrderingAdminRequest(request, env, url, cors, true);
+      if (url.pathname.startsWith("/api/admin/ordering") || url.pathname.startsWith("/api/admin/financing")) {
+        const integrationResponse = await handleMemberIntegrationsAdmin(request, env, url, cors, true);
+        if (integrationResponse) return integrationResponse;
+        return handleOrderingAdminRequest(request, env, url, cors, true);
+      }
       return handlePartnerRequest(request, env, url, cors, Boolean(adminSession));
     }
 
-    if (url.pathname.startsWith("/api/ordering/")) {
+    if (url.pathname.startsWith("/api/ordering/") || url.pathname.startsWith("/api/member-benefits/") || url.pathname.startsWith("/api/financing/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const integrationResponse = await handleMemberIntegrationsPublic(request, env, url, cors);
+      if (integrationResponse) return integrationResponse;
       return handleOrderingRequest(request, env, url, cors);
     }
 

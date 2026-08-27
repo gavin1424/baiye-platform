@@ -29,9 +29,12 @@ import {
   saveOrderingMemberToken,
   type OrderingCategory,
   type OrderingContext,
+  type OrderingCoupon,
+  type OrderingDeliveryLink,
   type OrderingMember,
   type OrderingMenuItem,
   type OrderingOrder,
+  type OrderingPaymentOption,
   type OrderingOrderStatus,
   type OrderingOrderType,
   type OrderingPurpose,
@@ -96,6 +99,10 @@ export function QrOrderingPage() {
   const [token, setToken] = useState("");
   const [categories, setCategories] = useState<OrderingCategory[]>([]);
   const [items, setItems] = useState<OrderingMenuItem[]>([]);
+  const [coupons, setCoupons] = useState<OrderingCoupon[]>([]);
+  const [selectedCoupon, setSelectedCoupon] = useState("");
+  const [paymentOptions, setPaymentOptions] = useState<OrderingPaymentOption[]>([]);
+  const [deliveryLinks, setDeliveryLinks] = useState<OrderingDeliveryLink[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
   const [order, setOrder] = useState<OrderingOrder | null>(null);
@@ -107,6 +114,17 @@ export function QrOrderingPage() {
   const [tableLabel, setTableLabel] = useState("");
   const [customerNote, setCustomerNote] = useState("");
   const pendingOrderKey = useRef("");
+
+  const loadBenefits = useCallback(async (memberToken: string) => {
+    if (!memberToken) return;
+    const [couponData, paymentData, deliveryData] = await Promise.all([
+      orderingPublicApi<{items:OrderingCoupon[]}>(`/api/ordering/qr/${encodeURIComponent(code)}/coupons`,{},memberToken),
+      orderingPublicApi<{items:OrderingPaymentOption[]}>(`/api/ordering/qr/${encodeURIComponent(code)}/payment-options`),
+      orderingPublicApi<{items:OrderingDeliveryLink[]}>(`/api/ordering/qr/${encodeURIComponent(code)}/delivery-links`),
+    ]);
+    setCoupons(couponData.items||[]);setPaymentOptions(paymentData.items||[]);setDeliveryLinks(deliveryData.items||[]);
+    const usable=(couponData.items||[]).find(c=>c.status==="active");if(usable)setSelectedCoupon(usable.id);
+  },[code]);
 
   const loadMenu = useCallback(async (ctx: OrderingContext, memberToken: string) => {
     if (!memberToken && ctx.require_member) return;
@@ -140,6 +158,7 @@ export function QrOrderingPage() {
         try {
           setToken(savedToken);
           await loadMenu(ctx, savedToken);
+          await loadBenefits(savedToken);
         } catch (error) {
           if (errorStatus(error) === 401) {
             clearOrderingMemberToken(ctx.merchant_id);
@@ -155,7 +174,7 @@ export function QrOrderingPage() {
     } finally {
       setLoading(false);
     }
-  }, [code, loadMenu]);
+  }, [code, loadBenefits, loadMenu]);
 
   useEffect(() => {
     void initialize();
@@ -217,6 +236,7 @@ export function QrOrderingPage() {
         member: OrderingMember;
         session: { token: string; expires_at: string };
         message: string;
+        coupon?: OrderingCoupon | null;
       }>(`/api/ordering/qr/${encodeURIComponent(code)}/join`, {
         method: "POST",
         body: JSON.stringify({
@@ -231,6 +251,8 @@ export function QrOrderingPage() {
       setToken(data.session.token);
       saveOrderingMemberToken(context.merchant_id, data.session.token);
       setMessage(data.message);
+      if(data.coupon)setCoupons([data.coupon]);
+      await loadBenefits(data.session.token);
       if (context.qr.purpose !== "member_only") await loadMenu(context, data.session.token);
     } catch (error) {
       setMessage(errorMessage(error));
@@ -257,6 +279,7 @@ export function QrOrderingPage() {
             table_label: tableLabel,
             customer_note: customerNote,
             items: cartLines.map((item) => ({ item_id: item.id, quantity: item.quantity })),
+            coupon_id: selectedCoupon || undefined,
           }),
         },
         token,
@@ -318,7 +341,7 @@ export function QrOrderingPage() {
             <p className={`ordering-status-pill tone-${statusTone(order.status)}`}>{orderStatusLabels[order.status]}</p>
             <small>系統會自動更新處理狀態；需要協助時請向店家出示訂單編號。</small>
           </div>
-          <strong>{money(order.total_minor, context.currency)}</strong>
+          <strong>{money(order.pricing?.payable_total_minor??order.total_minor, context.currency)}</strong>
         </section>
       )}
 
@@ -344,6 +367,8 @@ export function QrOrderingPage() {
             )}
             {showTableInput && <label>桌號<input value={tableLabel} onChange={(event) => setTableLabel(event.target.value)} placeholder="例如 A3、12 桌"/></label>}
           </section>
+          {coupons.length>0&&<section className="ordering-controls-card"><div><span>我的禮券</span><strong>會員 NT$100 禮券</strong><small>外送平台訂單預設不適用</small></div><div>{coupons.map(c=><label key={c.id} className="ordering-consent"><input type="radio" name="coupon" checked={selectedCoupon===c.id} disabled={c.status!=="active"} onChange={()=>setSelectedCoupon(c.id)}/><span>{money(c.discount_value_minor,context.currency)}・{c.status==="active"?"可使用":c.status==="pending_verification"?"待手機驗證":c.status}</span></label>)}</div></section>}
+          {deliveryLinks.length>0&&<section className="ordering-controls-card"><div><span>外送訂購</span><strong>第三方與商家外送服務</strong><small>商品、價格、優惠、付款及退款依外送平台頁面為準。</small></div><div className="ordering-qr-actions">{deliveryLinks.map(link=><a key={link.id} className="btn btn-outline" href={link.order_url} target="_blank" rel="noopener noreferrer">{link.display_name}</a>)}</div></section>}
 
           <section className="ordering-menu-section">
             <div className="ordering-section-heading"><ForkKnife weight="duotone"/><div><span>手機菜單</span><h2>選擇餐點</h2><p>價格與供應狀態以送單當下的店家資料為準。</p></div></div>
@@ -380,8 +405,10 @@ export function QrOrderingPage() {
             <label className="ordering-note">給店家的備註<textarea value={customerNote} onChange={(event) => setCustomerNote(event.target.value)} maxLength={500} placeholder="例如：不要辣、餐具需求（實際仍以店家可提供內容為準）"/></label>
             {showTableInput && <label className="ordering-note">桌號<input value={tableLabel} onChange={(event) => setTableLabel(event.target.value)} placeholder="請輸入桌號"/></label>}
             <div className="ordering-cart-total"><span>合計</span><strong>{money(subtotal, context.currency)}</strong></div>
+            {selectedCoupon&&<div className="ordering-cart-total"><span>會員禮券</span><strong>-{money(Math.min(10000,subtotal),context.currency)}</strong></div>}
+            {selectedCoupon&&<div className="ordering-cart-total"><span>應付金額</span><strong>{money(Math.max(subtotal-10000,0),context.currency)}</strong></div>}
             <button type="button" className="btn btn-primary btn-lg" onClick={() => void submitOrder()} disabled={submitting || (showTableInput && !tableLabel.trim())}>{submitting ? "正在送出…" : "確認送出訂單"}</button>
-            <small>本版先建立訂單並由店家現場收款；送出前不會進行線上扣款。</small>
+            <small>{paymentOptions.length?"送單後可依商家開通狀態選擇："+paymentOptions.map(x=>x.display_name).join("、"):"目前由店家現場收款；送出前不會進行線上扣款。"}</small>
           </section>
         </div>
       )}
