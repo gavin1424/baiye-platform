@@ -6,6 +6,8 @@ import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } 
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
 import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
 import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from "./member-integrations.js";
+import { handleMerchantAuth, requireMerchant } from "./merchant-auth.js";
+import { handleCommerce } from "./commerce-core.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -207,6 +209,24 @@ export default {
       const widget = await env.CONTRACTS_BUCKET.get("public/meiling-booking.js");
       if (!widget) return json({ error: "Booking widget not found" }, 404);
       return new Response(widget.body, { headers: { "content-type": "application/javascript; charset=UTF-8", "cache-control": "public, max-age=300, s-maxage=3600", "access-control-allow-origin": "*", etag: widget.httpEtag } });
+    }
+
+    if (url.pathname.startsWith("/api/merchant-auth/")) {
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return handleMerchantAuth(request, env, url, cors);
+    }
+
+    if (url.pathname.startsWith("/api/commerce/")) {
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const isPublicCommerceRoute = url.pathname.startsWith("/api/commerce/public/");
+      const permission = url.pathname.startsWith("/api/commerce/pages") ? "cms.manage"
+        : url.pathname.startsWith("/api/commerce/products") ? "catalog.manage"
+          : url.pathname.startsWith("/api/commerce/inventory") ? "inventory.manage" : "";
+      const merchantContext = isPublicCommerceRoute ? null : await requireMerchant(request, env, permission);
+      if (!isPublicCommerceRoute && !merchantContext) return json({ error: "未授權" }, 401, cors);
+      return handleCommerce(request, env, url, cors, merchantContext);
     }
 
     if (url.pathname.startsWith("/api/finance") || url.pathname.startsWith("/api/payments/webhook/")) {

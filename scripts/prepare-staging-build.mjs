@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 const output = join(process.cwd(), "dist", "client");
 const workerUrl = String(process.env.VITE_PLATFORM_API_URL || "").replace(/\/$/, "");
-if (!/^https:\/\/chuang-baiye-(?:ai|growth)-staging(?:\.[a-z0-9-]+)?\.workers\.dev$/i.test(workerUrl)) {
+if (!/^https:\/\/chuang-baiye-(?:ai|growth|commerce)-staging(?:\.[a-z0-9-]+)?\.workers\.dev$/i.test(workerUrl)) {
   throw new Error("VITE_PLATFORM_API_URL 必須是隔離的 staging Worker URL");
 }
 

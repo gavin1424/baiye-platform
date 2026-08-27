@@ -14,6 +14,7 @@ import { DepositSettlementPage, MerchantSettlementsUnavailablePage } from "./pag
 import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
+import { MerchantAdminPage } from "./pages/MerchantAdminPage";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
 const PAGE_TITLES: Record<string, string> = {
@@ -151,6 +152,7 @@ export function App() {
         <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
         <Route path="/business-financing" element={<BusinessFinancingPage />} />
+        <Route path="/merchant-admin/*" element={<MerchantAdminPage />} />
         <Route path="/categories" element={<VerifiedBusinessesPage />} />
         <Route path="/categories/:category" element={<VerifiedBusinessesPage />} />
         <Route path="/businesses" element={<VerifiedBusinessesPage />} />

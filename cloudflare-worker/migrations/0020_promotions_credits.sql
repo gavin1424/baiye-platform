@@ -1,0 +1,13 @@
+PRAGMA foreign_keys=ON;
+CREATE TABLE promotion_campaigns(id TEXT PRIMARY KEY,merchant_id TEXT NOT NULL,name TEXT NOT NULL,promotion_type TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'draft',priority INTEGER NOT NULL DEFAULT 0,stackable INTEGER NOT NULL DEFAULT 0,starts_at TEXT,ends_at TEXT,usage_limit INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(merchant_id,id));
+CREATE TABLE promotion_rules(id TEXT PRIMARY KEY,merchant_id TEXT NOT NULL,campaign_id TEXT NOT NULL,rule_json TEXT NOT NULL,FOREIGN KEY(merchant_id,campaign_id) REFERENCES promotion_campaigns(merchant_id,id));
+CREATE TABLE promotion_conditions(id TEXT PRIMARY KEY,campaign_id TEXT NOT NULL REFERENCES promotion_campaigns(id),condition_type TEXT NOT NULL,operator TEXT NOT NULL,value_json TEXT NOT NULL);
+CREATE TABLE promotion_actions(id TEXT PRIMARY KEY,campaign_id TEXT NOT NULL REFERENCES promotion_campaigns(id),action_type TEXT NOT NULL,value_json TEXT NOT NULL);
+CREATE TABLE promotion_scopes(id TEXT PRIMARY KEY,campaign_id TEXT NOT NULL REFERENCES promotion_campaigns(id),scope_type TEXT NOT NULL,scope_id TEXT);
+CREATE TABLE promotion_redemptions(id TEXT PRIMARY KEY,merchant_id TEXT NOT NULL,campaign_id TEXT NOT NULL,customer_id TEXT,order_id TEXT,amount_minor INTEGER NOT NULL,idempotency_key TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(merchant_id,idempotency_key));
+CREATE TABLE shopping_credit_programs(id TEXT PRIMARY KEY,merchant_id TEXT NOT NULL,name TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0,earn_rules_json TEXT NOT NULL DEFAULT '{}',redeem_rules_json TEXT NOT NULL DEFAULT '{}');
+CREATE TABLE shopping_credit_accounts(id TEXT PRIMARY KEY,merchant_id TEXT NOT NULL,customer_id TEXT NOT NULL,balance_minor INTEGER NOT NULL DEFAULT 0,UNIQUE(merchant_id,customer_id));
+CREATE TABLE shopping_credit_ledger(id TEXT PRIMARY KEY,merchant_id TEXT NOT NULL,account_id TEXT NOT NULL REFERENCES shopping_credit_accounts(id),entry_type TEXT NOT NULL,amount_minor INTEGER NOT NULL,source_type TEXT NOT NULL,source_id TEXT,idempotency_key TEXT NOT NULL,expires_at TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(merchant_id,idempotency_key));
+CREATE TABLE shopping_credit_expirations(id TEXT PRIMARY KEY,ledger_id TEXT NOT NULL REFERENCES shopping_credit_ledger(id),amount_minor INTEGER NOT NULL,expires_at TEXT NOT NULL,processed_at TEXT);
+CREATE TRIGGER trg_credit_ledger_no_update BEFORE UPDATE ON shopping_credit_ledger BEGIN SELECT RAISE(ABORT,'credit ledger immutable'); END;
+CREATE TRIGGER trg_credit_ledger_no_delete BEFORE DELETE ON shopping_credit_ledger BEGIN SELECT RAISE(ABORT,'credit ledger immutable'); END;
