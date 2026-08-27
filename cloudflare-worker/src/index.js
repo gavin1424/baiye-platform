@@ -6,6 +6,8 @@ import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } 
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
 import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
 import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from "./member-integrations.js";
+import { authorizeMerchant, handleMerchantAuth } from "./merchant-auth.js";
+import { permissionForOrderingRequest } from "./merchant-permissions.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -29,7 +31,7 @@ function corsHeaders(origin) {
   return origin
     ? {
         "access-control-allow-origin": origin,
-        "access-control-allow-methods": "GET, POST, PATCH, OPTIONS",
+        "access-control-allow-methods": "GET, POST, PUT, PATCH, OPTIONS",
         "access-control-allow-headers": "content-type, authorization, idempotency-key, x-csrf-token",
         "access-control-max-age": "86400",
         "access-control-allow-credentials": "true",
@@ -195,6 +197,28 @@ export default {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       return (await handleAdminAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname.startsWith("/api/merchant-auth/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleMerchantAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname.startsWith("/api/merchant-admin/ordering")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const permission = permissionForOrderingRequest(url.pathname, request.method);
+      const authorization = await authorizeMerchant(request, env, permission);
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      const scopedUrl = new URL(url);
+      scopedUrl.pathname = scopedUrl.pathname.replace(/^\/api\/merchant-admin\/ordering/, "/api/admin/ordering");
+      scopedUrl.searchParams.set("merchant_id", authorization.session.merchant_id);
+      return handleOrderingAdminRequest(request, env, scopedUrl, cors, true, {
+        actor_type: "merchant",
+        actor_id: authorization.session.user_id,
+        actor_role: authorization.session.roles || "merchant",
+      });
     }
 
     if (url.pathname === "/widgets/meiling-chat-widget.js" && request.method === "GET") {

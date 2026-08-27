@@ -13,6 +13,7 @@ import { ProductionAdminOverview } from "./pages/ProductionAdminOverview";
 import { DepositSettlementPage, MerchantSettlementsUnavailablePage } from "./pages/DepositSettlementPage";
 import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
+import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
@@ -52,6 +53,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/finance": "財務管理｜創百業智慧鏈",
   "/admin/bookings": "預約管理｜創百業智慧鏈",
   "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
+  "/merchant-admin/ordering": "商家 QR 點餐管理｜創百業智慧鏈",
   "/member-benefits": "會員百元禮券｜創百業智慧鏈",
   "/business-financing": "商家融資合作專區｜創百業智慧鏈",
   "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
@@ -149,6 +151,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
+        <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
         <Route path="/business-financing" element={<BusinessFinancingPage />} />
         <Route path="/categories" element={<VerifiedBusinessesPage />} />
