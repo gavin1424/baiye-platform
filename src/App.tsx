@@ -15,6 +15,7 @@ import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 import { MerchantAdminPage } from "./pages/MerchantAdminPage";
+import { MerchantSitePreviewPage, MerchantStorefrontPage } from "./pages/MerchantCmsPages";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
 const PAGE_TITLES: Record<string, string> = {
@@ -56,6 +57,14 @@ const PAGE_TITLES: Record<string, string> = {
   "/member-benefits": "會員百元禮券｜創百業智慧鏈",
   "/business-financing": "商家融資合作專區｜創百業智慧鏈",
   "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
+  "/merchant-admin": "商家登入｜創百業智慧鏈",
+  "/merchant-admin/dashboard": "商家總覽｜創百業智慧鏈",
+  "/merchant-admin/site": "網站管理｜創百業智慧鏈",
+  "/merchant-admin/pages": "頁面管理｜創百業智慧鏈",
+  "/merchant-admin/navigation": "導覽選單｜創百業智慧鏈",
+  "/merchant-admin/media": "媒體管理｜創百業智慧鏈",
+  "/merchant-admin/domains": "網域與 SEO｜創百業智慧鏈",
+  "/merchant-admin/security": "帳號與安全｜創百業智慧鏈",
   "/services/deposit-settlement": "訂金代收與月結對帳服務｜創百業智慧鏈",
   "/merchant/settlements": "商家月結對帳｜創百業智慧鏈",
   "/partner": "承攬夥伴中心｜創百業智慧鏈",
@@ -153,6 +162,8 @@ export function App() {
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
         <Route path="/business-financing" element={<BusinessFinancingPage />} />
         <Route path="/merchant-admin/*" element={<MerchantAdminPage />} />
+        <Route path="/site-preview/:token" element={<MerchantSitePreviewPage />} />
+        <Route path="/store/:merchant/:slug" element={<MerchantStorefrontPage />} />
         <Route path="/categories" element={<VerifiedBusinessesPage />} />
         <Route path="/categories/:category" element={<VerifiedBusinessesPage />} />
         <Route path="/businesses" element={<VerifiedBusinessesPage />} />

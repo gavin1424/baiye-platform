@@ -34,6 +34,8 @@ export async function transitionStockReservations(db, merchantId, orderId, statu
 export async function handleCommerce(request, env, url, cors = {}, session = null) {
   const db = env.FINANCE_DB;
   if (!db) return json({ error: "Commerce unavailable" }, 503, cors);
+  const cmsResponse = await handleCms(request, env, url, cors, session);
+  if (cmsResponse) return cmsResponse;
   const publicRoute = url.pathname.startsWith("/api/commerce/public/");
   if (!publicRoute && !session) return json({ error: "需要商家登入" }, 401, cors);
   const merchant = publicRoute ? clean(url.pathname.split("/")[4], 100) : session.merchant_id;
@@ -176,3 +178,4 @@ export async function handleCommerce(request, env, url, cors = {}, session = nul
   if (url.pathname === "/api/commerce/provider-status" && request.method === "GET") return json({ payments: providerGates.payments.map((provider) => ({ provider, status: "disabled" })), shipping: providerGates.shipping.map((provider) => ({ provider, status: "disabled" })), invoice: providerGates.invoice.map((provider) => ({ provider, status: "disabled" })), shopee_import: "disabled", two_factor: "disabled" }, 200, cors);
   return json({ error: "Not found" }, 404, cors);
 }
+import { handleCms } from "./cms-core.js";

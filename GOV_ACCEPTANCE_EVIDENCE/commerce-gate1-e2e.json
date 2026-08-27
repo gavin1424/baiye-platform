@@ -1,0 +1,108 @@
+{
+  "ok": true,
+  "gate": "Gate 1 CMS",
+  "worker": "https://chuang-baiye-commerce-staging.baiye-platform.workers.dev",
+  "pages": "https://baiye-platform-commerce-staging.pages.dev",
+  "results": [
+    {
+      "name": "01 isolated CMS seed",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "02 merchant login",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "03 session and CSRF",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "04 site theme update",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "05 page create",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "06 hero block create",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "07 product grid create",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "08 versioned page detail",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "09 unsafe HTML rejected",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "10 private draft preview",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "11 publish and public renderer",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "12 page version update",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "13 rollback creates new version",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "14 navigation CRUD",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "15 SEO and robots",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "16 redirect CRUD",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "17 private R2 media upload",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "18 domain pending verification",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "19 CMS audit without secrets",
+      "status": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "20 CMS UI route and noindex",
+      "status": "PASS",
+      "detail": "PASS"
+    }
+  ]
+}

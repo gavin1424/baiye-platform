@@ -24,7 +24,7 @@ function setup() {
   for (const file of fs.readdirSync(root).filter((name) => /^\d+.*\.sql$/.test(name)).sort()) sqlite.exec(fs.readFileSync(path.join(root, file), "utf8"));
   sqlite.exec(`INSERT INTO merchants(id,merchant_code,name,status) VALUES('auth_merchant','AUTHMERCHANT','Auth Merchant','active');
     INSERT INTO merchant_roles(id,merchant_id,code,name,is_system) VALUES('role_readonly','auth_merchant','read_only','Read Only',1);
-    INSERT INTO merchant_permissions(code,module,description) VALUES('site.read','site','Read site'),('site.write','site','Write site');
+    INSERT OR IGNORE INTO merchant_permissions(code,module,description) VALUES('site.read','site','Read site'),('site.write','site','Write site');
     INSERT INTO merchant_role_permissions(role_id,permission_code) VALUES('role_readonly','site.read');`);
   return { sqlite, db: new D1(sqlite), env: { FINANCE_DB: new D1(sqlite), APP_MODE: "staging" } };
 }

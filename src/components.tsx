@@ -125,6 +125,9 @@ export function Header() {
           ))}
         </nav>
         <div className="header-actions">
+          <Link to="/merchant-admin" className="btn btn-ghost btn-sm header-merchant-link">
+            商家登入
+          </Link>
           <Link to="/partner" className="btn btn-outline btn-sm header-partner-link">
             承攬夥伴
           </Link>
@@ -198,6 +201,10 @@ export function Header() {
             承攬夥伴
             <CaretRight />
           </NavLink>
+          <NavLink to="/merchant-admin">
+            商家登入
+            <CaretRight />
+          </NavLink>
           {session.role === "guest" ? (
             <div className="mobile-menu-actions">
               <Link to="/login" className="btn btn-outline">
@@ -240,6 +247,8 @@ export function Footer() {
           </div>
           <div>
             <strong>商家服務</strong>
+            <Link to="/merchant-admin">商家後台</Link>
+            <Link to="/merchant-admin">網站管理登入</Link>
             <Link to="/pricing">商家 AI 數位升級</Link>
             <Link to="/pricing">方案與價格</Link>
             <Link to="/how-it-works">如何運作</Link>

@@ -1,17 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { MerchantCmsSection } from "./MerchantCmsPages";
 
 const API_BASE = String(import.meta.env.VITE_PLATFORM_API_URL || "").replace(/\/$/, "");
 if (!API_BASE) throw new Error("VITE_PLATFORM_API_URL is required");
 
 const sections = [
   ["dashboard", "營運總覽"], ["site", "網站管理"], ["pages", "頁面"],
-  ["products", "商品"], ["inventory", "庫存"], ["orders", "訂單"],
-  ["shipments", "出貨"], ["returns", "退換貨"], ["customers", "顧客"],
-  ["member-levels", "會員分級"], ["promotions", "促銷"], ["coupons", "優惠券"],
-  ["credits", "購物金"], ["group-buy", "團購"], ["affiliates", "分潤"],
-  ["messages", "訊息"], ["analytics", "數據"], ["integrations", "串接"],
-  ["api", "Open API"], ["settings", "設定"], ["domains", "網域"], ["billing", "方案"],
+  ["navigation", "導覽"], ["media", "媒體"],
+  ["domains", "網域與 SEO"], ["security", "帳號與安全"],
 ] as const;
 
 type Session = { user: { name: string; email: string }; merchant: { id: string; name: string }; permissions: string[]; csrf_token?: string };
@@ -73,7 +70,13 @@ export function MerchantAdminPage() {
   return <main className="merchant-admin-shell">
     <aside className="merchant-admin-nav" aria-label="商家後台導覽"><div className="merchant-brand"><strong>創百業智慧鏈</strong><span>{session.merchant.name}</span></div><nav>{sections.map(([key, label]) => <NavLink key={key} to={`/merchant-admin/${key}`} className={section === key ? "active" : ""}>{label}</NavLink>)}</nav></aside>
     <section className="merchant-admin-main"><header className="merchant-admin-header"><div><p className="merchant-eyebrow">MERCHANT COMMERCE</p><h1>{activeLabel}</h1></div><div className="merchant-user"><span>{session.user.name}</span><button type="button" onClick={logout}>登出</button></div></header>
-      {section === "dashboard" ? <DashboardView data={dashboard} /> : <ModuleView section={section} label={activeLabel} enabled={Boolean(dashboard?.modules?.[section])} />}
+      {section === "dashboard"
+        ? <DashboardView data={dashboard} />
+        : ["site","pages","navigation","media","domains"].includes(section)
+          ? <MerchantCmsSection section={section} csrf={csrf} permissions={session.permissions||[]} />
+          : section === "security"
+            ? <MerchantSecurityView session={session} onLogout={logout} />
+            : <MerchantCmsSection section="pages" csrf={csrf} permissions={session.permissions||[]} />}
     </section>
   </main>;
 }
@@ -83,6 +86,17 @@ function DashboardView({ data }: { data: Dashboard | null }) {
   return <><section className="merchant-kpis">{cards.map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong><small>正式資料即時統計</small></article>)}</section><section className="merchant-panel"><div><p className="merchant-eyebrow">今日重點</p><h2>從商品到履約，一站掌握</h2></div><p>付款、庫存、優惠與訂單由 Worker 統一計算。未取得正式憑證的 Provider 維持停用，不會顯示假交易。</p></section></>;
 }
 
-function ModuleView({ label, enabled }: { section: string; label: string; enabled: boolean }) {
-  return <section className="merchant-panel merchant-module"><div><p className="merchant-eyebrow">{enabled ? "MODULE ACTIVE" : "APPLICATION REQUIRED"}</p><h2>{label}</h2></div>{enabled ? <><p>此模組已依商家方案開通。資料存取受角色權限與商家隔離保護。</p><div className="merchant-empty"><strong>目前尚無資料</strong><span>建立第一筆資料後，將在此顯示正式營運內容。</span><button type="button">新增資料</button></div></> : <div className="merchant-disabled"><strong>此功能尚未開通</strong><p>請由商家擁有者申請開通；外部 Provider 完成審核前保持 Disabled。</p><button type="button">申請開通</button></div>}</section>;
+function MerchantSecurityView({ session, onLogout }: { session: Session; onLogout: () => Promise<void> }) {
+  return <section className="merchant-panel">
+    <p className="merchant-eyebrow">ACCOUNT SECURITY</p>
+    <h2>帳號與安全</h2>
+    <p>登入 Session、角色與權限均由 Worker 後端驗證；瀏覽器不保存密碼或可偽造的角色資料。</p>
+    <dl className="merchant-security-list">
+      <div><dt>登入帳號</dt><dd>{session.user.email}</dd></div>
+      <div><dt>商家</dt><dd>{session.merchant.name}</dd></div>
+      <div><dt>目前權限數</dt><dd>{session.permissions.length}</dd></div>
+    </dl>
+    <p className="merchant-hint">若需重設密碼或撤銷其他裝置 Session，請聯絡平台管理員進行安全驗證。</p>
+    <button type="button" className="merchant-primary" onClick={() => void onLogout()}>登出此裝置</button>
+  </section>;
 }

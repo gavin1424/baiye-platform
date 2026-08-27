@@ -5,6 +5,8 @@ export const MERCHANT_PERMISSION_MAP = Object.freeze([
   [/^\/api\/commerce\/pages(?:\/|$)/, READ, "site.read"],
   [/^\/api\/commerce\/pages(?:\/|$)/, "MUTATION", "site.write"],
   [/^\/api\/commerce\/pages\/[^/]+\/publish$/, "MUTATION", "site.publish"],
+  [/^\/api\/commerce\/(?:site|navigation|media|redirects|domains|seo|cms-audit)(?:\/|$)/, READ, "site.read"],
+  [/^\/api\/commerce\/(?:site|navigation|media|redirects|domains|seo)(?:\/|$)/, "MUTATION", "site.write"],
   [/^\/api\/commerce\/products(?:\/|$)/, READ, "catalog.read"],
   [/^\/api\/commerce\/products(?:\/|$)/, "MUTATION", "catalog.write"],
   [/^\/api\/commerce\/inventory(?:\/|$)/, READ, "inventory.read"],

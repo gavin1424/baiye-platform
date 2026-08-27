@@ -10,7 +10,7 @@ if (!output) throw new Error("Output SQL path required");
 const salt = crypto.randomBytes(18).toString("base64url");
 const hash = await deriveMerchantPassword(process.env.STAGING_SEED_KEY, salt);
 const modules = ["cms", "catalog", "inventory", "orders", "payments", "shipping", "invoice", "crm", "promotions", "credits", "group_buy", "affiliate", "analytics", "api", "booking", "ai", "line", "finance"];
-const permissions = ["cms.manage", "catalog.manage", "inventory.manage", "orders.manage", "customers.manage", "marketing.manage", "analytics.view", "api.manage", "settings.manage"];
+const permissions = ["cms.manage", "site.read", "site.write", "site.publish", "catalog.manage", "inventory.manage", "orders.manage", "customers.manage", "marketing.manage", "analytics.view", "api.manage", "settings.manage"];
 const readPermissions = ["site.read", "catalog.read", "inventory.read", "orders.read", "customers.read", "promotions.read", "analytics.read", "integrations.read", "api.read"];
 const quote = (value) => `'${String(value).replaceAll("'", "''")}'`;
 
