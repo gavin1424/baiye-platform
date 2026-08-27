@@ -11,6 +11,7 @@ import { FaqPageV13, HowItWorksPageV13, PricingPageV13, TermsPageV13 } from "./p
 import { AccountUnavailablePage, CatalogUnavailablePage, EmptyCollaborationPage, MerchantAccessUnavailablePage, ProductionContactPage, ProductionNotFoundPage, ProductionPrivacyPage, VerifiedBusinessesPage } from "./pages/ProductionPublicPages";
 import { ProductionAdminOverview } from "./pages/ProductionAdminOverview";
 import { DepositSettlementPage, MerchantSettlementsUnavailablePage } from "./pages/DepositSettlementPage";
+import { PosComparisonPage } from "./pages/PosComparisonPage";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
 const PAGE_TITLES: Record<string, string> = {
@@ -36,6 +37,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/messages": "私訊中心｜創百業智慧鏈",
   "/notifications": "通知中心｜創百業智慧鏈",
   "/pricing": "AI 行銷推廣方案｜創百業智慧鏈",
+  "/pos-comparison": "Web-POS 效益與成本比較｜創百業智慧鏈",
   "/demo-sites": "五大產業示範網站｜創百業智慧鏈",
   "/about": "關於平台｜創百業智慧鏈",
   "/how-it-works": "AI 行銷推廣如何運作｜創百業智慧鏈",
@@ -165,6 +167,7 @@ export function App() {
         <Route path="/messages" element={<MerchantAccessUnavailablePage />} />
         <Route path="/notifications" element={<MerchantAccessUnavailablePage />} />
         <Route path="/pricing" element={<PricingPageV13 />} />
+        <Route path="/pos-comparison" element={<PosComparisonPage />} />
         <Route path="/services/deposit-settlement" element={<DepositSettlementPage />} />
         <Route path="/merchant/settlements" element={<MerchantSettlementsUnavailablePage />} />
         <Route path="/about" element={<Navigate to="/" replace />} />
