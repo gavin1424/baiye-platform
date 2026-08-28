@@ -17,6 +17,9 @@ import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
 import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
+import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
+
+const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
 const PAGE_TITLES: Record<string, string> = {
@@ -99,11 +102,17 @@ function ScrollAndMetadata() {
                       : path.startsWith("/dashboard/")
                         ? "商家後台｜創百業智慧鏈"
                         : "找不到頁面｜創百業智慧鏈");
-    document.title = title;
-    const description =
-      "創百業智慧鏈提供 AI 行銷推廣、平台上架與商家數位營運服務，現階段推廣促銷價 NT$18,000，標準規格網站基礎建置免費附贈。";
+    const demoTitle = path.startsWith("/q/")
+      ? "百工牛肉麵手機點餐｜創百業智慧鏈 QR 點餐示範"
+      : "QR 手機點餐示範｜百工牛肉麵｜創百業智慧鏈";
+    const activeTitle = IS_BEEF_NOODLE_DEMO ? demoTitle : title;
+    document.title = activeTitle;
+    const description = IS_BEEF_NOODLE_DEMO
+      ? "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。"
+      : "創百業智慧鏈提供 AI 行銷推廣、平台上架與商家數位營運服務，現階段推廣促銷價 NT$18,000，標準規格網站基礎建置免費附贈。";
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
-    document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
+    document.querySelector('meta[name="robots"]')?.setAttribute("content", IS_BEEF_NOODLE_DEMO ? "noindex,nofollow" : "index,follow");
+    document.querySelector('meta[property="og:title"]')?.setAttribute("content", activeTitle);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
   }, [location.pathname]);
 
@@ -149,6 +158,24 @@ function ContextualAiChatWidget() {
 }
 
 export function App() {
+  if (IS_BEEF_NOODLE_DEMO) {
+    return (
+      <>
+        <ScrollAndMetadata />
+        <div className="beef-demo-env-banner" role="status">
+          創百業智慧鏈 QR 點餐示範店｜此為功能展示環境，非實際營業店家
+        </div>
+        <Routes>
+          <Route path="/" element={<BeefNoodleDemoPage />} />
+          <Route path="/q/:code" element={<QrOrderingPage />} />
+          <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
+          <Route path="/privacy" element={<ProductionPrivacyPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </>
+    );
+  }
+
   return (
     <>
       <ScrollAndMetadata />

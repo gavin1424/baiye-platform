@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 560" role="img" aria-labelledby="title desc">
+  <title id="title">招牌紅燒牛肉麵插畫</title><desc id="desc">米白背景上的紅燒牛肉麵碗、厚切牛肉與青菜</desc>
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f7ead5"/><stop offset="1" stop-color="#dfc69d"/></linearGradient><radialGradient id="soup"><stop stop-color="#a94a2b"/><stop offset="1" stop-color="#5e2118"/></radialGradient></defs>
+  <rect width="800" height="560" rx="44" fill="url(#bg)"/><ellipse cx="400" cy="428" rx="270" ry="48" fill="#6b392c" opacity=".18"/>
+  <path d="M145 238h510l-54 210c-17 65-386 65-403 0z" fill="#fff9ec" stroke="#6f2b22" stroke-width="13"/><ellipse cx="400" cy="240" rx="255" ry="78" fill="#fff9ec" stroke="#6f2b22" stroke-width="13"/><ellipse cx="400" cy="246" rx="224" ry="60" fill="url(#soup)"/>
+  <path d="M229 255c79-58 124 56 192 0s114 39 174-4" fill="none" stroke="#f0d277" stroke-width="14" stroke-linecap="round"/><path d="M240 271c65-48 120 51 188 5s102 34 152-6" fill="none" stroke="#f7df88" stroke-width="11" stroke-linecap="round"/>
+  <g fill="#804024" stroke="#522116" stroke-width="7"><path d="M263 210l82-24 38 48-72 45-68-19z"/><path d="M399 192l92 13 19 58-96 17-39-42z"/><path d="M513 210l71 25-8 50-88-14-8-41z"/></g>
+  <g fill="#7ca04b"><path d="M205 213c-25-59 23-71 59-21-20 17-35 22-59 21z"/><path d="M576 208c24-61-22-70-57-20 18 18 34 23 57 20z"/></g><circle cx="332" cy="219" r="7" fill="#f1d396"/><circle cx="458" cy="232" r="7" fill="#f1d396"/>
+</svg>

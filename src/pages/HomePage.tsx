@@ -1,4 +1,6 @@
-import { ArrowRight, CalendarCheck, Check, CirclesFour, CreditCard, Gift, GlobeHemisphereWest, HandCoins, Handshake, Motorcycle, Receipt, Robot, Storefront } from "@phosphor-icons/react";
+import { ArrowRight, CalendarCheck, Check, CirclesFour, CreditCard, Gift, GlobeHemisphereWest, HandCoins, Handshake, Motorcycle, QrCode, Receipt, Robot, Storefront, X } from "@phosphor-icons/react";
+import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Link } from "react-router-dom";
 import { PublicLayout, SectionHeading } from "../components";
 
@@ -15,12 +17,18 @@ const capabilities = [
 ];
 
 export function HomePage() {
+  const [showDemoQr, setShowDemoQr] = useState(false);
+  const demoUrl = "https://baiye-beef-noodle-demo.pages.dev/";
   return <PublicLayout>
     <section className="hero-section"><div className="container hero-grid"><div className="hero-copy"><span className="eyebrow hero-eyebrow"><CirclesFour weight="fill"/> AI 智慧網站與百業數位升級平台</span><h1>讓商家的專業，<br/><em>真正被看見與找到</em></h1><p>把品牌官網、LINE、AI 客服、線上預約與數位營運串成一套可持續使用的商業入口。</p><div className="hero-actions"><Link to="/businesses" className="btn btn-primary btn-lg">我要找商家 <ArrowRight/></Link><Link to="/pricing" className="btn btn-outline btn-lg">商家加入創百業</Link><Link to="/partner" className="btn btn-ghost btn-lg">承攬夥伴</Link></div><p className="contractor-partner-contract-note">平台只公開已確認的正式商家與真實內容，不以測試數據製造營運成果。</p></div><div className="hero-visual"><img src={`${import.meta.env.BASE_URL}assets/hero-industry-collage.jpg`} alt="台灣各行業商家與專業工作者" fetchPriority="high"/></div></div></section>
 
     <section className="section"><div className="container"><SectionHeading eyebrow="商家 AI 數位升級" title="不只是做網站，而是建立可營運的數位入口" description="從品牌內容到客戶互動，依商家實際需求導入可驗證的功能。" action={{label:"查看全部功能",to:"/features"}}/><div className="steps-grid">{capabilities.map(({icon:Icon,title,text})=><article className="step-card" key={title}><span className="step-icon"><Icon weight="duotone"/></span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
 
     <section className="section section-pricing-preview"><div className="container pricing-preview-shell"><div className="pricing-preview-copy"><span className="eyebrow">商家 AI 數位升級</span><h2>方案定價 NT$30,000</h2><p>響應 AI 應用及產業數位轉型趨勢，現階段推廣優惠 NT$18,000。</p><Link to="/pricing" className="btn btn-primary">了解 NT$18,000 推廣方案 <ArrowRight/></Link><Link to="/features" className="text-link">查看創百業全部功能 <ArrowRight/></Link><Link to="/services/deposit-settlement" className="text-link">了解訂金代收與月結對帳選配服務 <ArrowRight/></Link><Link to="/pos-comparison" className="text-link">比較 Web 數位營運與專業 POS 成本 <ArrowRight/></Link></div><div className="price-spotlight"><div className="price-label"><span>現階段推廣優惠</span>標準規格網站免費附贈</div><div className="price"><strong>NT$18,000</strong><span>AI 行銷推廣、平台上架及數位服務優惠費用</span></div><ul><li><Check/>標準網站基礎建置費 NT$0</li><li><Check/>LINE、AI 與預約依正式導入範圍設定</li><li><Check/>原方案外客製功能另行評估報價</li><li><Check/>第 3 年起續用合計 NT$7,000／年</li></ul><small>本優惠為陳靈有限公司／創百業智慧鏈自主商業促銷，不代表政府補助、核准、背書或保證。</small></div></div></section>
+
+    <section className="section online-demo-section"><div className="container"><SectionHeading eyebrow="線上功能示範" title="親自掃碼，走完一筆桌邊點餐" description="示範站使用隔離測試資料，不是正式合作案例，也不會進行真實扣款。"/><article className="online-demo-card"><div className="online-demo-visual"><span><QrCode weight="duotone"/></span><strong>百工牛肉麵</strong><small>QR 手機點餐示範</small></div><div className="online-demo-content"><span className="status-badge">雲端互動 Demo</span><h3>不用下載 App，手機就能完成點餐</h3><p>掃碼加入會員後即可看菜單、選加料、送單、查看製作進度與再次加點。</p><p className="online-demo-disclaimer">創百業智慧鏈 QR 點餐功能示範，非實際營業店家。</p><div className="online-demo-actions"><a href={demoUrl} target="_blank" rel="noreferrer" className="btn btn-primary">立即體驗 <ArrowRight/></a><button type="button" className="btn btn-outline" onClick={()=>setShowDemoQr(true)}>掃碼體驗 <QrCode/></button></div></div></article></div></section>
+
+    {showDemoQr ? <div className="online-demo-modal" role="dialog" aria-modal="true" aria-label="百工牛肉麵示範 QR"><button type="button" className="online-demo-modal-backdrop" aria-label="關閉 QR 視窗" onClick={()=>setShowDemoQr(false)}/><div className="online-demo-modal-card"><button type="button" className="online-demo-modal-close" aria-label="關閉" onClick={()=>setShowDemoQr(false)}><X/></button><span className="eyebrow">雲端互動 Demo</span><h2>掃碼開啟百工牛肉麵</h2><QRCodeSVG value={demoUrl} size={224} level="M" includeMargin/><p>功能展示環境，不會實際扣款。</p></div></div> : null}
 
     <section id="official-case" className="section section-website-cases"><div className="container"><SectionHeading eyebrow="正式案例" title="已上線的商家數位服務" description="只展示已確認的正式合作內容。"/><div className="website-cases-grid"><article className="website-case-card"><img src="https://meilingpatchwork.com/wp-content/themes/meiling-patchwork/assets/images/home/patchwork-hero-poster.webp" alt="美玲拼布正式網站" loading="lazy"/><div className="website-case-content"><p className="website-case-category">手作・拼布・文創</p><h3>美玲拼布</h3><p>品牌網站、LINE、AI 智能客服與線上預約整合。</p><span className="website-case-status status-badge status-success">正式合作案例</span><a href="https://meilingpatchwork.com/" className="text-link" target="_blank" rel="noreferrer">查看正式網站 <ArrowRight/></a></div></article></div></div></section>
 
