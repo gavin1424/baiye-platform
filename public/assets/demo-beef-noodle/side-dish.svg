@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 560" role="img" aria-labelledby="title desc">
+  <title id="title">台式小菜插畫</title><desc id="desc">滷蛋、豆干、小黃瓜與燙青菜組合</desc>
+  <rect width="800" height="560" rx="44" fill="#efe3ca"/><circle cx="130" cy="118" r="64" fill="#b32722" opacity=".12"/><ellipse cx="401" cy="431" rx="285" ry="48" fill="#402019" opacity=".16"/>
+  <ellipse cx="400" cy="304" rx="280" ry="162" fill="#fffaf0" stroke="#6f2a20" stroke-width="13"/>
+  <g stroke="#6c321f" stroke-width="7"><path d="M220 249c37-58 115-40 118 27 2 58-61 92-109 59-30-21-32-51-9-86z" fill="#a8642e"/><path d="M255 261c15-26 52-23 64 4 11 26-12 52-42 48-28-4-38-28-22-52z" fill="#e8c26b"/>
+  <path d="M382 209l106 12 20 82-109 39-60-62z" fill="#784127"/><path d="M516 247l89 37-28 75-92-29z" fill="#8d4c2d"/></g>
+  <g fill="#6e9c4b"><path d="M330 344c-18-51 19-76 62-32 23 24 7 58-33 61-14 1-23-8-29-29z"/><path d="M402 333c20-58 64-65 89-6 11 28-13 51-49 45-31-5-49-14-40-39z"/></g>
+  <g fill="#89ad55" stroke="#55733b" stroke-width="5"><ellipse cx="555" cy="222" rx="43" ry="20" transform="rotate(-24 555 222)"/><ellipse cx="596" cy="217" rx="42" ry="19" transform="rotate(22 596 217)"/><ellipse cx="578" cy="255" rx="43" ry="20"/></g>
+</svg>

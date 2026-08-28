@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 560" role="img" aria-labelledby="title desc">
+  <title id="title">紅油牛肉乾拌麵插畫</title><desc id="desc">金黃麵條、辣油、厚切牛肉與蔥花</desc>
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f9edda"/><stop offset="1" stop-color="#d9bb88"/></linearGradient></defs><rect width="800" height="560" rx="44" fill="url(#bg)"/>
+  <ellipse cx="400" cy="433" rx="266" ry="45" fill="#5e281e" opacity=".17"/><path d="M155 241h490l-58 203c-17 61-357 61-374 0z" fill="#fff9ed" stroke="#6a281e" stroke-width="13"/><ellipse cx="400" cy="243" rx="245" ry="75" fill="#fff9ed" stroke="#6a281e" stroke-width="13"/>
+  <g fill="none" stroke="#e2a72f" stroke-width="17" stroke-linecap="round"><path d="M210 242c62-52 103 36 163-10s99 43 154-9 73 17 88 5"/><path d="M225 270c57-41 97 34 151-4s90 30 137-5 66 19 82 9"/><path d="M256 294c52-34 91 27 139-5s83 24 126-8"/></g>
+  <g fill="#8a4327" stroke="#5b2118" stroke-width="6"><path d="M267 190l89-4 27 52-83 30-55-32z"/><path d="M424 184l85 18 5 54-96 10-31-45z"/></g><g fill="#6f9e4d"><circle cx="255" cy="223" r="11"/><circle cx="378" cy="198" r="9"/><circle cx="532" cy="229" r="12"/><circle cx="474" cy="273" r="8"/></g><path d="M579 181c21 2 36 22 34 44" fill="none" stroke="#c6492c" stroke-width="18" stroke-linecap="round"/>
+</svg>
