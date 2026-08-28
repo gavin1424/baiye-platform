@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 560" role="img" aria-labelledby="title desc">
+  <title id="title">半筋半肉牛肉麵插畫</title><desc id="desc">深色湯頭配牛筋、牛肉與寬麵的手繪麵碗</desc>
+  <rect width="800" height="560" rx="44" fill="#efe1c7"/><circle cx="658" cy="100" r="80" fill="#c99c46" opacity=".25"/><ellipse cx="400" cy="445" rx="270" ry="42" fill="#401a16" opacity=".16"/>
+  <path d="M150 230h500l-54 220c-15 58-377 58-392 0z" fill="#842c22" stroke="#4b1e1b" stroke-width="13"/><ellipse cx="400" cy="232" rx="250" ry="76" fill="#f8edda" stroke="#4b1e1b" stroke-width="13"/><ellipse cx="400" cy="239" rx="220" ry="58" fill="#632019"/>
+  <g fill="none" stroke="#f2cd6e" stroke-width="15" stroke-linecap="round"><path d="M218 252c75-65 130 56 197-3s112 45 168-7"/><path d="M245 275c69-52 117 45 180 0s93 29 143-7"/></g>
+  <g stroke="#4c1d14" stroke-width="6"><path d="M250 207l88-24 42 54-75 41-72-26z" fill="#92522f"/><path d="M401 189l78 10 35 58-86 24-50-51z" fill="#c0824f"/><path d="M510 205l70 26-10 54-80-17-4-44z" fill="#7c4127"/></g>
+  <path d="M188 204c8-49 41-55 72-11-13 17-40 26-72 11zm421 4c-7-49-40-56-72-13 12 18 39 27 72 13z" fill="#6f9144"/>
+</svg>

@@ -48,6 +48,8 @@ import {
   type QrMenuResponse,
 } from "../qr-ordering-client";
 
+const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
+
 const orderStatusLabels: Record<OrderingOrderStatus, string> = {
   submitted: "已送出",
   accepted: "店家已接單",
@@ -616,6 +618,11 @@ export function QrOrderingPage() {
               <p>不用安裝 App，填寫基本資料即可在本手機使用。</p>
             </div>
           </div>
+          {IS_BEEF_NOODLE_DEMO ? (
+            <p className="ordering-demo-privacy-note">
+              此為 Staging 功能示範環境。若不希望留下真實聯絡資料，請勿輸入真實敏感個資。
+            </p>
+          ) : null}
           <form onSubmit={join} className="ordering-form-grid">
             <label>
               姓名
