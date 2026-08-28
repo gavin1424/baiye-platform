@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chuang-baiye-growth-staging",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": true,
+  "vars": {
+    "APP_MODE": "staging",
+    "ALLOWED_ORIGINS": "https://baiye-platform-growth-staging.pages.dev,http://127.0.0.1:4173,http://localhost:4173",
+    "AI_MODE": "disabled",
+    "LINE_MODE": "disabled",
+    "OTP_MODE": "disabled",
+    "EASYWALLET_API_MODE": "disabled",
+    "UBER_DIRECT_MODE": "disabled",
+    "FINANCING_REFERRAL_MODE": "disabled",
+    "PRODUCTION_READY": "0"
+  },
+  "d1_databases": [{
+    "binding": "FINANCE_DB",
+    "database_name": "baiye-growth-staging",
+    "database_id": "b3c49f83-40a8-4d6a-8427-3258be56b257",
+    "migrations_dir": "migrations"
+  }],
+  "r2_buckets": [{
+    "binding": "CONTRACTS_BUCKET",
+    "bucket_name": "baiye-growth-assets-staging"
+  }]
+}
