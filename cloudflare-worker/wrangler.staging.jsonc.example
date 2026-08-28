@@ -22,5 +22,9 @@
     "AI_MODE": "disabled",
     "LINE_MODE": "disabled",
     "PAYMENT_MODE": "disabled"
+    ,"OTP_MODE": "disabled"
+    ,"EASYWALLET_API_MODE": "disabled"
+    ,"UBER_DIRECT_MODE": "disabled"
+    ,"FINANCING_REFERRAL_MODE": "disabled"
   }
 }
