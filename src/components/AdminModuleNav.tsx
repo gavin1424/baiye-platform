@@ -1,7 +1,7 @@
-import { ArrowLeft, CalendarBlank, Handshake, Receipt } from "@phosphor-icons/react";
+import { ArrowLeft, CalendarBlank, Handshake, QrCode, Receipt } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 
-type AdminModule = "overview" | "finance" | "bookings" | "partners";
+type AdminModule = "overview" | "finance" | "bookings" | "ordering" | "partners";
 
 export function AdminModuleNav({ current }: { current: AdminModule }) {
   return (
@@ -15,6 +15,11 @@ export function AdminModuleNav({ current }: { current: AdminModule }) {
       {current !== "bookings" && (
         <Link to="/admin/bookings">
           <CalendarBlank /> 預約管理
+        </Link>
+      )}
+      {current !== "ordering" && (
+        <Link to="/admin/ordering">
+          <QrCode /> 掃碼會員與點餐
         </Link>
       )}
       {current !== "partners" && (
