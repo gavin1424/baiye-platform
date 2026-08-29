@@ -45,10 +45,12 @@ async function issueMemberSession(db, memberId, deviceId = "contract-session") {
   return { token, expires_at: expiresAt };
 }
 
-export async function preparePlatformMembershipBatch(db, { phone, source, originVerified = false, deviceId = "trusted-contract-session" }) {
+export async function preparePlatformMembershipBatch(db, { phone, source, originVerified = false, deviceId = "trusted-contract-session", privacyConsentVersion = null, issueSession = true }) {
   const normalized = normalizeTaiwanMobile(phone);
   if (!normalized) throw Object.assign(new Error("手機號碼格式不正確。"), { code: "INVALID_PHONE", status: 422 });
   const existing = await memberByPhone(db, normalized);
+  if (existing && existing.status !== "active") throw Object.assign(new Error("此會員帳戶目前無法使用。"), { code: "MEMBER_ACCOUNT_UNAVAILABLE", status: 403 });
+  const existingCoupon = existing ? await db.prepare("SELECT id FROM platform_member_coupons WHERE member_id=? AND campaign_id=?").bind(existing.id, WELCOME_CAMPAIGN_ID).first() : null;
   const customerId = uid("customer");
   const memberId = uid("pmember");
   const memberNo = `BYM-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
@@ -61,14 +63,15 @@ export async function preparePlatformMembershipBatch(db, { phone, source, origin
   const sessionExpiresAt = expiry();
   const couponExpiresAt = expiry(30);
   const statements = [
-    db.prepare("INSERT OR IGNORE INTO ordering_customers(id,display_name,phone_normalized,phone_display) VALUES(?,'會員',?,?)").bind(customerId, normalized, normalized),
+    db.prepare("INSERT OR IGNORE INTO ordering_customers(id,display_name,phone_normalized,phone_display,privacy_consent_version,privacy_consented_at) VALUES(?,'會員',?,?,?,CASE WHEN ? IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END)").bind(customerId, normalized, normalized, privacyConsentVersion, privacyConsentVersion),
+    db.prepare("UPDATE ordering_customers SET privacy_consent_version=COALESCE(privacy_consent_version,?),privacy_consented_at=CASE WHEN privacy_consented_at IS NULL AND ? IS NOT NULL THEN CURRENT_TIMESTAMP ELSE privacy_consented_at END,updated_at=CURRENT_TIMESTAMP WHERE phone_normalized=?").bind(privacyConsentVersion, privacyConsentVersion, normalized),
     db.prepare("INSERT OR IGNORE INTO platform_members(id,customer_id,member_no,joined_source,phone_verified,membership_origin_verified) SELECT ?,c.id,?,?,c.phone_verified,? FROM ordering_customers c WHERE c.phone_normalized=?").bind(memberId, memberNo, source, Number(Boolean(originVerified)), normalized),
     db.prepare("INSERT OR IGNORE INTO platform_member_welcome_events(id,member_id,source) SELECT ?,p.id,? FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE c.phone_normalized=?").bind(welcomeId, source, normalized),
     db.prepare("INSERT OR IGNORE INTO platform_member_coupons(id,member_id,campaign_id,status,expires_at) SELECT ?,p.id,campaign.id,'claimed',? FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id JOIN platform_coupon_campaigns campaign ON campaign.id=? AND campaign.enabled=1 WHERE c.phone_normalized=?").bind(couponId, couponExpiresAt, WELCOME_CAMPAIGN_ID, normalized),
     db.prepare("UPDATE platform_members SET welcome_coupon_claimed_at=COALESCE(welcome_coupon_claimed_at,CURRENT_TIMESTAMP),membership_origin_verified=MAX(membership_origin_verified,?),updated_at=CURRENT_TIMESTAMP WHERE customer_id=(SELECT id FROM ordering_customers WHERE phone_normalized=?)").bind(Number(Boolean(originVerified)), normalized),
-    db.prepare("INSERT INTO platform_member_sessions(id,member_id,token_hash,device_hash,expires_at) SELECT ?,p.id,?,?,? FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE c.phone_normalized=?").bind(sessionId, tokenHash, deviceHash, sessionExpiresAt, normalized),
   ];
-  return { normalized, existing: Boolean(existing), token, sessionExpiresAt, statements };
+  if (issueSession) statements.push(db.prepare("INSERT INTO platform_member_sessions(id,member_id,token_hash,device_hash,expires_at) SELECT ?,p.id,?,?,? FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE c.phone_normalized=?").bind(sessionId, tokenHash, deviceHash, sessionExpiresAt, normalized));
+  return { normalized, existing: Boolean(existing), memberId: existing?.id || memberId, memberCreated: !existing, couponCreated: !existingCoupon, token: issueSession ? token : null, sessionExpiresAt: issueSession ? sessionExpiresAt : null, statements };
 }
 
 export async function finalizePlatformMembershipBatch(db, prepared) {
@@ -76,7 +79,7 @@ export async function finalizePlatformMembershipBatch(db, prepared) {
   if (!member) throw Object.assign(new Error("會員資格建立失敗。"), { code: "MEMBERSHIP_COMMIT_FAILED", status: 503 });
   const coupon = (await claimWelcomeCoupon(db, member.id)).coupon;
   const welcome = welcomeCopy(member.joined_source);
-  return { member: { id: member.id, member_no: member.member_no, status: member.status, phone_masked: maskMemberPhone(prepared.normalized), joined_at: member.joined_at }, created: !prepared.existing, session: { token: prepared.token, expires_at: prepared.sessionExpiresAt }, coupon, welcome: { ...welcome, show: !prepared.existing }, customer: member };
+  return { member: { id: member.id, member_no: member.member_no, status: member.status, phone_masked: maskMemberPhone(prepared.normalized), joined_at: member.joined_at }, created: !prepared.existing, session: prepared.token ? { token: prepared.token, expires_at: prepared.sessionExpiresAt } : null, coupon, welcome: { ...welcome, show: !prepared.existing }, customer: member };
 }
 
 async function memberByPhone(db, phone) {

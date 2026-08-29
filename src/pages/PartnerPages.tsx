@@ -53,30 +53,16 @@ type Workflow = {
   state?: string;
   message?: string;
   has_valid_invite?: boolean;
+  activation_url?: string;
 };
 const workflowFromError = (error: unknown): Workflow =>
   error instanceof ApiError ? error.data : { message: errorText(error) };
 
 function WorkflowActions({
   workflow,
-  email,
-  onRequested,
 }: {
   workflow: Workflow;
-  email: string;
-  onRequested?: (message: string) => void;
 }) {
-  const requestActivation = async () => {
-    try {
-      const result = await api("/api/partner/activation/request", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-      });
-      onRequested?.(result.message);
-    } catch (error) {
-      onRequested?.(errorText(error));
-    }
-  };
   return (
     <div className="partner-workflow-actions">
       {workflow.state === "active" && (
@@ -87,15 +73,14 @@ function WorkflowActions({
       {["pending_activation", "invite_expired"].includes(
         workflow.state || "",
       ) && (
-        <button
+        <Link
           className="btn btn-primary btn-sm"
-          type="button"
-          onClick={() => void requestActivation()}
+          to="/partner/apply"
         >
           {workflow.has_valid_invite ? "重新取得啟用通知" : "取得新的啟用通知"}
-        </button>
+        </Link>
       )}
-      {workflow.state === "pending_review" ? (
+      {workflow.state === "historical_pending" ? (
         <Link className="btn btn-primary btn-sm" to="/partner">
           返回承攬夥伴中心
         </Link>
@@ -160,11 +145,7 @@ function PartnerStatusLookup() {
           className={`partner-workflow-card state-${workflow.state || "error"}`}
         >
           <strong>{workflow.message}</strong>
-          <WorkflowActions
-            workflow={workflow}
-            email={email}
-            onRequested={setNotice}
-          />
+          <WorkflowActions workflow={workflow} />
         </div>
       )}
       {notice && <p className="partner-message">{notice}</p>}
@@ -264,19 +245,19 @@ export function PartnerApply() {
   const [message, setMessage] = useState("");
   const [workflow, setWorkflow] = useState<Workflow>();
   const [notice, setNotice] = useState("");
+  const [success, setSuccess] = useState<any>();
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setMessage("");
     setWorkflow(undefined);
     setNotice("");
+    setSuccess(undefined);
     try {
       const result = await api("/api/partner/apply", {
         method: "POST",
         body: JSON.stringify(form),
       });
-      setMessage(
-        `申請已送出，承攬夥伴編號 ${result.partner_code}。我們會在完成審核後通知您。`,
-      );
+      setSuccess(result);
     } catch (error) {
       const result = workflowFromError(error);
       if (result.state) setWorkflow(result);
@@ -286,7 +267,7 @@ export function PartnerApply() {
   return (
     <main className="partner-shell partner-form">
       <h1>承攬夥伴合作申請</h1>
-      <p>送出後由平台管理員審核；核准後會收到安全啟用連結。</p>
+      <p>完成基本資料驗證後，系統會立即核准並提供安全啟用連結。</p>
       <form onSubmit={submit}>
         {[
           ["legal_name", "法定姓名"],
@@ -300,7 +281,7 @@ export function PartnerApply() {
           <label key={key}>
             {label}
             <input
-              type={key === "email" ? "email" : "text"}
+              type={key === "email" ? "email" : key === "phone" ? "tel" : "text"}
               required={
                 !key.includes("company") &&
                 !key.includes("tax") &&
@@ -322,23 +303,35 @@ export function PartnerApply() {
               setForm({ ...form, consent: event.target.checked })
             }
           />
-          我了解本合作屬獨立承攬／居間合作，非甲方僱員。
+          我了解本合作屬獨立承攬／居間合作、非甲方僱員，並同意會員服務與隱私權說明。
         </label>
         <button className="btn btn-primary">送出申請</button>
+        <small className="partner-auto-approval-note">送出後將立即完成承攬夥伴資格核准，無須等待人工審核。</small>
       </form>
       {workflow?.message && (
         <section className={`partner-workflow-card state-${workflow.state}`}>
           <strong>{workflow.message}</strong>
-          <WorkflowActions
-            workflow={workflow}
-            email={form.email}
-            onRequested={setNotice}
-          />
+          <WorkflowActions workflow={workflow} />
         </section>
       )}
       {message && (
         <section className="partner-message">
           <p>{message}</p>
+        </section>
+      )}
+      {success && (
+        <section className="partner-auto-approved-card" aria-live="polite">
+          <div className="member-celebration" aria-hidden="true">🎉</div>
+          <p className="partner-eyebrow">申請成功</p>
+          <h2>恭喜您已通過創百業承攬夥伴申請。</h2>
+          <p className="partner-approved-code">承攬夥伴編號：<strong>{success.partner_code}</strong></p>
+          <ul>
+            <li>✓ 承攬夥伴申請已核准</li>
+            <li>✓ 創百業會員已建立</li>
+            <li>✓ NT$100 迎新禮券已領取</li>
+          </ul>
+          {success.activation_url && <a className="btn btn-primary btn-lg" href={success.activation_url}>立即完成帳號啟用</a>}
+          {success.contract?.signing_available === false && <p className="partner-guidance-note">您的承攬夥伴資格已核准。正式合作契約目前尚待平台法律版本開放，開放後即可完成簽署。</p>}
         </section>
       )}
       {notice && <p className="partner-message">{notice}</p>}
@@ -553,11 +546,7 @@ export function PartnerLogin() {
           className={`partner-workflow-card state-${workflow.state || "error"}`}
         >
           <strong>{workflow.message}</strong>
-          <WorkflowActions
-            workflow={workflow}
-            email={email}
-            onRequested={setNotice}
-          />
+          <WorkflowActions workflow={workflow} />
           {workflow.code === "INVALID_CREDENTIALS" && (
             <Link to="/partner/apply">尚未申請？前往承攬夥伴合作申請</Link>
           )}
@@ -850,7 +839,7 @@ const statusLabel = (partner: Partner) =>
   partner.status === "pending_contract"
     ? partner.approved_at
       ? "已核准，等待啟用"
-      : "待審核"
+      : "歷史待轉換"
     : {
         active: "已啟用",
         suspended: "已暫停",
@@ -861,6 +850,8 @@ export function AdminPartners() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [vipRewards, setVipRewards] = useState<VipReward[]>([]);
   const [message, setMessage] = useState("");
+  const [showBatchApproval, setShowBatchApproval] = useState(false);
+  const [batchInvites, setBatchInvites] = useState<Array<{partner_code:string;activation_url:string;activation_expires_at:string}>>([]);
   const [invite, setInvite] = useState<{
     name: string;
     url: string;
@@ -913,6 +904,16 @@ export function AdminPartners() {
       setMessage(errorText(error));
     }
   };
+  const approveHistorical = async () => {
+    setMessage("");
+    try {
+      const result = await secureAdminApi("/api/admin/partners/auto-approve-pending", { method: "POST", body: JSON.stringify({ confirm: "AUTO_APPROVE_EXISTING_PENDING_APPLICATIONS" }) });
+      setBatchInvites(result.approved || []);
+      setMessage(`歷史申請轉換完成：${result.approved.length} 筆成功，${result.failed.length} 筆需人工查核。`);
+      setShowBatchApproval(false);
+      await load();
+    } catch (error) { setMessage(errorText(error)); }
+  };
   const updateVipReward = async (
     reward: VipReward,
     status: "approved" | "paid" | "cancelled",
@@ -937,9 +938,15 @@ export function AdminPartners() {
       <header>
         <div>
           <h1>承攬夥伴管理</h1>
-          <p>審核、啟用、契約、有效成交與終止狀態均保留後端稽核紀錄。</p>
+          <p>新申請由系統自動核准；啟用、契約、有效成交與終止狀態均保留後端稽核紀錄。</p>
         </div>
       </header>
+      {partners.some((partner) => partner.status === "pending_contract" && !partner.approved_at) && (
+        <section className="partner-historical-batch">
+          <strong>偵測到舊版待轉換申請</strong>
+          {!showBatchApproval ? <button className="btn btn-outline btn-sm" onClick={() => setShowBatchApproval(true)}>批次核准歷史待審申請</button> : <div><p>此操作會核准最多 100 筆舊版申請並產生短效啟用邀請，請再次確認。</p><button className="btn btn-primary btn-sm" onClick={() => void approveHistorical()}>確認批次核准</button><button className="btn btn-ghost btn-sm" onClick={() => setShowBatchApproval(false)}>取消</button></div>}
+        </section>
+      )}
       {message && <p className="partner-message">{message}</p>}
       {invite && (
         <section className="partner-invite">
@@ -954,6 +961,7 @@ export function AdminPartners() {
           </button>
         </section>
       )}
+      {batchInvites.length > 0 && <section className="partner-invite"><strong>歷史申請啟用網址（僅本次顯示）</strong>{batchInvites.map((item) => <div key={item.partner_code}><span>{item.partner_code} · 有效至 {formatDate(item.activation_expires_at)}</span><input readOnly value={item.activation_url} /><button className="btn btn-outline btn-sm" onClick={() => void copyText(item.activation_url)}>複製</button></div>)}</section>}
       <div className="partner-table">
         <div className="partner-table-head">
           <span>承攬夥伴</span>
@@ -1009,29 +1017,12 @@ export function AdminPartners() {
               </small>
             </div>
             <div className="partner-actions">
-              {partner.status === "pending_contract" &&
-                !partner.approved_at && (
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => void action(partner, "approve")}
-                  >
-                    核准
-                  </button>
-                )}
               {partner.status === "pending_contract" && partner.approved_at && (
                 <button
                   className="btn btn-primary btn-sm"
                   onClick={() => void createInvite(partner)}
                 >
                   產生啟用邀請
-                </button>
-              )}
-              {partner.status === "pending_contract" && (
-                <button
-                  className="btn btn-outline btn-sm"
-                  onClick={() => void action(partner, "reject")}
-                >
-                  拒絕
                 </button>
               )}
               {partner.status === "active" && (
