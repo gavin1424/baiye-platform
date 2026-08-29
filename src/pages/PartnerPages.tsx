@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
+import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -639,6 +640,12 @@ export function PartnerDashboard() {
           </Link>
         </section>
       )}
+      {data.operation_locked && (
+        <section className="partner-status warning">
+          <strong>承攬營運功能已鎖定</strong>
+          <span>完成目前有效且已通過法律審閱之契約簽署後，才可建立正式推薦歸因、成交獎勵與結算。</span>
+        </section>
+      )}
       <section className="partner-cards">
         {[
           ["累計有效成交", data.partner.total_valid_sales],
@@ -681,7 +688,7 @@ export function PartnerDashboard() {
           </span>
         </section>
       )}
-      <section className="partner-detail">
+      {!data.operation_locked && <section className="partner-detail">
         <div>
           <h2>專屬推薦連結</h2>
           <input readOnly value={referral} />
@@ -693,7 +700,7 @@ export function PartnerDashboard() {
           </button>
         </div>
         <QRCodeSVG value={referral} size={150} />
-      </section>
+      </section>}
       {message && <p className="partner-message">{message}</p>}
     </main>
   );
@@ -704,29 +711,31 @@ export function PartnerContract() {
   const [name, setName] = useState("");
   const [checks, setChecks] = useState([false, false, false]);
   const [message, setMessage] = useState("");
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const strokes = useRef<number[][][]>([]);
-  const drawing = useRef(false);
+  const [signature, setSignature] = useState<SignatureValue>({ strokes: [] });
+  const [preview, setPreview] = useState<any>();
   useEffect(() => {
     api("/api/partner/contract/current")
       .then(setContract)
       .catch((error) => setMessage(errorText(error)));
   }, []);
-  const point = (event: React.PointerEvent<HTMLCanvasElement>) => [
-    Math.round(event.nativeEvent.offsetX),
-    Math.round(event.nativeEvent.offsetY),
-  ];
+  const openPreview = async () => {
+    setMessage("");
+    try {
+      setPreview(await api("/api/partner/contract/sign-preview", { method: "POST", body: JSON.stringify({ legal_name: name }) }));
+    } catch (error) { setMessage(errorText(error)); }
+  };
   const sign = async () => {
     setMessage("");
     try {
       const result = await api("/api/partner/contract/sign", {
         method: "POST",
+        headers: { "idempotency-key": crypto.randomUUID() },
         body: JSON.stringify({
           legal_name: name,
           read: checks[0],
           electronic: checks[1],
           independent: checks[2],
-          signature: JSON.stringify({ strokes: strokes.current }),
+          signature,
         }),
       });
       setMessage(
@@ -741,6 +750,9 @@ export function PartnerContract() {
       <h1>線上承攬夥伴合作契約</h1>
       {contract && (
         <>
+          {contract.legal_review_status !== "approved" && (
+            <section className="partner-status warning"><strong>契約法律審閱 Gate 已鎖定</strong><span>此版本目前為 {contract.legal_review_status || "pending_review"}；Production 不可簽署。僅隔離 Staging 可標示測試簽署。</span></section>
+          )}
           <article
             dangerouslySetInnerHTML={{ __html: contract.content_html }}
           />
@@ -771,40 +783,13 @@ export function PartnerContract() {
               {text}
             </label>
           ))}
-          <p>手寫簽名</p>
-          <canvas
-            ref={canvas}
-            width="420"
-            height="140"
-            onPointerDown={(event) => {
-              drawing.current = true;
-              strokes.current.push([point(event)]);
-              canvas.current?.setPointerCapture(event.pointerId);
-            }}
-            onPointerMove={(event) => {
-              if (!drawing.current) return;
-              const current = point(event),
-                stroke = strokes.current.at(-1);
-              stroke?.push(current);
-              const context = canvas.current?.getContext("2d");
-              if (stroke && stroke.length > 1) {
-                const previous = stroke.at(-2)!;
-                context?.beginPath();
-                context?.moveTo(previous[0], previous[1]);
-                context?.lineTo(current[0], current[1]);
-                context?.stroke();
-              }
-            }}
-            onPointerUp={() => {
-              drawing.current = false;
-            }}
-            onPointerCancel={() => {
-              drawing.current = false;
-            }}
-          />
-          <button className="btn btn-primary" onClick={sign}>
-            確認電子簽署
+          <p><strong>手寫簽署證據</strong></p>
+          <ContractSignatureCanvas onChange={setSignature} />
+          <p className="partner-guidance-note">手寫簽名軌跡與系統紀錄作為線上契約查驗證據；不宣稱為憑證式數位簽章或政府認證電子簽章。</p>
+          <button className="btn btn-primary" onClick={() => void openPreview()}>
+            預覽最後確認
           </button>
+          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最後確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" onClick={() => void sign()}>確認簽署</button></div></div></div>}
         </>
       )}
       {message && (

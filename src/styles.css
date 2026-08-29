@@ -47,6 +47,41 @@
   --radius-xl: 26px;
 }
 
+/* Contract Engine V1 */
+.contract-shell { max-width: 1040px; }
+.contract-document { max-height: 520px; overflow: auto; padding: 1.5rem; border: 1px solid #ded8cf; border-radius: 16px; background: #fff; line-height: 1.75; }
+.contract-summary-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 1.25rem 0; }
+.contract-summary-grid article,.contract-summary-card { display: flex; flex-direction: column; gap: 5px; padding: 1rem; border: 1px solid #ded8cf; border-radius: 14px; background: #fff; }
+.contract-summary-grid span,.contract-summary-card span { color: #665e55; font-size: .88rem; }
+.contract-form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin: 1.25rem 0; }
+.contract-form-grid label { display: grid; gap: 7px; font-weight: 650; }
+.contract-form-grid input,.contract-form-grid select { min-width: 0; width: 100%; padding: .75rem; border: 1px solid #cfc7bd; border-radius: 10px; background: #fff; }
+.contract-form-wide { grid-column: 1/-1; }
+.contract-signature-field { border: 1px solid #cfc7bd; border-radius: 14px; background: #fffdf8; overflow: hidden; margin-bottom: 1rem; }
+.contract-signature-field canvas { display: block; width: 100%; height: 180px; touch-action: none; cursor: crosshair; }
+.contract-signature-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: .75rem 1rem; border-top: 1px solid #e5dfd6; font-size: .9rem; }
+.contract-confirm-dialog { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgba(20,16,12,.68); }
+.contract-confirm-dialog>div { width: min(620px,100%); max-height: 90vh; overflow: auto; padding: 1.5rem; border-radius: 18px; background: #fff; box-shadow: 0 24px 80px rgba(0,0,0,.28); }
+.contract-confirm-dialog dl,.partner-status dl { display: grid; grid-template-columns: minmax(100px,.35fr) 1fr; gap: 8px 14px; }
+.contract-confirm-dialog dt,.partner-status dt { color: #665e55; }
+.contract-confirm-dialog dd,.partner-status dd { margin: 0; overflow-wrap: anywhere; }
+.contract-list-item { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 1rem; border: 1px solid #ded8cf; border-radius: 12px; background: #fff; margin: .75rem 0; }
+.contract-list-item>div { display: grid; gap: 4px; }
+.contract-hash { font-family: ui-monospace,SFMono-Regular,Consolas,monospace; font-size: .8rem; word-break: break-all; }
+.contract-admin { display: grid; gap: 1.25rem; }
+.contract-version-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.contract-version-columns article { display: grid; gap: 4px; padding: .8rem; border-bottom: 1px solid #e5dfd6; }
+.contract-version-columns small { overflow-wrap: anywhere; }
+.contract-invite-result { display: flex; gap: 10px; margin-top: 1rem; }
+.contract-invite-result input { flex: 1; min-width: 0; padding: .7rem; }
+@media (max-width: 720px) {
+  .contract-summary-grid,.contract-form-grid,.contract-version-columns { grid-template-columns: 1fr; }
+  .contract-form-wide { grid-column: auto; }
+  .contract-signature-actions,.contract-list-item,.contract-invite-result { align-items: stretch; flex-direction: column; }
+  .contract-confirm-dialog dl,.partner-status dl { grid-template-columns: 1fr; }
+  .contract-confirm-dialog dd { margin-bottom: .6rem; }
+}
+
 * {
   box-sizing: border-box;
 }

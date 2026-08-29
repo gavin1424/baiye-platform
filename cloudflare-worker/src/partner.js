@@ -1,4 +1,13 @@
-import { createSignedContractPdf } from "./contract-pdf.js";
+import {
+  ContractError,
+  STANDARD_ASSURANCE,
+  assertContractSignable,
+  beginContractOperation,
+  buildSignedAgreement,
+  completeContractOperation,
+  sessionEvidenceHash,
+  storePrivateAgreementArtifacts,
+} from "./contract-engine.js";
 
 const E = new TextEncoder();
 const D = new TextDecoder();
@@ -30,6 +39,14 @@ async function audit(db, request, actorType, actorId, action, entityType, entity
     .bind(id("audit"), actorType, actorId, action, entityType, entityId, JSON.stringify(metadata), request ? clientIp(request) : null).run();
 }
 async function activeContract(db) { return db.prepare("SELECT * FROM contract_versions WHERE is_active=1 ORDER BY effective_date DESC LIMIT 1").first(); }
+async function signedApprovedContract(db, partnerId) {
+  return db.prepare("SELECT s.id,s.public_id,s.signed_at,s.status,v.version FROM contract_signatures s JOIN contract_versions v ON v.id=s.contract_version_id WHERE s.partner_id=? AND s.status='VALID' AND v.is_active=1 AND v.legal_review_status='approved' AND v.approved_content_hash=v.content_hash LIMIT 1").bind(partnerId).first();
+}
+function contractFailure(error, cors) {
+  if (error instanceof ContractError) return json({ error: error.message, code: error.code, details: error.details }, error.status, cors);
+  console.error(JSON.stringify({ service: "partner_contract", error: error instanceof Error ? error.message : "unknown" }));
+  return json({ error: "契約系統暫時無法完成此操作。" }, 503, cors);
+}
 async function partnerSession(partner, env) {
   const payload = b64(E.encode(JSON.stringify({ partner_id: partner.id, exp: Date.now() + 7 * 864e5 })));
   return `${payload}.${await hmac(payload, env.PARTNER_SESSION_SECRET)}`;
@@ -205,6 +222,7 @@ export async function awardCommissionForOrder(db, orderId, paymentId) {
   if (existing) { await syncPartnerTotals(db, order.partner_id); await syncVipReward(db, order.partner_id); return; }
   const partner = await db.prepare("SELECT * FROM partners WHERE id=?").bind(order.partner_id).first();
   if (!partner || partner.status !== "active") return;
+  if (!await signedApprovedContract(db, partner.id)) return { blocked: true, code: "PARTNER_CONTRACT_REQUIRED" };
   const prior = await validSalesCount(db, order.partner_id);
   const sequence = prior + 1;
   // A threshold is earned by this sale and applies from the following valid sale.
@@ -242,7 +260,7 @@ async function partnerDashboard(db, partnerId) {
   const currentRate = previous.result === "missed" && level.key !== "starter" ? level.fallback : level.rate;
   const commissions = await db.prepare("SELECT COALESCE(SUM(CASE WHEN status='confirmed' THEN final_amount ELSE 0 END),0) pending,COALESCE(SUM(CASE WHEN status='payable' THEN final_amount ELSE 0 END),0) payable,COALESCE(SUM(CASE WHEN status='paid' THEN final_amount ELSE 0 END),0) paid,COALESCE(SUM(CASE WHEN status='reversed' THEN adjustment_amount ELSE 0 END),0) reversed FROM commissions WHERE partner_id=?").bind(partnerId).first();
   const contract = await activeContract(db);
-  const signature = contract ? await db.prepare("SELECT id,pdf_hash,signed_at FROM contract_signatures WHERE partner_id=? AND contract_version_id=? ORDER BY signed_at DESC LIMIT 1").bind(partnerId, contract.id).first() : null;
+  const signature = contract ? await db.prepare("SELECT id,public_id,pdf_hash,signed_at,status FROM contract_signatures WHERE partner_id=? AND contract_version_id=? ORDER BY signed_at DESC LIMIT 1").bind(partnerId, contract.id).first() : null;
   const vip = await syncVipReward(db, partnerId);
   const nextBoundary = totals.count < 10 ? 11 : totals.count < 30 ? 31 : totals.count < 70 ? 71 : totals.count < 120 ? 121 : null;
   return {
@@ -255,7 +273,9 @@ async function partnerDashboard(db, partnerId) {
     previous_month_qualification: previous,
     next_tier: nextBoundary ? Math.max(0, nextBoundary - totals.count) : 0,
     vip: vip ? { cycle_no: vip.cycle_no, cycle_start: vip.cycle_start, cycle_end: vip.cycle_end, valid_new_merchants: vip.valid_new_merchants, target_merchants: vip.target_merchants, reward_amount: vip.reward_amount, status: vip.status } : null,
-    contract: { version: contract?.version || null, signed: Boolean(signature), signature_id: signature?.id || null, signed_at: signature?.signed_at || null },
+    contract: { version: contract?.version || null, signed: Boolean(signature), signature_id: signature?.id || null, signed_at: signature?.signed_at || null, legal_review_status: contract?.legal_review_status || "pending_review", resign_required: Boolean(contract?.requires_resign && !signature) },
+    operation_locked: !Boolean(await signedApprovedContract(db, partnerId)),
+    operation_lock_code: await signedApprovedContract(db, partnerId) ? null : "PARTNER_CONTRACT_REQUIRED",
   };
 }
 
@@ -398,6 +418,7 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     const input = await body(request), referral = String(input.referral_code || "");
     const partner = await db.prepare("SELECT id,status FROM partners WHERE referral_code=?").bind(referral).first();
     if (!partner || partner.status !== "active" || !input.lead_name) return json({ error: "推薦連結無效，或請填寫聯絡人姓名。" }, 400, cors);
+    if (!await signedApprovedContract(db, partner.id)) return json({ error: "承攬夥伴須先簽署目前有效契約，才能建立正式推薦歸因。", code: "PARTNER_CONTRACT_REQUIRED" }, 423, cors);
     const existing = await db.prepare("SELECT id FROM partner_leads WHERE lead_email=? AND lead_email IS NOT NULL ORDER BY first_seen_at LIMIT 1").bind(input.lead_email || null).first();
     if (existing) return json({ lead_id: existing.id, attribution: "existing" }, 200, cors);
     const leadId = id("lead");
@@ -410,6 +431,32 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
 
   if (path.startsWith("/api/admin/")) {
     if (!adminAuthorized && !(await financeAdmin(request, env))) return json({ error: "需要財務管理員授權。" }, 401, cors);
+
+    if (path === "/api/admin/partner-contract-versions" && request.method === "GET") {
+      const rows = await db.prepare("SELECT id,version,title,content_hash,effective_date,is_active,requires_resign,legal_review_required,legal_review_status,reviewed_by,reviewed_at,legal_counsel_reference,approved_content_hash,created_at FROM contract_versions ORDER BY created_at DESC").all();
+      return json({ items: rows.results }, 200, cors);
+    }
+    const legalReview = path.match(/^\/api\/admin\/partner-contract-versions\/([^/]+)\/legal-review$/);
+    if (legalReview && request.method === "POST") {
+      const input = await body(request);
+      if (input.confirm_legal_review !== true || !input.legal_counsel_reference) return json({ error: "請確認已完成正式法律審閱並填寫律師審閱參考。", code: "LEGAL_REVIEW_CONFIRMATION_REQUIRED" }, 422, cors);
+      const current = await db.prepare("SELECT * FROM contract_versions WHERE id=?").bind(legalReview[1]).first();
+      if (!current) return json({ error: "找不到契約版本。" }, 404, cors);
+      let operation;
+      try {
+        operation = await beginContractOperation(db, { partyType: "partner", partyId: current.id, operationType: "legal_review", idempotencyKey: request.headers.get("idempotency-key") || "" });
+        if (operation.replay) return json(operation.result, 200, cors);
+      } catch (error) { return contractFailure(error, cors); }
+      const statements = [];
+      if (input.activate === true) statements.push(db.prepare("UPDATE contract_versions SET is_active=0 WHERE is_active=1"));
+      statements.push(db.prepare("UPDATE contract_versions SET legal_review_status='approved',reviewed_by='authorized_admin',reviewed_at=CURRENT_TIMESTAMP,legal_counsel_reference=?,approved_content_hash=content_hash,is_active=? WHERE id=?")
+        .bind(String(input.legal_counsel_reference).slice(0, 240), input.activate === true ? 1 : 0, current.id));
+      await db.batch(statements);
+      await audit(db, request, "admin", "authorized_admin", "partner_contract_legal_review_approved", "contract_version", current.id, { approved_content_hash: current.content_hash, activate: input.activate === true });
+      const result = { ok: true, legal_review_status: "approved", approved_content_hash: current.content_hash, is_active: input.activate === true };
+      await completeContractOperation(db, operation.operation.id, result);
+      return json(result, 200, cors);
+    }
 
     const adminPdf = path.match(/^\/api\/admin\/contracts\/([^/]+)\/pdf$/);
     if (adminPdf && request.method === "GET") {
@@ -580,23 +627,41 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
 
   if (path === "/api/partner/me") return json({ id: partner.id, partner_code: partner.partner_code, legal_name: partner.legal_name, display_name: partner.display_name, status: partner.status, referral_code: partner.referral_code }, 200, cors);
   if (path === "/api/partner/contract/current" && request.method === "GET") return json(await activeContract(db), 200, cors);
+  if (path === "/api/partner/contract/sign-preview" && request.method === "POST") {
+    try {
+      const input = await body(request), contract = await activeContract(db);
+      assertContractSignable(contract, env);
+      if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
+      return json({ version: contract.version, party_a: "平台契約正式設定法律主體", party_b: partner.legal_name, signatory: partner.legal_name, relationship: "獨立承攬／居間合作，非僱傭關係", signed_at: now(), important_terms: ["有效成交與五級獎勵", "每月合作資格維持", "退款與佣金沖回", "禁止私收款、假交易與未授權承諾", "線上簽署證據不等同憑證式數位簽章"] }, 200, cors);
+    } catch (error) { return contractFailure(error, cors); }
+  }
   if (path === "/api/partner/contract/sign" && request.method === "POST") {
-    const input = await body(request), contract = await activeContract(db);
-    if (!contract) return json({ error: "目前沒有可簽署的承攬夥伴合作契約版本。" }, 503, cors);
-    if (!input.read || !input.electronic || !input.independent || input.legal_name !== partner.legal_name || !validSignature(input.signature)) return json({ error: "請完成閱讀、電子簽署、獨立承攬確認、法定姓名及手寫簽名。" }, 400, cors);
-    const existing = await db.prepare("SELECT id FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
-    if (existing) return json({ error: "您已簽署目前有效的承攬夥伴合作契約。" }, 409, cors);
-    if (!env.CONTRACTS_BUCKET) return json({ error: "私有契約保存服務尚未啟用。" }, 503, cors);
-    const signatureId = id("sign"), signedAt = now(), signatureHash = await hash(String(input.signature));
-    const pdf = await createSignedContractPdf({ contractId: signatureId, version: contract.version, contentHtml: contract.content_html, contractHash: contract.content_hash, signatureHash, legalName: partner.legal_name, signedAt, consentVersion: "v1.3", signature: input.signature });
-    const key = `contracts/${partnerId}/${contract.version}/${signatureId}.pdf`;
-    try { await env.CONTRACTS_BUCKET.put(key, pdf.bytes, { httpMetadata: { contentType: "application/pdf", contentDisposition: `attachment; filename=contract-${signatureId}.pdf` } }); }
-    catch { return json({ error: "已簽契約 PDF 保存失敗，請稍後再試。" }, 503, cors); }
-    await db.prepare("INSERT INTO contract_signatures (id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-      .bind(signatureId, partnerId, contract.id, partner.legal_name, signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, signatureHash, String(input.signature), key, pdf.pdfHash, pdf.documentHash, "v1.3").run();
-    await db.prepare("UPDATE partners SET contract_status='signed',contract_version=?,contract_signed_at=?,updated_at=? WHERE id=?").bind(contract.version, signedAt, now(), partnerId).run();
-    await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: signatureHash, pdf_hash: pdf.pdfHash, document_hash: pdf.documentHash, legal_review_required: true });
-    return json({ ok: true, signature_id: signatureId, pdf_hash: pdf.pdfHash, document_hash: pdf.documentHash, legal_review_required: true }, 201, cors);
+    try {
+      const input = await body(request), contract = await activeContract(db);
+      const staging = assertContractSignable(contract, env).staging;
+      if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
+      const operation = await beginContractOperation(db, { partyType: "partner", partyId: partnerId, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
+      if (operation.replay) return json(operation.result, 200, cors);
+      const existing = await db.prepare("SELECT id,public_id,document_hash,pdf_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
+      if (existing) { const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, replay: true }; await completeContractOperation(db, operation.operation.id, replay); return json(replay, 200, cors); }
+      const signatureId = id("sign"), publicId = `BYPC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
+      const cookieToken = (request.headers.get("cookie") || "").match(/(?:^|;\s*)partner_session=([^;]+)/)?.[1] || "unknown";
+      const sessionHash = await sessionEvidenceHash(cookieToken);
+      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：平台契約正式設定法律主體　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", signature: input.signature, consents: { read: input.read, electronic: input.electronic, independent: input.independent }, consentVersion: "partner-contract-consent-v1.4", ip: clientIp(request), userAgent: request.headers.get("user-agent"), sessionEvidence: sessionHash, staging });
+      const prefix = `contracts/partners/${partnerId}/${contract.version}/${signatureId}`;
+      const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
+      try {
+        await db.batch([
+          db.prepare("INSERT INTO contract_signatures(id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version,signature_assurance_level,public_id,evidence_object_key,session_id_hash,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            .bind(signatureId, partnerId, contract.id, partner.legal_name, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.4", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID"),
+          db.prepare("UPDATE partners SET contract_status='signed',contract_version=?,contract_signed_at=?,updated_at=? WHERE id=?").bind(contract.version, agreement.signedAt, now(), partnerId),
+        ]);
+      } catch (error) { await stored.cleanup(); throw error; }
+      await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE });
+      const result = { ok: true, signature_id: signatureId, public_id: publicId, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash };
+      await completeContractOperation(db, operation.operation.id, result);
+      return json(result, 201, cors);
+    } catch (error) { return contractFailure(error, cors); }
   }
 
   const pdfMatch = path.match(/^\/api\/partner\/contracts\/([^/]+)\/pdf$/);
@@ -610,8 +675,14 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
   }
 
   if (path === "/api/partner/dashboard") return json(await partnerDashboard(db, partnerId), 200, cors);
-  if (path === "/api/partner/referral") return json({ referral_code: partner.referral_code, url: `https://baiyeconnect.com/#/join?ref=${partner.referral_code}` }, 200, cors);
-  if (path === "/api/partner/leads") return json({ items: (await db.prepare("SELECT id,lead_name,source,status,created_at,converted_at FROM partner_leads WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
+  if (path === "/api/partner/referral") {
+    if (!await signedApprovedContract(db, partnerId)) return json({ error: "請先簽署目前有效的承攬夥伴合作契約。", code: "PARTNER_CONTRACT_REQUIRED" }, 423, cors);
+    return json({ referral_code: partner.referral_code, url: `https://baiyeconnect.com/#/join?ref=${partner.referral_code}` }, 200, cors);
+  }
+  if (path === "/api/partner/leads") {
+    if (!await signedApprovedContract(db, partnerId)) return json({ error: "請先簽署目前有效的承攬夥伴合作契約。", code: "PARTNER_CONTRACT_REQUIRED" }, 423, cors);
+    return json({ items: (await db.prepare("SELECT id,lead_name,source,status,created_at,converted_at FROM partner_leads WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
+  }
   if (path === "/api/partner/orders") return json({ items: (await db.prepare("SELECT order_no,title,amount_due,amount_paid,payment_status,created_at FROM orders WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
   if (path === "/api/partner/commissions") return json({ items: (await db.prepare("SELECT c.*,o.order_no,o.title FROM commissions c JOIN orders o ON o.id=c.order_id WHERE c.partner_id=? ORDER BY c.created_at DESC").bind(partnerId).all()).results }, 200, cors);
   if (path === "/api/partner/settlements") return json({ items: (await db.prepare("SELECT * FROM settlements WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
