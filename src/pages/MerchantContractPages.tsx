@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { merchantOrderingApi, savePlatformMemberToken } from "../qr-ordering-client";
+import { getPlatformDeviceId, merchantOrderingApi, savePlatformMemberToken } from "../qr-ordering-client";
 import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
 
 const API = (import.meta.env.VITE_PLATFORM_API_URL || "https://chuang-baiye-ai.baiye-platform.workers.dev").replace(/\/$/, "");
@@ -18,17 +18,21 @@ export function MerchantContractActivate() {
   const [params] = useSearchParams();
   const token = params.get("token") || "";
   const [invite, setInvite] = useState<any>();
-  const [form, setForm] = useState({ display_name: "", password: "", password_confirm: "" });
+  const [form, setForm] = useState({ phone: "", privacy_consent: false });
   const [notice, setNotice] = useState("");
+  const [success, setSuccess] = useState<any>();
+  const idempotencyKey = useRef(crypto.randomUUID());
   useEffect(() => { void publicApi("/api/merchant/contracts/invite/validate", { method: "POST", body: JSON.stringify({ token }) }).then(setInvite).catch((error) => setNotice(message(error))); }, [token]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setNotice("");
     try {
-      await publicApi("/api/merchant/contracts/accept-invite", { method: "POST", headers: { "idempotency-key": crypto.randomUUID() }, body: JSON.stringify({ token, ...form }) });
-      setNotice("商家 Owner 帳號已建立。請使用商家後台登入後完成服務契約簽署。");
+      const result: any = await merchantOrderingApi("/api/merchant/contracts/accept-invite", { method: "POST", headers: { "idempotency-key": idempotencyKey.current, "x-device-id": getPlatformDeviceId() }, body: JSON.stringify({ token, ...form, consent_version: "merchant-registration-v1" }) });
+      if (result.member_session?.token) savePlatformMemberToken(result.member_session.token);
+      setSuccess(result); setNotice("商家註冊完成，正在前往服務契約。");
+      window.setTimeout(() => { window.location.hash = "#/merchant/contract"; }, 1200);
     } catch (error) { setNotice(message(error)); }
   };
-  return <main className="partner-shell contract-shell"><h1>啟用商家 Owner 帳號</h1>{invite && <section className="contract-summary-card"><strong>{invite.merchant_name}</strong><span>{invite.email}</span><span>{invite.plan_name} · {money(invite.discount_price_minor)}</span></section>}<form className="partner-form" onSubmit={submit}><label>簽署人顯示名稱<input required value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} /></label><label>設定密碼（至少 12 字元）<input required type="password" minLength={12} autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label><label>再次確認密碼<input required type="password" minLength={12} autoComplete="new-password" value={form.password_confirm} onChange={(event) => setForm({ ...form, password_confirm: event.target.value })} /></label><button className="btn btn-primary">建立帳號</button></form>{notice && <div className="partner-message">{notice}</div>}<Link to="/merchant/contract">前往商家契約</Link></main>;
+  return <main className="partner-shell contract-shell"><h1>商家註冊</h1>{invite && <section className="contract-summary-card"><strong>{invite.merchant_name}</strong><span>{invite.plan_name} · {money(invite.discount_price_minor)}</span></section>}{invite && !success && <form className="partner-form" onSubmit={submit}><label>手機號碼<input required type="tel" inputMode="tel" placeholder="09xxxxxxxx" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label className="partner-consent"><input required type="checkbox" checked={form.privacy_consent} onChange={(event) => setForm({ ...form, privacy_consent: event.target.checked })} />我已閱讀並同意會員服務、隱私權說明及商家平台相關條款。</label><button className="btn btn-primary">完成商家註冊</button><p className="partner-guidance-note">不用設定密碼，安全啟用連結將直接建立商家 Session。</p></form>}{success && <section className="partner-status success"><strong>🎉 商家註冊成功！</strong><span>創百業會員已建立，NT$100 迎新禮券已領取。</span></section>}{notice && <div className="partner-message">{notice}</div>}<Link to="/merchant">前往商家中心</Link></main>;
 }
 
 export function MerchantContractPage() {
