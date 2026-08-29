@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
@@ -682,18 +682,42 @@ export function PartnerDashboard() {
 }
 
 export function PartnerContract() {
+  const navigate = useNavigate();
   const [contract, setContract] = useState<any>();
   const [name, setName] = useState("");
   const [checks, setChecks] = useState([false, false, false]);
   const [message, setMessage] = useState("");
   const [signature, setSignature] = useState<SignatureValue>({ strokes: [] });
   const [preview, setPreview] = useState<any>();
-  const [memberWelcome, setMemberWelcome] = useState<any>();
+  const [signed, setSigned] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [signSuccess, setSignSuccess] = useState<any>();
+  const [redirectSeconds, setRedirectSeconds] = useState(3);
+  const signIdempotencyKey = useRef(crypto.randomUUID());
   useEffect(() => {
     api("/api/partner/contract/current")
-      .then(setContract)
+      .then((result) => {
+        setContract(result);
+        setSigned(Boolean(result?.signature?.signature_id));
+      })
       .catch((error) => setMessage(errorText(error)));
   }, []);
+  useEffect(() => {
+    if (!signSuccess) return;
+    setRedirectSeconds(3);
+    const countdown = window.setInterval(
+      () => setRedirectSeconds((value) => Math.max(0, value - 1)),
+      1000,
+    );
+    const redirect = window.setTimeout(
+      () => navigate("/partner/dashboard", { replace: true }),
+      3000,
+    );
+    return () => {
+      window.clearInterval(countdown);
+      window.clearTimeout(redirect);
+    };
+  }, [navigate, signSuccess]);
   const openPreview = async () => {
     setMessage("");
     try {
@@ -701,11 +725,13 @@ export function PartnerContract() {
     } catch (error) { setMessage(errorText(error)); }
   };
   const sign = async () => {
+    if (signing || signed) return;
     setMessage("");
+    setSigning(true);
     try {
       const result = await api("/api/partner/contract/sign", {
         method: "POST",
-        headers: { "idempotency-key": crypto.randomUUID() },
+        headers: { "idempotency-key": signIdempotencyKey.current },
         body: JSON.stringify({
           legal_name: name,
           read: checks[0],
@@ -714,13 +740,23 @@ export function PartnerContract() {
           signature,
         }),
       });
+      if (!result.signature_id || !result.document_hash || !result.signed_at) {
+        setMessage("SIGN_RESULT_INCOMPLETE：簽署結果尚未完整確認，請勿重複簽署並稍後重試。");
+        return;
+      }
       if (result.member_session?.token) savePlatformMemberToken(result.member_session.token);
-      if (result.welcome?.show) setMemberWelcome(result.welcome);
-      setMessage(
-        `承攬夥伴合作契約已簽署並保存私有 PDF。文件雜湊：${result.document_hash}`,
-      );
+      setPreview(undefined);
+      setSignature({ strokes: [] });
+      setChecks([false, false, false]);
+      setName("");
+      setSigned(true);
+      setSignSuccess(result);
+      signIdempotencyKey.current = crypto.randomUUID();
     } catch (error) {
       setMessage(errorText(error));
+      if (error instanceof ApiError) signIdempotencyKey.current = crypto.randomUUID();
+    } finally {
+      setSigning(false);
     }
   };
   return (
@@ -731,9 +767,17 @@ export function PartnerContract() {
           {contract.legal_review_status !== "approved" && (
             <section className="partner-status warning"><strong>契約法律審閱 Gate 已鎖定</strong><span>此版本目前為 {contract.legal_review_status || "pending_review"}；Production 不可簽署。僅隔離 Staging 可標示測試簽署。</span></section>
           )}
-          <article
-            dangerouslySetInnerHTML={{ __html: contract.content_html }}
-          />
+          {signed && !signSuccess ? (
+            <section className="partner-status success">
+              <strong>此版本已完成簽署</strong>
+              <span>契約版本：{contract.signature?.version || contract.version} · 簽署時間：{formatDate(contract.signature?.signed_at)}</span>
+              <div className="partner-workflow-actions">
+                {contract.signature?.signature_id && <a className="btn btn-outline" href={`${API}/api/partner/contracts/${contract.signature.signature_id}/pdf`}>查看／下載已簽 PDF</a>}
+                <Link className="btn btn-primary" to="/partner/dashboard">返回承攬夥伴中心</Link>
+              </div>
+            </section>
+          ) : !signed && <>
+          <article dangerouslySetInnerHTML={{ __html: contract.content_html }} />
           <label>
             重新輸入法定姓名
             <input
@@ -764,11 +808,12 @@ export function PartnerContract() {
           <p><strong>手寫簽署證據</strong></p>
           <ContractSignatureCanvas onChange={setSignature} />
           <p className="partner-guidance-note">手寫簽名軌跡與系統紀錄作為線上契約查驗證據；不宣稱為憑證式數位簽章或政府認證電子簽章。</p>
-          <button className="btn btn-primary" onClick={() => void openPreview()}>
+          <button className="btn btn-primary" disabled={signing} onClick={() => void openPreview()}>
             預覽最後確認
           </button>
-          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最後確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" onClick={() => void sign()}>確認簽署</button></div></div></div>}
-          {memberWelcome && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>{memberWelcome.title}</h2><p>您已自動成為創百業會員，NT$100 迎新禮券已放入您的會員帳戶。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">查看我的優惠券</Link><Link className="btn btn-outline" to="/partner/dashboard">繼續前往承攬夥伴中心</Link></div></div></div>}
+          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最後確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" disabled={signing} onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" disabled={signing} onClick={() => void sign()}>{signing ? "簽署處理中…" : "確認簽署"}</button></div></div></div>}
+          </>}
+          {signSuccess && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>契約簽署成功！</h2><p>您的承攬夥伴合作契約已完成線上簽署並保存。</p>{signSuccess.welcome?.show && !signSuccess.coupon_issue_failed ? <><h3>歡迎成為創百業會員！</h3><p>NT$100 迎新禮券已放入您的會員帳戶。</p>{signSuccess.coupon && <div className="member-coupon-card"><div><strong>NT$100</strong><span>迎新禮券</span><small>{signSuccess.coupon.expires_at ? `有效至 ${formatDate(signSuccess.coupon.expires_at)}` : "30 天效期"}</small></div></div>}</> : !signSuccess.coupon_issue_failed && <p>您的會員資格與迎新禮券已存在，不會重複發放。</p>}{signSuccess.coupon_issue_failed && <p className="partner-message">契約已簽署成功，但迎新禮券建立暫時失敗，系統將保留補發紀錄。</p>}<div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">查看我的優惠券</Link><Link className="btn btn-outline" to="/partner/dashboard">返回承攬夥伴中心</Link></div><p className="partner-guidance-note">{redirectSeconds} 秒後自動返回承攬夥伴中心</p></div></div>}
         </>
       )}
       {message && (
