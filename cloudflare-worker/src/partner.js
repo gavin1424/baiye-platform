@@ -952,8 +952,10 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
   }
   if (path === "/api/partner/contract/current" && request.method === "GET") {
     const contract = await activeContract(db, env);
-    const period = contract?.contract_term_months ? calculatePartnerContractPeriod(taipeiDateFromInstant(), Number(contract.contract_term_months)) : null;
-    return json(contract ? { ...contract, partner_legal_name: partner.legal_name, identity_completion_required: Boolean(partner.identity_completion_required), id_number_masked: partner.id_number_last4 ? `******${partner.id_number_last4}` : null, period_preview: period } : null, 200, cors);
+    if (!contract) return json(null, 200, cors);
+    const period = contract.contract_term_months ? calculatePartnerContractPeriod(taipeiDateFromInstant(), Number(contract.contract_term_months)) : null;
+    const signature = await db.prepare("SELECT s.id signature_id,s.signed_at,s.document_hash,s.pdf_hash,s.status,v.version FROM contract_signatures s JOIN contract_versions v ON v.id=s.contract_version_id WHERE s.partner_id=? AND s.contract_version_id=? AND s.status='VALID' LIMIT 1").bind(partnerId, contract.id).first();
+    return json({ ...contract, partner_legal_name: partner.legal_name, identity_completion_required: Boolean(partner.identity_completion_required), id_number_masked: partner.id_number_last4 ? `******${partner.id_number_last4}` : null, period_preview: period, signature: signature || null }, 200, cors);
   }
   if (path === "/api/partner/contract/sign-preview" && request.method === "POST") {
     try {
@@ -976,11 +978,18 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       if (!normalizeTaiwanMobile(partner.phone)) throw new ContractError("PARTNER_PHONE_REQUIRED", "承攬夥伴手機資料不完整，請先聯絡平台更新後再簽署。", 422);
       const cookieToken = (request.headers.get("cookie") || "").match(/(?:^|;\s*)partner_session=([^;]+)/)?.[1] || "unknown";
       const operation = await beginContractOperation(db, { partyType: "partner", partyId: partnerId, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
-      if (operation.replay) return json({ ...operation.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
-      const existing = await db.prepare("SELECT id,public_id,document_hash,pdf_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
+      if (operation.replay) {
+        let replayResult = operation.result;
+        if (!replayResult.signed_at && replayResult.signature_id) {
+          const committed = await db.prepare("SELECT signed_at FROM contract_signatures WHERE id=? AND partner_id=?").bind(replayResult.signature_id, partnerId).first();
+          replayResult = { ...replayResult, signed_at: committed?.signed_at || null };
+        }
+        return json({ ...replayResult, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
+      }
+      const existing = await db.prepare("SELECT id,public_id,document_hash,pdf_hash,signed_at FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
       if (existing) {
         const membership = await ensurePlatformMember(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract", issueSession: true });
-        const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, replay: true };
+        const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, signed_at: existing.signed_at, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: membership.coupon, replay: true };
         await completeContractOperation(db, operation.operation.id, replay); return json(replay, 200, cors);
       }
       const signatureId = id("sign"), publicId = `BYPC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
@@ -1003,8 +1012,17 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
         ]);
       } catch (error) { await stored.cleanup(); throw error; }
       await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE, contract_term_months: contractPeriod.term_months, period_start: contractPeriod.period_start, period_end: contractPeriod.period_end });
-      const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
-      const result = { ok: true, signature_id: signatureId, public_id: publicId, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, contract_period: contractPeriod, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome };
+      let membership = null, couponIssueFailed = false;
+      try {
+        membership = await finalizePlatformMembershipBatch(db, membershipBatch);
+        couponIssueFailed = !membership.coupon;
+      } catch (membershipError) {
+        couponIssueFailed = true;
+      }
+      if (couponIssueFailed) {
+        try { await audit(db, request, "system", "partner_contract", "welcome_coupon_issue_failed", "contract_signature", signatureId, { partner_id: partnerId }); } catch { /* Contract remains committed; reconciliation can retry the coupon. */ }
+      }
+      const result = { ok: true, signature_id: signatureId, public_id: publicId, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, signed_at: agreement.signedAt, contract_period: contractPeriod, membership: membership ? { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created } : null, member_session: membership?.session || null, welcome: membership?.welcome || { show: false }, coupon: membership?.coupon || null, coupon_issue_failed: couponIssueFailed };
       await completeContractOperation(db, operation.operation.id, result);
       return json(result, 201, cors);
     } catch (error) { return contractFailure(error, cors); }
