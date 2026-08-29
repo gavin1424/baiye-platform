@@ -80,6 +80,8 @@ export async function createSignedAgreementPdf(input) {
     input.staging ? "STAGING｜NOT A REAL CONTRACT" : "",
     input.title, `文件識別碼：${input.documentId}`, `公開驗證碼：${input.publicId || "—"}`,
     `合約版本：${input.version}　${input.partyLabel}`,
+    input.privateIdentityLabel || "",
+    input.contractPeriod ? `契約期間：${input.contractPeriod.period_start} ～ ${input.contractPeriod.period_end}（${input.contractPeriod.term_months} 個月一期，Asia/Taipei）` : "",
     `簽署時間：${input.signedAt}`, "",
     ...(input.attachments || []).flatMap((attachment) => [attachment.title, ...contractLines(attachment.contentHtml || attachment.content || "")]),
     ...contractLines(input.contentHtml), "", "電子簽署證據", `簽署姓名：${input.signatory}`,
