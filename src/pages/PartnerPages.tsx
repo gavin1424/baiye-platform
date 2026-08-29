@@ -330,7 +330,7 @@ export function PartnerApply() {
             <li>✓ 創百業會員已建立</li>
             <li>✓ NT$100 迎新禮券已領取</li>
           </ul>
-          {success.activation_url && <a className="btn btn-primary btn-lg" href={success.activation_url}>立即完成帳號啟用</a>}
+          {success.activation_url && <a className="btn btn-primary btn-lg" href={success.activation_url}>立即進入承攬夥伴中心</a>}
           {success.contract?.signing_available === false && <p className="partner-guidance-note">您的承攬夥伴資格已核准。正式合作契約目前尚待平台法律版本開放，開放後即可完成簽署。</p>}
         </section>
       )}
@@ -343,8 +343,6 @@ export function PartnerActivate() {
   const [params] = useSearchParams();
   const token = params.get("token") || "";
   const [profile, setProfile] = useState<any>();
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -364,17 +362,12 @@ export function PartnerActivate() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setMessage("");
-    if (password.length < 12) return setMessage("密碼至少需要 12 個字元。");
-    if (password !== confirm) return setMessage("兩次輸入的密碼不一致。");
     try {
-      await api("/api/partner/accept-invite", {
+      const result = await api("/api/partner/accept-invite", {
         method: "POST",
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token }),
       });
-      setMessage(
-        "承攬夥伴帳號已成功啟用。請使用您的 Email 與新密碼登入承攬夥伴中心。",
-      );
-      setProfile(undefined);
+      window.location.hash = `#${result.next_url || "/partner/contract"}`;
     } catch (error) {
       setMessage(errorText(error));
     }
@@ -393,41 +386,14 @@ export function PartnerActivate() {
             <small>此連結有效至 {formatDate(profile.expires_at)}</small>
           </section>
           <form onSubmit={submit}>
-            <label>
-              設定密碼
-              <input
-                type="password"
-                minLength={12}
-                autoComplete="new-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </label>
-            <label>
-              再次確認密碼
-              <input
-                type="password"
-                minLength={12}
-                autoComplete="new-password"
-                value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
-                required
-              />
-            </label>
-            <small>密碼至少 12 個字元，請勿與其他服務共用。</small>
-            <button className="btn btn-primary">完成啟用</button>
+            <p>安全啟用連結驗證完成後，系統會直接建立承攬夥伴 Session；不需要設定密碼。</p>
+            <button className="btn btn-primary">立即進入承攬夥伴中心</button>
           </form>
         </>
       )}
       {message && (
         <section className="partner-message">
           <p>{message}</p>
-          {!profile && message.includes("成功啟用") && (
-            <Link className="btn btn-primary btn-sm" to="/partner/login">
-              前往承攬夥伴登入
-            </Link>
-          )}
         </section>
       )}
     </main>
@@ -497,59 +463,78 @@ export function PartnerReferralJoin() {
 }
 
 export function PartnerLogin() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [challenge, setChallenge] = useState<any>();
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
   const [workflow, setWorkflow] = useState<Workflow>();
   const [notice, setNotice] = useState("");
-  const submit = async (event: React.FormEvent) => {
+  const startLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setWorkflow(undefined);
     setNotice("");
+    setBusy(true);
     try {
-      await api("/api/partner/login", {
+      const result = await api("/api/partner/login/start", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ phone }),
       });
-      window.location.hash = "#/partner/dashboard";
+      if (result.code === "SESSION_RESTORED") {
+        window.location.hash = `#${result.next_url || "/partner/dashboard"}`;
+        return;
+      }
+      setChallenge(result);
+      setNotice(result.message || "請完成一次性手機驗證。");
     } catch (error) {
       setWorkflow(workflowFromError(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const verify = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setWorkflow(undefined);
+    setBusy(true);
+    try {
+      const result = await api("/api/partner/login/verify", {
+        method: "POST",
+        body: JSON.stringify({ challenge_id: challenge.challenge_id, code }),
+      });
+      window.location.hash = `#${result.next_url || "/partner/dashboard"}`;
+    } catch (error) {
+      setWorkflow(workflowFromError(error));
+    } finally {
+      setBusy(false);
     }
   };
   return (
     <main className="partner-shell partner-form">
       <h1>承攬夥伴登入</h1>
-      <form onSubmit={submit}>
+      {!challenge && <form onSubmit={startLogin}>
         <label>
-          Email
-          <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
+          手機號碼
+          <input type="tel" inputMode="tel" autoComplete="tel" placeholder="09xxxxxxxx" value={phone} onChange={(event) => setPhone(event.target.value)} required />
         </label>
+        <button className="btn btn-primary" disabled={busy}>{busy ? "處理中…" : "繼續登入"}</button>
+        <small>不需要密碼，使用申請時登記的手機即可登入。</small>
+      </form>}
+      {challenge && <form onSubmit={verify}>
         <label>
-          密碼
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
+          輸入驗證碼
+          <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="_ _ _ _ _ _" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required />
         </label>
-        <button className="btn btn-primary">登入承攬夥伴中心</button>
-      </form>
+        {challenge.verification_method === "staging_otp" && <p className="partner-message"><strong>測試環境驗證碼：{challenge.staging_code}</strong></p>}
+        {!challenge.verification_available && <p className="partner-message">正式手機驗證服務尚未開放；新裝置不會繞過驗證。</p>}
+        <button className="btn btn-primary" disabled={busy || !challenge.verification_available}>{busy ? "驗證中…" : "確認並登入"}</button>
+        <button className="btn btn-outline" type="button" disabled={busy} onClick={() => { setChallenge(undefined); setCode(""); setNotice(""); }}>重新發送</button>
+      </form>}
       {workflow?.message && (
         <section
           className={`partner-workflow-card state-${workflow.state || "error"}`}
         >
           <strong>{workflow.message}</strong>
           <WorkflowActions workflow={workflow} />
-          {workflow.code === "INVALID_CREDENTIALS" && (
-            <Link to="/partner/apply">尚未申請？前往承攬夥伴合作申請</Link>
-          )}
+          <Link to="/partner/apply">尚未申請？前往承攬夥伴合作申請</Link>
         </section>
       )}
       {notice && <p className="partner-message">{notice}</p>}
