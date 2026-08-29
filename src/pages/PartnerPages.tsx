@@ -65,9 +65,9 @@ function WorkflowActions({
 }) {
   return (
     <div className="partner-workflow-actions">
-      {workflow.state === "active" && (
+      {["active", "contract_required"].includes(workflow.state || "") && (
         <Link className="btn btn-primary btn-sm" to="/partner/login">
-          前往承攬夥伴登入
+          {workflow.state === "contract_required" ? "登入後繼續簽署契約" : "前往承攬夥伴登入"}
         </Link>
       )}
       {["pending_activation", "invite_expired"].includes(
