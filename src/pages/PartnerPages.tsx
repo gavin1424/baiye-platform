@@ -73,28 +73,22 @@ function WorkflowActions({
       {["pending_activation", "invite_expired"].includes(
         workflow.state || "",
       ) && (
-        <Link
+        <a
           className="btn btn-primary btn-sm"
-          to="/partner/apply"
+          href={workflow.activation_url || "#/partner/apply"}
         >
-          {workflow.has_valid_invite ? "重新取得啟用通知" : "取得新的啟用通知"}
-        </Link>
+          {workflow.activation_url ? "立即繼續" : "取得新的啟用通知"}
+        </a>
       )}
-      {workflow.state === "historical_pending" ? (
-        <Link className="btn btn-primary btn-sm" to="/partner">
-          返回承攬夥伴中心
-        </Link>
-      ) : (
-        <Link className="btn btn-outline btn-sm" to="/partner">
-          承攬夥伴中心
-        </Link>
-      )}
+      <Link className="btn btn-outline btn-sm" to="/partner">
+        承攬夥伴中心
+      </Link>
     </div>
   );
 }
 
 function PartnerStatusLookup() {
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [workflow, setWorkflow] = useState<Workflow>();
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -106,7 +100,7 @@ function PartnerStatusLookup() {
       setWorkflow(
         await api("/api/partner/status", {
           method: "POST",
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ phone }),
         }),
       );
     } catch (error) {
@@ -121,23 +115,25 @@ function PartnerStatusLookup() {
       aria-labelledby="partner-status-title"
     >
       <div>
-        <p className="partner-eyebrow">已送出申請？</p>
-        <h2 id="partner-status-title">查詢申請狀態</h2>
-        <p>只顯示申請流程狀態，不會公開姓名、電話、編號或管理資料。</p>
+        <p className="partner-eyebrow">已申請或需要繼續？</p>
+        <h2 id="partner-status-title">查詢承攬夥伴狀態</h2>
+        <p>使用申請時登記的手機查詢；畫面不會公開姓名、完整手機、編號或管理資料。</p>
       </div>
       <form onSubmit={submit}>
         <label>
-          Email
+          手機號碼
           <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="09xxxxxxxx"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
             required
           />
         </label>
         <button className="btn btn-primary" disabled={loading}>
-          {loading ? "查詢中…" : "查詢申請狀態"}
+          {loading ? "查詢中…" : "查詢／繼續"}
         </button>
       </form>
       {workflow?.message && (
@@ -481,6 +477,10 @@ export function PartnerLogin() {
       });
       if (result.code === "SESSION_RESTORED") {
         window.location.hash = `#${result.next_url || "/partner/dashboard"}`;
+        return;
+      }
+      if (result.activation_url) {
+        setWorkflow(result);
         return;
       }
       setChallenge(result);

@@ -142,13 +142,13 @@ async function financeAdmin(request, env) {
 }
 
 export function partnerWorkflowStatus(partner, latestInvite = null, at = new Date()) {
-  if (!partner) return { code: "APPLICATION_NOT_FOUND", state: "not_found", message: "查無可確認的申請紀錄，請檢查 Email，或重新提出申請。" };
+  if (!partner) return { code: "APPLICATION_NOT_FOUND", state: "not_found", message: "查無可確認的承攬夥伴資料，請檢查手機號碼，或重新提出申請。" };
   if (partner.status === "active" && partner.contract_status !== "signed") return { code: "PARTNER_CONTRACT_REQUIRED", state: "contract_required", message: "此承攬夥伴帳號已啟用；請登入後繼續完成合作契約。" };
-  if (partner.status === "active") return { code: "PARTNER_ALREADY_ACTIVE", state: "active", message: "此 Email 已有承攬夥伴帳號，請直接登入。" };
+  if (partner.status === "active") return { code: "PARTNER_ALREADY_ACTIVE", state: "active", message: "此手機已有承攬夥伴帳號，請直接登入。" };
   if (partner.status === "rejected") return { code: "PARTNER_REJECTED", state: "rejected", message: "此承攬夥伴申請目前未通過審核；如需協助，請聯絡平台客服。" };
   if (partner.status === "suspended") return { code: "PARTNER_SUSPENDED", state: "suspended", message: "此承攬夥伴帳號目前已暫停使用，請聯絡平台客服確認。" };
   if (partner.status === "terminated") return { code: "PARTNER_TERMINATED", state: "terminated", message: "此承攬夥伴帳號的合作關係已終止；如有疑問，請聯絡平台客服。" };
-  if (!partner.approved_at) return { code: "HISTORICAL_PENDING_MIGRATION_REQUIRED", state: "historical_pending", message: "這是舊版申請紀錄，平台需完成一次性資料轉換後才能提供啟用方式。" };
+  if (!partner.approved_at) return { code: "PARTNER_DATA_UPDATE_REQUIRED", state: "pending_activation", message: "承攬夥伴資料正在更新，完成後即可繼續啟用。" };
   const validInvite = Boolean(latestInvite && !latestInvite.used_at && new Date(latestInvite.expires_at) > at);
   const expiredInvite = Boolean(latestInvite && !latestInvite.used_at && new Date(latestInvite.expires_at) <= at);
   if (expiredInvite) return { code: "PARTNER_INVITE_EXPIRED", state: "invite_expired", message: "您的帳號已通過審核，但啟用連結已失效。" };
@@ -162,8 +162,46 @@ async function workflowForEmail(db, email) {
   return { partner, latestInvite, workflow: partnerWorkflowStatus(partner, latestInvite) };
 }
 
-async function publicStatusRateLimit(db, request, email, action) {
-  const actorId = await hash(`${action}:${email}`);
+async function ensurePartnerModernized(db, request, env, partner, { createInvite = false, source = "partner_entry" } = {}) {
+  if (!partner) return { partner: null, workflow: partnerWorkflowStatus(null), migrated: false };
+  if (["suspended", "terminated", "rejected", "blocked"].includes(partner.status)) return { partner, workflow: partnerWorkflowStatus(partner), migrated: false };
+  const phone = normalizeTaiwanMobile(partner.phone);
+  if (!phone) throw Object.assign(new Error("此舊申請缺少有效手機號碼，請補充手機後再繼續。"), { code: "PARTNER_PHONE_REQUIRED_FOR_MIGRATION", status: 422 });
+  const identityOwner = await db.prepare("SELECT partner_id FROM partner_application_identities WHERE phone_normalized=? LIMIT 1").bind(phone).first();
+  if (identityOwner && identityOwner.partner_id !== partner.id) throw Object.assign(new Error("此手機已連結其他承攬夥伴資料，請聯絡平台客服。"), { code: "PARTNER_DUPLICATE_PHONE_IDENTITY", status: 409 });
+  const existingLink = await db.prepare("SELECT member_id FROM partner_platform_member_links WHERE partner_id=? LIMIT 1").bind(partner.id).first();
+  const needsApproval = !partner.approved_at;
+  const needsStatus = ["applicant", "pending_review", "historical_pending"].includes(partner.status);
+  const needsIdentity = !identityOwner;
+  const needsLink = !existingLink;
+  const membership = await preparePlatformMembershipBatch(db, { phone, source: "phone", privacyConsentVersion: "partner-legacy-modernization-v1", issueSession: false });
+  if (existingLink && existingLink.member_id !== membership.memberId) {
+    throw Object.assign(new Error("承攬夥伴與會員資料連結不一致，請聯絡平台客服。"), { code: "PARTNER_MEMBER_LINK_CONFLICT", status: 409 });
+  }
+  const invite = createInvite && partner.status !== "active" ? await prepareActivationInvite(db, partner.id) : null;
+  const updatedAt = now();
+  const statements = [
+    db.prepare("UPDATE partners SET phone=?,status=CASE WHEN status='applicant' THEN 'pending_contract' ELSE status END,approved_at=COALESCE(approved_at,?),approved_by=COALESCE(approved_by,'system'),approval_mode=COALESCE(approval_mode,'automatic'),auto_approved_at=COALESCE(auto_approved_at,?),updated_at=? WHERE id=?")
+      .bind(phone, updatedAt, updatedAt, updatedAt, partner.id),
+    db.prepare("INSERT OR IGNORE INTO partner_application_identities(phone_normalized,partner_id) VALUES(?,?)").bind(phone, partner.id),
+    ...membership.statements,
+    db.prepare("INSERT OR IGNORE INTO partner_platform_member_links(partner_id,member_id) VALUES(?,?)").bind(partner.id, membership.memberId),
+  ];
+  if (invite) statements.push(...invite.statements, auditInsert(db, "system", "partner_legacy_modernizer", "partner.activation_invite_created", "partner", partner.id, { expires_at: invite.expiresAt, source }));
+  if (needsApproval) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "partner.auto_approved", "partner", partner.id, { source, legacy: true }));
+  if (needsApproval || needsStatus || needsIdentity || needsLink) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "partner.legacy_auto_migrated", "partner", partner.id, { source, fields: { approval: needsApproval, status: needsStatus, identity: needsIdentity, member_link: needsLink } }));
+  if (membership.memberCreated) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "platform_member.created", "platform_member", membership.memberId, { source: "legacy_partner" }));
+  else if (needsLink) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "platform_member.linked", "platform_member", membership.memberId, { source: "legacy_partner" }));
+  if (membership.couponCreated) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "platform_coupon.claimed", "platform_member", membership.memberId, { campaign_id: "platform_welcome_member_v1" }));
+  await db.batch(statements);
+  const member = await finalizePlatformMembershipBatch(db, membership);
+  const modern = await db.prepare("SELECT * FROM partners WHERE id=?").bind(partner.id).first();
+  const latestInvite = await db.prepare("SELECT id,expires_at,used_at,created_at FROM partner_invites WHERE partner_id=? ORDER BY created_at DESC LIMIT 1").bind(partner.id).first();
+  return { partner: modern, latestInvite, workflow: partnerWorkflowStatus(modern, latestInvite), migrated: needsApproval || needsStatus || needsIdentity || needsLink, activation_url: invite ? activationUrl(invite.raw, env) : null, activation_expires_at: invite?.expiresAt || null, membership: member.member, welcome: member.welcome, coupon: member.coupon };
+}
+
+async function publicStatusRateLimit(db, request, identity, action) {
+  const actorId = await hash(`${action}:${identity}`);
   const recent = await db.prepare("SELECT COUNT(*) count FROM audit_logs WHERE actor_type='public' AND actor_id=? AND action=? AND created_at>datetime('now','-15 minutes')").bind(actorId, action).first();
   if (Number(recent?.count || 0) >= 5) return { limited: true, actorId };
   await audit(db, request, "public", actorId, action, "partner_application", actorId);
@@ -418,26 +456,22 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     if (!validEmail(email)) return json({ error: "請輸入有效的 Email。", code: "INVALID_EMAIL" }, 422, cors);
     if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
     if (!await applicationRateLimit(db, request, email, phone)) return json({ error: "申請操作過於頻繁，請 15 分鐘後再試。", code: "RATE_LIMITED" }, 429, cors);
-    const existing = await workflowForEmail(db, email);
-    if (existing.partner) {
-      if (normalizeTaiwanMobile(existing.partner.phone) !== phone) return json({ error: "此申請資料已存在，身分資料不符，請聯絡平台客服。", code: "PARTNER_IDENTITY_MISMATCH" }, 409, cors);
-      if (["suspended", "terminated", "rejected"].includes(existing.partner.status)) return json({ error: existing.workflow.message, ...existing.workflow }, 409, cors);
-      if (!existing.partner.approved_at) return json({ error: "此為既有待處理申請，請由平台管理員使用歷史申請批次核准功能處理。", code: "HISTORICAL_PENDING_REVIEW", state: "historical_pending_review" }, 409, cors);
-      if (existing.partner.status === "active") return json({ error: existing.workflow.message, ...existing.workflow, next_url: "/partner/login" }, 409, cors);
-      const invite = await prepareActivationInvite(db, existing.partner.id);
-      const membership = await preparePlatformMembershipBatch(db, { phone, source: "phone", privacyConsentVersion: "partner-auto-approval-v1", issueSession: false });
-      const statements = [...invite.statements, ...membership.statements,
-        db.prepare("INSERT OR IGNORE INTO partner_platform_member_links(partner_id,member_id) VALUES(?,?)").bind(existing.partner.id, membership.memberId),
-        auditInsert(db, "system", "partner_auto_approval", "partner.activation_invite_created", "partner", existing.partner.id, { expires_at: invite.expiresAt, reissued: true })];
-      if (membership.memberCreated) statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_member.created", "platform_member", membership.memberId, { source: "partner_application" }));
-      else statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_member.linked", "platform_member", membership.memberId, { source: "partner_application" }));
-      if (membership.couponCreated) statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_coupon.claimed", "platform_member", membership.memberId, { campaign_id: "platform_welcome_member_v1" }));
-      await db.batch(statements);
-      const member = await finalizePlatformMembershipBatch(db, membership);
-      return json({ code: "PARTNER_ALREADY_APPROVED", state: "pending_activation", partner_code: existing.partner.partner_code, approved_at: existing.partner.approved_at, activation_url: activationUrl(invite.raw, env), activation_expires_at: invite.expiresAt, membership: member.member, welcome: member.welcome, coupon: member.coupon }, 200, { ...cors, "cache-control": "no-store" });
-    }
     const phoneOwner = await partnerByNormalizedPhone(db, phone);
-    if (phoneOwner) return json({ error: "此手機已建立承攬夥伴申請；如需協助，請聯絡平台客服。", code: "PARTNER_PHONE_ALREADY_REGISTERED" }, 409, cors);
+    const emailOwner = (await workflowForEmail(db, email)).partner;
+    if (emailOwner && phoneOwner && emailOwner.id !== phoneOwner.id) return json({ error: "Email 與手機分屬不同承攬夥伴資料，請聯絡平台客服。", code: "PARTNER_IDENTITY_CONFLICT" }, 409, cors);
+    const existingPartner = emailOwner || phoneOwner;
+    if (existingPartner) {
+      if (emailOwner && normalizeTaiwanMobile(emailOwner.phone) !== phone) return json({ error: "此申請資料已存在，身分資料不符，請聯絡平台客服。", code: "PARTNER_IDENTITY_MISMATCH" }, 409, cors);
+      if (phoneOwner && String(phoneOwner.email || "").trim().toLowerCase() !== email) return json({ error: "此手機已建立承攬夥伴帳號，請使用手機登入或聯絡平台客服。", code: "PARTNER_PHONE_ALREADY_REGISTERED", state: phoneOwner.status === "active" ? "active" : "pending_activation", next_url: "/partner/login" }, 409, cors);
+      try {
+        const modern = await ensurePartnerModernized(db, request, env, existingPartner, { createInvite: existingPartner.status !== "active", source: "partner_apply" });
+        if (["suspended", "terminated", "rejected"].includes(existingPartner.status)) return json({ error: modern.workflow.message, ...modern.workflow }, 409, cors);
+        if (modern.partner.status === "active") return json({ error: modern.workflow.message, ...modern.workflow, next_url: "/partner/login" }, 409, cors);
+        return json({ code: modern.migrated ? "PARTNER_LEGACY_MODERNIZED" : "PARTNER_ALREADY_APPROVED", state: "pending_activation", message: modern.migrated ? "您的承攬夥伴資料已更新，可以繼續完成啟用。" : "您的承攬夥伴申請已核准，可以繼續完成啟用。", partner_code: modern.partner.partner_code, approved_at: modern.partner.approved_at, activation_url: modern.activation_url, activation_expires_at: modern.activation_expires_at, membership: modern.membership, welcome: modern.welcome, coupon: modern.coupon }, 200, { ...cors, "cache-control": "no-store" });
+      } catch (error) {
+        return json({ error: error?.message || "承攬夥伴資料更新失敗。", code: error?.code || "PARTNER_MODERNIZATION_FAILED" }, Number(error?.status || 503), cors);
+      }
+    }
     const partnerId = id("partner"), partnerCode = await uniquePartnerCode(db), approvedAt = now();
     try {
       const invite = await prepareActivationInvite(db, partnerId);
@@ -468,12 +502,21 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
   }
 
   if (path === "/api/partner/status" && request.method === "POST") {
-    const input = await body(request), email = String(input.email || "").trim().toLowerCase();
-    if (!email || !email.includes("@")) return json({ error: "請輸入有效的 Email。" }, 400, cors);
-    const rate = await publicStatusRateLimit(db, request, email, "partner_status_checked");
+    const input = await body(request);
+    const phone = normalizeTaiwanMobile(input.phone);
+    const email = String(input.email || "").trim().toLowerCase();
+    if (!phone && !validEmail(email)) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+    const identity = phone || email;
+    const rate = await publicStatusRateLimit(db, request, identity, "partner_status_checked");
     if (rate.limited) return json({ error: "查詢次數過多，請 15 分鐘後再試。" }, 429, cors);
-    const result = await workflowForEmail(db, email);
-    return json({ ...result.workflow }, 200, { ...cors, "cache-control": "no-store" });
+    const partner = phone ? await partnerByNormalizedPhone(db, phone) : (await workflowForEmail(db, email)).partner;
+    if (!partner) return json(partnerWorkflowStatus(null), 200, { ...cors, "cache-control": "no-store" });
+    try {
+      const modern = await ensurePartnerModernized(db, request, env, partner, { createInvite: partner.status !== "active", source: "partner_status" });
+      return json({ ...modern.workflow, message: modern.migrated ? "您的承攬夥伴資料已更新，可以繼續完成啟用。" : modern.workflow.message, activation_url: modern.activation_url, activation_expires_at: modern.activation_expires_at, next_url: modern.partner.status === "active" ? "/partner/login" : undefined }, 200, { ...cors, "cache-control": "no-store" });
+    } catch (error) {
+      return json({ error: error?.message || "承攬夥伴資料更新失敗。", code: error?.code || "PARTNER_MODERNIZATION_FAILED" }, Number(error?.status || 503), cors);
+    }
   }
 
   if (path === "/api/partner/activation/request" && request.method === "POST") {
@@ -531,10 +574,30 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
         return json({ code: "SESSION_RESTORED", next_url: await partnerNextUrl(db, currentPartner.id) }, 200, { ...cors, "cache-control": "no-store" });
       }
     }
-    const partner = await partnerByNormalizedPhone(db, phone);
-    if (partner?.status === "suspended") return json({ error: "此承攬夥伴帳號目前已暫停使用，請聯絡平台客服。", code: "PARTNER_SUSPENDED" }, 403, cors);
-    if (partner?.status === "terminated") return json({ error: "此承攬夥伴帳號的合作關係已終止。", code: "PARTNER_TERMINATED" }, 403, cors);
-    if (partner && partner.status !== "active") return json({ error: "您的承攬夥伴帳號尚未完成啟用，請使用安全啟用連結。", code: "PARTNER_ACTIVATION_REQUIRED" }, 403, cors);
+    let partner = await partnerByNormalizedPhone(db, phone);
+    if (partner) {
+      try {
+        const modern = await ensurePartnerModernized(db, request, env, partner, {
+          createInvite: partner.status !== "active",
+          source: "partner_login_start",
+        });
+        partner = modern.partner;
+        if (partner?.status === "suspended") return json({ error: "此承攬夥伴帳號目前已暫停使用，請聯絡平台客服。", code: "PARTNER_SUSPENDED" }, 403, cors);
+        if (partner?.status === "terminated") return json({ error: "此承攬夥伴帳號的合作關係已終止。", code: "PARTNER_TERMINATED" }, 403, cors);
+        if (partner?.status === "rejected" || partner?.status === "blocked") return json({ error: "此承攬夥伴帳號目前無法登入，請聯絡平台客服。", code: "PARTNER_ACCOUNT_UNAVAILABLE" }, 403, cors);
+        if (partner?.status !== "active") {
+          return json({
+            code: modern.migrated ? "PARTNER_LEGACY_MODERNIZED" : "PARTNER_ACTIVATION_REQUIRED",
+            state: "pending_activation",
+            message: modern.migrated ? "您的承攬夥伴資料已更新，可以繼續完成啟用。" : "您的承攬夥伴帳號尚未完成啟用。",
+            activation_url: modern.activation_url,
+            activation_expires_at: modern.activation_expires_at,
+          }, 202, { ...cors, "cache-control": "no-store" });
+        }
+      } catch (error) {
+        return json({ error: error?.message || "承攬夥伴資料更新失敗。", code: error?.code || "PARTNER_MODERNIZATION_FAILED" }, Number(error?.status || 503), cors);
+      }
+    }
     const challengeId = id("partner_challenge");
     const staging = env.PARTNER_OTP_MODE === "staging";
     const code = staging ? String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0") : null;
