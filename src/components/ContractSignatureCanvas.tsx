@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from "react";
 export type SignaturePoint = [number, number];
 export type SignatureValue = { strokes: SignaturePoint[][] };
 
-export function ContractSignatureCanvas({ onChange }: { onChange: (value: SignatureValue) => void }) {
+export function ContractSignatureCanvas({ onChange, minimumPoints = 6, minimumStrokes = 1, clearLabel = "清除並重簽" }: { onChange: (value: SignatureValue) => void; minimumPoints?: number; minimumStrokes?: number; clearLabel?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const strokesRef = useRef<SignaturePoint[][]>([]);
   const activeStroke = useRef<SignaturePoint[] | null>(null);
   const [pointCount, setPointCount] = useState(0);
+  const [strokeCount, setStrokeCount] = useState(0);
 
   const redraw = () => {
     const canvas = canvasRef.current;
@@ -50,6 +51,7 @@ export function ContractSignatureCanvas({ onChange }: { onChange: (value: Signat
   };
   const emit = () => {
     setPointCount(strokesRef.current.reduce((sum, stroke) => sum + stroke.length, 0));
+    setStrokeCount(strokesRef.current.filter((stroke) => stroke.length >= 2).length);
     onChange({ strokes: strokesRef.current.map((stroke) => [...stroke]) });
   };
   const clear = () => {
@@ -81,8 +83,8 @@ export function ContractSignatureCanvas({ onChange }: { onChange: (value: Signat
         onPointerCancel={() => { activeStroke.current = null; emit(); }}
       />
       <div className="contract-signature-actions">
-        <span>{pointCount >= 6 ? "簽名已記錄" : "請以完整筆劃簽名（不可只點一下）"}</span>
-        <button type="button" className="btn btn-outline btn-sm" onClick={clear}>清除並重簽</button>
+        <span>{pointCount >= minimumPoints && strokeCount >= minimumStrokes ? "簽名已記錄" : `請至少完成 ${minimumStrokes} 筆清楚筆劃（不可只點一下）`}</span>
+        <button type="button" className="btn btn-outline btn-sm" onClick={clear}>{clearLabel}</button>
       </div>
     </div>
   );

@@ -22,7 +22,7 @@ export async function hashCanonical(value) {
   return sha256(stableStringify(value));
 }
 
-export function parseAndValidateSignature(signature, { minimumPoints = 6 } = {}) {
+export function parseAndValidateSignature(signature, { minimumPoints = 6, minimumStrokes = 1 } = {}) {
   let parsed;
   try { parsed = typeof signature === "string" ? JSON.parse(signature) : signature; }
   catch { throw new ContractError("SIGNATURE_INVALID", "簽名資料格式不正確。", 422); }
@@ -31,7 +31,8 @@ export function parseAndValidateSignature(signature, { minimumPoints = 6 } = {})
     .filter((stroke) => Array.isArray(stroke))
     .map((stroke) => stroke.filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite)));
   const points = strokes.reduce((total, stroke) => total + stroke.length, 0);
-  if (!strokes.some((stroke) => stroke.length >= 2) || points < minimumPoints) {
+  const meaningfulStrokes = strokes.filter((stroke) => stroke.length >= 2).length;
+  if (meaningfulStrokes < minimumStrokes || points < minimumPoints) {
     throw new ContractError("SIGNATURE_TOO_SHORT", "簽名筆劃不足，請重新完整簽名。", 422);
   }
   const normalized = { strokes: strokes.map((stroke) => stroke.map(([x, y]) => [Math.round(x * 100) / 100, Math.round(y * 100) / 100])) };
@@ -41,9 +42,10 @@ export function parseAndValidateSignature(signature, { minimumPoints = 6 } = {})
 }
 
 export function assertContractSignable(contract, env = {}) {
-  if (!contract || Number(contract.is_active) !== 1) throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的有效契約版本。", 409);
-  if (contract.legal_review_status === "revoked") throw new ContractError("CONTRACT_REVOKED", "此契約版本已撤銷。", 409);
   const staging = env.CONTRACT_SIGNING_MODE === "staging";
+  const stagingDraftEnabled = staging && Number(contract?.staging_signing_enabled) === 1;
+  if (!contract || (Number(contract.is_active) !== 1 && !stagingDraftEnabled)) throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的有效契約版本。", 409);
+  if (contract.legal_review_status === "revoked") throw new ContractError("CONTRACT_REVOKED", "此契約版本已撤銷。", 409);
   if (contract.legal_review_status !== "approved" && !staging) {
     throw new ContractError("LEGAL_REVIEW_REQUIRED", "此契約版本尚未完成正式法律審閱，目前不可簽署。", 423);
   }
@@ -53,9 +55,9 @@ export function assertContractSignable(contract, env = {}) {
   return { staging };
 }
 
-export function validateExplicitConsents(consents, partyType) {
+export function validateExplicitConsents(consents, partyType, consentVersion = "") {
   const required = partyType === "partner"
-    ? ["read", "electronic", "independent"]
+    ? (String(consentVersion).includes("v1.5") ? ["read", "electronic", "independent", "identity", "block_letter_signature"] : ["read", "electronic", "independent"])
     : ["read", "electronic", "commercial_terms", "authority", "signature_evidence"];
   const missing = required.filter((key) => consents?.[key] !== true);
   if (missing.length) throw new ContractError("CONSENT_REQUIRED", "請完成全部契約確認項目。", 422, { missing });
@@ -63,8 +65,8 @@ export function validateExplicitConsents(consents, partyType) {
 }
 
 export async function buildSignedAgreement(input) {
-  const signature = parseAndValidateSignature(input.signature);
-  const consents = validateExplicitConsents(input.consents, input.partyType);
+  const signature = parseAndValidateSignature(input.signature, input.signatureValidation);
+  const consents = validateExplicitConsents(input.consents, input.partyType, input.consentVersion);
   const signatureHash = await sha256(signature.serialized);
   const documentId = input.documentId;
   const signedAt = input.signedAt || new Date().toISOString();
@@ -77,6 +79,8 @@ export async function buildSignedAgreement(input) {
     party_id: input.partyId,
     signatory: input.signatory,
     signatory_role: input.signatoryRole,
+    identity_hash: input.identityHash || null,
+    contract_period: input.contractPeriod || null,
     signature_hash: signatureHash,
     signed_at: signedAt,
     consents,
@@ -104,6 +108,8 @@ export async function buildSignedAgreement(input) {
     assuranceLevel: STANDARD_ASSURANCE,
     signature: signature.serialized,
     staging: Boolean(input.staging),
+    privateIdentityLabel: input.privateIdentityLabel || null,
+    contractPeriod: input.contractPeriod || null,
   });
   const evidence = {
     ...canonicalDocument,

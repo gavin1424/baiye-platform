@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { handlePartnerRequest } from "../src/partner.js";
+import { isValidTaiwanIdNumber } from "../src/partner-identity.js";
 
 class Statement {
   constructor(statement) { this.statement = statement; this.values = []; }
@@ -20,12 +21,14 @@ class D1 {
   async batch(statements) { const results = []; for (const statement of statements) results.push(await statement.run()); return results; }
 }
 const cors = { "access-control-allow-origin": "https://staging.example" };
-const stagingEnv = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://staging.example", CONTRACT_SIGNING_MODE: "staging", PARTNER_OTP_MODE: "staging" });
-const productionEnv = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://baiyeconnect.com", PARTNER_OTP_MODE: "disabled" });
+const identitySecrets = { PARTNER_ID_FIELD_ENCRYPTION_KEY: "test-encryption-key-at-least-32-bytes", PARTNER_ID_HASH_SECRET: "test-hmac-secret-at-least-32-bytes" };
+const stagingEnv = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://staging.example", CONTRACT_SIGNING_MODE: "staging", PARTNER_OTP_MODE: "staging", ...identitySecrets });
+const productionEnv = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://baiyeconnect.com", PARTNER_OTP_MODE: "disabled", ...identitySecrets });
 function req(path, data, headers = {}) { return new Request(`https://worker.test${path}`, { method: "POST", headers: { "content-type": "application/json", "CF-Connecting-IP": "203.0.113.20", "x-device-id": "test-device", ...headers }, body: JSON.stringify(data) }); }
 async function call(db, path, data, headers = {}, env = stagingEnv(db)) { const request = req(path, data, headers); const response = await handlePartnerRequest(request, env, new URL(request.url), cors); return { response, data: await response.json() }; }
 async function applied(db, suffix = "01") {
-  return call(db, "/api/partner/apply", { legal_name: `免密夥伴${suffix}`, display_name: `免密${suffix}`, email: `passwordless-${suffix}@example.test`, phone: `09128888${suffix}`, consent: true });
+  const base = `A1${String(Number(suffix)).padStart(7, "0")}`; let idNumber = ""; for (let digit = 0; digit <= 9; digit += 1) if (isValidTaiwanIdNumber(`${base}${digit}`)) idNumber = `${base}${digit}`;
+  return call(db, "/api/partner/apply", { legal_name: `免密夥伴${suffix}`, id_number: idNumber, email: `passwordless-${suffix}@example.test`, phone: `09128888${suffix}`, consent: true });
 }
 async function activated(db) {
   const application = await applied(db);
@@ -64,6 +67,6 @@ test("P26 Audit 不保存完整手機與 OTP", async () => { const db = new D1()
 test("P27 Partner Login rate limit", async () => { const db = new D1(); await activated(db); let result; for (let i = 0; i < 10; i += 1) result = await challenge(db); assert.equal(result.data.code, "RATE_LIMITED"); });
 test("P28 password_hash/password_salt 欄位保留相容", () => { const db = new D1(); const columns = db.sqlite.prepare("PRAGMA table_info(partners)").all().map((row) => row.name); assert.ok(columns.includes("password_hash")); assert.ok(columns.includes("password_salt")); });
 test("P29 新申請回傳免密啟用入口", async () => { const db = new D1(); const result = await applied(db); assert.match(result.data.activation_url, /partner\/activate/); assert.equal("password" in result.data, false); });
-test("P30 Legal Review Gate 保持 pending", async () => { const db = new D1(); const result = await applied(db); assert.equal(result.data.contract.legal_review_status, "pending_review"); assert.equal(result.data.contract.signing_available, false); });
+test("P30 Legal Review Gate 保持 pending", async () => { const db = new D1(); const result = await applied(db); assert.equal(result.data.contract.legal_review_status, "pending_review"); assert.equal(db.sqlite.prepare("SELECT is_active FROM contract_versions WHERE id='contractor_partner_v1_5'").get().is_active, 0); });
 test("P31 Link 不可改寫或刪除", async () => { const db = new D1(); await applied(db); assert.throws(() => db.sqlite.prepare("DELETE FROM partner_platform_member_links").run(), /IMMUTABLE/); });
 test("P32 驗證碼 D1 只保存 Hash", async () => { const db = new D1(); await activated(db); const start = await challenge(db); const stored = db.sqlite.prepare("SELECT code_hash FROM partner_login_challenges WHERE id=?").get(start.data.challenge_id).code_hash; assert.notEqual(stored, start.data.staging_code); assert.ok(stored.length >= 40); });
