@@ -18,8 +18,12 @@ import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
 import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
+import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
+import { AdminContractsPage } from "./pages/AdminContractsPage";
+import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
+const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
 
 const PLATFORM_BRAND = "創百業智慧鏈";
 const PAGE_TITLES: Record<string, string> = {
@@ -73,6 +77,13 @@ const PAGE_TITLES: Record<string, string> = {
   "/partner/dashboard": "承攬夥伴儀表板｜創百業智慧鏈",
   "/partner/contract": "線上承攬夥伴合作契約｜創百業智慧鏈",
   "/admin/partners": "承攬夥伴管理｜創百業智慧鏈",
+  "/admin/contracts": "契約管理｜創百業智慧鏈",
+  "/merchant/activate": "啟用商家帳號｜創百業智慧鏈",
+  "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
+  "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
+  "/member/join": "手機一鍵加入會員｜創百業智慧鏈",
+  "/member/welcome": "歡迎成為創百業會員｜創百業智慧鏈",
+  "/member": "我的會員｜創百業智慧鏈",
 };
 
 function ScrollAndMetadata() {
@@ -85,6 +96,8 @@ function ScrollAndMetadata() {
       PAGE_TITLES[path] ||
       (path.startsWith("/q/")
         ? "掃碼加入會員與手機點餐｜創百業智慧鏈"
+        : path.startsWith("/verify-contract/")
+          ? "契約文件驗證｜創百業智慧鏈"
         : path.startsWith("/business/")
           ? "商家專屬網站｜創百業智慧鏈"
           : path.startsWith("/demo-sites/")
@@ -111,7 +124,7 @@ function ScrollAndMetadata() {
       ? "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。"
       : "創百業智慧鏈提供 AI 行銷推廣、平台上架與商家數位營運服務，現階段推廣促銷價 NT$18,000，標準規格網站基礎建置免費附贈。";
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
-    document.querySelector('meta[name="robots"]')?.setAttribute("content", IS_BEEF_NOODLE_DEMO ? "noindex,nofollow" : "index,follow");
+    document.querySelector('meta[name="robots"]')?.setAttribute("content", IS_BEEF_NOODLE_DEMO || IS_STAGING ? "noindex,nofollow" : "index,follow");
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", activeTitle);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
   }, [location.pathname]);
@@ -184,6 +197,9 @@ export function App() {
         <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
+        <Route path="/member/join" element={<PlatformMemberJoinPage />} />
+        <Route path="/member/welcome" element={<PlatformMemberWelcomePage />} />
+        <Route path="/member" element={<PlatformMemberCenterPage />} />
         <Route path="/business-financing" element={<BusinessFinancingPage />} />
         <Route path="/categories" element={<VerifiedBusinessesPage />} />
         <Route path="/categories/:category" element={<VerifiedBusinessesPage />} />
@@ -236,6 +252,10 @@ export function App() {
         <Route path="/partner/contract" element={<PartnerContract />} />
         <Route path="/partner/dashboard" element={<PartnerDashboard />} />
         <Route path="/partner/commissions" element={<PartnerDashboard />} />
+        <Route path="/merchant/activate" element={<MerchantContractActivate />} />
+        <Route path="/merchant/contract" element={<MerchantContractPage />} />
+        <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
+        <Route path="/verify-contract/:publicId" element={<VerifyContractPage />} />
         <Route path="/join" element={<PartnerReferralJoin />} />
         <Route path="/admin" element={<AdminRoute><ProductionAdminOverview /></AdminRoute>} />
         <Route path="/admin/finance" element={<AdminRoute><AdminFinancePage /></AdminRoute>} />
@@ -243,6 +263,7 @@ export function App() {
         <Route path="/admin/ordering" element={<AdminRoute><AdminQrOrderingPage /></AdminRoute>} />
         <Route path="/admin/financing" element={<AdminRoute><AdminFinancingPage /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
+        <Route path="/admin/contracts" element={<AdminRoute><AdminContractsPage /></AdminRoute>} />
         <Route path="*" element={<ProductionNotFoundPage />} />
       </Routes>
       <ContextualAiChatWidget />

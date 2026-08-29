@@ -35,6 +35,14 @@ function contractLines(html) {
   return lines;
 }
 
+function wrapPdfLine(value, limit = 42) {
+  const characters = Array.from(String(value));
+  if (characters.length <= limit) return [String(value)];
+  const lines = [];
+  for (let index = 0; index < characters.length; index += limit) lines.push(characters.slice(index, index + limit).join(""));
+  return lines;
+}
+
 function signatureCommands(signature) {
   try {
     const parsed = JSON.parse(signature);
@@ -63,29 +71,40 @@ function pageStream(lines, pageNo, pageCount) {
 
 /** Generates a deterministic, immutable PDF artifact. The visible document hash is
  * over the signed content; the final artifact SHA-256 is returned separately. */
-export async function createSignedContractPdf(input) {
-  const documentHash = await sha256(JSON.stringify({
-    contractId: input.contractId, version: input.version, contentHash: input.contractHash,
-    signatureHash: input.signatureHash, legalName: input.legalName, signedAt: input.signedAt,
+export async function createSignedAgreementPdf(input) {
+  const documentHash = input.documentHash || await sha256(JSON.stringify({
+    contractId: input.documentId, version: input.version, contentHash: input.contractHash,
+    signatureHash: input.signatureHash, legalName: input.signatory, signedAt: input.signedAt,
   }));
-  const body = [
-    "創百業智慧鏈｜承攬夥伴合作契約", `文件識別碼：${input.contractId}`,
-    `合約版本：${input.version}　甲方：陳靈有限公司　乙方：${input.legalName}`,
+  const rawBody = [
+    input.staging ? "STAGING｜NOT A REAL CONTRACT" : "",
+    input.title, `文件識別碼：${input.documentId}`, `公開驗證碼：${input.publicId || "—"}`,
+    `合約版本：${input.version}　${input.partyLabel}`,
     `簽署時間：${input.signedAt}`, "",
-    ...contractLines(input.contentHtml), "", "電子簽署證據", `簽署姓名：${input.legalName}`,
-    "手寫電子簽名如下：", "", "", "",
+    ...(input.attachments || []).flatMap((attachment) => [attachment.title, ...contractLines(attachment.contentHtml || attachment.content || "")]),
+    ...contractLines(input.contentHtml), "", "電子簽署證據", `簽署姓名：${input.signatory}`,
+    `簽署身份：${input.signatoryRole || "—"}`, "手寫簽名軌跡如下：", "", "", "",
     `Consent：${input.consentVersion}`, `Contract SHA-256：${input.contractHash}`,
+    `Commercial Terms SHA-256：${input.commercialTermsHash || "N/A"}`,
     `Signature SHA-256：${input.signatureHash}`, `Document SHA-256：${documentHash}`,
-    "本版本標示 LEGAL_REVIEW_REQUIRED，正式大規模使用前須經台灣執業律師最終審閱。",
+    `Signature Assurance：${input.assuranceLevel || "standard_electronic_agreement_evidence"}`,
+    `驗證頁：${input.verificationUrl || "—"}`,
+    "PDF Artifact SHA-256 由私人儲存 metadata 與驗證服務提供，避免自我雜湊循環。",
+    "手寫軌跡與系統紀錄屬線上契約簽署證據；不宣稱為憑證式數位簽章或政府認證電子簽章。",
   ];
-  const perPage = 40, pages = [];
+  const body = rawBody.flatMap((line) => wrapPdfLine(line));
+  // Reserve the lower half of the final page for the handwritten evidence.
+  // A smaller page body also prevents long hash/verification lines from
+  // colliding with the signature when attachments expand the document.
+  const perPage = 30, pages = [];
   for (let index = 0; index < body.length; index += perPage) pages.push(body.slice(index, index + perPage));
   const objects = [];
   const add = (value) => { objects.push(value); return objects.length; };
   const catalog = add("<< /Type /Catalog /Pages 2 0 R >>");
   const pagesObject = add("");
   const font = add("<< /Type /Font /Subtype /Type0 /BaseFont /MSung-Light /Encoding /UniCNS-UTF16-H /DescendantFonts [4 0 R] >>");
-  const cidFont = add("<< /Type /Font /Subtype /CIDFontType0 /BaseFont /MSung-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (CNS1) /Supplement 7 >> >>");
+  const cidFont = add("<< /Type /Font /Subtype /CIDFontType0 /BaseFont /MSung-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (CNS1) /Supplement 7 >> /FontDescriptor 5 0 R /DW 1000 >>");
+  add("<< /Type /FontDescriptor /FontName /MSung-Light /Flags 4 /FontBBox [-160 -249 1015 888] /ItalicAngle 0 /Ascent 880 /Descent -120 /CapHeight 880 /StemV 80 /MissingWidth 1000 >>");
   const pageRefs = [];
   for (let index = 0; index < pages.length; index++) {
     const signature = index === pages.length - 1 ? `\n${signatureCommands(input.signature)}` : "";
@@ -104,4 +123,17 @@ export async function createSignedContractPdf(input) {
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalog} 0 R >>\nstartxref\n${xref}\n%%EOF`;
   const bytes = encoder.encode(pdf);
   return { bytes, documentHash, pdfHash: await sha256(bytes) };
+}
+
+/** Backward-compatible Partner wrapper. */
+export async function createSignedContractPdf(input) {
+  return createSignedAgreementPdf({
+    ...input,
+    title: "創百業智慧鏈｜承攬夥伴合作契約",
+    documentId: input.contractId,
+    partyLabel: `甲方：平台契約所載法律主體　乙方：${input.legalName}`,
+    signatory: input.legalName,
+    signatoryRole: "承攬夥伴",
+    assuranceLevel: "standard_electronic_agreement_evidence",
+  });
 }

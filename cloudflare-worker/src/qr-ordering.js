@@ -1,4 +1,6 @@
 import { couponOrderStateStatements, issueWelcomeCoupon, prepareCouponForOrder } from "./member-integrations.js";
+import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
+export { normalizeTaiwanMobile } from "./platform-membership.js";
 
 const E = new TextEncoder();
 const SESSION_DAYS = 180;
@@ -49,13 +51,6 @@ function bearer(request) {
 function validMerchantId(value) {
   const id = clean(value, 100);
   return /^[A-Za-z0-9][A-Za-z0-9_-]{1,99}$/.test(id) ? id : "";
-}
-
-export function normalizeTaiwanMobile(value) {
-  let phone = String(value || "").replace(/[^0-9+]/g, "");
-  if (phone.startsWith("+886")) phone = `0${phone.slice(4)}`;
-  else if (phone.startsWith("886")) phone = `0${phone.slice(3)}`;
-  return /^09\d{8}$/.test(phone) ? phone : "";
 }
 
 function maskPhone(phone) {
@@ -342,25 +337,28 @@ async function handleJoin(request, db, context, cors) {
   if (!context.enabled) return json({ error: "此商家的掃碼會員服務尚未開放。" }, 409, cors);
   if (!await publicRateLimit(db, request, context.merchant_id, "join", 12)) return json({ error: "操作過於頻繁，請稍後再試。" }, 429, cors);
   const input = await request.json();
-  const displayName = clean(input?.display_name, 80);
   const phone = normalizeTaiwanMobile(input?.phone);
-  const email = validEmail(input?.email);
-  if (!displayName || !phone) return json({ error: "請填寫姓名與正確的台灣手機號碼。" }, 400, cors);
-  if (email === null) return json({ error: "Email 格式不正確。" }, 400, cors);
+  if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 400, cors);
   if (input?.privacy_consent !== true || clean(input?.consent_version, 60) !== context.consent_version) {
     return json({ error: "請閱讀並同意會員與隱私權說明後再加入。" }, 400, cors);
   }
-
-  const customer = await db.prepare(`
-    INSERT INTO ordering_customers (id,display_name,phone_normalized,phone_display,email)
-    VALUES (?,?,?,?,?)
-    ON CONFLICT(phone_normalized) DO UPDATE SET
-      display_name=excluded.display_name,
-      phone_display=excluded.phone_display,
-      email=COALESCE(excluded.email,ordering_customers.email),
-      updated_at=CURRENT_TIMESTAMP
-    RETURNING id,display_name,phone_normalized
-  `).bind(uid("customer"), displayName, phone, phone, email || null).first();
+  const existingCustomer = await db.prepare("SELECT id FROM ordering_customers WHERE phone_normalized=?").bind(phone).first();
+  const existingPlatformMember = existingCustomer ? await db.prepare("SELECT id FROM platform_members WHERE customer_id=?").bind(existingCustomer.id).first() : null;
+  let authenticatedMember = null;
+  if (existingPlatformMember) {
+    authenticatedMember = await authenticatePlatformMember(db, request);
+    if (!authenticatedMember || authenticatedMember.id !== existingPlatformMember.id) {
+      return json({ error: "此手機已建立會員，請先完成手機或 LINE 身分驗證。", code: "MEMBER_VERIFICATION_REQUIRED" }, 409, cors);
+    }
+  }
+  const platform = await ensurePlatformMember(db, {
+    phone,
+    source: "qr",
+    privacyConsentVersion: context.consent_version,
+    deviceId: clean(input?.device_id || request.headers.get("x-device-id"), 300),
+    issueSession: !authenticatedMember,
+  });
+  const customer = platform.customer;
 
   const previousMembership = await db.prepare(`SELECT m.id FROM merchant_ordering_memberships m JOIN ordering_customers c ON c.id=m.customer_id WHERE m.merchant_id=? AND c.phone_normalized=? LIMIT 1`).bind(context.merchant_id, phone).first();
   const membership = await db.prepare(`
@@ -391,11 +389,14 @@ async function handleJoin(request, db, context, cors) {
     member: {
       membership_id: membership.membership_id,
       membership_no: membership.membership_no,
-      display_name: customer.display_name,
+      display_name: customer.display_name || "會員",
       phone_masked: maskPhone(customer.phone_normalized),
     },
     session,
     coupon,
+    platform_membership: platform.member,
+    platform_session: platform.session,
+    welcome: platform.welcome,
   }, 201, cors);
 }
 

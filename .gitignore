@@ -10,6 +10,7 @@ tests/
 !cloudflare-worker/tests/
 !cloudflare-worker/tests/*.test.mjs
 screenshots/
+tmp/
 .codex-remote-attachments/
 vite.stdout.log
 vite.stderr.log
