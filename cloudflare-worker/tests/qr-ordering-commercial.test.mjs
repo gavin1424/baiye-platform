@@ -16,7 +16,7 @@ class D1 {
   constructor() {
     this.sqlite = new DatabaseSync(":memory:");
     this.sqlite.exec("PRAGMA foreign_keys=ON");
-    for (const name of ["0001_finance_core.sql", "0011_qr_membership_ordering.sql", "0012_member_benefits_integrations.sql", "0013_growth_completion.sql", "0013_qr_ordering_commercial_v1.sql"]) {
+    for (const name of ["0001_finance_core.sql", "0011_qr_membership_ordering.sql", "0012_member_benefits_integrations.sql", "0013_growth_completion.sql", "0013_qr_ordering_commercial_v1.sql", "0015_phone_only_platform_membership.sql"]) {
       this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
     }
     this.sqlite.prepare("INSERT INTO merchants(id,merchant_code,name,status) VALUES('merchant_a','A','商用測試餐廳','active'),('merchant_b','B','隔離商家','active')").run();
@@ -37,9 +37,9 @@ const publicRequest = (path, method="GET", body=null, token="", key="") => new R
 const adminRequest = (path, method="GET", body=null, key="") => publicRequest(`${path}${path.includes("?") ? "&" : "?"}merchant_id=merchant_a`, method, body, "", key);
 const admin = async (db, path, method="GET", body=null, key="") => { const request=adminRequest(path,method,body,key); return handleOrderingAdminRequest(request,env(db),new URL(request.url),{},true,{actor_id:"admin",actor_role:"platform_admin"}); };
 
-async function join(db, code="opaque-A1-code-0123456789", phone="0912345678") {
-  const request=publicRequest(`/api/ordering/qr/${code}/join`,"POST",{display_name:"測試顧客",phone,email:"guest@example.test",privacy_consent:true,consent_version:"2026-08-27"});
-  const response=await handleOrderingRequest(request,env(db),new URL(request.url),{}); const data=await response.json(); return {response,data,token:data.session?.token};
+async function join(db, code="opaque-A1-code-0123456789", phone="0912345678", platformToken="") {
+  const request=new Request(`https://ordering.test/api/ordering/qr/${code}/join`,{method:"POST",headers:{"content-type":"application/json",...(platformToken?{"x-platform-member-token":platformToken}:{})},body:JSON.stringify({phone,privacy_consent:true,consent_version:"2026-08-27",device_id:"test-device"})});
+  const response=await handleOrderingRequest(request,env(db),new URL(request.url),{}); const data=await response.json(); return {response,data,token:data.session?.token,platformToken:data.platform_session?.token};
 }
 async function createOrder(db, token, overrides={}) {
   const body={order_type:"dine_in",table_label:"A1",items:[{item_id:"tea",quantity:1,option_value_ids:["normal","pearl"]}],...overrides};
@@ -71,8 +71,8 @@ test("commercial migration rollback preserves the original ordering tables",()=>
 test("invalid QR is rejected",async()=>{const db=new D1();const r=publicRequest("/api/ordering/qr/nope");assert.equal((await handleOrderingRequest(r,env(db),new URL(r.url),{})).status,404);});
 test("disabled QR is rejected",async()=>{const db=new D1();db.sqlite.prepare("UPDATE merchant_ordering_qr_codes SET active=0 WHERE id='qr_a'").run();const r=publicRequest("/api/ordering/qr/opaque-A1-code-0123456789");assert.equal((await handleOrderingRequest(r,env(db),new URL(r.url),{})).status,404);});
 test("expired QR is rejected",async()=>{const db=new D1();db.sqlite.prepare("UPDATE merchant_ordering_qr_codes SET expires_at='2000-01-01' WHERE id='qr_a'").run();const r=publicRequest("/api/ordering/qr/opaque-A1-code-0123456789");assert.equal((await handleOrderingRequest(r,env(db),new URL(r.url),{})).status,404);});
-test("new member joins without verified phone",async()=>{const db=new D1();const {response}=await join(db);assert.equal(response.status,201);assert.equal(db.sqlite.prepare("SELECT phone_verified FROM ordering_customers").get().phone_verified,0);});
-test("returning member reuses merchant membership",async()=>{const db=new D1();await join(db);await join(db);assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM merchant_ordering_memberships").get().n,1);});
+test("new member joins without verified phone",async()=>{const db=new D1();const {response,data}=await join(db);assert.equal(response.status,201);assert.equal(db.sqlite.prepare("SELECT phone_verified FROM ordering_customers").get().phone_verified,0);assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_members").get().n,1);assert.equal(data.welcome.show,true);});
+test("returning member reuses merchant membership",async()=>{const db=new D1();const first=await join(db);const second=await join(db,"opaque-A1-code-0123456789","0912345678",first.platformToken);assert.equal(second.response.status,201);assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM merchant_ordering_memberships").get().n,1);assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_members").get().n,1);assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_member_coupons").get().n,1);});
 test("blocked membership cannot obtain menu",async()=>{const db=new D1();const {token}=await join(db);db.sqlite.prepare("UPDATE merchant_ordering_memberships SET status='blocked'").run();const r=publicRequest("/api/ordering/qr/opaque-A1-code-0123456789/menu","GET",null,token);assert.equal((await handleOrderingRequest(r,env(db),new URL(r.url),{})).status,401);});
 test("member session stores only SHA-256 token",async()=>{const db=new D1();const {token}=await join(db);const stored=db.sqlite.prepare("SELECT token_hash FROM merchant_member_sessions").get().token_hash;assert.notEqual(stored,token);assert.ok(stored.length>30);});
 test("menu exposes active options with the public item/group contract",async()=>{const db=new D1();const {token}=await join(db);const r=publicRequest("/api/ordering/qr/opaque-A1-code-0123456789/menu","GET",null,token);const data=await (await handleOrderingRequest(r,env(db),new URL(r.url),{})).json();assert.equal(data.option_groups.length,2);assert.ok(data.option_groups.every((group)=>group.active));assert.ok(data.option_values.every((value)=>value.active));assert.deepEqual(data.item_option_groups[0],{item_id:"tea",group_id:"sweet",sort_order:0});assert.ok(data.items.some((item)=>item.status==="sold_out"));});

@@ -1,0 +1,12 @@
+PRAGMA foreign_keys = OFF;
+DROP TRIGGER IF EXISTS platform_member_identity_immutable;
+DROP TRIGGER IF EXISTS platform_coupon_funding_immutable_delete;
+DROP TRIGGER IF EXISTS platform_coupon_funding_immutable_update;
+DROP TABLE IF EXISTS platform_member_rate_limits;
+DROP TABLE IF EXISTS platform_member_welcome_events;
+DROP TABLE IF EXISTS platform_coupon_funding_ledger;
+DROP TABLE IF EXISTS platform_member_coupons;
+DROP TABLE IF EXISTS platform_coupon_campaigns;
+DROP TABLE IF EXISTS platform_member_sessions;
+DROP TABLE IF EXISTS platform_members;
+PRAGMA foreign_keys = ON;

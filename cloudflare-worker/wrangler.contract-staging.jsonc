@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chuang-baiye-contract-signing-staging",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-20",
+  "d1_databases": [
+    {
+      "binding": "FINANCE_DB",
+      "database_name": "baiye-contract-signing-staging",
+      "database_id": "7d31a677-bce0-4224-8700-60e5ab54a3b7"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "CONTRACTS_BUCKET",
+      "bucket_name": "baiye-contract-signing-staging"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://baiye-platform-contract-signing-staging.pages.dev",
+    "PUBLIC_SITE_URL": "https://baiye-platform-contract-signing-staging.pages.dev",
+    "CONTRACT_SIGNING_MODE": "staging",
+    "PARTNER_OTP_MODE": "staging",
+    "SMS_OTP_MODE": "staging",
+    "PLATFORM_WELCOME_COUPON_REDEMPTION_ENABLED": "0"
+  }
+}

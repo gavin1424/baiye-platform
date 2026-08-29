@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
+import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
+import { savePlatformMemberToken } from "../qr-ordering-client";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -51,63 +53,42 @@ type Workflow = {
   state?: string;
   message?: string;
   has_valid_invite?: boolean;
+  activation_url?: string;
 };
 const workflowFromError = (error: unknown): Workflow =>
   error instanceof ApiError ? error.data : { message: errorText(error) };
 
 function WorkflowActions({
   workflow,
-  email,
-  onRequested,
 }: {
   workflow: Workflow;
-  email: string;
-  onRequested?: (message: string) => void;
 }) {
-  const requestActivation = async () => {
-    try {
-      const result = await api("/api/partner/activation/request", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-      });
-      onRequested?.(result.message);
-    } catch (error) {
-      onRequested?.(errorText(error));
-    }
-  };
   return (
     <div className="partner-workflow-actions">
-      {workflow.state === "active" && (
+      {["active", "contract_required"].includes(workflow.state || "") && (
         <Link className="btn btn-primary btn-sm" to="/partner/login">
-          前往承攬夥伴登入
+          {workflow.state === "contract_required" ? "登入後繼續簽署契約" : "前往承攬夥伴登入"}
         </Link>
       )}
       {["pending_activation", "invite_expired"].includes(
         workflow.state || "",
       ) && (
-        <button
+        <a
           className="btn btn-primary btn-sm"
-          type="button"
-          onClick={() => void requestActivation()}
+          href={workflow.activation_url || "#/partner/apply"}
         >
-          {workflow.has_valid_invite ? "重新取得啟用通知" : "取得新的啟用通知"}
-        </button>
+          {workflow.activation_url ? "立即繼續" : "取得新的啟用通知"}
+        </a>
       )}
-      {workflow.state === "pending_review" ? (
-        <Link className="btn btn-primary btn-sm" to="/partner">
-          返回承攬夥伴中心
-        </Link>
-      ) : (
-        <Link className="btn btn-outline btn-sm" to="/partner">
-          承攬夥伴中心
-        </Link>
-      )}
+      <Link className="btn btn-outline btn-sm" to="/partner">
+        承攬夥伴中心
+      </Link>
     </div>
   );
 }
 
 function PartnerStatusLookup() {
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [workflow, setWorkflow] = useState<Workflow>();
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -119,7 +100,7 @@ function PartnerStatusLookup() {
       setWorkflow(
         await api("/api/partner/status", {
           method: "POST",
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ phone }),
         }),
       );
     } catch (error) {
@@ -134,23 +115,25 @@ function PartnerStatusLookup() {
       aria-labelledby="partner-status-title"
     >
       <div>
-        <p className="partner-eyebrow">已送出申請？</p>
-        <h2 id="partner-status-title">查詢申請狀態</h2>
-        <p>只顯示申請流程狀態，不會公開姓名、電話、編號或管理資料。</p>
+        <p className="partner-eyebrow">已申請或需要繼續？</p>
+        <h2 id="partner-status-title">查詢承攬夥伴狀態</h2>
+        <p>使用申請時登記的手機查詢；畫面不會公開姓名、完整手機、編號或管理資料。</p>
       </div>
       <form onSubmit={submit}>
         <label>
-          Email
+          手機號碼
           <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="09xxxxxxxx"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
             required
           />
         </label>
         <button className="btn btn-primary" disabled={loading}>
-          {loading ? "查詢中…" : "查詢申請狀態"}
+          {loading ? "查詢中…" : "查詢／繼續"}
         </button>
       </form>
       {workflow?.message && (
@@ -158,11 +141,7 @@ function PartnerStatusLookup() {
           className={`partner-workflow-card state-${workflow.state || "error"}`}
         >
           <strong>{workflow.message}</strong>
-          <WorkflowActions
-            workflow={workflow}
-            email={email}
-            onRequested={setNotice}
-          />
+          <WorkflowActions workflow={workflow} />
         </div>
       )}
       {notice && <p className="partner-message">{notice}</p>}
@@ -262,19 +241,19 @@ export function PartnerApply() {
   const [message, setMessage] = useState("");
   const [workflow, setWorkflow] = useState<Workflow>();
   const [notice, setNotice] = useState("");
+  const [success, setSuccess] = useState<any>();
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setMessage("");
     setWorkflow(undefined);
     setNotice("");
+    setSuccess(undefined);
     try {
       const result = await api("/api/partner/apply", {
         method: "POST",
         body: JSON.stringify(form),
       });
-      setMessage(
-        `申請已送出，承攬夥伴編號 ${result.partner_code}。我們會在完成審核後通知您。`,
-      );
+      setSuccess(result);
     } catch (error) {
       const result = workflowFromError(error);
       if (result.state) setWorkflow(result);
@@ -284,7 +263,7 @@ export function PartnerApply() {
   return (
     <main className="partner-shell partner-form">
       <h1>承攬夥伴合作申請</h1>
-      <p>送出後由平台管理員審核；核准後會收到安全啟用連結。</p>
+      <p>完成基本資料驗證後，系統會立即核准並提供安全啟用連結。</p>
       <form onSubmit={submit}>
         {[
           ["legal_name", "法定姓名"],
@@ -298,7 +277,7 @@ export function PartnerApply() {
           <label key={key}>
             {label}
             <input
-              type={key === "email" ? "email" : "text"}
+              type={key === "email" ? "email" : key === "phone" ? "tel" : "text"}
               required={
                 !key.includes("company") &&
                 !key.includes("tax") &&
@@ -320,23 +299,35 @@ export function PartnerApply() {
               setForm({ ...form, consent: event.target.checked })
             }
           />
-          我了解本合作屬獨立承攬／居間合作，非甲方僱員。
+          我了解本合作屬獨立承攬／居間合作、非甲方僱員，並同意會員服務與隱私權說明。
         </label>
         <button className="btn btn-primary">送出申請</button>
+        <small className="partner-auto-approval-note">送出後將立即完成承攬夥伴資格核准，無須等待人工審核。</small>
       </form>
       {workflow?.message && (
         <section className={`partner-workflow-card state-${workflow.state}`}>
           <strong>{workflow.message}</strong>
-          <WorkflowActions
-            workflow={workflow}
-            email={form.email}
-            onRequested={setNotice}
-          />
+          <WorkflowActions workflow={workflow} />
         </section>
       )}
       {message && (
         <section className="partner-message">
           <p>{message}</p>
+        </section>
+      )}
+      {success && (
+        <section className="partner-auto-approved-card" aria-live="polite">
+          <div className="member-celebration" aria-hidden="true">🎉</div>
+          <p className="partner-eyebrow">申請成功</p>
+          <h2>恭喜您已通過創百業承攬夥伴申請。</h2>
+          <p className="partner-approved-code">承攬夥伴編號：<strong>{success.partner_code}</strong></p>
+          <ul>
+            <li>✓ 承攬夥伴申請已核准</li>
+            <li>✓ 創百業會員已建立</li>
+            <li>✓ NT$100 迎新禮券已領取</li>
+          </ul>
+          {success.activation_url && <a className="btn btn-primary btn-lg" href={success.activation_url}>立即進入承攬夥伴中心</a>}
+          {success.contract?.signing_available === false && <p className="partner-guidance-note">您的承攬夥伴資格已核准。正式合作契約目前尚待平台法律版本開放，開放後即可完成簽署。</p>}
         </section>
       )}
       {notice && <p className="partner-message">{notice}</p>}
@@ -348,8 +339,6 @@ export function PartnerActivate() {
   const [params] = useSearchParams();
   const token = params.get("token") || "";
   const [profile, setProfile] = useState<any>();
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -369,17 +358,12 @@ export function PartnerActivate() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setMessage("");
-    if (password.length < 12) return setMessage("密碼至少需要 12 個字元。");
-    if (password !== confirm) return setMessage("兩次輸入的密碼不一致。");
     try {
-      await api("/api/partner/accept-invite", {
+      const result = await api("/api/partner/accept-invite", {
         method: "POST",
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token }),
       });
-      setMessage(
-        "承攬夥伴帳號已成功啟用。請使用您的 Email 與新密碼登入承攬夥伴中心。",
-      );
-      setProfile(undefined);
+      window.location.hash = `#${result.next_url || "/partner/contract"}`;
     } catch (error) {
       setMessage(errorText(error));
     }
@@ -398,41 +382,14 @@ export function PartnerActivate() {
             <small>此連結有效至 {formatDate(profile.expires_at)}</small>
           </section>
           <form onSubmit={submit}>
-            <label>
-              設定密碼
-              <input
-                type="password"
-                minLength={12}
-                autoComplete="new-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </label>
-            <label>
-              再次確認密碼
-              <input
-                type="password"
-                minLength={12}
-                autoComplete="new-password"
-                value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
-                required
-              />
-            </label>
-            <small>密碼至少 12 個字元，請勿與其他服務共用。</small>
-            <button className="btn btn-primary">完成啟用</button>
+            <p>安全啟用連結驗證完成後，系統會直接建立承攬夥伴 Session；不需要設定密碼。</p>
+            <button className="btn btn-primary">立即進入承攬夥伴中心</button>
           </form>
         </>
       )}
       {message && (
         <section className="partner-message">
           <p>{message}</p>
-          {!profile && message.includes("成功啟用") && (
-            <Link className="btn btn-primary btn-sm" to="/partner/login">
-              前往承攬夥伴登入
-            </Link>
-          )}
         </section>
       )}
     </main>
@@ -502,63 +459,82 @@ export function PartnerReferralJoin() {
 }
 
 export function PartnerLogin() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [challenge, setChallenge] = useState<any>();
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
   const [workflow, setWorkflow] = useState<Workflow>();
   const [notice, setNotice] = useState("");
-  const submit = async (event: React.FormEvent) => {
+  const startLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setWorkflow(undefined);
     setNotice("");
+    setBusy(true);
     try {
-      await api("/api/partner/login", {
+      const result = await api("/api/partner/login/start", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ phone }),
       });
-      window.location.hash = "#/partner/dashboard";
+      if (result.code === "SESSION_RESTORED") {
+        window.location.hash = `#${result.next_url || "/partner/dashboard"}`;
+        return;
+      }
+      if (result.activation_url) {
+        setWorkflow(result);
+        return;
+      }
+      setChallenge(result);
+      setNotice(result.message || "請完成一次性手機驗證。");
     } catch (error) {
       setWorkflow(workflowFromError(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const verify = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setWorkflow(undefined);
+    setBusy(true);
+    try {
+      const result = await api("/api/partner/login/verify", {
+        method: "POST",
+        body: JSON.stringify({ challenge_id: challenge.challenge_id, code }),
+      });
+      window.location.hash = `#${result.next_url || "/partner/dashboard"}`;
+    } catch (error) {
+      setWorkflow(workflowFromError(error));
+    } finally {
+      setBusy(false);
     }
   };
   return (
     <main className="partner-shell partner-form">
       <h1>承攬夥伴登入</h1>
-      <form onSubmit={submit}>
+      {!challenge && <form onSubmit={startLogin}>
         <label>
-          Email
-          <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
+          手機號碼
+          <input type="tel" inputMode="tel" autoComplete="tel" placeholder="09xxxxxxxx" value={phone} onChange={(event) => setPhone(event.target.value)} required />
         </label>
+        <button className="btn btn-primary" disabled={busy}>{busy ? "處理中…" : "繼續登入"}</button>
+        <small>不需要密碼，使用申請時登記的手機即可登入。</small>
+      </form>}
+      {challenge && <form onSubmit={verify}>
         <label>
-          密碼
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
+          輸入驗證碼
+          <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} placeholder="_ _ _ _ _ _" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required />
         </label>
-        <button className="btn btn-primary">登入承攬夥伴中心</button>
-      </form>
+        {challenge.verification_method === "staging_otp" && <p className="partner-message"><strong>測試環境驗證碼：{challenge.staging_code}</strong></p>}
+        {!challenge.verification_available && <p className="partner-message">正式手機驗證服務尚未開放；新裝置不會繞過驗證。</p>}
+        <button className="btn btn-primary" disabled={busy || !challenge.verification_available}>{busy ? "驗證中…" : "確認並登入"}</button>
+        <button className="btn btn-outline" type="button" disabled={busy} onClick={() => { setChallenge(undefined); setCode(""); setNotice(""); }}>重新發送</button>
+      </form>}
       {workflow?.message && (
         <section
           className={`partner-workflow-card state-${workflow.state || "error"}`}
         >
           <strong>{workflow.message}</strong>
-          <WorkflowActions
-            workflow={workflow}
-            email={email}
-            onRequested={setNotice}
-          />
-          {workflow.code === "INVALID_CREDENTIALS" && (
-            <Link to="/partner/apply">尚未申請？前往承攬夥伴合作申請</Link>
-          )}
+          <WorkflowActions workflow={workflow} />
+          <Link to="/partner/apply">尚未申請？前往承攬夥伴合作申請</Link>
         </section>
       )}
       {notice && <p className="partner-message">{notice}</p>}
@@ -639,6 +615,12 @@ export function PartnerDashboard() {
           </Link>
         </section>
       )}
+      {data.operation_locked && (
+        <section className="partner-status warning">
+          <strong>承攬營運功能已鎖定</strong>
+          <span>完成目前有效且已通過法律審閱之契約簽署後，才可建立正式推薦歸因、成交獎勵與結算。</span>
+        </section>
+      )}
       <section className="partner-cards">
         {[
           ["累計有效成交", data.partner.total_valid_sales],
@@ -681,7 +663,7 @@ export function PartnerDashboard() {
           </span>
         </section>
       )}
-      <section className="partner-detail">
+      {!data.operation_locked && <section className="partner-detail">
         <div>
           <h2>專屬推薦連結</h2>
           <input readOnly value={referral} />
@@ -693,7 +675,7 @@ export function PartnerDashboard() {
           </button>
         </div>
         <QRCodeSVG value={referral} size={150} />
-      </section>
+      </section>}
       {message && <p className="partner-message">{message}</p>}
     </main>
   );
@@ -704,31 +686,36 @@ export function PartnerContract() {
   const [name, setName] = useState("");
   const [checks, setChecks] = useState([false, false, false]);
   const [message, setMessage] = useState("");
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const strokes = useRef<number[][][]>([]);
-  const drawing = useRef(false);
+  const [signature, setSignature] = useState<SignatureValue>({ strokes: [] });
+  const [preview, setPreview] = useState<any>();
+  const [memberWelcome, setMemberWelcome] = useState<any>();
   useEffect(() => {
     api("/api/partner/contract/current")
       .then(setContract)
       .catch((error) => setMessage(errorText(error)));
   }, []);
-  const point = (event: React.PointerEvent<HTMLCanvasElement>) => [
-    Math.round(event.nativeEvent.offsetX),
-    Math.round(event.nativeEvent.offsetY),
-  ];
+  const openPreview = async () => {
+    setMessage("");
+    try {
+      setPreview(await api("/api/partner/contract/sign-preview", { method: "POST", body: JSON.stringify({ legal_name: name }) }));
+    } catch (error) { setMessage(errorText(error)); }
+  };
   const sign = async () => {
     setMessage("");
     try {
       const result = await api("/api/partner/contract/sign", {
         method: "POST",
+        headers: { "idempotency-key": crypto.randomUUID() },
         body: JSON.stringify({
           legal_name: name,
           read: checks[0],
           electronic: checks[1],
           independent: checks[2],
-          signature: JSON.stringify({ strokes: strokes.current }),
+          signature,
         }),
       });
+      if (result.member_session?.token) savePlatformMemberToken(result.member_session.token);
+      if (result.welcome?.show) setMemberWelcome(result.welcome);
       setMessage(
         `承攬夥伴合作契約已簽署並保存私有 PDF。文件雜湊：${result.document_hash}`,
       );
@@ -741,6 +728,9 @@ export function PartnerContract() {
       <h1>線上承攬夥伴合作契約</h1>
       {contract && (
         <>
+          {contract.legal_review_status !== "approved" && (
+            <section className="partner-status warning"><strong>契約法律審閱 Gate 已鎖定</strong><span>此版本目前為 {contract.legal_review_status || "pending_review"}；Production 不可簽署。僅隔離 Staging 可標示測試簽署。</span></section>
+          )}
           <article
             dangerouslySetInnerHTML={{ __html: contract.content_html }}
           />
@@ -771,40 +761,14 @@ export function PartnerContract() {
               {text}
             </label>
           ))}
-          <p>手寫簽名</p>
-          <canvas
-            ref={canvas}
-            width="420"
-            height="140"
-            onPointerDown={(event) => {
-              drawing.current = true;
-              strokes.current.push([point(event)]);
-              canvas.current?.setPointerCapture(event.pointerId);
-            }}
-            onPointerMove={(event) => {
-              if (!drawing.current) return;
-              const current = point(event),
-                stroke = strokes.current.at(-1);
-              stroke?.push(current);
-              const context = canvas.current?.getContext("2d");
-              if (stroke && stroke.length > 1) {
-                const previous = stroke.at(-2)!;
-                context?.beginPath();
-                context?.moveTo(previous[0], previous[1]);
-                context?.lineTo(current[0], current[1]);
-                context?.stroke();
-              }
-            }}
-            onPointerUp={() => {
-              drawing.current = false;
-            }}
-            onPointerCancel={() => {
-              drawing.current = false;
-            }}
-          />
-          <button className="btn btn-primary" onClick={sign}>
-            確認電子簽署
+          <p><strong>手寫簽署證據</strong></p>
+          <ContractSignatureCanvas onChange={setSignature} />
+          <p className="partner-guidance-note">手寫簽名軌跡與系統紀錄作為線上契約查驗證據；不宣稱為憑證式數位簽章或政府認證電子簽章。</p>
+          <button className="btn btn-primary" onClick={() => void openPreview()}>
+            預覽最後確認
           </button>
+          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最後確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" onClick={() => void sign()}>確認簽署</button></div></div></div>}
+          {memberWelcome && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>{memberWelcome.title}</h2><p>您已自動成為創百業會員，NT$100 迎新禮券已放入您的會員帳戶。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">查看我的優惠券</Link><Link className="btn btn-outline" to="/partner/dashboard">繼續前往承攬夥伴中心</Link></div></div></div>}
         </>
       )}
       {message && (
@@ -860,7 +824,7 @@ const statusLabel = (partner: Partner) =>
   partner.status === "pending_contract"
     ? partner.approved_at
       ? "已核准，等待啟用"
-      : "待審核"
+      : "歷史待轉換"
     : {
         active: "已啟用",
         suspended: "已暫停",
@@ -871,6 +835,8 @@ export function AdminPartners() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [vipRewards, setVipRewards] = useState<VipReward[]>([]);
   const [message, setMessage] = useState("");
+  const [showBatchApproval, setShowBatchApproval] = useState(false);
+  const [batchInvites, setBatchInvites] = useState<Array<{partner_code:string;activation_url:string;activation_expires_at:string}>>([]);
   const [invite, setInvite] = useState<{
     name: string;
     url: string;
@@ -923,6 +889,16 @@ export function AdminPartners() {
       setMessage(errorText(error));
     }
   };
+  const approveHistorical = async () => {
+    setMessage("");
+    try {
+      const result = await secureAdminApi("/api/admin/partners/auto-approve-pending", { method: "POST", body: JSON.stringify({ confirm: "AUTO_APPROVE_EXISTING_PENDING_APPLICATIONS" }) });
+      setBatchInvites(result.approved || []);
+      setMessage(`歷史申請轉換完成：${result.approved.length} 筆成功，${result.failed.length} 筆需人工查核。`);
+      setShowBatchApproval(false);
+      await load();
+    } catch (error) { setMessage(errorText(error)); }
+  };
   const updateVipReward = async (
     reward: VipReward,
     status: "approved" | "paid" | "cancelled",
@@ -947,9 +923,15 @@ export function AdminPartners() {
       <header>
         <div>
           <h1>承攬夥伴管理</h1>
-          <p>審核、啟用、契約、有效成交與終止狀態均保留後端稽核紀錄。</p>
+          <p>新申請由系統自動核准；啟用、契約、有效成交與終止狀態均保留後端稽核紀錄。</p>
         </div>
       </header>
+      {partners.some((partner) => partner.status === "pending_contract" && !partner.approved_at) && (
+        <section className="partner-historical-batch">
+          <strong>偵測到舊版待轉換申請</strong>
+          {!showBatchApproval ? <button className="btn btn-outline btn-sm" onClick={() => setShowBatchApproval(true)}>批次核准歷史待審申請</button> : <div><p>此操作會核准最多 100 筆舊版申請並產生短效啟用邀請，請再次確認。</p><button className="btn btn-primary btn-sm" onClick={() => void approveHistorical()}>確認批次核准</button><button className="btn btn-ghost btn-sm" onClick={() => setShowBatchApproval(false)}>取消</button></div>}
+        </section>
+      )}
       {message && <p className="partner-message">{message}</p>}
       {invite && (
         <section className="partner-invite">
@@ -964,6 +946,7 @@ export function AdminPartners() {
           </button>
         </section>
       )}
+      {batchInvites.length > 0 && <section className="partner-invite"><strong>歷史申請啟用網址（僅本次顯示）</strong>{batchInvites.map((item) => <div key={item.partner_code}><span>{item.partner_code} · 有效至 {formatDate(item.activation_expires_at)}</span><input readOnly value={item.activation_url} /><button className="btn btn-outline btn-sm" onClick={() => void copyText(item.activation_url)}>複製</button></div>)}</section>}
       <div className="partner-table">
         <div className="partner-table-head">
           <span>承攬夥伴</span>
@@ -1019,29 +1002,12 @@ export function AdminPartners() {
               </small>
             </div>
             <div className="partner-actions">
-              {partner.status === "pending_contract" &&
-                !partner.approved_at && (
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => void action(partner, "approve")}
-                  >
-                    核准
-                  </button>
-                )}
               {partner.status === "pending_contract" && partner.approved_at && (
                 <button
                   className="btn btn-primary btn-sm"
                   onClick={() => void createInvite(partner)}
                 >
                   產生啟用邀請
-                </button>
-              )}
-              {partner.status === "pending_contract" && (
-                <button
-                  className="btn btn-outline btn-sm"
-                  onClick={() => void action(partner, "reject")}
-                >
-                  拒絕
                 </button>
               )}
               {partner.status === "active" && (

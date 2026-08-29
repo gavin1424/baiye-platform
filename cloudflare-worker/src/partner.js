@@ -1,4 +1,14 @@
-import { createSignedContractPdf } from "./contract-pdf.js";
+import {
+  ContractError,
+  STANDARD_ASSURANCE,
+  assertContractSignable,
+  beginContractOperation,
+  buildSignedAgreement,
+  completeContractOperation,
+  sessionEvidenceHash,
+  storePrivateAgreementArtifacts,
+} from "./contract-engine.js";
+import { ensurePlatformMember, finalizePlatformMembershipBatch, normalizeTaiwanMobile, preparePlatformMembershipBatch } from "./platform-membership.js";
 
 const E = new TextEncoder();
 const D = new TextDecoder();
@@ -13,10 +23,6 @@ async function hmac(value, secret) {
   return b64(await crypto.subtle.sign("HMAC", key, E.encode(value)));
 }
 async function hash(value) { return b64(await crypto.subtle.digest("SHA-256", E.encode(value))); }
-async function passwordHash(password, salt, pepper) {
-  const key = await crypto.subtle.importKey("raw", E.encode(`partner-password-v1:${salt}:${pepper}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return b64(await crypto.subtle.sign("HMAC", key, E.encode(password)));
-}
 async function body(request) { try { return await request.json(); } catch { return {}; } }
 const clientIp = (request) => request.headers.get("CF-Connecting-IP") || null;
 function validSignature(value) {
@@ -30,16 +36,102 @@ async function audit(db, request, actorType, actorId, action, entityType, entity
     .bind(id("audit"), actorType, actorId, action, entityType, entityId, JSON.stringify(metadata), request ? clientIp(request) : null).run();
 }
 async function activeContract(db) { return db.prepare("SELECT * FROM contract_versions WHERE is_active=1 ORDER BY effective_date DESC LIMIT 1").first(); }
-async function partnerSession(partner, env) {
-  const payload = b64(E.encode(JSON.stringify({ partner_id: partner.id, exp: Date.now() + 7 * 864e5 })));
-  return `${payload}.${await hmac(payload, env.PARTNER_SESSION_SECRET)}`;
+async function signedApprovedContract(db, partnerId) {
+  return db.prepare("SELECT s.id,s.public_id,s.signed_at,s.status,v.version FROM contract_signatures s JOIN contract_versions v ON v.id=s.contract_version_id WHERE s.partner_id=? AND s.status='VALID' AND v.is_active=1 AND v.legal_review_status='approved' AND v.approved_content_hash=v.content_hash LIMIT 1").bind(partnerId).first();
 }
-async function partnerAuth(request, env) {
+function contractFailure(error, cors) {
+  if (error instanceof ContractError) return json({ error: error.message, code: error.code, details: error.details }, error.status, cors);
+  console.error(JSON.stringify({ service: "partner_contract", error: error instanceof Error ? error.message : "unknown" }));
+  return json({ error: "契約系統暫時無法完成此操作。" }, 503, cors);
+}
+function validEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "")); }
+async function uniquePartnerCode(db) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const code = `AG${String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0")}`;
+    if (!await db.prepare("SELECT id FROM partners WHERE partner_code=? OR referral_code=? LIMIT 1").bind(code, code).first()) return code;
+  }
+  throw Object.assign(new Error("無法建立承攬夥伴編號。"), { code: "PARTNER_CODE_UNAVAILABLE", status: 503 });
+}
+async function applicationRateLimit(db, request, email, phone) {
+  const ipHash = await hash(`partner-apply-ip:${clientIp(request) || "unknown"}`);
+  const emailHash = await hash(`partner-apply-email:${email}`);
+  const phoneHash = await hash(`partner-apply-phone:${phone}`);
+  for (const [actorId, limit] of [[ipHash, 30], [emailHash, 8], [phoneHash, 8]]) {
+    const recent = await db.prepare("SELECT COUNT(*) count FROM audit_logs WHERE actor_type='public' AND actor_id=? AND action='partner.application_attempted' AND created_at>datetime('now','-15 minutes')").bind(actorId).first();
+    if (Number(recent?.count || 0) >= limit) return false;
+    await audit(db, request, "public", actorId, "partner.application_attempted", "partner_application", actorId);
+  }
+  return true;
+}
+async function partnerByNormalizedPhone(db, phone) {
+  const identity = await db.prepare("SELECT p.* FROM partner_application_identities i JOIN partners p ON p.id=i.partner_id WHERE i.phone_normalized=? LIMIT 1").bind(phone).first();
+  if (identity) return identity;
+  const variants = [phone, `+886${phone.slice(1)}`, `886${phone.slice(1)}`, `${phone.slice(0, 4)}-${phone.slice(4, 7)}-${phone.slice(7)}`];
+  const rows = await db.prepare("SELECT * FROM partners WHERE phone IN (?,?,?,?) ORDER BY created_at LIMIT 2").bind(...variants).all();
+  return rows.results?.[0] || null;
+}
+async function prepareActivationInvite(db, partnerId, hours = 24) {
+  const issuedAt = now(), expiresAt = new Date(Date.now() + hours * 3600e3).toISOString(), raw = `${crypto.randomUUID()}${crypto.randomUUID()}`;
+  return {
+    raw,
+    expiresAt,
+    statements: [
+      db.prepare("UPDATE partner_invites SET used_at=? WHERE partner_id=? AND used_at IS NULL").bind(issuedAt, partnerId),
+      db.prepare("INSERT INTO partner_invites (id,partner_id,token_hash,expires_at) VALUES (?,?,?,?)").bind(id("invite"), partnerId, await hash(raw), expiresAt),
+    ],
+  };
+}
+function activationUrl(raw, env) {
+  const base = String(env.PUBLIC_SITE_URL || "https://baiyeconnect.com").replace(/\/$/, "");
+  return `${base}/#/partner/activate?token=${encodeURIComponent(raw)}`;
+}
+function auditInsert(db, actorType, actorId, action, entityType, entityId, metadata = {}) {
+  return db.prepare("INSERT INTO audit_logs (id,actor_type,actor_id,action,entity_type,entity_id,metadata) VALUES (?,?,?,?,?,?,?)")
+    .bind(id("audit"), actorType, actorId, action, entityType, entityId, JSON.stringify(metadata));
+}
+function randomToken() {
+  return b64(crypto.getRandomValues(new Uint8Array(32)));
+}
+function partnerCookie(token, maxAge = 2592000) {
+  return `partner_session=${token}; HttpOnly; Secure; SameSite=None; Partitioned; Path=/api/partner; Max-Age=${maxAge}`;
+}
+async function preparePartnerSession(db, partnerId, assuranceLevel, issuedVia, loginChallengeId = null) {
+  const token = randomToken();
+  const sessionId = id("partner_session");
+  const expiresAt = new Date(Date.now() + 30 * 864e5).toISOString();
+  return {
+    token,
+    sessionId,
+    expiresAt,
+    statement: db.prepare("INSERT INTO partner_sessions(id,partner_id,token_hash,assurance_level,issued_via,login_challenge_id,expires_at) VALUES(?,?,?,?,?,?,?)")
+      .bind(sessionId, partnerId, await hash(token), assuranceLevel, issuedVia, loginChallengeId, expiresAt),
+  };
+}
+async function partnerAuth(request, db) {
   const token = (request.headers.get("cookie") || "").match(/(?:^|;\s*)partner_session=([^;]+)/)?.[1];
-  if (!token || !env.PARTNER_SESSION_SECRET) return null;
-  const [payload, signature] = token.split(".");
-  if (!payload || signature !== await hmac(payload, env.PARTNER_SESSION_SECRET)) return null;
-  try { const decoded = JSON.parse(D.decode(ub64(payload))); return decoded.exp > Date.now() ? decoded.partner_id : null; } catch { return null; }
+  if (!token) return null;
+  const session = await db.prepare("SELECT id,partner_id,assurance_level FROM partner_sessions WHERE token_hash=? AND revoked_at IS NULL AND expires_at>CURRENT_TIMESTAMP LIMIT 1").bind(await hash(token)).first();
+  if (!session || !["activation_invite", "verified_phone", "trusted_existing_session"].includes(session.assurance_level)) return null;
+  await db.prepare("UPDATE partner_sessions SET last_seen_at=CURRENT_TIMESTAMP WHERE id=?").bind(session.id).run();
+  return session;
+}
+async function partnerNextUrl(db, partnerId) {
+  return await signedApprovedContract(db, partnerId) ? "/partner/dashboard" : "/partner/contract";
+}
+async function partnerLoginRateLimit(db, request, phone) {
+  const bucket = new Date(Math.floor(Date.now() / 900000) * 900000).toISOString();
+  const device = request.headers.get("x-device-id") || request.headers.get("user-agent") || "unknown";
+  const entries = [
+    ["partner_login_phone", await hash(`phone:${phone}`), 8],
+    ["partner_login_ip", await hash(`ip:${clientIp(request) || "unknown"}`), 30],
+    ["partner_login_device", await hash(`device:${device.slice(0, 300)}`), 12],
+  ];
+  for (const [scope, key, limit] of entries) {
+    await db.prepare("INSERT INTO partner_login_rate_limits(scope,rate_key_hash,bucket_start,attempt_count) VALUES(?,?,?,1) ON CONFLICT(scope,rate_key_hash,bucket_start) DO UPDATE SET attempt_count=attempt_count+1").bind(scope, key, bucket).run();
+    const row = await db.prepare("SELECT attempt_count FROM partner_login_rate_limits WHERE scope=? AND rate_key_hash=? AND bucket_start=?").bind(scope, key, bucket).first();
+    if (Number(row?.attempt_count || 0) > limit) return false;
+  }
+  return true;
 }
 async function financeAdmin(request, env) {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -50,12 +142,13 @@ async function financeAdmin(request, env) {
 }
 
 export function partnerWorkflowStatus(partner, latestInvite = null, at = new Date()) {
-  if (!partner) return { code: "APPLICATION_NOT_FOUND", state: "not_found", message: "查無可確認的申請紀錄，請檢查 Email，或重新提出申請。" };
-  if (partner.status === "active") return { code: "PARTNER_ACTIVE", state: "active", message: "此 Email 已有承攬夥伴帳號，請直接登入。" };
+  if (!partner) return { code: "APPLICATION_NOT_FOUND", state: "not_found", message: "查無可確認的承攬夥伴資料，請檢查手機號碼，或重新提出申請。" };
+  if (partner.status === "active" && partner.contract_status !== "signed") return { code: "PARTNER_CONTRACT_REQUIRED", state: "contract_required", message: "此承攬夥伴帳號已啟用；請登入後繼續完成合作契約。" };
+  if (partner.status === "active") return { code: "PARTNER_ALREADY_ACTIVE", state: "active", message: "此手機已有承攬夥伴帳號，請直接登入。" };
   if (partner.status === "rejected") return { code: "PARTNER_REJECTED", state: "rejected", message: "此承攬夥伴申請目前未通過審核；如需協助，請聯絡平台客服。" };
   if (partner.status === "suspended") return { code: "PARTNER_SUSPENDED", state: "suspended", message: "此承攬夥伴帳號目前已暫停使用，請聯絡平台客服確認。" };
   if (partner.status === "terminated") return { code: "PARTNER_TERMINATED", state: "terminated", message: "此承攬夥伴帳號的合作關係已終止；如有疑問，請聯絡平台客服。" };
-  if (!partner.approved_at) return { code: "PARTNER_PENDING_REVIEW", state: "pending_review", message: "您的承攬夥伴申請已收到，目前正在等待管理員審核。審核完成後，系統會提供帳號啟用方式。" };
+  if (!partner.approved_at) return { code: "PARTNER_DATA_UPDATE_REQUIRED", state: "pending_activation", message: "承攬夥伴資料正在更新，完成後即可繼續啟用。" };
   const validInvite = Boolean(latestInvite && !latestInvite.used_at && new Date(latestInvite.expires_at) > at);
   const expiredInvite = Boolean(latestInvite && !latestInvite.used_at && new Date(latestInvite.expires_at) <= at);
   if (expiredInvite) return { code: "PARTNER_INVITE_EXPIRED", state: "invite_expired", message: "您的帳號已通過審核，但啟用連結已失效。" };
@@ -63,14 +156,52 @@ export function partnerWorkflowStatus(partner, latestInvite = null, at = new Dat
 }
 
 async function workflowForEmail(db, email) {
-  const partner = await db.prepare("SELECT id,status,approved_at,activated_at FROM partners WHERE email=? LIMIT 1").bind(email).first();
+  const partner = await db.prepare("SELECT id,partner_code,status,approved_at,activated_at,contract_status,phone FROM partners WHERE email=? LIMIT 1").bind(email).first();
   if (!partner) return { partner: null, latestInvite: null, workflow: partnerWorkflowStatus(null) };
   const latestInvite = await db.prepare("SELECT id,expires_at,used_at,created_at FROM partner_invites WHERE partner_id=? ORDER BY created_at DESC LIMIT 1").bind(partner.id).first();
   return { partner, latestInvite, workflow: partnerWorkflowStatus(partner, latestInvite) };
 }
 
-async function publicStatusRateLimit(db, request, email, action) {
-  const actorId = await hash(`${action}:${email}`);
+async function ensurePartnerModernized(db, request, env, partner, { createInvite = false, source = "partner_entry" } = {}) {
+  if (!partner) return { partner: null, workflow: partnerWorkflowStatus(null), migrated: false };
+  if (["suspended", "terminated", "rejected", "blocked"].includes(partner.status)) return { partner, workflow: partnerWorkflowStatus(partner), migrated: false };
+  const phone = normalizeTaiwanMobile(partner.phone);
+  if (!phone) throw Object.assign(new Error("此舊申請缺少有效手機號碼，請補充手機後再繼續。"), { code: "PARTNER_PHONE_REQUIRED_FOR_MIGRATION", status: 422 });
+  const identityOwner = await db.prepare("SELECT partner_id FROM partner_application_identities WHERE phone_normalized=? LIMIT 1").bind(phone).first();
+  if (identityOwner && identityOwner.partner_id !== partner.id) throw Object.assign(new Error("此手機已連結其他承攬夥伴資料，請聯絡平台客服。"), { code: "PARTNER_DUPLICATE_PHONE_IDENTITY", status: 409 });
+  const existingLink = await db.prepare("SELECT member_id FROM partner_platform_member_links WHERE partner_id=? LIMIT 1").bind(partner.id).first();
+  const needsApproval = !partner.approved_at;
+  const needsStatus = ["applicant", "pending_review", "historical_pending"].includes(partner.status);
+  const needsIdentity = !identityOwner;
+  const needsLink = !existingLink;
+  const membership = await preparePlatformMembershipBatch(db, { phone, source: "phone", privacyConsentVersion: "partner-legacy-modernization-v1", issueSession: false });
+  if (existingLink && existingLink.member_id !== membership.memberId) {
+    throw Object.assign(new Error("承攬夥伴與會員資料連結不一致，請聯絡平台客服。"), { code: "PARTNER_MEMBER_LINK_CONFLICT", status: 409 });
+  }
+  const invite = createInvite && partner.status !== "active" ? await prepareActivationInvite(db, partner.id) : null;
+  const updatedAt = now();
+  const statements = [
+    db.prepare("UPDATE partners SET phone=?,status=CASE WHEN status='applicant' THEN 'pending_contract' ELSE status END,approved_at=COALESCE(approved_at,?),approved_by=COALESCE(approved_by,'system'),approval_mode=COALESCE(approval_mode,'automatic'),auto_approved_at=COALESCE(auto_approved_at,?),updated_at=? WHERE id=?")
+      .bind(phone, updatedAt, updatedAt, updatedAt, partner.id),
+    db.prepare("INSERT OR IGNORE INTO partner_application_identities(phone_normalized,partner_id) VALUES(?,?)").bind(phone, partner.id),
+    ...membership.statements,
+    db.prepare("INSERT OR IGNORE INTO partner_platform_member_links(partner_id,member_id) VALUES(?,?)").bind(partner.id, membership.memberId),
+  ];
+  if (invite) statements.push(...invite.statements, auditInsert(db, "system", "partner_legacy_modernizer", "partner.activation_invite_created", "partner", partner.id, { expires_at: invite.expiresAt, source }));
+  if (needsApproval) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "partner.auto_approved", "partner", partner.id, { source, legacy: true }));
+  if (needsApproval || needsStatus || needsIdentity || needsLink) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "partner.legacy_auto_migrated", "partner", partner.id, { source, fields: { approval: needsApproval, status: needsStatus, identity: needsIdentity, member_link: needsLink } }));
+  if (membership.memberCreated) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "platform_member.created", "platform_member", membership.memberId, { source: "legacy_partner" }));
+  else if (needsLink) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "platform_member.linked", "platform_member", membership.memberId, { source: "legacy_partner" }));
+  if (membership.couponCreated) statements.push(auditInsert(db, "system", "partner_legacy_modernizer", "platform_coupon.claimed", "platform_member", membership.memberId, { campaign_id: "platform_welcome_member_v1" }));
+  await db.batch(statements);
+  const member = await finalizePlatformMembershipBatch(db, membership);
+  const modern = await db.prepare("SELECT * FROM partners WHERE id=?").bind(partner.id).first();
+  const latestInvite = await db.prepare("SELECT id,expires_at,used_at,created_at FROM partner_invites WHERE partner_id=? ORDER BY created_at DESC LIMIT 1").bind(partner.id).first();
+  return { partner: modern, latestInvite, workflow: partnerWorkflowStatus(modern, latestInvite), migrated: needsApproval || needsStatus || needsIdentity || needsLink, activation_url: invite ? activationUrl(invite.raw, env) : null, activation_expires_at: invite?.expiresAt || null, membership: member.member, welcome: member.welcome, coupon: member.coupon };
+}
+
+async function publicStatusRateLimit(db, request, identity, action) {
+  const actorId = await hash(`${action}:${identity}`);
   const recent = await db.prepare("SELECT COUNT(*) count FROM audit_logs WHERE actor_type='public' AND actor_id=? AND action=? AND created_at>datetime('now','-15 minutes')").bind(actorId, action).first();
   if (Number(recent?.count || 0) >= 5) return { limited: true, actorId };
   await audit(db, request, "public", actorId, action, "partner_application", actorId);
@@ -205,6 +336,7 @@ export async function awardCommissionForOrder(db, orderId, paymentId) {
   if (existing) { await syncPartnerTotals(db, order.partner_id); await syncVipReward(db, order.partner_id); return; }
   const partner = await db.prepare("SELECT * FROM partners WHERE id=?").bind(order.partner_id).first();
   if (!partner || partner.status !== "active") return;
+  if (!await signedApprovedContract(db, partner.id)) return { blocked: true, code: "PARTNER_CONTRACT_REQUIRED" };
   const prior = await validSalesCount(db, order.partner_id);
   const sequence = prior + 1;
   // A threshold is earned by this sale and applies from the following valid sale.
@@ -242,7 +374,7 @@ async function partnerDashboard(db, partnerId) {
   const currentRate = previous.result === "missed" && level.key !== "starter" ? level.fallback : level.rate;
   const commissions = await db.prepare("SELECT COALESCE(SUM(CASE WHEN status='confirmed' THEN final_amount ELSE 0 END),0) pending,COALESCE(SUM(CASE WHEN status='payable' THEN final_amount ELSE 0 END),0) payable,COALESCE(SUM(CASE WHEN status='paid' THEN final_amount ELSE 0 END),0) paid,COALESCE(SUM(CASE WHEN status='reversed' THEN adjustment_amount ELSE 0 END),0) reversed FROM commissions WHERE partner_id=?").bind(partnerId).first();
   const contract = await activeContract(db);
-  const signature = contract ? await db.prepare("SELECT id,pdf_hash,signed_at FROM contract_signatures WHERE partner_id=? AND contract_version_id=? ORDER BY signed_at DESC LIMIT 1").bind(partnerId, contract.id).first() : null;
+  const signature = contract ? await db.prepare("SELECT id,public_id,pdf_hash,signed_at,status FROM contract_signatures WHERE partner_id=? AND contract_version_id=? ORDER BY signed_at DESC LIMIT 1").bind(partnerId, contract.id).first() : null;
   const vip = await syncVipReward(db, partnerId);
   const nextBoundary = totals.count < 10 ? 11 : totals.count < 30 ? 31 : totals.count < 70 ? 71 : totals.count < 120 ? 121 : null;
   return {
@@ -255,7 +387,9 @@ async function partnerDashboard(db, partnerId) {
     previous_month_qualification: previous,
     next_tier: nextBoundary ? Math.max(0, nextBoundary - totals.count) : 0,
     vip: vip ? { cycle_no: vip.cycle_no, cycle_start: vip.cycle_start, cycle_end: vip.cycle_end, valid_new_merchants: vip.valid_new_merchants, target_merchants: vip.target_merchants, reward_amount: vip.reward_amount, status: vip.status } : null,
-    contract: { version: contract?.version || null, signed: Boolean(signature), signature_id: signature?.id || null, signed_at: signature?.signed_at || null },
+    contract: { version: contract?.version || null, signed: Boolean(signature), signature_id: signature?.id || null, signed_at: signature?.signed_at || null, legal_review_status: contract?.legal_review_status || "pending_review", resign_required: Boolean(contract?.requires_resign && !signature) },
+    operation_locked: !Boolean(await signedApprovedContract(db, partnerId)),
+    operation_lock_code: await signedApprovedContract(db, partnerId) ? null : "PARTNER_CONTRACT_REQUIRED",
   };
 }
 
@@ -318,24 +452,71 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     const input = await body(request);
     if (!input.legal_name || !input.email || !input.phone || !input.consent) return json({ error: "請完整填寫必填資料，並確認獨立承攬／居間合作聲明。" }, 400, cors);
     const email = String(input.email).trim().toLowerCase();
-    const existing = await workflowForEmail(db, email);
-    if (existing.partner) return json({ error: existing.workflow.message, ...existing.workflow }, 409, cors);
-    const partnerId = id("partner"), partnerCode = `AG${String(Date.now()).slice(-6)}`;
+    const phone = normalizeTaiwanMobile(input.phone);
+    if (!validEmail(email)) return json({ error: "請輸入有效的 Email。", code: "INVALID_EMAIL" }, 422, cors);
+    if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+    if (!await applicationRateLimit(db, request, email, phone)) return json({ error: "申請操作過於頻繁，請 15 分鐘後再試。", code: "RATE_LIMITED" }, 429, cors);
+    const phoneOwner = await partnerByNormalizedPhone(db, phone);
+    const emailOwner = (await workflowForEmail(db, email)).partner;
+    if (emailOwner && phoneOwner && emailOwner.id !== phoneOwner.id) return json({ error: "Email 與手機分屬不同承攬夥伴資料，請聯絡平台客服。", code: "PARTNER_IDENTITY_CONFLICT" }, 409, cors);
+    const existingPartner = emailOwner || phoneOwner;
+    if (existingPartner) {
+      if (emailOwner && normalizeTaiwanMobile(emailOwner.phone) !== phone) return json({ error: "此申請資料已存在，身分資料不符，請聯絡平台客服。", code: "PARTNER_IDENTITY_MISMATCH" }, 409, cors);
+      if (phoneOwner && String(phoneOwner.email || "").trim().toLowerCase() !== email) return json({ error: "此手機已建立承攬夥伴帳號，請使用手機登入或聯絡平台客服。", code: "PARTNER_PHONE_ALREADY_REGISTERED", state: phoneOwner.status === "active" ? "active" : "pending_activation", next_url: "/partner/login" }, 409, cors);
+      try {
+        const modern = await ensurePartnerModernized(db, request, env, existingPartner, { createInvite: existingPartner.status !== "active", source: "partner_apply" });
+        if (["suspended", "terminated", "rejected"].includes(existingPartner.status)) return json({ error: modern.workflow.message, ...modern.workflow }, 409, cors);
+        if (modern.partner.status === "active") return json({ error: modern.workflow.message, ...modern.workflow, next_url: "/partner/login" }, 409, cors);
+        return json({ code: modern.migrated ? "PARTNER_LEGACY_MODERNIZED" : "PARTNER_ALREADY_APPROVED", state: "pending_activation", message: modern.migrated ? "您的承攬夥伴資料已更新，可以繼續完成啟用。" : "您的承攬夥伴申請已核准，可以繼續完成啟用。", partner_code: modern.partner.partner_code, approved_at: modern.partner.approved_at, activation_url: modern.activation_url, activation_expires_at: modern.activation_expires_at, membership: modern.membership, welcome: modern.welcome, coupon: modern.coupon }, 200, { ...cors, "cache-control": "no-store" });
+      } catch (error) {
+        return json({ error: error?.message || "承攬夥伴資料更新失敗。", code: error?.code || "PARTNER_MODERNIZATION_FAILED" }, Number(error?.status || 503), cors);
+      }
+    }
+    const partnerId = id("partner"), partnerCode = await uniquePartnerCode(db), approvedAt = now();
     try {
-      await db.prepare("INSERT INTO partners (id,partner_code,legal_name,display_name,email,phone,company_name,tax_id,status,referral_code) VALUES (?,?,?,?,?,?,?,?,?,?)")
-        .bind(partnerId, partnerCode, String(input.legal_name).slice(0, 80), String(input.display_name || input.legal_name).slice(0, 80), email, String(input.phone).slice(0, 30), input.company_name || null, input.tax_id || null, "pending_contract", partnerCode).run();
-      await audit(db, request, "partner", partnerId, "contractor_applied", "partner", partnerId, { independent_contractor_consent: true });
-      return json({ id: partnerId, partner_code: partnerCode, status: "pending_contract" }, 201, cors);
-    } catch { return json({ error: "申請暫時無法送出，請稍後再試。" }, 503, cors); }
+      const invite = await prepareActivationInvite(db, partnerId);
+      const membership = await preparePlatformMembershipBatch(db, { phone, source: "phone", privacyConsentVersion: "partner-auto-approval-v1", issueSession: false });
+      const statements = [
+        db.prepare("INSERT INTO partners (id,partner_code,legal_name,display_name,email,phone,company_name,tax_id,status,referral_code,approved_at,approved_by,approval_mode,auto_approved_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,'system','automatic',?)")
+          .bind(partnerId, partnerCode, String(input.legal_name).slice(0, 80), String(input.display_name || input.legal_name).slice(0, 80), email, phone, input.company_name || null, input.tax_id || null, "pending_contract", partnerCode, approvedAt, approvedAt),
+        db.prepare("INSERT INTO partner_application_identities(phone_normalized,partner_id) VALUES(?,?)").bind(phone, partnerId),
+        ...invite.statements,
+        ...membership.statements,
+        db.prepare("INSERT INTO partner_platform_member_links(partner_id,member_id) VALUES(?,?)").bind(partnerId, membership.memberId),
+        auditInsert(db, "system", "partner_auto_approval", "partner.application_submitted", "partner", partnerId, { independent_contractor_consent: true }),
+        auditInsert(db, "system", "partner_auto_approval", "partner.auto_approved", "partner", partnerId, { approval_mode: "automatic" }),
+        auditInsert(db, "system", "partner_auto_approval", "partner.activation_invite_created", "partner", partnerId, { expires_at: invite.expiresAt }),
+      ];
+      if (membership.memberCreated) statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_member.created", "platform_member", membership.memberId, { source: "partner_application" }));
+      else statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_member.linked", "platform_member", membership.memberId, { source: "partner_application" }));
+      if (membership.couponCreated) statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_coupon.claimed", "platform_member", membership.memberId, { campaign_id: "platform_welcome_member_v1" }));
+      await db.batch(statements);
+      const member = await finalizePlatformMembershipBatch(db, membership);
+      const contract = await activeContract(db);
+      return json({ id: partnerId, partner_code: partnerCode, status: "pending_contract", state: "pending_activation", approved_at: approvedAt, approval_mode: "automatic", activation_url: activationUrl(invite.raw, env), activation_expires_at: invite.expiresAt, membership: member.member, welcome: { show: member.created, title: "歡迎成為創百業會員！", message: "您也已成為創百業會員，NT$100 迎新禮券已放入會員帳戶。" }, coupon: member.coupon, contract: { version: contract?.version || null, legal_review_status: contract?.legal_review_status || "pending_review", signing_available: Boolean(contract?.legal_review_status === "approved" && contract?.approved_content_hash === contract?.content_hash) } }, 201, { ...cors, "cache-control": "no-store" });
+    } catch (error) {
+      if (String(error?.message || "").includes("UNIQUE")) return json({ error: "此 Email 或手機已建立承攬夥伴申請。", code: "PARTNER_DUPLICATE_IDENTITY" }, 409, cors);
+      console.error(JSON.stringify({ service: "partner_apply", code: error?.code || "APPLY_FAILED" }));
+      return json({ error: "申請暫時無法送出，請稍後再試。" }, Number(error?.status || 503), cors);
+    }
   }
 
   if (path === "/api/partner/status" && request.method === "POST") {
-    const input = await body(request), email = String(input.email || "").trim().toLowerCase();
-    if (!email || !email.includes("@")) return json({ error: "請輸入有效的 Email。" }, 400, cors);
-    const rate = await publicStatusRateLimit(db, request, email, "partner_status_checked");
+    const input = await body(request);
+    const phone = normalizeTaiwanMobile(input.phone);
+    const email = String(input.email || "").trim().toLowerCase();
+    if (!phone && !validEmail(email)) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+    const identity = phone || email;
+    const rate = await publicStatusRateLimit(db, request, identity, "partner_status_checked");
     if (rate.limited) return json({ error: "查詢次數過多，請 15 分鐘後再試。" }, 429, cors);
-    const result = await workflowForEmail(db, email);
-    return json({ ...result.workflow }, 200, { ...cors, "cache-control": "no-store" });
+    const partner = phone ? await partnerByNormalizedPhone(db, phone) : (await workflowForEmail(db, email)).partner;
+    if (!partner) return json(partnerWorkflowStatus(null), 200, { ...cors, "cache-control": "no-store" });
+    try {
+      const modern = await ensurePartnerModernized(db, request, env, partner, { createInvite: partner.status !== "active", source: "partner_status" });
+      return json({ ...modern.workflow, message: modern.migrated ? "您的承攬夥伴資料已更新，可以繼續完成啟用。" : modern.workflow.message, activation_url: modern.activation_url, activation_expires_at: modern.activation_expires_at, next_url: modern.partner.status === "active" ? "/partner/login" : undefined }, 200, { ...cors, "cache-control": "no-store" });
+    } catch (error) {
+      return json({ error: error?.message || "承攬夥伴資料更新失敗。", code: error?.code || "PARTNER_MODERNIZATION_FAILED" }, Number(error?.status || 503), cors);
+    }
   }
 
   if (path === "/api/partner/activation/request" && request.method === "POST") {
@@ -347,7 +528,7 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     if (result.partner && ["pending_activation", "invite_expired"].includes(result.workflow.state)) {
       await audit(db, request, "public", rate.actorId, "partner_activation_reissue_pending", "partner", result.partner.id, { workflow_state: result.workflow.state });
     }
-    return json({ ok: true, message: "若此 Email 已通過審核且需要新的啟用連結，平台管理員將依安全流程處理；我們不會在畫面或紀錄中顯示啟用 Token。" }, 202, { ...cors, "cache-control": "no-store" });
+    return json({ ok: true, message: "請返回承攬夥伴申請頁，輸入原 Email 與手機，即可依安全流程重新取得短效啟用連結。" }, 202, { ...cors, "cache-control": "no-store" });
   }
 
   if (path === "/api/partner/invite/validate" && request.method === "POST") {
@@ -361,43 +542,117 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
 
   if (path === "/api/partner/accept-invite" && request.method === "POST") {
     const input = await body(request);
-    if (!input.token || String(input.password || "").length < 12 || !env.PARTNER_SESSION_SECRET) return json({ error: "密碼至少需要 12 個字元，且啟用連結必須有效。" }, 400, cors);
+    if (!input.token) return json({ error: "啟用連結必須有效。" }, 400, cors);
     const invite = await db.prepare("SELECT i.*,p.status,p.approved_at,p.activated_at FROM partner_invites i JOIN partners p ON p.id=i.partner_id WHERE i.token_hash=? AND i.used_at IS NULL AND i.expires_at>? LIMIT 1")
       .bind(await hash(String(input.token)), now()).first();
     if (!invite || invite.status !== "pending_contract" || !invite.approved_at) return json({ error: "啟用連結無效、已使用、已過期或帳號尚未核准。" }, 401, cors);
-    const salt = crypto.randomUUID(), password = await passwordHash(String(input.password), salt, env.PARTNER_SESSION_SECRET), activatedAt = invite.activated_at || now();
+    const activatedAt = invite.activated_at || now();
     try {
+      const session = await preparePartnerSession(db, invite.partner_id, "activation_invite", "activation_invite");
       await db.batch([
-        db.prepare("UPDATE partners SET password_hash=?,password_salt=?,status='active',activated_at=COALESCE(activated_at,?),updated_at=? WHERE id=?").bind(password, salt, activatedAt, now(), invite.partner_id),
+        db.prepare("UPDATE partners SET status='active',activated_at=COALESCE(activated_at,?),updated_at=? WHERE id=?").bind(activatedAt, now(), invite.partner_id),
         db.prepare("UPDATE partner_invites SET used_at=? WHERE id=?").bind(now(), invite.id),
+        session.statement,
+        auditInsert(db, "partner", invite.partner_id, "partner.activation_session_issued", "partner_session", session.sessionId, { assurance_level: "activation_invite", invite_id: invite.id }),
       ]);
       await audit(db, request, "partner", invite.partner_id, "contractor_activated", "partner", invite.partner_id, { invite_id: invite.id, activated_at: activatedAt });
       await syncVipReward(db, invite.partner_id);
-      return json({ ok: true, status: "active" }, 200, cors);
+      return json({ ok: true, status: "active", next_url: await partnerNextUrl(db, invite.partner_id) }, 200, { ...cors, "set-cookie": partnerCookie(session.token) });
     } catch { return json({ error: "帳號啟用暫時無法完成，請稍後再試。" }, 503, cors); }
   }
 
-  if (path === "/api/partner/login" && request.method === "POST") {
-    const input = await body(request), email = String(input.email || "").trim().toLowerCase();
-    const recent = await db.prepare("SELECT COUNT(*) count FROM partner_login_attempts WHERE email=? AND attempted_at>datetime('now','-15 minutes')").bind(email).first();
-    if (Number(recent.count) >= 5) return json({ error: "登入嘗試次數過多，請 15 分鐘後再試。" }, 429, cors);
-    const partner = await db.prepare("SELECT * FROM partners WHERE email=?").bind(email).first();
-    const valid = Boolean(partner?.password_hash && env.PARTNER_SESSION_SECRET && await passwordHash(String(input.password || ""), partner.password_salt, env.PARTNER_SESSION_SECRET) === partner.password_hash);
-    await db.prepare("INSERT INTO partner_login_attempts (id,email,success) VALUES (?,?,?)").bind(id("login"), email, valid ? 1 : 0).run();
-    if (!partner) return json({ error: "Email 或密碼錯誤。", code: "INVALID_CREDENTIALS" }, 401, cors);
-    if (partner.status !== "active") {
-      const result = await workflowForEmail(db, email);
-      return json({ error: result.workflow.message, ...result.workflow }, 403, cors);
+  if (path === "/api/partner/login/start" && request.method === "POST") {
+    const input = await body(request);
+    const phone = normalizeTaiwanMobile(input.phone);
+    if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+    if (!await partnerLoginRateLimit(db, request, phone)) return json({ error: "登入操作過於頻繁，請 15 分鐘後再試。", code: "RATE_LIMITED" }, 429, cors);
+    const currentSession = await partnerAuth(request, db);
+    if (currentSession) {
+      const currentPartner = await db.prepare("SELECT p.id,p.phone,p.status FROM partners p WHERE p.id=?").bind(currentSession.partner_id).first();
+      if (currentPartner && normalizeTaiwanMobile(currentPartner.phone) === phone && currentPartner.status === "active") {
+        await audit(db, request, "partner", currentPartner.id, "partner.session_restored", "partner_session", currentSession.id, { assurance_level: "trusted_existing_session" });
+        return json({ code: "SESSION_RESTORED", next_url: await partnerNextUrl(db, currentPartner.id) }, 200, { ...cors, "cache-control": "no-store" });
+      }
     }
-    if (!valid) return json({ error: "Email 或密碼錯誤。", code: "INVALID_CREDENTIALS" }, 401, cors);
-    await audit(db, request, "partner", partner.id, "contractor_login", "partner", partner.id);
-    return json({ ok: true }, 200, { ...cors, "set-cookie": `partner_session=${await partnerSession(partner, env)}; HttpOnly; Secure; SameSite=None; Partitioned; Path=/api/partner; Max-Age=604800` });
+    let partner = await partnerByNormalizedPhone(db, phone);
+    if (partner) {
+      try {
+        const modern = await ensurePartnerModernized(db, request, env, partner, {
+          createInvite: partner.status !== "active",
+          source: "partner_login_start",
+        });
+        partner = modern.partner;
+        if (partner?.status === "suspended") return json({ error: "此承攬夥伴帳號目前已暫停使用，請聯絡平台客服。", code: "PARTNER_SUSPENDED" }, 403, cors);
+        if (partner?.status === "terminated") return json({ error: "此承攬夥伴帳號的合作關係已終止。", code: "PARTNER_TERMINATED" }, 403, cors);
+        if (partner?.status === "rejected" || partner?.status === "blocked") return json({ error: "此承攬夥伴帳號目前無法登入，請聯絡平台客服。", code: "PARTNER_ACCOUNT_UNAVAILABLE" }, 403, cors);
+        if (partner?.status !== "active") {
+          return json({
+            code: modern.migrated ? "PARTNER_LEGACY_MODERNIZED" : "PARTNER_ACTIVATION_REQUIRED",
+            state: "pending_activation",
+            message: modern.migrated ? "您的承攬夥伴資料已更新，可以繼續完成啟用。" : "您的承攬夥伴帳號尚未完成啟用。",
+            activation_url: modern.activation_url,
+            activation_expires_at: modern.activation_expires_at,
+          }, 202, { ...cors, "cache-control": "no-store" });
+        }
+      } catch (error) {
+        return json({ error: error?.message || "承攬夥伴資料更新失敗。", code: error?.code || "PARTNER_MODERNIZATION_FAILED" }, Number(error?.status || 503), cors);
+      }
+    }
+    const challengeId = id("partner_challenge");
+    const staging = env.PARTNER_OTP_MODE === "staging";
+    const code = staging ? String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0") : null;
+    const expiresAt = new Date(Date.now() + 10 * 60e3).toISOString();
+    const phoneHash = await hash(`partner-login-phone:${phone}`);
+    const ipHash = await hash(`partner-login-ip:${clientIp(request) || "unknown"}`);
+    const deviceHash = await hash(`partner-login-device:${String(request.headers.get("x-device-id") || request.headers.get("user-agent") || "unknown").slice(0, 300)}`);
+    await db.prepare("INSERT INTO partner_login_challenges(id,partner_id,phone_hash,code_hash,provider,expires_at,ip_hash,device_hash) VALUES(?,?,?,?,?,?,?,?)")
+      .bind(challengeId, partner?.id || null, phoneHash, code ? await hash(`partner-otp:${challengeId}:${code}`) : null, staging ? "staging_otp" : "disabled", expiresAt, ipHash, deviceHash).run();
+    await audit(db, request, "public", phoneHash, "partner.login_challenge_created", "partner_login_challenge", challengeId, { provider: staging ? "staging_otp" : "disabled", partner_linked: Boolean(partner) });
+    return json({
+      code: "VERIFICATION_REQUIRED",
+      challenge_id: challengeId,
+      expires_at: expiresAt,
+      verification_available: staging,
+      verification_method: staging ? "staging_otp" : null,
+      staging_code: staging ? code : undefined,
+      message: staging ? "請輸入測試環境驗證碼。" : "若此手機已登記為承攬夥伴，我們將提供登入驗證方式。正式手機驗證服務尚未開放。",
+    }, 202, { ...cors, "cache-control": "no-store" });
+  }
+
+  if (path === "/api/partner/login/verify" && request.method === "POST") {
+    const input = await body(request);
+    const challengeId = String(input.challenge_id || "");
+    const code = String(input.code || "");
+    if (!challengeId || !/^\d{6}$/.test(code)) return json({ error: "請輸入 6 位數驗證碼。", code: "INVALID_OTP" }, 422, cors);
+    const challenge = await db.prepare("SELECT * FROM partner_login_challenges WHERE id=? LIMIT 1").bind(challengeId).first();
+    if (!challenge || challenge.used_at || challenge.revoked_at || new Date(challenge.expires_at) <= new Date()) return json({ error: "驗證碼已失效，請重新取得。", code: "OTP_EXPIRED" }, 401, cors);
+    if (challenge.provider !== "staging_otp" || env.PARTNER_OTP_MODE !== "staging" || !challenge.partner_id) return json({ error: "目前無法完成手機驗證。", code: "PARTNER_VERIFICATION_UNAVAILABLE" }, 503, cors);
+    if (Number(challenge.attempt_count) >= Number(challenge.max_attempts)) return json({ error: "驗證嘗試次數過多，請重新取得驗證碼。", code: "OTP_ATTEMPTS_EXCEEDED" }, 429, cors);
+    if (await hash(`partner-otp:${challengeId}:${code}`) !== challenge.code_hash) {
+      await db.prepare("UPDATE partner_login_challenges SET attempt_count=attempt_count+1 WHERE id=? AND used_at IS NULL").bind(challengeId).run();
+      return json({ error: "驗證碼錯誤。", code: "INVALID_OTP" }, 401, cors);
+    }
+    const partner = await db.prepare("SELECT id,status FROM partners WHERE id=?").bind(challenge.partner_id).first();
+    if (!partner || partner.status !== "active") return json({ error: "承攬夥伴帳號目前無法登入。", code: "PARTNER_ACCOUNT_UNAVAILABLE" }, 403, cors);
+    const session = await preparePartnerSession(db, partner.id, "verified_phone", "staging_otp", challenge.id);
+    const usedAt = now();
+    await db.batch([
+      db.prepare("UPDATE partner_login_challenges SET used_at=?,attempt_count=attempt_count+1 WHERE id=? AND used_at IS NULL").bind(usedAt, challenge.id),
+      session.statement,
+      auditInsert(db, "partner", partner.id, "partner.phone_verified_login", "partner_session", session.sessionId, { provider: "staging_otp", challenge_id: challenge.id }),
+    ]);
+    return json({ ok: true, code: "PARTNER_LOGIN_SUCCESS", next_url: await partnerNextUrl(db, partner.id) }, 200, { ...cors, "set-cookie": partnerCookie(session.token), "cache-control": "no-store" });
+  }
+
+  if (path === "/api/partner/login" && request.method === "POST") {
+    return json({ error: "Email／密碼登入已停用，請改用手機免密碼登入。", code: "PARTNER_PASSWORD_LOGIN_DEPRECATED" }, 410, cors);
   }
 
   if (path === "/api/partner/attribution" && request.method === "POST") {
     const input = await body(request), referral = String(input.referral_code || "");
     const partner = await db.prepare("SELECT id,status FROM partners WHERE referral_code=?").bind(referral).first();
     if (!partner || partner.status !== "active" || !input.lead_name) return json({ error: "推薦連結無效，或請填寫聯絡人姓名。" }, 400, cors);
+    if (!await signedApprovedContract(db, partner.id)) return json({ error: "承攬夥伴須先簽署目前有效契約，才能建立正式推薦歸因。", code: "PARTNER_CONTRACT_REQUIRED" }, 423, cors);
     const existing = await db.prepare("SELECT id FROM partner_leads WHERE lead_email=? AND lead_email IS NOT NULL ORDER BY first_seen_at LIMIT 1").bind(input.lead_email || null).first();
     if (existing) return json({ lead_id: existing.id, attribution: "existing" }, 200, cors);
     const leadId = id("lead");
@@ -406,10 +661,40 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     await audit(db, request, "system", null, "lead_attributed", "partner_lead", leadId, { partner_id: partner.id, source: "referral" });
     return json({ lead_id: leadId, attribution: "created" }, 201, cors);
   }
-  if (path === "/api/partner/logout" && request.method === "POST") return json({ ok: true }, 200, { ...cors, "set-cookie": "partner_session=; HttpOnly; Secure; SameSite=None; Partitioned; Path=/api/partner; Max-Age=0" });
+  if (path === "/api/partner/logout" && request.method === "POST") {
+    const session = await partnerAuth(request, db);
+    if (session) await db.prepare("UPDATE partner_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE id=? AND revoked_at IS NULL").bind(session.id).run();
+    return json({ ok: true }, 200, { ...cors, "set-cookie": partnerCookie("", 0) });
+  }
 
   if (path.startsWith("/api/admin/")) {
     if (!adminAuthorized && !(await financeAdmin(request, env))) return json({ error: "需要財務管理員授權。" }, 401, cors);
+
+    if (path === "/api/admin/partner-contract-versions" && request.method === "GET") {
+      const rows = await db.prepare("SELECT id,version,title,content_hash,effective_date,is_active,requires_resign,legal_review_required,legal_review_status,reviewed_by,reviewed_at,legal_counsel_reference,approved_content_hash,created_at FROM contract_versions ORDER BY created_at DESC").all();
+      return json({ items: rows.results }, 200, cors);
+    }
+    const legalReview = path.match(/^\/api\/admin\/partner-contract-versions\/([^/]+)\/legal-review$/);
+    if (legalReview && request.method === "POST") {
+      const input = await body(request);
+      if (input.confirm_legal_review !== true || !input.legal_counsel_reference) return json({ error: "請確認已完成正式法律審閱並填寫律師審閱參考。", code: "LEGAL_REVIEW_CONFIRMATION_REQUIRED" }, 422, cors);
+      const current = await db.prepare("SELECT * FROM contract_versions WHERE id=?").bind(legalReview[1]).first();
+      if (!current) return json({ error: "找不到契約版本。" }, 404, cors);
+      let operation;
+      try {
+        operation = await beginContractOperation(db, { partyType: "partner", partyId: current.id, operationType: "legal_review", idempotencyKey: request.headers.get("idempotency-key") || "" });
+        if (operation.replay) return json(operation.result, 200, cors);
+      } catch (error) { return contractFailure(error, cors); }
+      const statements = [];
+      if (input.activate === true) statements.push(db.prepare("UPDATE contract_versions SET is_active=0 WHERE is_active=1"));
+      statements.push(db.prepare("UPDATE contract_versions SET legal_review_status='approved',reviewed_by='authorized_admin',reviewed_at=CURRENT_TIMESTAMP,legal_counsel_reference=?,approved_content_hash=content_hash,is_active=? WHERE id=?")
+        .bind(String(input.legal_counsel_reference).slice(0, 240), input.activate === true ? 1 : 0, current.id));
+      await db.batch(statements);
+      await audit(db, request, "admin", "authorized_admin", "partner_contract_legal_review_approved", "contract_version", current.id, { approved_content_hash: current.content_hash, activate: input.activate === true });
+      const result = { ok: true, legal_review_status: "approved", approved_content_hash: current.content_hash, is_active: input.activate === true };
+      await completeContractOperation(db, operation.operation.id, result);
+      return json(result, 200, cors);
+    }
 
     const adminPdf = path.match(/^\/api\/admin\/contracts\/([^/]+)\/pdf$/);
     if (adminPdf && request.method === "GET") {
@@ -427,6 +712,39 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       return json({ items: rows.results }, 200, cors);
     }
 
+    if (path === "/api/admin/partners/auto-approve-pending" && request.method === "POST") {
+      const input = await body(request);
+      if (input.confirm !== "AUTO_APPROVE_EXISTING_PENDING_APPLICATIONS") return json({ error: "請完成批次核准二次確認。", code: "BATCH_CONFIRMATION_REQUIRED" }, 422, cors);
+      const pending = await db.prepare("SELECT * FROM partners WHERE status='pending_contract' AND approved_at IS NULL ORDER BY created_at LIMIT 100").all();
+      const approved = [], failed = [];
+      for (const partner of pending.results || []) {
+        try {
+          const phone = normalizeTaiwanMobile(partner.phone);
+          if (!phone) throw new Error("INVALID_PHONE");
+          const owner = await partnerByNormalizedPhone(db, phone);
+          if (owner && owner.id !== partner.id) throw new Error("DUPLICATE_PHONE");
+          const invite = await prepareActivationInvite(db, partner.id);
+          const membership = await preparePlatformMembershipBatch(db, { phone, source: "phone", privacyConsentVersion: "partner-auto-approval-v1", issueSession: false });
+          const approvedAt = now();
+          const statements = [
+            db.prepare("UPDATE partners SET approved_at=?,approved_by='system',approval_mode='automatic',auto_approved_at=?,updated_at=? WHERE id=? AND approved_at IS NULL").bind(approvedAt, approvedAt, approvedAt, partner.id),
+            db.prepare("INSERT OR IGNORE INTO partner_application_identities(phone_normalized,partner_id) VALUES(?,?)").bind(phone, partner.id),
+            ...invite.statements,
+            ...membership.statements,
+            db.prepare("INSERT OR IGNORE INTO partner_platform_member_links(partner_id,member_id) VALUES(?,?)").bind(partner.id, membership.memberId),
+            auditInsert(db, "system", "partner_auto_approval", "partner.auto_approved", "partner", partner.id, { historical_batch: true }),
+            auditInsert(db, "system", "partner_auto_approval", "partner.activation_invite_created", "partner", partner.id, { expires_at: invite.expiresAt, historical_batch: true }),
+          ];
+          if (membership.memberCreated) statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_member.created", "platform_member", membership.memberId, { source: "historical_partner_application" }));
+          if (membership.couponCreated) statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_coupon.claimed", "platform_member", membership.memberId, { campaign_id: "platform_welcome_member_v1" }));
+          await db.batch(statements);
+          approved.push({ partner_id: partner.id, partner_code: partner.partner_code, approved_at: approvedAt, activation_url: activationUrl(invite.raw, env), activation_expires_at: invite.expiresAt });
+        } catch (error) { failed.push({ partner_id: partner.id, code: String(error?.message || "BATCH_FAILED").slice(0, 80) }); }
+      }
+      await audit(db, request, "admin", "authorized_admin", "partner.historical_pending_batch_processed", "partner_batch", id("batch"), { approved_count: approved.length, failed_count: failed.length });
+      return json({ approved, failed, processed: pending.results?.length || 0 }, 200, { ...cors, "cache-control": "no-store" });
+    }
+
     const match = path.match(/^\/api\/admin\/partners\/([^/]+)(?:\/(invite|commissions|contracts))?$/);
     if (match && request.method === "GET") {
       const partner = await db.prepare("SELECT * FROM partners WHERE id=?").bind(match[1]).first();
@@ -440,11 +758,7 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       if (!partner) return json({ error: "找不到承攬夥伴資料。" }, 404, cors);
       const action = input.action || input.status;
       if (action === "approve") {
-        if (partner.status !== "pending_contract") return json({ error: "目前狀態無法執行核准。" }, 409, cors);
-        const approvedAt = now();
-        await db.prepare("UPDATE partners SET approved_at=COALESCE(approved_at,?),approved_by=?,updated_at=? WHERE id=?").bind(approvedAt, "finance", now(), partner.id).run();
-        await audit(db, request, "admin", "finance", "contractor_approved", "partner", partner.id);
-        return json({ ok: true, status: "pending_contract", approved_at: approvedAt }, 200, cors);
+        return json({ error: "一般新申請已改為自動核准；歷史待審資料請使用批次核准功能。", code: "PARTNER_MANUAL_APPROVAL_REMOVED" }, 410, cors);
       }
       const transitions = { reject: "rejected", suspended: "suspended", terminated: "terminated" }, status = transitions[action];
       if (!status) return json({ error: "不允許的承攬夥伴狀態操作。" }, 400, cors);
@@ -456,14 +770,11 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       const partner = await db.prepare("SELECT * FROM partners WHERE id=?").bind(match[1]).first();
       if (!partner) return json({ error: "找不到承攬夥伴資料。" }, 404, cors);
       if (partner.status !== "pending_contract" || !partner.approved_at) return json({ error: "請先核准此申請，才能產生啟用邀請。" }, 409, cors);
-      const issuedAt = now(), expiresAt = new Date(Date.now() + 72 * 3600e3).toISOString(), raw = crypto.randomUUID() + crypto.randomUUID();
-      await db.batch([
-        db.prepare("UPDATE partner_invites SET used_at=? WHERE partner_id=? AND used_at IS NULL AND expires_at>?").bind(issuedAt, partner.id, issuedAt),
-        db.prepare("INSERT INTO partner_invites (id,partner_id,token_hash,expires_at) VALUES (?,?,?,?)").bind(id("invite"), partner.id, await hash(raw), expiresAt),
-      ]);
+      const invite = await prepareActivationInvite(db, partner.id);
+      await db.batch(invite.statements);
       await db.prepare("UPDATE audit_logs SET action='partner_activation_reissue_processed' WHERE entity_type='partner' AND entity_id=? AND action='partner_activation_reissue_pending'").bind(partner.id).run();
-      await audit(db, request, "admin", "finance", "contractor_invited", "partner", partner.id, { expires_at: expiresAt });
-      return json({ invite_url: `https://baiyeconnect.com/#/partner/activate?token=${encodeURIComponent(raw)}`, expires_at: expiresAt }, 201, cors);
+      await audit(db, request, "admin", "finance", "contractor_invited", "partner", partner.id, { expires_at: invite.expiresAt });
+      return json({ invite_url: activationUrl(invite.raw, env), expires_at: invite.expiresAt }, 201, cors);
     }
 
     if (path === "/api/admin/settlements" && request.method === "GET") return json({ items: (await db.prepare("SELECT s.*,p.display_name,p.partner_code FROM settlements s JOIN partners p ON p.id=s.partner_id ORDER BY s.created_at DESC").all()).results }, 200, cors);
@@ -573,30 +884,57 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     }
   }
 
-  const partnerId = await partnerAuth(request, env);
-  if (!partnerId) return json({ error: "請先登入承攬夥伴中心。" }, 401, cors);
+  const partnerSession = await partnerAuth(request, db);
+  if (!partnerSession) return json({ error: "請先登入承攬夥伴中心。" }, 401, cors);
+  const partnerId = partnerSession.partner_id;
   const partner = await db.prepare("SELECT * FROM partners WHERE id=?").bind(partnerId).first();
   if (!partner || partner.status !== "active") return json({ error: "承攬夥伴帳號目前尚未啟用或已終止。" }, 403, cors);
 
   if (path === "/api/partner/me") return json({ id: partner.id, partner_code: partner.partner_code, legal_name: partner.legal_name, display_name: partner.display_name, status: partner.status, referral_code: partner.referral_code }, 200, cors);
   if (path === "/api/partner/contract/current" && request.method === "GET") return json(await activeContract(db), 200, cors);
+  if (path === "/api/partner/contract/sign-preview" && request.method === "POST") {
+    try {
+      const input = await body(request), contract = await activeContract(db);
+      assertContractSignable(contract, env);
+      if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
+      return json({ version: contract.version, party_a: "平台契約正式設定法律主體", party_b: partner.legal_name, signatory: partner.legal_name, relationship: "獨立承攬／居間合作，非僱傭關係", signed_at: now(), important_terms: ["有效成交與五級獎勵", "每月合作資格維持", "退款與佣金沖回", "禁止私收款、假交易與未授權承諾", "線上簽署證據不等同憑證式數位簽章"] }, 200, cors);
+    } catch (error) { return contractFailure(error, cors); }
+  }
   if (path === "/api/partner/contract/sign" && request.method === "POST") {
-    const input = await body(request), contract = await activeContract(db);
-    if (!contract) return json({ error: "目前沒有可簽署的承攬夥伴合作契約版本。" }, 503, cors);
-    if (!input.read || !input.electronic || !input.independent || input.legal_name !== partner.legal_name || !validSignature(input.signature)) return json({ error: "請完成閱讀、電子簽署、獨立承攬確認、法定姓名及手寫簽名。" }, 400, cors);
-    const existing = await db.prepare("SELECT id FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
-    if (existing) return json({ error: "您已簽署目前有效的承攬夥伴合作契約。" }, 409, cors);
-    if (!env.CONTRACTS_BUCKET) return json({ error: "私有契約保存服務尚未啟用。" }, 503, cors);
-    const signatureId = id("sign"), signedAt = now(), signatureHash = await hash(String(input.signature));
-    const pdf = await createSignedContractPdf({ contractId: signatureId, version: contract.version, contentHtml: contract.content_html, contractHash: contract.content_hash, signatureHash, legalName: partner.legal_name, signedAt, consentVersion: "v1.3", signature: input.signature });
-    const key = `contracts/${partnerId}/${contract.version}/${signatureId}.pdf`;
-    try { await env.CONTRACTS_BUCKET.put(key, pdf.bytes, { httpMetadata: { contentType: "application/pdf", contentDisposition: `attachment; filename=contract-${signatureId}.pdf` } }); }
-    catch { return json({ error: "已簽契約 PDF 保存失敗，請稍後再試。" }, 503, cors); }
-    await db.prepare("INSERT INTO contract_signatures (id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-      .bind(signatureId, partnerId, contract.id, partner.legal_name, signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, signatureHash, String(input.signature), key, pdf.pdfHash, pdf.documentHash, "v1.3").run();
-    await db.prepare("UPDATE partners SET contract_status='signed',contract_version=?,contract_signed_at=?,updated_at=? WHERE id=?").bind(contract.version, signedAt, now(), partnerId).run();
-    await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: signatureHash, pdf_hash: pdf.pdfHash, document_hash: pdf.documentHash, legal_review_required: true });
-    return json({ ok: true, signature_id: signatureId, pdf_hash: pdf.pdfHash, document_hash: pdf.documentHash, legal_review_required: true }, 201, cors);
+    try {
+      const input = await body(request), contract = await activeContract(db);
+      const staging = assertContractSignable(contract, env).staging;
+      if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
+      if (!normalizeTaiwanMobile(partner.phone)) throw new ContractError("PARTNER_PHONE_REQUIRED", "承攬夥伴手機資料不完整，請先聯絡平台更新後再簽署。", 422);
+      const cookieToken = (request.headers.get("cookie") || "").match(/(?:^|;\s*)partner_session=([^;]+)/)?.[1] || "unknown";
+      const operation = await beginContractOperation(db, { partyType: "partner", partyId: partnerId, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
+      if (operation.replay) return json({ ...operation.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
+      const existing = await db.prepare("SELECT id,public_id,document_hash,pdf_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
+      if (existing) {
+        const membership = await ensurePlatformMember(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract", issueSession: true });
+        const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, replay: true };
+        await completeContractOperation(db, operation.operation.id, replay); return json(replay, 200, cors);
+      }
+      const signatureId = id("sign"), publicId = `BYPC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
+      const sessionHash = await sessionEvidenceHash(cookieToken);
+      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：平台契約正式設定法律主體　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", signature: input.signature, consents: { read: input.read, electronic: input.electronic, independent: input.independent }, consentVersion: "partner-contract-consent-v1.4", ip: clientIp(request), userAgent: request.headers.get("user-agent"), sessionEvidence: sessionHash, staging });
+      const prefix = `contracts/partners/${partnerId}/${contract.version}/${signatureId}`;
+      const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
+      const membershipBatch = await preparePlatformMembershipBatch(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract" });
+      try {
+        await db.batch([
+          db.prepare("INSERT INTO contract_signatures(id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version,signature_assurance_level,public_id,evidence_object_key,session_id_hash,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            .bind(signatureId, partnerId, contract.id, partner.legal_name, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.4", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID"),
+          db.prepare("UPDATE partners SET contract_status='signed',contract_version=?,contract_signed_at=?,updated_at=? WHERE id=?").bind(contract.version, agreement.signedAt, now(), partnerId),
+          ...membershipBatch.statements,
+        ]);
+      } catch (error) { await stored.cleanup(); throw error; }
+      await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE });
+      const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
+      const result = { ok: true, signature_id: signatureId, public_id: publicId, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome };
+      await completeContractOperation(db, operation.operation.id, result);
+      return json(result, 201, cors);
+    } catch (error) { return contractFailure(error, cors); }
   }
 
   const pdfMatch = path.match(/^\/api\/partner\/contracts\/([^/]+)\/pdf$/);
@@ -610,8 +948,14 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
   }
 
   if (path === "/api/partner/dashboard") return json(await partnerDashboard(db, partnerId), 200, cors);
-  if (path === "/api/partner/referral") return json({ referral_code: partner.referral_code, url: `https://baiyeconnect.com/#/join?ref=${partner.referral_code}` }, 200, cors);
-  if (path === "/api/partner/leads") return json({ items: (await db.prepare("SELECT id,lead_name,source,status,created_at,converted_at FROM partner_leads WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
+  if (path === "/api/partner/referral") {
+    if (!await signedApprovedContract(db, partnerId)) return json({ error: "請先簽署目前有效的承攬夥伴合作契約。", code: "PARTNER_CONTRACT_REQUIRED" }, 423, cors);
+    return json({ referral_code: partner.referral_code, url: `https://baiyeconnect.com/#/join?ref=${partner.referral_code}` }, 200, cors);
+  }
+  if (path === "/api/partner/leads") {
+    if (!await signedApprovedContract(db, partnerId)) return json({ error: "請先簽署目前有效的承攬夥伴合作契約。", code: "PARTNER_CONTRACT_REQUIRED" }, 423, cors);
+    return json({ items: (await db.prepare("SELECT id,lead_name,source,status,created_at,converted_at FROM partner_leads WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
+  }
   if (path === "/api/partner/orders") return json({ items: (await db.prepare("SELECT order_no,title,amount_due,amount_paid,payment_status,created_at FROM orders WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
   if (path === "/api/partner/commissions") return json({ items: (await db.prepare("SELECT c.*,o.order_no,o.title FROM commissions c JOIN orders o ON o.id=c.order_id WHERE c.partner_id=? ORDER BY c.created_at DESC").bind(partnerId).all()).results }, 200, cors);
   if (path === "/api/partner/settlements") return json({ items: (await db.prepare("SELECT * FROM settlements WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
