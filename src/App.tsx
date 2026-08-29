@@ -20,6 +20,7 @@ import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from ".
 import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
+import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -80,6 +81,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/merchant/activate": "啟用商家帳號｜創百業智慧鏈",
   "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
   "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
+  "/member/join": "手機一鍵加入會員｜創百業智慧鏈",
+  "/member/welcome": "歡迎成為創百業會員｜創百業智慧鏈",
+  "/member": "我的會員｜創百業智慧鏈",
 };
 
 function ScrollAndMetadata() {
@@ -193,6 +197,9 @@ export function App() {
         <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
+        <Route path="/member/join" element={<PlatformMemberJoinPage />} />
+        <Route path="/member/welcome" element={<PlatformMemberWelcomePage />} />
+        <Route path="/member" element={<PlatformMemberCenterPage />} />
         <Route path="/business-financing" element={<BusinessFinancingPage />} />
         <Route path="/categories" element={<VerifiedBusinessesPage />} />
         <Route path="/categories/:category" element={<VerifiedBusinessesPage />} />

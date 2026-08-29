@@ -14,6 +14,9 @@ const adminCsrf = randomUUID() + randomUUID();
 const merchantId = `staging_onboarding_merchant_${runId}`;
 const partnerEmail = `staging_partner_${runId}@staging.invalid`;
 const merchantEmail = `staging_merchant_${runId}@staging.invalid`;
+const phoneSuffix = String(Date.now()).slice(-7);
+const partnerPhone = `091${phoneSuffix}`;
+const merchantPhone = `092${phoneSuffix}`;
 const password = `Staging-${randomUUID()}!`;
 const sha = (value) => createHash("sha256").update(String(value)).digest("base64url");
 const quote = (value) => `'${String(value).replaceAll("'", "''")}'`;
@@ -24,7 +27,7 @@ UPDATE merchant_contract_versions SET is_active=0;
 UPDATE merchant_contract_versions SET is_active=1 WHERE version='v1.0';
 INSERT INTO admin_users(id,email,display_name,password_hash,password_salt,role,status) VALUES(${quote(adminId)},${quote(`staging_admin_${runId}@staging.invalid`)},'STAGING Contract Admin','NOT-LOGINABLE','STAGING','super_admin','active');
 INSERT INTO admin_sessions(id,admin_user_id,token_hash,csrf_hash,expires_at) VALUES(${quote(`staging_admin_session_${runId}`)},${quote(adminId)},${quote(sha(adminToken))},${quote(sha(adminCsrf))},datetime('now','+2 hours'));
-INSERT INTO merchants(id,merchant_code,name,contact_name,email,status) VALUES(${quote(merchantId)},${quote(`STAGING-M-${runId}`)},'STAGING 商家申請｜NOT A REAL CONTRACT','STAGING 測試代表',${quote(merchantEmail)},'pending_contract');`;
+INSERT INTO merchants(id,merchant_code,name,contact_name,phone,email,status) VALUES(${quote(merchantId)},${quote(`STAGING-M-${runId}`)},'STAGING 商家申請｜NOT A REAL CONTRACT','STAGING 測試代表',${quote(merchantPhone)},${quote(merchantEmail)},'pending_contract');`;
 const seedPath = join(tmpdir(), `baiye-contract-onboarding-${runId}.sql`);
 writeFileSync(seedPath, seed, { encoding: "utf8", mode: 0o600 });
 try {
@@ -45,7 +48,7 @@ const adminHeaders = { cookie: `baiye_admin_session=${adminToken}`, "x-csrf-toke
 const signature = JSON.stringify({ strokes: [[[16, 18], [44, 32], [78, 16], [112, 45]], [[20, 68], [54, 80], [98, 63], [142, 88]]] });
 
 // Partner apply -> approve -> invite -> activate -> login -> preview -> sign -> PDF.
-const applied = await post("/api/partner/apply", { legal_name: "STAGING 測試承攬夥伴", display_name: "STAGING 測試承攬夥伴", email: partnerEmail, phone: "0900000000", consent: true });
+const applied = await post("/api/partner/apply", { legal_name: "STAGING 測試承攬夥伴", display_name: "STAGING 測試承攬夥伴", email: partnerEmail, phone: partnerPhone, consent: true });
 await api(`/api/admin/partners/${applied.value.id}`, { method: "PATCH", headers: adminHeaders, body: JSON.stringify({ action: "approve" }) });
 const partnerInvite = await post(`/api/admin/partners/${applied.value.id}/invite`, {}, adminHeaders);
 const partnerInviteToken = decodeURIComponent(String(partnerInvite.value.invite_url).split("token=")[1] || "");
@@ -93,9 +96,9 @@ const verification = await api(`/api/contract-verification/${merchantSign.value.
 
 const result = {
   run_id: runId,
-  partner: { apply: applied.value.status === "pending_contract", approve: true, invite: Boolean(partnerInviteToken), activate: true, login: true, preview: partnerPreview.value.version, sign: Boolean(partnerSign.value.signature_id), pdf_bytes: partnerPdf.value.byteLength },
-  merchant: { terms: Boolean(terms.value.terms_hash), invite: Boolean(merchantInviteToken), activate: true, login: true, preview: merchantPreview.value.version, sign: Boolean(merchantSign.value.signature_id), pdf_bytes: merchantPdf.value.byteLength },
+  partner: { apply: applied.value.status === "pending_contract", approve: true, invite: Boolean(partnerInviteToken), activate: true, login: true, preview: partnerPreview.value.version, sign: Boolean(partnerSign.value.signature_id), auto_member: Boolean(partnerSign.value.membership?.member_id), welcome_coupon: partnerSign.value.welcome?.show === true, pdf_bytes: partnerPdf.value.byteLength },
+  merchant: { terms: Boolean(terms.value.terms_hash), invite: Boolean(merchantInviteToken), activate: true, login: true, preview: merchantPreview.value.version, sign: Boolean(merchantSign.value.signature_id), auto_member: Boolean(merchantSign.value.membership?.member_id), welcome_coupon: merchantSign.value.welcome?.show === true, pdf_bytes: merchantPdf.value.byteLength },
   verification: { status: verification.value.status, no_pii: !JSON.stringify(verification.value).includes("STAGING 測試代表") },
 };
-if (!result.partner.apply || !result.partner.sign || result.partner.pdf_bytes < 1000 || !result.merchant.terms || !result.merchant.sign || result.merchant.pdf_bytes < 1000 || result.verification.status !== "VALID" || !result.verification.no_pii) throw new Error(`Onboarding E2E failed: ${JSON.stringify(result)}`);
+if (!result.partner.apply || !result.partner.sign || !result.partner.auto_member || !result.partner.welcome_coupon || result.partner.pdf_bytes < 1000 || !result.merchant.terms || !result.merchant.sign || !result.merchant.auto_member || !result.merchant.welcome_coupon || result.merchant.pdf_bytes < 1000 || result.verification.status !== "VALID" || !result.verification.no_pii) throw new Error(`Onboarding E2E failed: ${JSON.stringify(result)}`);
 console.log(JSON.stringify({ ok: true, ...result }));

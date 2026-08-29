@@ -18,6 +18,8 @@
   ],
   "vars": {
     "ALLOWED_ORIGINS": "https://baiye-platform-contract-signing-staging.pages.dev",
-    "CONTRACT_SIGNING_MODE": "staging"
+    "CONTRACT_SIGNING_MODE": "staging",
+    "SMS_OTP_MODE": "staging",
+    "PLATFORM_WELCOME_COUPON_REDEMPTION_ENABLED": "0"
   }
 }

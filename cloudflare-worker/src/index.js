@@ -14,6 +14,7 @@ import {
   handleMerchantContractRequest,
   handlePublicContractVerification,
 } from "./merchant-contracts.js";
+import { handlePlatformMemberRequest } from "./platform-membership.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -38,7 +39,7 @@ function corsHeaders(origin) {
     ? {
         "access-control-allow-origin": origin,
         "access-control-allow-methods": "GET, POST, PUT, PATCH, OPTIONS",
-        "access-control-allow-headers": "content-type, authorization, idempotency-key, x-csrf-token",
+        "access-control-allow-headers": "content-type, authorization, idempotency-key, x-csrf-token, x-platform-member-token, x-device-id",
         "access-control-max-age": "86400",
         "access-control-allow-credentials": "true",
         vary: "Origin",
@@ -215,6 +216,12 @@ export default {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const publicId = decodeURIComponent(url.pathname.slice("/api/contract-verification/".length));
       return handlePublicContractVerification(env, publicId, cors);
+    }
+
+    if (url.pathname.startsWith("/api/members/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handlePlatformMemberRequest(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname.startsWith("/api/merchant/contracts/invite/") || url.pathname === "/api/merchant/contracts/accept-invite") {

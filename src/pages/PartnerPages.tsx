@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
 import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
+import { savePlatformMemberToken } from "../qr-ordering-client";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -713,6 +714,7 @@ export function PartnerContract() {
   const [message, setMessage] = useState("");
   const [signature, setSignature] = useState<SignatureValue>({ strokes: [] });
   const [preview, setPreview] = useState<any>();
+  const [memberWelcome, setMemberWelcome] = useState<any>();
   useEffect(() => {
     api("/api/partner/contract/current")
       .then(setContract)
@@ -738,6 +740,8 @@ export function PartnerContract() {
           signature,
         }),
       });
+      if (result.member_session?.token) savePlatformMemberToken(result.member_session.token);
+      if (result.welcome?.show) setMemberWelcome(result.welcome);
       setMessage(
         `承攬夥伴合作契約已簽署並保存私有 PDF。文件雜湊：${result.document_hash}`,
       );
@@ -790,6 +794,7 @@ export function PartnerContract() {
             預覽最後確認
           </button>
           {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最後確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" onClick={() => void sign()}>確認簽署</button></div></div></div>}
+          {memberWelcome && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>{memberWelcome.title}</h2><p>您已自動成為創百業會員，NT$100 迎新禮券已放入您的會員帳戶。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">查看我的優惠券</Link><Link className="btn btn-outline" to="/partner/dashboard">繼續前往承攬夥伴中心</Link></div></div></div>}
         </>
       )}
       {message && (

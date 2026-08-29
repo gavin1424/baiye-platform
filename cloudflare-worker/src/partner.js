@@ -8,6 +8,7 @@ import {
   sessionEvidenceHash,
   storePrivateAgreementArtifacts,
 } from "./contract-engine.js";
+import { ensurePlatformMember, finalizePlatformMembershipBatch, normalizeTaiwanMobile, preparePlatformMembershipBatch } from "./platform-membership.js";
 
 const E = new TextEncoder();
 const D = new TextDecoder();
@@ -640,25 +641,33 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       const input = await body(request), contract = await activeContract(db);
       const staging = assertContractSignable(contract, env).staging;
       if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
-      const operation = await beginContractOperation(db, { partyType: "partner", partyId: partnerId, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
-      if (operation.replay) return json(operation.result, 200, cors);
-      const existing = await db.prepare("SELECT id,public_id,document_hash,pdf_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
-      if (existing) { const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, replay: true }; await completeContractOperation(db, operation.operation.id, replay); return json(replay, 200, cors); }
-      const signatureId = id("sign"), publicId = `BYPC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
+      if (!normalizeTaiwanMobile(partner.phone)) throw new ContractError("PARTNER_PHONE_REQUIRED", "承攬夥伴手機資料不完整，請先聯絡平台更新後再簽署。", 422);
       const cookieToken = (request.headers.get("cookie") || "").match(/(?:^|;\s*)partner_session=([^;]+)/)?.[1] || "unknown";
+      const operation = await beginContractOperation(db, { partyType: "partner", partyId: partnerId, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
+      if (operation.replay) return json({ ...operation.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
+      const existing = await db.prepare("SELECT id,public_id,document_hash,pdf_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
+      if (existing) {
+        const membership = await ensurePlatformMember(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract", issueSession: true });
+        const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, replay: true };
+        await completeContractOperation(db, operation.operation.id, replay); return json(replay, 200, cors);
+      }
+      const signatureId = id("sign"), publicId = `BYPC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
       const sessionHash = await sessionEvidenceHash(cookieToken);
       const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：平台契約正式設定法律主體　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", signature: input.signature, consents: { read: input.read, electronic: input.electronic, independent: input.independent }, consentVersion: "partner-contract-consent-v1.4", ip: clientIp(request), userAgent: request.headers.get("user-agent"), sessionEvidence: sessionHash, staging });
       const prefix = `contracts/partners/${partnerId}/${contract.version}/${signatureId}`;
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
+      const membershipBatch = await preparePlatformMembershipBatch(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract" });
       try {
         await db.batch([
           db.prepare("INSERT INTO contract_signatures(id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version,signature_assurance_level,public_id,evidence_object_key,session_id_hash,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
             .bind(signatureId, partnerId, contract.id, partner.legal_name, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.4", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID"),
           db.prepare("UPDATE partners SET contract_status='signed',contract_version=?,contract_signed_at=?,updated_at=? WHERE id=?").bind(contract.version, agreement.signedAt, now(), partnerId),
+          ...membershipBatch.statements,
         ]);
       } catch (error) { await stored.cleanup(); throw error; }
       await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE });
-      const result = { ok: true, signature_id: signatureId, public_id: publicId, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash };
+      const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
+      const result = { ok: true, signature_id: signatureId, public_id: publicId, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome };
       await completeContractOperation(db, operation.operation.id, result);
       return json(result, 201, cors);
     } catch (error) { return contractFailure(error, cors); }

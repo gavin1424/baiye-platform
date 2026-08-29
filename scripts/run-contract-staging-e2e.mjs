@@ -51,8 +51,8 @@ UPDATE merchant_contract_versions SET is_active=0;
 UPDATE merchant_contract_versions SET is_active=1 WHERE version='v1.0';
 INSERT INTO partners(id,partner_code,legal_name,display_name,email,phone,status,contract_status,referral_code,approved_at,activated_at)
 VALUES(${quote(partnerId)},${quote(`STAGING-P-${runId}`)},'STAGING 測試承攬夥伴','STAGING 測試承攬夥伴',${quote(`${partnerId}@staging.invalid`)},'0900000000','active','unsigned',${quote(`STAGINGREF${runId}`)},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
-INSERT INTO merchants(id,merchant_code,name,contact_name,email,status)
-VALUES(${quote(merchantId)},${quote(`STAGING-M-${runId}`)},'STAGING 測試商家｜NOT A REAL CONTRACT','STAGING 測試代表',${quote(`${merchantId}@staging.invalid`)},'pending_contract');
+INSERT INTO merchants(id,merchant_code,name,contact_name,phone,email,status)
+VALUES(${quote(merchantId)},${quote(`STAGING-M-${runId}`)},'STAGING 測試商家｜NOT A REAL CONTRACT','STAGING 測試代表','0930000004',${quote(`${merchantId}@staging.invalid`)},'pending_contract');
 INSERT INTO merchant_users(id,merchant_id,email,password_hash,password_salt,status,display_name)
 VALUES(${quote(merchantUserId)},${quote(merchantId)},${quote(`${merchantId}@staging.invalid`)},'STAGING-NOT-LOGINABLE','STAGING','active','STAGING 測試代表');
 INSERT INTO merchant_roles(id,merchant_id,code,name,is_system) VALUES(${quote(`staging_owner_role_${runId}`)},${quote(merchantId)},'owner','STAGING 商家擁有者',1);

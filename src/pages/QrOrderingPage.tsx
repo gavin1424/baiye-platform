@@ -29,6 +29,9 @@ import {
   getOrderingMemberToken,
   orderingPublicApi,
   saveOrderingMemberToken,
+  getPlatformMemberToken,
+  savePlatformMemberToken,
+  getPlatformDeviceId,
   saveOrderingLastOrder,
   type OrderingCategory,
   type OrderingContext,
@@ -135,9 +138,7 @@ export function QrOrderingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [joinForm, setJoinForm] = useState({
-    display_name: "",
     phone: "",
-    email: "",
     consent: false,
   });
   const [orderType, setOrderType] = useState<OrderingOrderType>("dine_in");
@@ -383,20 +384,26 @@ export function QrOrderingPage() {
         session: { token: string; expires_at: string };
         message: string;
         coupon?: OrderingCoupon | null;
+        platform_session?: { token: string; expires_at: string } | null;
+        welcome?: { show: boolean; title?: string; message?: string };
       }>(`/api/ordering/qr/${encodeURIComponent(code)}/join`, {
         method: "POST",
+        headers: {
+          "x-platform-member-token": getPlatformMemberToken(),
+          "x-device-id": getPlatformDeviceId(),
+        },
         body: JSON.stringify({
-          display_name: joinForm.display_name,
           phone: joinForm.phone,
-          email: joinForm.email,
           privacy_consent: joinForm.consent,
           consent_version: context.consent_version,
+          device_id: getPlatformDeviceId(),
         }),
       });
       setMember(data.member);
       setToken(data.session.token);
       saveOrderingMemberToken(context.merchant_id, data.session.token);
-      setMessage(data.message);
+      if (data.platform_session?.token) savePlatformMemberToken(data.platform_session.token);
+      setMessage(data.welcome?.show ? `${data.welcome.title} ${data.welcome.message}` : data.message);
       if (data.coupon) setCoupons([data.coupon]);
       await loadBenefits(data.session.token);
       if (context.qr.purpose !== "member_only")
@@ -615,7 +622,7 @@ export function QrOrderingPage() {
             <div>
               <span>手機快速加入</span>
               <h2>加入會員後立即點餐</h2>
-              <p>不用安裝 App，填寫基本資料即可在本手機使用。</p>
+              <p>不用安裝 App、不用密碼，只需手機號碼即可加入。</p>
             </div>
           </div>
           {IS_BEEF_NOODLE_DEMO ? (
@@ -624,18 +631,6 @@ export function QrOrderingPage() {
             </p>
           ) : null}
           <form onSubmit={join} className="ordering-form-grid">
-            <label>
-              姓名
-              <input
-                required
-                autoComplete="name"
-                value={joinForm.display_name}
-                onChange={(event) =>
-                  setJoinForm({ ...joinForm, display_name: event.target.value })
-                }
-                placeholder="請輸入姓名"
-              />
-            </label>
             <label>
               手機號碼
               <input
@@ -649,18 +644,6 @@ export function QrOrderingPage() {
                 placeholder="09xxxxxxxx"
               />
             </label>
-            <label className="ordering-form-wide">
-              Email（選填）
-              <input
-                type="email"
-                autoComplete="email"
-                value={joinForm.email}
-                onChange={(event) =>
-                  setJoinForm({ ...joinForm, email: event.target.value })
-                }
-                placeholder="接收通知用，可不填"
-              />
-            </label>
             <label className="ordering-consent ordering-form-wide">
               <input
                 type="checkbox"
@@ -670,9 +653,9 @@ export function QrOrderingPage() {
                 }
               />
               <span>
-                我同意以本資料建立此商家的快速會員，並已閱讀
+                我已閱讀並同意會員服務與
                 <Link to="/privacy">隱私權政策</Link>
-                。快速會員僅用於會員識別與點餐，不在此頁顯示完整手機資料。
+                。手機僅用於會員識別，不會在公開頁面顯示。
               </span>
             </label>
             <button

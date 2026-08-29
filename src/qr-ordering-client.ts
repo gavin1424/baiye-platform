@@ -297,6 +297,28 @@ export function clearOrderingMemberToken(merchantId: string) {
   }
 }
 
+const PLATFORM_MEMBER_TOKEN_KEY = "baiye_platform_member_token";
+const PLATFORM_DEVICE_KEY = "baiye_platform_device_id";
+
+export function getPlatformMemberToken() {
+  try { return window.localStorage.getItem(PLATFORM_MEMBER_TOKEN_KEY) || ""; } catch { return ""; }
+}
+
+export function savePlatformMemberToken(token: string) {
+  try { window.localStorage.setItem(PLATFORM_MEMBER_TOKEN_KEY, token); } catch { /* Current page still holds the token. */ }
+}
+
+export function getPlatformDeviceId() {
+  try {
+    let id = window.localStorage.getItem(PLATFORM_DEVICE_KEY) || "";
+    if (!id) {
+      id = crypto.randomUUID();
+      window.localStorage.setItem(PLATFORM_DEVICE_KEY, id);
+    }
+    return id;
+  } catch { return crypto.randomUUID(); }
+}
+
 export function getOrderingLastOrder(merchantId: string) {
   try {
     return window.localStorage.getItem(lastOrderKey(merchantId)) || "";
