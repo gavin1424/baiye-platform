@@ -5,7 +5,7 @@ import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/AuthPages";
 import { AdminFinancePage } from "./pages/AdminFinance";
 import { AdminBookings } from "./pages/AdminBookings";
-import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
+import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerContractPdfViewer, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
 import { AiChatWidget } from "./components/AiChatWidget";
 import { FaqPageV13, HowItWorksPageV13, PricingPageV13, TermsPageV13 } from "./pages/CommercialV13Pages";
 import { AccountUnavailablePage, CatalogUnavailablePage, EmptyCollaborationPage, MerchantAccessUnavailablePage, ProductionContactPage, ProductionNotFoundPage, ProductionPrivacyPage, VerifiedBusinessesPage } from "./pages/ProductionPublicPages";
@@ -250,6 +250,7 @@ export function App() {
         <Route path="/partner/activate" element={<PartnerActivate />} />
         <Route path="/partner/login" element={<PartnerLogin />} />
         <Route path="/partner/contract" element={<PartnerContract />} />
+        <Route path="/partner/contracts/:signatureId/view" element={<PartnerContractPdfViewer />} />
         <Route path="/partner/dashboard" element={<PartnerDashboard />} />
         <Route path="/partner/commissions" element={<PartnerDashboard />} />
         <Route path="/merchant/activate" element={<MerchantContractActivate />} />

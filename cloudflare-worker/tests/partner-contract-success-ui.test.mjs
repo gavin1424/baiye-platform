@@ -15,7 +15,7 @@ test("UI08 one stable idempotency ref is used", () => assert.match(source, /useR
 test("UI09 incomplete sign result does not close preview", () => { const validation=source.indexOf("SIGN_RESULT_INCOMPLETE"),close=source.indexOf("setPreview(undefined);",validation); assert.ok(validation>0&&close>validation); });
 test("UI10 success redirects to partner dashboard", () => assert.match(source, /navigate\("\/partner\/dashboard", \{ replace: true \}\)/));
 test("UI11 signed refresh hides signing form", () => assert.match(source, /signed && !signSuccess[\s\S]*此版本已完成簽署[\s\S]*!signed &&/));
-test("UI12 signed refresh offers private PDF and dashboard", () => { assert.match(source,/查看／下載已簽 PDF/); assert.match(source,/返回承攬夥伴中心/); });
+test("UI12 signed refresh offers private PDF and dashboard", () => { assert.match(source,/查看已簽 PDF/); assert.match(source,/下載 PDF/); assert.match(source,/返回承攬夥伴中心/); });
 test("UI13 coupon issue warning preserves contract success", () => assert.match(source,/契約已簽署成功，但迎新禮券建立暫時失敗/));
 test("UI14 countdown is announced", () => assert.match(source,/秒後自動返回承攬夥伴中心/));
 test("UI15 mobile actions retain shared responsive class", () => assert.match(source,/member-welcome-modal[\s\S]*partner-workflow-actions/));

@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
 import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
 import { savePlatformMemberToken } from "../qr-ordering-client";
+import {
+  downloadContractPdf,
+  fetchContractPdfBlob,
+  openContractPdf,
+  PartnerContractPdfError,
+} from "../lib/partner-contract-pdf";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -556,17 +562,10 @@ export function PartnerDashboard() {
   const download = async () => {
     if (!data?.contract?.signature_id) return;
     try {
-      const response = await fetch(
-        `${API}/api/partner/contracts/${data.contract.signature_id}/pdf`,
-        { credentials: "include" },
+      await downloadContractPdf(
+        data.contract.signature_id,
+        `創百業智慧鏈_承攬夥伴合作契約_${data.contract.version || "已簽署"}.pdf`,
       );
-      if (!response.ok) throw new Error((await response.json()).error);
-      const url = URL.createObjectURL(await response.blob());
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `已簽承攬夥伴合作契約-${data.contract.version || ""}.pdf`;
-      anchor.click();
-      URL.revokeObjectURL(url);
     } catch (error) {
       setMessage(errorText(error));
     }
@@ -682,6 +681,62 @@ export function PartnerDashboard() {
         <QRCodeSVG value={referral} size={150} />
       </section>}
       {message && <p className="partner-message">{message}</p>}
+    </main>
+  );
+}
+
+export function PartnerContractPdfViewer() {
+  const { signatureId = "" } = useParams();
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [errorCode, setErrorCode] = useState<"UNAUTHORIZED" | "NOT_FOUND" | "LOAD_FAILED" | "">("");
+  const [busy, setBusy] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl = "";
+    setBusy(true);
+    setErrorCode("");
+    fetchContractPdfBlob(signatureId)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPdfUrl(objectUrl);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setErrorCode(error instanceof PartnerContractPdfError ? error.code : "LOAD_FAILED");
+      })
+      .finally(() => active && setBusy(false));
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [signatureId]);
+
+  const message = errorCode === "UNAUTHORIZED"
+    ? "登入已失效，請重新登入承攬夥伴中心。"
+    : errorCode === "NOT_FOUND"
+      ? "找不到此已簽契約 PDF。"
+      : "PDF 暫時無法載入，請稍後再試。";
+
+  return (
+    <main className="partner-shell partner-pdf-viewer">
+      <div className="partner-pdf-viewer-header">
+        <div><p className="partner-eyebrow">私人契約文件</p><h1>查看已簽 PDF</h1></div>
+        <Link className="btn btn-outline" to="/partner/contract">返回契約頁</Link>
+      </div>
+      {busy && <section className="partner-status">正在安全載入已簽契約 PDF…</section>}
+      {!busy && errorCode && <section className="partner-status warning"><strong>{message}</strong>{errorCode === "UNAUTHORIZED" && <Link className="btn btn-primary btn-sm" to="/partner/login">重新登入</Link>}</section>}
+      {pdfUrl && <>
+        <object className="partner-pdf-object" data={pdfUrl} type="application/pdf" aria-label="已簽承攬夥伴合作契約 PDF">
+          <div className="partner-status warning"><strong>此瀏覽器無法直接預覽 PDF</strong><span>您仍可在新頁面開啟或下載私人文件。</span></div>
+        </object>
+        <div className="partner-workflow-actions partner-pdf-actions">
+          <button className="btn btn-primary" onClick={() => void openContractPdf(signatureId)}>在新頁面開啟</button>
+          <button className="btn btn-outline" onClick={() => void downloadContractPdf(signatureId, `創百業智慧鏈_承攬夥伴合作契約_${signatureId}.pdf`)}>下載 PDF</button>
+        </div>
+        <p className="partner-guidance-note">若 Android 或 LINE 內建瀏覽器無法直接預覽，請使用上方按鈕開啟已驗證取得的私人 PDF。</p>
+      </>}
     </main>
   );
 }
@@ -840,7 +895,7 @@ export function PartnerContract() {
               <strong>此版本已完成簽署</strong>
               <span>契約版本：{contract.signature?.version || contract.version} · 簽署時間：{formatDate(contract.signature?.signed_at)}</span>
               <div className="partner-workflow-actions">
-                {contract.signature?.signature_id && <a className="btn btn-outline" href={`${API}/api/partner/contracts/${contract.signature.signature_id}/pdf`}>查看／下載已簽 PDF</a>}
+                {contract.signature?.signature_id && <><Link className="btn btn-outline" to={`/partner/contracts/${contract.signature.signature_id}/view`}>查看已簽 PDF</Link><button className="btn btn-outline" type="button" onClick={() => void downloadContractPdf(contract.signature.signature_id, `創百業智慧鏈_承攬夥伴合作契約_${contract.signature.version || contract.version}.pdf`).catch((error) => setMessage(error instanceof PartnerContractPdfError && error.code === "UNAUTHORIZED" ? "登入已失效，請重新登入承攬夥伴中心。" : error instanceof PartnerContractPdfError && error.code === "NOT_FOUND" ? "找不到此已簽契約 PDF。" : "PDF 暫時無法載入，請稍後再試。"))}>下載 PDF</button></>}
                 <Link className="btn btn-primary" to="/partner/dashboard">返回承攬夥伴中心</Link>
               </div>
             </section>

@@ -49,6 +49,16 @@
 
 /* Contract Engine V1 */
 .contract-shell { max-width: 1040px; }
+.partner-pdf-viewer { max-width: 1180px; }
+.partner-pdf-viewer-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.partner-pdf-viewer-header h1 { margin-top: 0; }
+.partner-pdf-object { width: 100%; min-height: 72vh; border: 1px solid var(--line, #d8d3c9); border-radius: 14px; background: #f5f2ec; }
+.partner-pdf-actions { margin-top: 1rem; }
+@media (max-width: 600px) {
+  .partner-pdf-viewer-header { align-items: flex-start; flex-direction: column; }
+  .partner-pdf-object { min-height: 62vh; }
+  .partner-pdf-actions .btn { width: 100%; }
+}
 .contract-document { max-height: 520px; overflow: auto; padding: 1.5rem; border: 1px solid #ded8cf; border-radius: 16px; background: #fff; line-height: 1.75; }
 .contract-summary-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 1.25rem 0; }
 .contract-summary-grid article,.contract-summary-card { display: flex; flex-direction: column; gap: 5px; padding: 1rem; border: 1px solid #ded8cf; border-radius: 14px; background: #fff; }
