@@ -997,7 +997,7 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       const signedAt = now();
       const contractPeriod = calculatePartnerContractPeriod(taipeiDateFromInstant(signedAt), Number(contract.contract_term_months || 3));
       const idNumber = await decryptPartnerIdNumber(partner.id_number_encrypted, env.PARTNER_ID_FIELD_ENCRYPTION_KEY);
-      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：平台契約正式設定法律主體　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", identityHash: partner.id_number_hash, privateIdentityLabel: `乙方身分證字號：${idNumber}`, contractPeriod, signedAt, signature: input.signature, signatureValidation: { minimumPoints: 12, minimumStrokes: 2 }, consents: { read: input.read, electronic: input.electronic, independent: input.independent, identity: input.identity, block_letter_signature: input.block_letter_signature }, consentVersion: "partner-contract-consent-v1.5", ip: clientIp(request), userAgent: request.headers.get("user-agent"), sessionEvidence: sessionHash, staging });
+      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：平台契約正式設定法律主體　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", identityHash: partner.id_number_hash, privateIdentityLabel: `乙方身分證字號：${idNumber}`, contractPeriod, signedAt, signature: input.signature, signatureValidation: { minimumPoints: 12, minimumStrokes: 2 }, consents: { read: input.read, electronic: input.electronic, independent: input.independent, identity: input.identity, block_letter_signature: input.block_letter_signature }, consentVersion: "partner-contract-consent-v1.5", ip: clientIp(request), userAgent: request.headers.get("user-agent"), sessionEvidence: sessionHash, staging, contractAssetsBucket: env.CONTRACTS_BUCKET, fontAssets: env.CONTRACT_FONT_ASSETS_FOR_TESTS });
       const prefix = `contracts/partners/${partnerId}/${contract.version}/${signatureId}`;
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
       const membershipBatch = await preparePlatformMembershipBatch(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract" });
@@ -1030,12 +1030,13 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
 
   const pdfMatch = path.match(/^\/api\/partner\/contracts\/([^/]+)\/pdf$/);
   if (pdfMatch && request.method === "GET") {
-    const signature = await db.prepare("SELECT * FROM contract_signatures WHERE id=? AND partner_id=?").bind(pdfMatch[1], partnerId).first();
+    const signature = await db.prepare("SELECT s.*,v.version contract_version FROM contract_signatures s JOIN contract_versions v ON v.id=s.contract_version_id WHERE s.id=? AND s.partner_id=?").bind(pdfMatch[1], partnerId).first();
     if (!signature?.pdf_object_key || !env.CONTRACTS_BUCKET) return json({ error: "找不到已簽契約 PDF。" }, 404, cors);
     const object = await env.CONTRACTS_BUCKET.get(signature.pdf_object_key);
     if (!object) return json({ error: "找不到已簽契約 PDF。" }, 404, cors);
     await audit(db, request, "partner", partnerId, "contract_downloaded", "contract_signature", signature.id);
-    return new Response(object.body, { headers: { ...cors, "content-type": "application/pdf", "content-disposition": `attachment; filename=contract-${signature.id}.pdf`, "x-pdf-sha256": signature.pdf_hash } });
+    const downloadName = `創百業智慧鏈_承攬夥伴合作契約_${signature.contract_version || "v1.5"}_${signature.public_id || signature.id}.pdf`;
+    return new Response(object.body, { headers: { ...cors, "content-type": "application/pdf", "content-disposition": `attachment; filename=partner-contract-${signature.public_id || signature.id}.pdf; filename*=UTF-8''${encodeURIComponent(downloadName)}`, "x-pdf-sha256": signature.pdf_hash } });
   }
 
   if (path === "/api/partner/dashboard") return json(await partnerDashboard(db, partnerId, env), 200, cors);

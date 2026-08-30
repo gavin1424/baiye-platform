@@ -1,4 +1,5 @@
 import { createSignedAgreementPdf, sha256 } from "./contract-pdf.js";
+import { loadContractFontAssets } from "./contract-font-assets.js";
 
 export const STANDARD_ASSURANCE = "standard_electronic_agreement_evidence";
 export const CERTIFICATE_ASSURANCE = "certificate_digital_signature";
@@ -88,6 +89,7 @@ export async function buildSignedAgreement(input) {
     signature_assurance_level: STANDARD_ASSURANCE,
   };
   const documentHash = await hashCanonical(canonicalDocument);
+  const fontAssets = input.fontAssets || await loadContractFontAssets(input.contractAssetsBucket);
   const pdf = await createSignedAgreementPdf({
     title: input.title,
     documentId,
@@ -110,6 +112,7 @@ export async function buildSignedAgreement(input) {
     staging: Boolean(input.staging),
     privateIdentityLabel: input.privateIdentityLabel || null,
     contractPeriod: input.contractPeriod || null,
+    fontAssets,
   });
   const evidence = {
     ...canonicalDocument,
@@ -120,6 +123,10 @@ export async function buildSignedAgreement(input) {
     session_evidence: input.sessionEvidence || null,
     invite_evidence: input.inviteEvidence || null,
     signature_point_count: signature.pointCount,
+    pdf_renderer_version: pdf.rendererVersion,
+    font_asset_sha256: pdf.fontAssetSha256,
+    font_asset_bold_sha256: pdf.fontAssetBoldSha256,
+    font_asset_mono_sha256: pdf.fontAssetMonoSha256,
     environment: input.staging ? "STAGING_NOT_A_REAL_CONTRACT" : "PRODUCTION",
   };
   return { ...pdf, evidence, evidenceBytes: new TextEncoder().encode(stableStringify(evidence)), signatureHash, signatureData: signature.serialized, documentHash, signedAt, consents };

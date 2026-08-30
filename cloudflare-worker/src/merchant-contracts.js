@@ -221,6 +221,8 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
         consentVersion: "merchant-contract-consent-v1", commercialTermsHash: termsHash,
         attachments: commercialAttachments(context.terms), ip: ip(request), userAgent: request.headers.get("user-agent"),
         sessionEvidence: sessionHash, inviteEvidence: await sha256(context.invite.id), staging,
+        contractAssetsBucket: env.CONTRACTS_BUCKET,
+        fontAssets: env.CONTRACT_FONT_ASSETS_FOR_TESTS,
       });
       const prefix = `contracts/merchants/${session.merchant_id}/${context.contract.version}/${signatureId}`;
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
