@@ -6,8 +6,8 @@
   "d1_databases": [
     {
       "binding": "FINANCE_DB",
-      "database_name": "baiye-contract-signing-staging",
-      "database_id": "7d31a677-bce0-4224-8700-60e5ab54a3b7"
+      "database_name": "baiye-contract-pdf-cjk-staging",
+      "database_id": "da16a375-7c57-4082-a407-94dd0417202c"
     }
   ],
   "r2_buckets": [
