@@ -94,7 +94,9 @@ function ScrollAndMetadata() {
     const path = location.pathname;
     const title =
       PAGE_TITLES[path] ||
-      (path.startsWith("/q/")
+      (path.startsWith("/partner/contracts/") && path.endsWith("/view")
+        ? "查看已簽承攬夥伴契約｜創百業智慧鏈"
+        : path.startsWith("/q/")
         ? "掃碼加入會員與手機點餐｜創百業智慧鏈"
         : path.startsWith("/verify-contract/")
           ? "契約文件驗證｜創百業智慧鏈"
