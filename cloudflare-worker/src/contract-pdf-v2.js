@@ -59,17 +59,29 @@ export function contractBlocksFromHtml(html) {
   return blocks;
 }
 
-function wrapByWidth(value, font, size, maxWidth) {
+export function wrapByWidth(value, font, size, maxWidth) {
   const output = [];
   for (const paragraph of String(value || "").split(/\r?\n/)) {
     if (!paragraph) { output.push(""); continue; }
     let line = "";
-    for (const character of Array.from(paragraph)) {
-      const candidate = line + character;
+    const tokens = paragraph.match(/[\p{Script=Han}]{1,8}\s+NT\$[\d,]+(?:\.\d+)?|https?:\/\/\S+|NT\$[\d,]+(?:\.\d+)?|[A-Za-z0-9][A-Za-z0-9._:/#?&=%+\-]*|\s+|[^\s]/gu) || [];
+    for (const token of tokens) {
+      const candidate = line + token;
       if (line && font.widthOfTextAtSize(candidate, size) > maxWidth) {
         output.push(line.trimEnd());
-        line = character.trimStart();
+        line = token.trimStart();
       } else line = candidate;
+      if (line && font.widthOfTextAtSize(line, size) > maxWidth) {
+        const oversized = line;
+        line = "";
+        for (const character of Array.from(oversized)) {
+          const characterCandidate = line + character;
+          if (line && font.widthOfTextAtSize(characterCandidate, size) > maxWidth) {
+            output.push(line.trimEnd());
+            line = character;
+          } else line = characterCandidate;
+        }
+      }
     }
     if (line) output.push(line.trimEnd());
   }
@@ -113,7 +125,7 @@ export async function createSignedAgreementPdfV2(input) {
     if (lines.length <= 3) requireHeight(lines.length * lineHeight + after);
     for (const line of lines) {
       if (y - lineHeight < MARGIN.bottom + 18) newPage();
-      if (line) page.drawText(line, { x: MARGIN.left + indent, y, size, font, color, maxWidth: width });
+      if (line) page.drawText(line, { x: MARGIN.left + indent, y, size, font, color });
       y -= lineHeight;
     }
     y -= after;
