@@ -299,6 +299,8 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
         signatureValidation: { minimumStrokes: 2, minimumPoints: 12 }, consentVersion: "merchant-contract-consent-v1.1", commercialTermsHash: termsHash,
         attachments: commercialAttachments(context.terms, context.contract), identityHash: partySnapshot ? await hashCanonical(partySnapshot) : null, contractPeriod: { period_start: context.terms.start_date, period_end: context.terms.service_period_end, term_months: context.terms.contract_term_months }, ip: ip(request), userAgent: request.headers.get("user-agent"),
         sessionEvidence: sessionHash, inviteEvidence: await sha256(context.invite.id), staging,
+        contractAssetsBucket: env.CONTRACTS_BUCKET,
+        fontAssets: env.CONTRACT_FONT_ASSETS_FOR_TESTS,
       });
       const prefix = `contracts/merchants/${session.merchant_id}/${context.contract.version}/${signatureId}`;
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);

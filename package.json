@@ -17,8 +17,10 @@
     "test:worker": "node --test cloudflare-worker/tests/*.test.mjs"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@phosphor-icons/react": "^2.1.10",
     "@vitejs/plugin-react": "5.0.4",
+    "pdf-lib": "^1.17.1",
     "qrcode.react": "^4.2.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -28,6 +30,7 @@
   "devDependencies": {
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "pdfjs-dist": "^5.4.624",
     "typescript": "^7.0.2"
   }
 }
