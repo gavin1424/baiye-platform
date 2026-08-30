@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+
 const workerUrl = process.env.CONTRACT_STAGING_WORKER_URL;
 const origin = process.env.CONTRACT_STAGING_ORIGIN;
 if (!workerUrl?.includes("contract-signing-staging") || !origin?.includes("contract-signing-staging.pages.dev")) {
@@ -58,6 +61,11 @@ const signHeaders = { ...headers, "idempotency-key": `partner-v15-${runId}` };
 const signed = await post("/api/partner/contract/sign", consent, signHeaders);
 const replay = await post("/api/partner/contract/sign", consent, signHeaders);
 const pdf = await api(`/api/partner/contracts/${signed.value.signature_id}/pdf`, { headers });
+if (process.env.CONTRACT_STAGING_PDF_OUTPUT) {
+  const outputPath = resolve(process.env.CONTRACT_STAGING_PDF_OUTPUT);
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, pdf.value);
+}
 const dashboard = await api("/api/partner/dashboard", { headers });
 const verification = await api(`/api/contract-verification/${signed.value.public_id}`);
 
