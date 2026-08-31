@@ -27,6 +27,7 @@ test("test provider generates an explicitly non-production invoice only in test"
 test("invoice migration includes requests, immutable document records and retry state", () => {
   const sql = fs.readFileSync(new URL("../migrations/0020_demo_invoice_core.sql", import.meta.url), "utf8");
   for (const table of ["invoice_requests", "invoices", "invoice_items", "invoice_events", "invoice_allowances", "merchant_invoice_integrations"]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
+  assert.match(fs.readFileSync(new URL("../src/qr-ordering.js", import.meta.url), "utf8"), /INSERT INTO invoice_items/);
   for (const state of ["PENDING", "ISSUING", "ISSUED", "FAILED", "VOID_PENDING", "VOIDED", "ALLOWANCE_PENDING", "PARTIALLY_REFUNDED", "FULLY_REFUNDED"]) assert.ok(invoiceStates.has(state) || sql.includes(`'${state}'`));
   assert.match(sql, /retry_count/); assert.match(sql, /next_retry_at/);
   const immutability = fs.readFileSync(new URL("../migrations/0021_invoice_document_immutability.sql", import.meta.url), "utf8");

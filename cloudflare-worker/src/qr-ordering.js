@@ -717,9 +717,11 @@ async function createInvoiceRequestForPayment(db, env, payment) {
     return { id: request.id, status: "FAILED" };
   }
   const invoiceId = uid("invoice");
+  const orderItems = await db.prepare("SELECT id,name_snapshot,quantity,unit_price_minor,line_total_minor FROM merchant_food_order_items WHERE order_id=? ORDER BY created_at,id").bind(request.order_id).all();
   await db.batch([
     db.prepare("UPDATE invoice_requests SET status='ISSUED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(request.id),
     db.prepare("INSERT INTO invoices(id,merchant_id,order_id,invoice_request_id,provider,provider_invoice_id,invoice_number,invoice_date,random_number,status,issued_at) VALUES(?,?,?,?,?,?,?,?,?,'ISSUED',CURRENT_TIMESTAMP)").bind(invoiceId, request.merchant_id, request.order_id, request.id, integration.provider, issue.provider_invoice_id, issue.invoice_number, issue.invoice_date, issue.random_number),
+    ...(orderItems.results || []).map((item) => db.prepare("INSERT INTO invoice_items(id,invoice_id,order_item_id,name_snapshot,quantity,unit_price_minor,amount_minor) VALUES(?,?,?,?,?,?,?)").bind(uid("invitem"), invoiceId, item.id, item.name_snapshot, Number(item.quantity), Number(item.unit_price_minor), Number(item.line_total_minor))),
     db.prepare("INSERT INTO invoice_events(id,merchant_id,invoice_request_id,invoice_id,event_type,from_status,to_status,actor_type) VALUES(?,?,?,?, 'invoice_issued','PENDING','ISSUED','provider')").bind(uid("invevt"), request.merchant_id, request.id, invoiceId),
   ]);
   return { id: request.id, status: "ISSUED", invoice_id: invoiceId };
