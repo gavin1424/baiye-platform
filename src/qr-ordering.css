@@ -1207,3 +1207,45 @@
   .ordering-option-group legend { align-items: flex-start; flex-direction: column; }
   .ordering-option-value-form { grid-template-columns: 1fr; }
 }
+
+/* The Demo QR route is a merchant storefront, not a platform landing page. */
+.ordering-storefront-hero {
+  align-items: center;
+  padding: 18px 0 12px;
+}
+.ordering-storefront-brand { display: flex; align-items: center; min-width: 0; gap: 12px; }
+.ordering-storefront-logo {
+  display: grid;
+  flex: 0 0 48px;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: #7e241b;
+  color: #fff8e9;
+}
+.ordering-storefront-logo svg { width: 29px; height: 29px; }
+.ordering-storefront-hero h1 { margin: 0 0 4px; color: #4d1712; font-size: clamp(26px, 7vw, 38px); }
+.ordering-storefront-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px !important; font-weight: 800; }
+.ordering-storefront-meta span { padding: 3px 8px; border-radius: 999px; background: #e8f7ef; color: #176b43; font-size: 12px; }
+.ordering-member-chip-compact { min-width: auto; padding: 9px 11px; border-radius: 999px; box-shadow: none; }
+.ordering-member-chip-compact > svg { width: 22px; height: 22px; }
+.ordering-member-chip-compact strong { font-size: 13px; }
+.ordering-storefront-hero + .ordering-message { margin-top: 6px; }
+.ordering-storefront-hero ~ .ordering-menu-section { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.ordering-storefront-hero ~ .ordering-menu-section .ordering-menu-search { margin-top: 0; }
+.ordering-join-after-menu { margin-top: 22px; margin-bottom: 18px; }
+.ordering-powered { width: min(100% - 32px, 960px); margin: 22px auto 10px; color: #7b8492; font-size: 11px; text-align: center; }
+@media (max-width: 640px) {
+  .ordering-storefront-hero { flex-direction: row; justify-content: space-between; gap: 10px; width: min(100% - 28px, 960px); padding: 14px 0 8px; }
+  .ordering-storefront-logo { flex-basis: 42px; width: 42px; height: 42px; border-radius: 14px; }
+  .ordering-storefront-logo svg { width: 25px; height: 25px; }
+  .ordering-storefront-brand { gap: 9px; }
+  .ordering-storefront-hero h1 { font-size: 27px; }
+  .ordering-storefront-meta { gap: 6px; font-size: 13px !important; }
+  .ordering-member-chip-compact { width: auto; padding: 7px 9px; }
+  .ordering-storefront-hero ~ .ordering-menu-section { width: min(100% - 28px, 960px); padding: 10px 0 24px; }
+  .ordering-storefront-hero ~ .ordering-menu-section .ordering-category-tabs { top: 0; margin-inline: 0; padding-inline: 0; }
+  .ordering-storefront-hero ~ .ordering-menu-section .ordering-menu-search { margin-bottom: 6px; }
+  .ordering-storefront-hero ~ .ordering-menu-section .ordering-category { margin-top: 20px; }
+}

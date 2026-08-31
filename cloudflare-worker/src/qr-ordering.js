@@ -403,7 +403,9 @@ async function handleJoin(request, db, context, cors) {
 async function handleMenu(request, db, context, cors) {
   if (!context.enabled) return json({ error: "此商家的掃碼點餐尚未開放。" }, 409, cors);
   const session = await memberSession(db, request, context.merchant_id);
-  if (context.require_member && !session) return json({ error: "請先加入會員或重新掃描 QR Code。", code: "MEMBER_REQUIRED" }, 401, cors);
+  // The QR token grants menu browsing only. Membership remains mandatory for
+  // submitting an order; an invalid supplied token still fails closed.
+  if (bearer(request) && !session) return json({ error: "會員登入已失效，請重新掃描 QR Code。", code: "MEMBER_REQUIRED" }, 401, cors);
   const [categories, items, groups, values, links] = await Promise.all([
     db.prepare(`SELECT id,name,description,sort_order FROM merchant_menu_categories WHERE merchant_id=? AND active=1 ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT id,category_id,sku,name,description,price_minor,image_url,sort_order,status,allow_customer_note,daily_limit,daily_sold_count,daily_sold_date FROM merchant_menu_items WHERE merchant_id=? AND status IN('active','sold_out') AND (status='active' OR ?=1) ORDER BY sort_order,name`).bind(context.merchant_id, Number(context.show_sold_out_items ?? 1)).all(),

@@ -171,14 +171,24 @@ function ContextualAiChatWidget() {
   return <AiChatWidget />;
 }
 
+function BeefNoodleDemoEnvironmentBanner() {
+  const location = useLocation();
+  // The public landing page explains the demo. A scanned QR is a merchant
+  // storefront, so it must not look like a platform entry screen.
+  if (location.pathname.startsWith("/q/")) return null;
+  return (
+    <div className="beef-demo-env-banner" role="status">
+      創百業智慧鏈 QR 點餐示範店｜此為功能展示環境，非實際營業店家
+    </div>
+  );
+}
+
 export function App() {
   if (IS_BEEF_NOODLE_DEMO) {
     return (
       <>
         <ScrollAndMetadata />
-        <div className="beef-demo-env-banner" role="status">
-          創百業智慧鏈 QR 點餐示範店｜此為功能展示環境，非實際營業店家
-        </div>
+        <BeefNoodleDemoEnvironmentBanner />
         <Routes>
           <Route path="/" element={<BeefNoodleDemoPage />} />
           <Route path="/q/:code" element={<QrOrderingPage />} />

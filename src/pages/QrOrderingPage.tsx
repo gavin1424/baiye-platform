@@ -94,6 +94,7 @@ function statusTone(status: OrderingOrderStatus) {
 }
 
 function OrderingTopbar() {
+  if (IS_BEEF_NOODLE_DEMO) return null;
   return (
     <header className="ordering-topbar">
       <PlatformLogo />
@@ -146,6 +147,7 @@ export function QrOrderingPage() {
   const [customerNote, setCustomerNote] = useState("");
   const [demoInvoiceMethod, setDemoInvoiceMethod] = useState("carrier");
   const pendingOrderKey = useRef("");
+  const joinRef = useRef<HTMLElement | null>(null);
 
   const loadBenefits = useCallback(
     async (memberToken: string) => {
@@ -176,7 +178,6 @@ export function QrOrderingPage() {
 
   const loadMenu = useCallback(
     async (ctx: OrderingContext, memberToken: string) => {
-      if (!memberToken && ctx.require_member) return;
       const data = await orderingPublicApi<QrMenuResponse>(
         `/api/ordering/qr/${encodeURIComponent(code)}/menu`,
         {},
@@ -242,6 +243,8 @@ export function QrOrderingPage() {
             throw error;
           }
         }
+      } else {
+        await loadMenu(ctx, "");
       }
     } catch (error) {
       setMessage(errorMessage(error, "此 QR Code 目前無法使用。"));
@@ -517,27 +520,42 @@ export function QrOrderingPage() {
 
   const showJoin = !member || !token;
   const showTableInput = orderType === "dine_in" && !context.qr.table_label;
+  const demoDirectMenu =
+    IS_BEEF_NOODLE_DEMO && context.qr.purpose !== "member_only";
+  const storefrontName = IS_BEEF_NOODLE_DEMO
+    ? context.display_name.split("｜")[0]
+    : context.display_name;
+  const serviceLabel =
+    context.qr.purpose === "takeaway"
+      ? "外帶｜自取"
+      : `${context.qr.table_label || context.qr.label}｜內用`;
 
   return (
     <main className="ordering-page">
       <OrderingTopbar />
-      <section className="ordering-merchant-hero">
-        <div>
-          <span className="ordering-purpose">
-            <QrCode weight="fill" /> {purposeLabels[context.qr.purpose]}
-          </span>
-          <h1>{context.display_name}</h1>
-          <p>
-            {context.qr.label}
-            {context.qr.table_label ? `・${context.qr.table_label}` : ""}
-          </p>
+      <section className={`ordering-merchant-hero ${IS_BEEF_NOODLE_DEMO ? "ordering-storefront-hero" : ""}`}>
+        <div className="ordering-storefront-brand">
+          {IS_BEEF_NOODLE_DEMO && <span className="ordering-storefront-logo" aria-hidden="true"><CookingPot weight="fill" /></span>}
+          <div>
+            {!IS_BEEF_NOODLE_DEMO && (
+              <span className="ordering-purpose">
+                <QrCode weight="fill" /> {purposeLabels[context.qr.purpose]}
+              </span>
+            )}
+            <h1>{storefrontName}</h1>
+            {IS_BEEF_NOODLE_DEMO ? (
+              <p className="ordering-storefront-meta"><span>營業中</span>{serviceLabel}</p>
+            ) : (
+              <p>{context.qr.label}{context.qr.table_label ? `・${context.qr.table_label}` : ""}</p>
+            )}
+          </div>
         </div>
         {member && (
-          <div className="ordering-member-chip">
+          <div className={`ordering-member-chip ${IS_BEEF_NOODLE_DEMO ? "ordering-member-chip-compact" : ""}`}>
             <Check weight="bold" />
             <span>
-              <strong>{member.display_name}</strong>
-              <small>{member.membership_no}</small>
+              <strong>{IS_BEEF_NOODLE_DEMO ? "會員" : member.display_name}</strong>
+              {!IS_BEEF_NOODLE_DEMO && <small>{member.membership_no}</small>}
             </span>
           </div>
         )}
@@ -619,7 +637,7 @@ export function QrOrderingPage() {
         </section>
       )}
 
-      {showJoin ? (
+      {showJoin && !demoDirectMenu ? (
         <section className="ordering-join-card">
           <div className="ordering-section-heading">
             <Users weight="duotone" />
@@ -676,13 +694,13 @@ export function QrOrderingPage() {
           <Check size={52} weight="bold" />
           <h2>會員加入完成</h2>
           <p>
-            {member.display_name}，您已成為「{context.display_name}」快速會員。
+            {member?.display_name || "您"}，您已成為「{context.display_name}」快速會員。
           </p>
-          <small>手機：{member.phone_masked}</small>
+          <small>手機：{member?.phone_masked || ""}</small>
         </section>
       ) : (
         <>
-          <section className="ordering-controls-card">
+          {!IS_BEEF_NOODLE_DEMO && <section className="ordering-controls-card">
             <div>
               <span>本次用餐方式</span>
               <strong>{orderType === "dine_in" ? "內用" : "外帶"}</strong>
@@ -720,8 +738,8 @@ export function QrOrderingPage() {
                 />
               </label>
             )}
-          </section>
-          {coupons.length > 0 && (
+          </section>}
+          {!IS_BEEF_NOODLE_DEMO && coupons.length > 0 && (
             <section className="ordering-controls-card">
               <div>
                 <span>我的禮券</span>
@@ -751,7 +769,7 @@ export function QrOrderingPage() {
               </div>
             </section>
           )}
-          {deliveryLinks.length > 0 && (
+          {!IS_BEEF_NOODLE_DEMO && deliveryLinks.length > 0 && (
             <section className="ordering-controls-card">
               <div>
                 <span>外送訂購</span>
@@ -775,14 +793,14 @@ export function QrOrderingPage() {
           )}
 
           <section className="ordering-menu-section">
-            <div className="ordering-section-heading">
+            {!IS_BEEF_NOODLE_DEMO && <div className="ordering-section-heading">
               <ForkKnife weight="duotone" />
               <div>
                 <span>手機菜單</span>
                 <h2>選擇餐點</h2>
                 <p>價格與供應狀態以送單當下的店家資料為準。</p>
               </div>
-            </div>
+            </div>}
             {!context.accepting_orders && (
               <div className="ordering-closed-notice" role="status">
                 <strong>店家目前暫停接單</strong>
@@ -822,7 +840,7 @@ export function QrOrderingPage() {
                   type="button"
                   className="btn btn-outline"
                   onClick={() =>
-                    context && token && void loadMenu(context, token)
+                    context && void loadMenu(context, token)
                   }
                 >
                   <ArrowClockwise />
@@ -902,18 +920,44 @@ export function QrOrderingPage() {
               ))
             )}
           </section>
+          {showJoin && demoDirectMenu && (
+            <section className="ordering-join-card ordering-join-after-menu" ref={joinRef}>
+              <div className="ordering-section-heading">
+                <Users weight="duotone" />
+                <div>
+                  <span>準備結帳</span>
+                  <h2>用手機加入後送出訂單</h2>
+                  <p>先看菜單、選好餐點；送單前只需留下手機號碼。</p>
+                </div>
+              </div>
+              <form onSubmit={join} className="ordering-form-grid">
+                <label>
+                  手機號碼
+                  <input required inputMode="tel" autoComplete="tel" value={joinForm.phone} onChange={(event) => setJoinForm({ ...joinForm, phone: event.target.value })} placeholder="09xxxxxxxx" />
+                </label>
+                <label className="ordering-consent ordering-form-wide">
+                  <input type="checkbox" checked={joinForm.consent} onChange={(event) => setJoinForm({ ...joinForm, consent: event.target.checked })} />
+                  <span>我已閱讀並同意會員服務與<Link to="/privacy">隱私權政策</Link>。</span>
+                </label>
+                <button className="btn btn-primary btn-lg ordering-form-wide" type="submit" disabled={submitting}>{submitting ? "正在加入…" : "加入會員並繼續結帳"}</button>
+              </form>
+            </section>
+          )}
         </>
       )}
 
-      {cartCount > 0 && !showJoin && (
+      {cartCount > 0 && (!showJoin || demoDirectMenu) && (
         <button
           type="button"
           className="ordering-cart-bar"
-          onClick={() => setCartOpen(true)}
+          onClick={() => {
+            if (showJoin) joinRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            else setCartOpen(true);
+          }}
         >
           <span>
             <ShoppingCart weight="fill" />
-            <b>{cartCount}</b> 查看購物車
+            <b>{cartCount}</b> {showJoin ? "加入會員後結帳" : "查看購物車"}
           </span>
           <strong>{money(subtotal, context.currency)}</strong>
         </button>
@@ -1210,6 +1254,7 @@ export function QrOrderingPage() {
           </section>
         </div>
       )}
+      {IS_BEEF_NOODLE_DEMO && <footer className="ordering-powered">Powered by 創百業智慧鏈</footer>}
     </main>
   );
 }
