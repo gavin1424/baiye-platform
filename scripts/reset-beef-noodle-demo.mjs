@@ -20,6 +20,21 @@ PRAGMA foreign_keys=ON;
 DROP TRIGGER IF EXISTS trg_ordering_item_option_immutable_delete;
 DROP TRIGGER IF EXISTS trg_food_order_items_no_delete;
 DROP TRIGGER IF EXISTS trg_order_pricing_no_delete;
+DROP TRIGGER IF EXISTS trg_invoices_document_immutable_delete;
+DELETE FROM invoice_events WHERE merchant_id='demo_beef_noodle';
+DELETE FROM invoice_allowances WHERE merchant_id='demo_beef_noodle';
+DELETE FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE merchant_id='demo_beef_noodle');
+DELETE FROM invoices WHERE merchant_id='demo_beef_noodle';
+DELETE FROM invoice_requests WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_order_invoice_preferences WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_payment_domain_events WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_order_inventory_reservations WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_checkout_payment_events WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_checkout_payment_transactions WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_checkout_payment_intents WHERE merchant_id='demo_beef_noodle';
+DELETE FROM payment_events WHERE payment_id IN (SELECT id FROM payments WHERE merchant_id='demo_beef_noodle' AND note LIKE 'qr_order:%');
+DELETE FROM refunds WHERE payment_id IN (SELECT id FROM payments WHERE merchant_id='demo_beef_noodle' AND note LIKE 'qr_order:%');
+DELETE FROM payments WHERE merchant_id='demo_beef_noodle' AND note LIKE 'qr_order:%';
 DELETE FROM merchant_food_order_item_options WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_order_payment_events WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_order_payment_intents WHERE merchant_id='demo_beef_noodle';
@@ -44,6 +59,10 @@ BEGIN SELECT RAISE(ABORT, 'submitted order items are immutable'); END;
 CREATE TRIGGER trg_order_pricing_no_delete
 BEFORE DELETE ON merchant_order_pricing
 BEGIN SELECT RAISE(ABORT,'order pricing is immutable'); END;
+CREATE TRIGGER trg_invoices_document_immutable_delete
+BEFORE DELETE ON invoices
+FOR EACH ROW
+BEGIN SELECT RAISE(ABORT, 'issued invoices cannot be deleted'); END;
 `;
 
 const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "baiye-beef-demo-reset-"));

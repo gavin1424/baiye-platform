@@ -32,7 +32,7 @@ assert.equal(menu.body.items.find((item) => item.id === "bn_item_01").daily_limi
 assert.ok(menu.body.categories.some((category) => category.id === "bn_cat_soups")); pass("湯品分類獨立顯示");
 
 const orderKey = `beef-e2e-${Date.now()}`;
-const orderPayload = { order_type: "dine_in", table_label: "FORGED", items: [{ item_id: "bn_item_01", quantity: 1, option_value_ids: ["bn_val_thin", "bn_val_mild", "bn_val_more_noodle", "bn_val_more_beef", "bn_val_regular_pickles"], note: "STAGING E2E" }] };
+const orderPayload = { order_type: "dine_in", table_label: "FORGED", invoice: { type: "mobile_barcode", carrier_value: "/ABC1234" }, items: [{ item_id: "bn_item_01", quantity: 1, option_value_ids: ["bn_val_thin", "bn_val_mild", "bn_val_more_noodle", "bn_val_more_beef", "bn_val_regular_pickles"], note: "STAGING E2E" }] };
 const created = await request(`/api/ordering/qr/${qrCode}/orders`, { method: "POST", headers: { authorization: `Bearer ${memberToken}`, "idempotency-key": orderKey }, body: JSON.stringify(orderPayload) });
 assert.equal(created.response.status, 201); assert.equal(created.body.order.table_label, "A1"); assert.equal(created.body.order.total_minor, 26000); pass("Worker 重算桌號與加料總價");
 assert.equal(created.body.order.status, "submitted"); pass("新單狀態為 submitted");
@@ -58,14 +58,24 @@ const board = await request("/api/merchant-admin/ordering/overview", { headers: 
 assert.equal(board.response.status, 200); assert.ok(board.body.orders.some((order) => order.order_code === orderCode)); pass("商家即時看板收到新單");
 assert.ok(board.body.orders.some((order) => order.order_code === second.body.order.order_code)); pass("看板顯示同桌再次加點");
 
-for (const [status, label] of [["accepted", "接單"], ["preparing", "製作中"], ["ready", "完成製作"], ["served", "出餐"], ["completed", "完成"]]) {
+for (const [status, label] of [["accepted", "接單"], ["preparing", "製作中"], ["ready", "完成製作"]]) {
+  const changed = await request(`/api/merchant-admin/ordering/orders/${orderCode}/status`, { method: "PATCH", headers: merchantHeaders, body: JSON.stringify({ status }) });
+  assert.equal(changed.response.status, 200); pass(`訂單狀態：${label}`);
+}
+const kitchen = await request("/api/merchant-admin/ordering/overview", { headers: { cookie } });
+assert.equal(kitchen.response.status, 200); assert.ok(kitchen.body.orders.some((order) => order.order_code === orderCode && order.status === "ready")); pass("KDS 看板顯示待出餐訂單");
+for (const [status, label] of [["served", "出餐"], ["completed", "完成"]]) {
   const changed = await request(`/api/merchant-admin/ordering/orders/${orderCode}/status`, { method: "PATCH", headers: merchantHeaders, body: JSON.stringify({ status }) });
   assert.equal(changed.response.status, 200); pass(`訂單狀態：${label}`);
 }
 
 const paid = await request(`/api/merchant-admin/ordering/orders/${orderCode}/payment`, { method: "POST", headers: { ...merchantHeaders, "idempotency-key": `${orderKey}-pay` }, body: JSON.stringify({ action: "confirm", payment_method: "cash", reference: "STAGING-DEMO" }) });
 assert.equal(paid.response.status, 200); pass("現場付款人工確認");
-const paidReplay = await request(`/api/merchant-admin/ordering/orders/${orderCode}/payment`, { method: "POST", headers: { ...merchantHeaders, "idempotency-key": `${orderKey}-pay` }, body: JSON.stringify({ action: "confirm", payment_method: "cash", reference: "STAGING-DEMO" }) }); assert.equal(paidReplay.response.status, 200); pass("付款確認冪等回放");
+for (let retry = 1; retry <= 5; retry += 1) {
+  const paidReplay = await request(`/api/merchant-admin/ordering/orders/${orderCode}/payment`, { method: "POST", headers: { ...merchantHeaders, "idempotency-key": `${orderKey}-pay` }, body: JSON.stringify({ action: "confirm", payment_method: "cash", reference: "STAGING-DEMO" }) });
+  assert.equal(paidReplay.response.status, 200); assert.equal(paidReplay.body.replayed, true);
+}
+pass("付款確認五次重試皆冪等回放");
 
 const sold = await request("/api/merchant-admin/ordering/items/bn_item_05", { method: "PATCH", headers: merchantHeaders, body: JSON.stringify({ status: "sold_out" }) });
 assert.equal(sold.response.status, 200); pass("商品售完");
@@ -85,5 +95,6 @@ const guestAdmin = await request("/api/merchant-admin/ordering/overview"); asser
 const wrongOrigin = await fetch(`${api}/api/ordering/qr/${qrCode}`, { headers: { origin: "https://invalid.example" } }); assert.equal(wrongOrigin.status, 403); pass("非法 Origin 拒絕");
 const customerPayment = await request(`/api/ordering/orders/${second.body.order.order_code}/payment`, { method: "POST", headers: { authorization: `Bearer ${memberToken}` }, body: JSON.stringify({ payment_status: "paid" }) }); assert.ok([404, 405].includes(customerPayment.response.status)); pass("顧客不可標記付款");
 const paidOrder = await request(`/api/ordering/orders/${orderCode}`, { headers: { authorization: `Bearer ${memberToken}` } }); assert.equal(paidOrder.response.status, 200); assert.equal(paidOrder.body.order.payment_status, "paid"); pass("付款僅為店家人工確認");
-assert.equal(passed, 38);
-console.log(JSON.stringify({ result: "PASS", passed, total: 38, order_code: orderCode }));
+assert.equal(paidOrder.body.order.invoice?.status || "NOT_REQUIRED", "NOT_REQUIRED"); pass("未啟用 Provider 不產生正式發票號碼");
+assert.equal(passed, 40);
+console.log(JSON.stringify({ result: "PASS", passed, total: 40, order_code: orderCode }));

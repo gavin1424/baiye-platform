@@ -1455,6 +1455,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       if (!order) return json({ error: "找不到此訂單。" }, 404, cors);
       const input = await request.json(); const action = input.action === "refund" ? "refunded" : "confirmed";
       const method = ["counter", "cash", "card", "line_pay", "easycard_terminal", "other"].includes(input.payment_method) ? input.payment_method : "counter";
+      if (action === "refunded" && order.payment_status !== "paid") return json({ error: "僅能退款已確認收款的訂單。" }, 409, cors);
       const key = clean(request.headers.get("idempotency-key") || input.idempotency_key, 100);
       if (!key) return json({ error: "付款操作需要 Idempotency-Key。" }, 400, cors);
       const existing = await db.prepare("SELECT action FROM merchant_order_payment_events WHERE merchant_id=? AND order_id=? AND idempotency_key=?").bind(merchantId, order.id, key).first();
@@ -1468,13 +1469,30 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         const pricing = await db.prepare("SELECT payable_total_minor FROM merchant_order_pricing WHERE merchant_id=? AND order_id=?").bind(merchantId, order.id).first();
         const amountMinor = Number(pricing?.payable_total_minor ?? order.total_minor);
         const paymentId = `manualpay_${order.id}`;
+        const financeMethod = method === "counter" ? "cash" : method === "easycard_terminal" ? "other" : method;
         await db.batch([
           db.prepare(`INSERT OR IGNORE INTO merchant_checkout_payment_intents(id,merchant_id,order_id,provider,amount_minor,currency,status,idempotency_key,qr_code,expires_at,paid_at) VALUES(?,?,?,?,?,'TWD','paid',?,'manual',datetime('now','+15 minutes'),CURRENT_TIMESTAMP)`).bind(paymentId, merchantId, order.id, "manual_counter", amountMinor, `manual_confirm:${order.id}`),
+          // Manual counter payments still belong in the existing Finance Core.
+          // The provider/payment reference is deterministic, so a retry cannot
+          // create a second revenue record.
+          db.prepare(`INSERT OR IGNORE INTO payments(id,payment_no,merchant_id,gross_amount,fee_amount,net_amount,amount,currency,payment_method,payment_provider,provider_trade_no,provider_payment_id,status,paid_at,source,note) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'paid',CURRENT_TIMESTAMP,'manual',?)`).bind(paymentId, `QR-MAN-${order.id.slice(-12).toUpperCase()}`, merchantId, amountMinor / 100, 0, amountMinor / 100, amountMinor / 100, "TWD", financeMethod, "manual_counter", paymentId, paymentId, `qr_order:${order.id}`),
           db.prepare(`INSERT OR IGNORE INTO merchant_payment_domain_events(id,merchant_id,order_id,payment_intent_id,event_type,amount_minor,currency,paid_at) VALUES(?,?,?,?, 'PAYMENT_CONFIRMED',?,'TWD',CURRENT_TIMESTAMP)`).bind(uid("paydomain"), merchantId, order.id, paymentId, amountMinor),
         ]);
         await createInvoiceRequestForPayment(db, env, { merchant_id: merchantId, order_id: order.id, payment_id: paymentId, amount_minor: amountMinor, currency: "TWD" });
       }
-      if (action === "refunded") await coordinateInvoiceRefund(db, env, { merchant_id: merchantId, order_id: order.id, payment_id: `manualpay_${order.id}` });
+      if (action === "refunded") {
+        const paymentId = `manualpay_${order.id}`;
+        const financePayment = await db.prepare("SELECT id,amount FROM payments WHERE merchant_id=? AND payment_provider='manual_counter' AND provider_payment_id=? LIMIT 1").bind(merchantId, paymentId).first();
+        await db.batch([
+          db.prepare("UPDATE merchant_checkout_payment_intents SET status='refunded',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='paid'").bind(paymentId),
+          ...(financePayment ? [
+            db.prepare("UPDATE payments SET status='refunded',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='paid'").bind(financePayment.id),
+            db.prepare("INSERT OR IGNORE INTO refunds(id,payment_id,amount,reason,status,refunded_at) VALUES(?,?,?,?, 'refunded',CURRENT_TIMESTAMP)").bind(`refund_${paymentId}`, financePayment.id, Number(financePayment.amount), clean(input.reference, 300) || "manual_counter_refund"),
+            db.prepare("INSERT OR IGNORE INTO payment_events(id,provider,event_type,provider_event_id,payment_id,status,metadata,processed_at) VALUES(?,?,?,?,?,'refunded',?,CURRENT_TIMESTAMP)").bind(`payevidence_${paymentId}_refund`, "manual_counter", "refund", `${paymentId}:refund`, financePayment.id, JSON.stringify({ order_id: order.id, manual: true })),
+          ] : []),
+        ]);
+        await coordinateInvoiceRefund(db, env, { merchant_id: merchantId, order_id: order.id, payment_id: paymentId });
+      }
       await audit(db, merchantId, actorType, actorId, `order_payment_${action}`, "order", order.id, { method, actor_role: actorRole });
       return json({ ok: true, payment_status: next }, 200, cors);
     }
