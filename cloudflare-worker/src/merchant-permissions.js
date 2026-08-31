@@ -23,3 +23,19 @@ export function permissionForOrderingRequest(pathname, method) {
   }
   return "ordering.read";
 }
+
+const POS_PERMISSION_MAP = Object.freeze([
+  [/^\/api\/merchant-pos\/(?:overview|catalog|orders)(?:\/|$)/, READ, "pos.read"],
+  [/^\/api\/merchant-pos\/orders\/[^/]+\/status$/, MUTATION, "pos.order.manage"],
+  [/^\/api\/merchant-pos\/orders(?:\/|$)/, MUTATION, "pos.order.create"],
+  [/^\/api\/merchant-pos\/cash(?:\/|$)/, READ, "pos.read"],
+  [/^\/api\/merchant-pos\/cash(?:\/|$)/, MUTATION, "pos.cash.manage"],
+  [/^\/api\/merchant-pos\/inventory(?:\/|$)/, READ, "pos.inventory.read"],
+  [/^\/api\/merchant-pos\/inventory(?:\/|$)/, MUTATION, "pos.inventory.manage"],
+]);
+
+export function permissionForPosRequest(pathname, method) {
+  const kind = ["GET", "HEAD"].includes(method) ? READ : MUTATION;
+  for (const [pattern, operation, permission] of POS_PERMISSION_MAP) if (pattern.test(pathname) && operation === kind) return permission;
+  return "pos.read";
+}

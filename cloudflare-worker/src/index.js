@@ -6,8 +6,9 @@ import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } 
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
 import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
 import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from "./member-integrations.js";
-import { authorizeMerchant, handleMerchantAuth } from "./merchant-auth.js";
-import { permissionForOrderingRequest } from "./merchant-permissions.js";
+import { authorizeMerchant, handleMerchantAuth, merchantOperationsAllowed } from "./merchant-auth.js";
+import { permissionForOrderingRequest, permissionForPosRequest } from "./merchant-permissions.js";
+import { handleSoftPosAdmin, handleSoftPosRequest } from "./soft-pos.js";
 import {
   handleMerchantContractAdmin,
   handleMerchantContractPublic,
@@ -244,6 +245,8 @@ export default {
       const permission = permissionForOrderingRequest(url.pathname, request.method);
       const authorization = await authorizeMerchant(request, env, permission);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
+      if (!operationGate.ok) return json({ error: "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error }, operationGate.status, cors);
       const scopedUrl = new URL(url);
       scopedUrl.pathname = scopedUrl.pathname.replace(/^\/api\/merchant-admin\/ordering/, "/api/admin/ordering");
       scopedUrl.searchParams.set("merchant_id", authorization.session.merchant_id);
@@ -252,6 +255,16 @@ export default {
         actor_id: authorization.session.user_id,
         actor_role: authorization.session.roles || "merchant",
       });
+    }
+
+    if (url.pathname.startsWith("/api/merchant-pos/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const authorization = await authorizeMerchant(request, env, permissionForPosRequest(url.pathname, request.method));
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
+      if (!operationGate.ok) return json({ error: "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error }, operationGate.status, cors);
+      return handleSoftPosRequest(request, env, url, cors, authorization.session);
     }
 
     if (url.pathname === "/widgets/meiling-chat-widget.js" && request.method === "GET") {
@@ -284,6 +297,7 @@ export default {
         return (await handleMerchantContractAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
       }
       if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors, true);
+      if (url.pathname.startsWith("/api/admin/soft-pos")) return (await handleSoftPosAdmin(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
       if (url.pathname.startsWith("/api/admin/ordering") || url.pathname.startsWith("/api/admin/financing")) {
         const integrationResponse = await handleMemberIntegrationsAdmin(request, env, url, cors, adminSession);
         if (integrationResponse) return integrationResponse;

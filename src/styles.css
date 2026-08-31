@@ -15808,3 +15808,53 @@ button:disabled {
 .member-shell{min-height:calc(100vh - 80px);padding:clamp(32px,6vw,80px) 20px;background:linear-gradient(145deg,#fffaf0,#f5f8f1);color:#35291f}.member-join-card,.member-welcome-card,.member-summary,.member-coupon-section,.member-links{max-width:720px;margin:0 auto 24px;background:#fff;border:1px solid #eadfce;border-radius:24px;padding:clamp(24px,5vw,44px);box-shadow:0 18px 50px rgba(85,61,34,.08)}.member-join-card{text-align:center;max-width:560px}.member-join-card form{text-align:left;display:grid;gap:18px;margin-top:28px}.member-join-card label:not(.member-consent){display:grid;gap:8px;font-weight:700}.member-join-card input[type=tel]{min-height:52px;border:1px solid #cdbda8;border-radius:12px;padding:0 14px;font-size:18px}.member-icon{width:70px;height:70px;margin:0 auto 16px;border-radius:22px;background:#f3e7d2;color:#8b4a30;display:grid;place-items:center;font-size:38px}.member-consent{display:flex;align-items:flex-start;gap:10px;line-height:1.6}.member-consent input{margin-top:6px}.member-join-benefits{display:flex;justify-content:center;gap:18px;margin-top:22px;color:#65705c}.member-join-benefits span{display:flex;align-items:center;gap:6px}.member-welcome-card{text-align:center;max-width:640px}.member-celebration{font-size:60px;line-height:1;margin-bottom:14px}.member-welcome-card article,.member-coupon-card{display:flex;gap:16px;align-items:center;text-align:left;background:#fff7e5;border:1px solid #edcf91;border-radius:18px;padding:20px;margin:26px 0}.member-welcome-card article>svg,.member-coupon-card>svg{font-size:42px;color:#b87810;flex:none}.member-welcome-card article div,.member-coupon-card div{display:grid;gap:4px}.member-welcome-card article strong,.member-coupon-card strong{font-size:20px}.member-welcome-card article span,.member-coupon-card span{font-weight:700;color:#a15b0b}.member-welcome-card article small,.member-coupon-card small,.member-muted{color:#74695e}.member-center-header{max-width:720px;margin:0 auto 24px;display:flex;gap:16px;align-items:center}.member-center-header>svg{font-size:54px;color:#8b4a30}.member-center-header h1{margin:4px 0}.member-summary dl{display:grid;grid-template-columns:130px 1fr;gap:14px}.member-summary dt{color:#776b60}.member-summary dd{margin:0;font-weight:700}.member-coupon-card em{font-style:normal;color:#796c58;font-size:13px}.member-links{display:grid;grid-template-columns:1fr 1fr;gap:16px}.member-links article{padding:18px;border:1px solid #eadfce;border-radius:16px}.member-links h3{margin-top:0}.member-welcome-modal>div{text-align:center}.member-welcome-modal .member-celebration{font-size:52px}
 @media(max-width:560px){.member-shell{padding:24px 12px}.member-join-card,.member-welcome-card,.member-summary,.member-coupon-section,.member-links{padding:22px 18px;border-radius:18px}.member-join-benefits{flex-direction:column;align-items:center;gap:8px}.member-summary dl{grid-template-columns:1fr;gap:4px}.member-summary dd{margin-bottom:12px}.member-links{grid-template-columns:1fr}.member-welcome-card .partner-workflow-actions,.member-welcome-modal .partner-workflow-actions{display:grid}.member-welcome-card .btn,.member-welcome-modal .btn{width:100%}}
 .partner-auto-approval-note{display:block;text-align:center;color:#6f5a43;line-height:1.6}.partner-auto-approved-card{max-width:680px;margin:28px auto 0;padding:clamp(24px,5vw,42px);text-align:center;background:#fffdf7;border:1px solid #e8d5ae;border-radius:24px;box-shadow:0 18px 50px rgba(91,63,31,.1)}.partner-auto-approved-card h2{margin:8px 0 14px}.partner-approved-code{font-size:18px}.partner-auto-approved-card ul{display:grid;gap:10px;max-width:360px;margin:22px auto;padding:0;list-style:none;text-align:left;color:#3d6841;font-weight:700}.partner-auto-approved-card .btn{margin-top:8px}.partner-auto-approved-card .partner-guidance-note{margin-top:22px;text-align:left}.partner-historical-batch{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:18px 0;padding:18px;border:1px solid #e0be73;border-radius:16px;background:#fff9e8}.partner-historical-batch>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.partner-historical-batch p{width:100%;margin:0}@media(max-width:600px){.partner-auto-approved-card{padding:24px 18px}.partner-auto-approved-card .btn{width:100%}.partner-historical-batch{align-items:stretch;flex-direction:column}.partner-historical-batch button{width:100%}}
+
+.soft-pos-shell { max-width: 1180px; margin: 0 auto; padding: clamp(16px, 4vw, 48px); color: #1f2937; }
+.soft-pos-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.soft-pos-header h1 { margin: 4px 0; font-size: clamp(26px, 5vw, 42px); }
+.soft-pos-header p { margin: 0; color: #7c4a20; font-weight: 800; }
+.soft-pos-header input { min-height: 48px; max-width: 180px; padding: 0 12px; border: 1px solid #d6b486; border-radius: 12px; }
+.soft-pos-card, .soft-pos-columns article, .soft-pos-kds article { padding: 22px; border: 1px solid #ead9c3; border-radius: 18px; background: #fff; box-shadow: 0 8px 30px #4b2e1010; }
+.soft-pos-metrics, .soft-pos-actions, .soft-pos-kds { display: grid; gap: 12px; }
+.soft-pos-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.soft-pos-metrics article { padding: 16px; border: 1px solid #f1d2aa; border-radius: 16px; background: #fff7ed; }
+.soft-pos-metrics span, .soft-pos-metrics strong { display: block; }
+.soft-pos-metrics span { font-size: 13px; color: #795d45; }
+.soft-pos-metrics strong { margin-top: 8px; font-size: 24px; }
+.soft-pos-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 20px 0; }
+.soft-pos-actions a { display: grid; min-height: 70px; place-items: center; padding: 10px; border-radius: 14px; background: #5e2c17; color: #fff; font-weight: 800; text-align: center; text-decoration: none; }
+.soft-pos-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.soft-pos-columns ul, .soft-pos-columns ol { padding-left: 20px; }
+.soft-pos-columns li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0e3d5; }
+.soft-pos-product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; padding-bottom: 180px; }
+.soft-pos-product-grid button { min-height: 94px; padding: 14px; border: 1px solid #d9b98f; border-radius: 16px; background: #fffaf4; font-size: 16px; font-weight: 800; text-align: left; }
+.soft-pos-product-grid button strong { display: block; margin-top: 8px; color: #9b3c16; }
+.soft-pos-cart { position: fixed; z-index: 10; right: 0; bottom: 0; left: 0; max-width: 1180px; margin: auto; padding: 14px clamp(16px, 4vw, 40px); border-top: 1px solid #e2c5a7; background: #fff; box-shadow: 0 -8px 28px #2e160f2e; }
+.soft-pos-cart h2 { margin: 0 0 10px; }
+.soft-pos-cart-line { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.soft-pos-cart-line span { flex: 1; }
+.soft-pos-cart-line button { width: 36px; height: 36px; border: 0; border-radius: 9px; background: #f1dfcb; font-size: 20px; }
+.soft-pos-cart label { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.soft-pos-cart select { min-height: 40px; padding: 0 8px; border: 1px solid #d6b486; border-radius: 8px; }
+.soft-pos-cart .btn { width: 100%; min-height: 54px; font-size: 18px; }
+.soft-pos-modal { position: fixed; z-index: 50; inset: 0; display: grid; place-items: end center; padding: 16px; background: #0008; }
+.soft-pos-modal section { width: min(600px, 100%); max-height: 82vh; overflow: auto; padding: 22px; border-radius: 22px; background: #fff; }
+.soft-pos-modal fieldset { display: grid; gap: 10px; margin: 14px 0; border: 1px solid #ead9c3; border-radius: 12px; }
+.soft-pos-modal label { display: flex; align-items: center; gap: 10px; }
+.soft-pos-modal input[type="checkbox"], .soft-pos-modal input[type="radio"] { width: 20px; min-width: 20px; height: 20px; }
+.soft-pos-message, .soft-pos-error { padding: 12px; border-radius: 10px; background: #eef8ee; color: #175b28; }
+.soft-pos-error { background: #fff1ed; color: #a42c19; }
+.soft-pos-kds { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.soft-pos-kds article { min-height: 340px; }
+.soft-pos-ticket { display: grid; gap: 8px; margin: 10px 0; padding: 14px; border: 2px solid #602c17; border-radius: 12px; background: #fff8e8; }
+.soft-pos-ticket strong { font-size: 20px; }
+.soft-pos-ticket .btn { min-height: 48px; }
+@media (max-width: 700px) {
+  .soft-pos-header { align-items: flex-start; flex-direction: column; }
+  .soft-pos-header .btn, .soft-pos-header input { width: 100%; max-width: none; }
+  .soft-pos-metrics, .soft-pos-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .soft-pos-columns, .soft-pos-kds { grid-template-columns: 1fr; }
+  .soft-pos-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-bottom: 270px; }
+  .soft-pos-cart { max-height: 260px; overflow: auto; }
+  .soft-pos-order { padding-bottom: 30px; }
+}

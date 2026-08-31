@@ -16,6 +16,7 @@ import { FeaturesPage } from "./pages/FeaturesPage";
 import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
 import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
+import { MerchantPosHome, MerchantPosKitchen, MerchantPosNewOrder } from "./pages/SoftPosPages";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
@@ -65,6 +66,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/bookings": "預約管理｜創百業智慧鏈",
   "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
   "/merchant-admin/ordering": "商家 QR 點餐管理｜創百業智慧鏈",
+  "/merchant/pos": "商家營運中心｜創百業智慧鏈",
+  "/merchant/pos/new-order": "手機快速開單｜創百業智慧鏈",
+  "/merchant/pos/kitchen": "Web KDS｜創百業智慧鏈",
   "/member-benefits": "會員百元禮券｜創百業智慧鏈",
   "/business-financing": "商家融資合作專區｜創百業智慧鏈",
   "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
@@ -196,6 +200,9 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
+        <Route path="/merchant/pos" element={<MerchantPosHome />} />
+        <Route path="/merchant/pos/new-order" element={<MerchantPosNewOrder />} />
+        <Route path="/merchant/pos/kitchen" element={<MerchantPosKitchen />} />
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
         <Route path="/member/join" element={<PlatformMemberJoinPage />} />
         <Route path="/member/welcome" element={<PlatformMemberWelcomePage />} />

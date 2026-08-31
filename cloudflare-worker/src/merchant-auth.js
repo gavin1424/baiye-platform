@@ -55,6 +55,19 @@ export async function authorizeMerchant(request, env, permission = "") {
   return { ok: true, status: 200, session };
 }
 
+// Contract onboarding is an additive gate.  Older Production schemas simply
+// have no row and remain unchanged; a Soft-POS merchant with a locked row can
+// view its portal but cannot create operational records.
+export async function merchantOperationsAllowed(db, merchantId) {
+  try {
+    const state = await db.prepare("SELECT operation_locked,state FROM merchant_onboarding_states WHERE merchant_id=?").bind(merchantId).first();
+    if (state && Number(state.operation_locked) === 1) return { ok: false, status: 423, error: "MERCHANT_CONTRACT_REQUIRED", state: state.state };
+  } catch {
+    // The query is deliberately compatible with installations predating 0020.
+  }
+  return { ok: true, status: 200 };
+}
+
 async function allowLogin(db, request, merchantId, email) {
   const bucket = new Date().toISOString().slice(0, 16);
   const key = await sha(`${merchantId}:${email}:${request.headers.get("cf-connecting-ip") || "unknown"}`);

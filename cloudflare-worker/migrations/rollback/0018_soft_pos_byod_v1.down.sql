@@ -1,0 +1,26 @@
+-- 0018 rollback applies only before any Soft-POS operational data exists.
+PRAGMA foreign_keys=OFF;
+DROP TRIGGER IF EXISTS trg_cash_movement_no_delete;
+DROP TRIGGER IF EXISTS trg_cash_movement_no_update;
+DROP TRIGGER IF EXISTS trg_inventory_balance_apply;
+DROP TRIGGER IF EXISTS trg_inventory_balance_guard;
+DROP TRIGGER IF EXISTS trg_inventory_tx_no_delete;
+DROP TRIGGER IF EXISTS trg_inventory_tx_no_update;
+DROP TABLE IF EXISTS pos_operations;
+DROP TABLE IF EXISTS cash_movements;
+DROP TABLE IF EXISTS cash_sessions;
+DROP TABLE IF EXISTS goods_receipts;
+DROP TABLE IF EXISTS purchase_order_items;
+DROP TABLE IF EXISTS purchase_orders;
+DROP TABLE IF EXISTS suppliers;
+DROP TABLE IF EXISTS inventory_recipe_items;
+DROP TABLE IF EXISTS inventory_recipes;
+DROP TABLE IF EXISTS inventory_reservations;
+DROP TABLE IF EXISTS inventory_transactions;
+DROP TABLE IF EXISTS inventory_balances;
+DROP TABLE IF EXISTS inventory_items;
+DROP TABLE IF EXISTS inventory_locations;
+DROP TABLE IF EXISTS pos_staff_sessions;
+DROP TABLE IF EXISTS pos_staff;
+DROP TABLE IF EXISTS merchant_pos_profiles;
+PRAGMA foreign_keys=ON;
