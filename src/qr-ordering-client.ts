@@ -150,6 +150,7 @@ export type OrderingOrder = {
     payable_total_minor: number;
     coupon_id?: string | null;
   };
+  invoice?: { status: string; invoice_number?: string | null };
 };
 export type OrderingCoupon = {
   id: string;

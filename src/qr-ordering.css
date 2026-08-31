@@ -645,6 +645,12 @@
 .ordering-demo-disabled-options button { min-height: 42px; padding: 8px; border: 1px dashed #b9c8c5; border-radius: 10px; background: #edf2f1; color: #788884; font: inherit; font-size: 12px; font-weight: 700; }
 .ordering-demo-checkout > label:not(.ordering-demo-payment-active) { display: grid; gap: 6px; color: #344054; font-size: 13px; font-weight: 750; }
 .ordering-demo-checkout select { min-height: 42px; padding: 8px 10px; border: 1px solid #cbd4df; border-radius: 10px; background: #fff; color: var(--ordering-ink); font: inherit; }
+.ordering-invoice-options { display: grid; gap: 9px; margin: 0; padding: 12px; border: 1px solid #d7e3df; border-radius: 11px; }
+.ordering-invoice-options legend { padding: 0 4px; color: #344054; font-size: 13px; font-weight: 800; }
+.ordering-invoice-options label { display: flex; align-items: center; gap: 9px; color: #344054; font-size: 14px; font-weight: 700; }
+.ordering-invoice-options input[type="radio"] { width: 20px; height: 20px; min-width: 20px; margin: 0; accent-color: var(--ordering-brand); }
+.ordering-demo-checkout > label input:not([type="radio"]) { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid #cbd4df; border-radius: 10px; background: #fff; color: var(--ordering-ink); font: inherit; box-sizing: border-box; }
+.ordering-invoice-status { display: grid; gap: 3px; margin-top: 10px; color: var(--ordering-muted); font-size: 13px; }
 .ordering-kds-page { min-height: 100vh; padding: 22px max(16px, calc((100vw - 1180px) / 2)); background: #10191f; color: #f7fbfb; }
 .ordering-kds-header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
 .ordering-kds-header h1 { margin:0; font-size:clamp(25px, 5vw, 42px); }.ordering-kds-header p { margin:5px 0 0; color:#b8c8cc; }.ordering-kds-header a { color:#dff5ef; }

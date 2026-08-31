@@ -154,7 +154,11 @@ export function QrOrderingPage() {
   const [orderType, setOrderType] = useState<OrderingOrderType>("dine_in");
   const [tableLabel, setTableLabel] = useState("");
   const [customerNote, setCustomerNote] = useState("");
-  const [demoInvoiceMethod, setDemoInvoiceMethod] = useState("carrier");
+  const [demoInvoiceMethod, setDemoInvoiceMethod] = useState<"individual" | "mobile_barcode" | "business_tax_id" | "donation">("individual");
+  const [invoiceCarrier, setInvoiceCarrier] = useState("");
+  const [invoiceTaxId, setInvoiceTaxId] = useState("");
+  const [invoiceBuyerName, setInvoiceBuyerName] = useState("");
+  const [invoiceDonationCode, setInvoiceDonationCode] = useState("");
   const [lineClicked, setLineClicked] = useState(false);
   const [lineCheckoutSkipped, setLineCheckoutSkipped] = useState(false);
   const pendingOrderKey = useRef("");
@@ -490,6 +494,13 @@ export function QrOrderingPage() {
             // QR V1 remains merchant-confirmed collection. The Worker keeps the
             // authoritative default (`counter`) and never trusts a customer-paid flag.
             payment_method: "counter",
+            invoice: {
+              type: demoInvoiceMethod,
+              carrier_value: invoiceCarrier,
+              buyer_identifier: invoiceTaxId,
+              buyer_name: invoiceBuyerName,
+              donation_code: invoiceDonationCode,
+            },
             items: cartLines.map((item) => ({
               item_id: item.id,
               quantity: item.quantity,
@@ -660,6 +671,7 @@ export function QrOrderingPage() {
             <small>
               系統會自動更新處理狀態；需要協助時請向店家出示訂單編號。現場付款將由店家確認。
             </small>
+            <div className="ordering-invoice-status"><strong>發票</strong>{order.invoice?.status === "ISSUED" ? <span>電子發票已開立：{order.invoice.invoice_number}</span> : <span>電子發票服務尚未啟用</span>}</div>
             <div className="ordering-status-actions">
               <button
                 className="btn btn-outline"
@@ -1187,16 +1199,17 @@ export function QrOrderingPage() {
                     </label>;
                   })}
                 </div>
-                <label>
-                  發票方式（功能預留）
-                  <select value={demoInvoiceMethod} onChange={(event) => setDemoInvoiceMethod(event.target.value)}>
-                    <option value="carrier">手機條碼載具</option>
-                    <option value="tax-id">統一編號</option>
-                    <option value="donation">捐贈</option>
-                    <option value="paper">紙本／其他</option>
-                  </select>
-                </label>
-                <p>電子發票功能尚未啟用（INVOICE_PROVIDER_DISABLED）。本 Demo 不會開立發票。</p>
+                <fieldset className="ordering-invoice-options">
+                  <legend>發票方式</legend>
+                  <label><input type="radio" name="invoice-method" checked={demoInvoiceMethod === "individual"} onChange={() => setDemoInvoiceMethod("individual")} />個人電子發票</label>
+                  <label><input type="radio" name="invoice-method" checked={demoInvoiceMethod === "mobile_barcode"} onChange={() => setDemoInvoiceMethod("mobile_barcode")} />手機條碼載具</label>
+                  <label><input type="radio" name="invoice-method" checked={demoInvoiceMethod === "business_tax_id"} onChange={() => setDemoInvoiceMethod("business_tax_id")} />公司統編</label>
+                  <label><input type="radio" name="invoice-method" checked={demoInvoiceMethod === "donation"} onChange={() => setDemoInvoiceMethod("donation")} />捐贈</label>
+                </fieldset>
+                {demoInvoiceMethod === "mobile_barcode" && <label>手機條碼載具<input value={invoiceCarrier} placeholder="/ABC1234" maxLength={8} onChange={(event) => setInvoiceCarrier(event.target.value.toUpperCase())} /><small>僅檢查格式；尚未向財政部驗證。</small></label>}
+                {demoInvoiceMethod === "business_tax_id" && <><label>統一編號<input inputMode="numeric" value={invoiceTaxId} placeholder="12345678" maxLength={8} onChange={(event) => setInvoiceTaxId(event.target.value.replace(/\D/g, ""))} /></label><label>公司抬頭（選填）<input value={invoiceBuyerName} maxLength={160} onChange={(event) => setInvoiceBuyerName(event.target.value)} /></label></>}
+                {demoInvoiceMethod === "donation" && <label>捐贈碼<input value={invoiceDonationCode} maxLength={40} onChange={(event) => setInvoiceDonationCode(event.target.value)} /><small>正式驗證待電子發票服務啟用。</small></label>}
+                <p>電子發票服務尚未啟用（INVOICE_PROVIDER_DISABLED）。Demo 訂單不會產生正式發票。</p>
                 {context.line.configured && !lineClicked && !lineCheckoutSkipped && (
                   <div className="ordering-line-checkout-reminder">
                     <strong>加入{context.line.display_name || "店家 LINE"}</strong>
