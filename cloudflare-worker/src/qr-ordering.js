@@ -1464,9 +1464,15 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       ]);
       if (action === "confirmed") {
         const pricing = await db.prepare("SELECT payable_total_minor FROM merchant_order_pricing WHERE merchant_id=? AND order_id=?").bind(merchantId, order.id).first();
-        await createInvoiceRequestForPayment(db, env, { merchant_id: merchantId, order_id: order.id, payment_id: `manual:${order.id}`, amount_minor: Number(pricing?.payable_total_minor ?? order.total_minor), currency: "TWD" });
+        const amountMinor = Number(pricing?.payable_total_minor ?? order.total_minor);
+        const paymentId = `manualpay_${order.id}`;
+        await db.batch([
+          db.prepare(`INSERT OR IGNORE INTO merchant_checkout_payment_intents(id,merchant_id,order_id,provider,amount_minor,currency,status,idempotency_key,qr_code,expires_at,paid_at) VALUES(?,?,?,?,?,'TWD','paid',?,'manual',datetime('now','+15 minutes'),CURRENT_TIMESTAMP)`).bind(paymentId, merchantId, order.id, "manual_counter", amountMinor, `manual_confirm:${order.id}`),
+          db.prepare(`INSERT OR IGNORE INTO merchant_payment_domain_events(id,merchant_id,order_id,payment_intent_id,event_type,amount_minor,currency,paid_at) VALUES(?,?,?,?, 'PAYMENT_CONFIRMED',?,'TWD',CURRENT_TIMESTAMP)`).bind(uid("paydomain"), merchantId, order.id, paymentId, amountMinor),
+        ]);
+        await createInvoiceRequestForPayment(db, env, { merchant_id: merchantId, order_id: order.id, payment_id: paymentId, amount_minor: amountMinor, currency: "TWD" });
       }
-      if (action === "refunded") await coordinateInvoiceRefund(db, env, { merchant_id: merchantId, order_id: order.id, payment_id: `manual:${order.id}` });
+      if (action === "refunded") await coordinateInvoiceRefund(db, env, { merchant_id: merchantId, order_id: order.id, payment_id: `manualpay_${order.id}` });
       await audit(db, merchantId, actorType, actorId, `order_payment_${action}`, "order", order.id, { method, actor_role: actorRole });
       return json({ ok: true, payment_status: next }, 200, cors);
     }
