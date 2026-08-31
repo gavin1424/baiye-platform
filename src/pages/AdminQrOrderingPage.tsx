@@ -856,7 +856,7 @@ export function AdminQrOrderingPage({
           </form>
         </article>
 
-        <article id="ordering-invoice" className="ordering-admin-panel">
+        <article className="ordering-admin-panel">
           <div className="ordering-admin-panel-title"><Storefront /><div><span>商家整合</span><h2>LINE 官方帳號</h2></div></div>
           <p>僅接受商家自己的 LINE 官方加好友網址；顧客點擊連結不等同已加入好友。</p>
           <form className="ordering-admin-form" onSubmit={saveLineIntegration}>
@@ -869,7 +869,7 @@ export function AdminQrOrderingPage({
           </form>
         </article>
 
-        <article className="ordering-admin-panel">
+        <article id="ordering-invoice" className="ordering-admin-panel">
           <div className="ordering-admin-panel-title"><Storefront /><div><span>商家整合</span><h2>電子發票設定</h2></div></div>
           <p>
             目前狀態：<strong>{overview?.invoice_integration?.enabled ? "電子發票服務已啟用" : "尚未完成商業／發票服務設定"}</strong>
