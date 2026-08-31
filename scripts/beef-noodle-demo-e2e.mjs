@@ -96,5 +96,11 @@ const wrongOrigin = await fetch(`${api}/api/ordering/qr/${qrCode}`, { headers: {
 const customerPayment = await request(`/api/ordering/orders/${second.body.order.order_code}/payment`, { method: "POST", headers: { authorization: `Bearer ${memberToken}` }, body: JSON.stringify({ payment_status: "paid" }) }); assert.ok([404, 405].includes(customerPayment.response.status)); pass("顧客不可標記付款");
 const paidOrder = await request(`/api/ordering/orders/${orderCode}`, { headers: { authorization: `Bearer ${memberToken}` } }); assert.equal(paidOrder.response.status, 200); assert.equal(paidOrder.body.order.payment_status, "paid"); pass("付款僅為店家人工確認");
 assert.equal(paidOrder.body.order.invoice?.status || "NOT_REQUIRED", "NOT_REQUIRED"); pass("未啟用 Provider 不產生正式發票號碼");
-assert.equal(passed, 40);
-console.log(JSON.stringify({ result: "PASS", passed, total: 40, order_code: orderCode }));
+const refunded = await request(`/api/merchant-admin/ordering/orders/${orderCode}/payment`, { method: "POST", headers: { ...merchantHeaders, "idempotency-key": `${orderKey}-refund` }, body: JSON.stringify({ action: "refund", payment_method: "cash", reference: "STAGING-E2E-REFUND" }) });
+assert.equal(refunded.response.status, 200); assert.equal(refunded.body.payment_status, "refunded"); pass("人工付款退款不偽造 Provider 退款");
+const refundReplay = await request(`/api/merchant-admin/ordering/orders/${orderCode}/payment`, { method: "POST", headers: { ...merchantHeaders, "idempotency-key": `${orderKey}-refund` }, body: JSON.stringify({ action: "refund", payment_method: "cash", reference: "STAGING-E2E-REFUND" }) });
+assert.equal(refundReplay.response.status, 200); assert.equal(refundReplay.body.replayed, true); pass("退款操作冪等回放");
+const refundedOrder = await request(`/api/ordering/orders/${orderCode}`, { headers: { authorization: `Bearer ${memberToken}` } });
+assert.equal(refundedOrder.response.status, 200); assert.equal(refundedOrder.body.order.payment_status, "refunded"); pass("顧客端同步退款付款狀態");
+assert.equal(passed, 43);
+console.log(JSON.stringify({ result: "PASS", passed, total: 43, order_code: orderCode }));
