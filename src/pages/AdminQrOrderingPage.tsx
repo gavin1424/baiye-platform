@@ -870,6 +870,23 @@ export function AdminQrOrderingPage({
         </article>
 
         <article className="ordering-admin-panel">
+          <div className="ordering-admin-panel-title"><Storefront /><div><span>商家整合</span><h2>電子發票設定</h2></div></div>
+          <p>
+            目前狀態：<strong>{overview?.invoice_integration?.enabled ? "電子發票服務已啟用" : "尚未完成商業／發票服務設定"}</strong>
+          </p>
+          <p className="muted">此處只顯示啟用準備狀態；不會因填寫資料而自動取得電子發票資格或開立正式發票。</p>
+          <ul className="ordering-admin-list">
+            <li>□ 商家／公司登記</li>
+            <li>□ 統一編號</li>
+            <li>□ 電子發票服務商</li>
+            <li>□ 發票字軌／相關授權</li>
+            <li>□ Provider Credential</li>
+            <li>□ 測試驗證</li>
+          </ul>
+          <p className="muted">Readiness：{overview?.invoice_integration?.readiness_status || "NOT_CONFIGURED"}</p>
+        </article>
+
+        <article className="ordering-admin-panel">
           <div className="ordering-admin-panel-title">
             <QrCode />
             <div>

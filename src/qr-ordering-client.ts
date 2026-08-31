@@ -235,6 +235,12 @@ export type OrderingAdminOverview = {
   merchant_id: string;
   settings: OrderingSettingsAdmin | null;
   line_integration: OrderingContext["line"];
+  invoice_integration?: {
+    provider: string;
+    readiness_status: string;
+    enabled: boolean;
+    credential_status: string;
+  };
   qrs: OrderingQrAdmin[];
   categories: OrderingCategory[];
   items: OrderingMenuItem[];
