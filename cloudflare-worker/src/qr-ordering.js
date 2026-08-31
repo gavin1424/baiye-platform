@@ -1455,11 +1455,11 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       if (!order) return json({ error: "找不到此訂單。" }, 404, cors);
       const input = await request.json(); const action = input.action === "refund" ? "refunded" : "confirmed";
       const method = ["counter", "cash", "card", "line_pay", "easycard_terminal", "other"].includes(input.payment_method) ? input.payment_method : "counter";
-      if (action === "refunded" && order.payment_status !== "paid") return json({ error: "僅能退款已確認收款的訂單。" }, 409, cors);
       const key = clean(request.headers.get("idempotency-key") || input.idempotency_key, 100);
       if (!key) return json({ error: "付款操作需要 Idempotency-Key。" }, 400, cors);
       const existing = await db.prepare("SELECT action FROM merchant_order_payment_events WHERE merchant_id=? AND order_id=? AND idempotency_key=?").bind(merchantId, order.id, key).first();
       if (existing) return json({ ok: true, replayed: true, payment_status: existing.action === "confirmed" ? "paid" : "refunded" }, 200, cors);
+      if (action === "refunded" && order.payment_status !== "paid") return json({ error: "僅能退款已確認收款的訂單。" }, 409, cors);
       const next = action === "confirmed" ? "paid" : "refunded";
       await db.batch([
         db.prepare("INSERT INTO merchant_order_payment_events(id,merchant_id,order_id,action,payment_method,reference,actor_type,actor_id,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?)").bind(uid("payevent"), merchantId, order.id, action, method, clean(input.reference, 120) || null, actor.actor_type === "merchant" ? "merchant" : "admin", actorId, key),
