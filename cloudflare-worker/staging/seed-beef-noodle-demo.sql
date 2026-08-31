@@ -16,6 +16,13 @@ INSERT INTO merchant_ordering_settings(
   dine_in_enabled=1,takeaway_enabled=1,require_member=1,customer_cancel_before_accept=1,
   estimated_prep_minutes=15,table_session_enabled=1,show_sold_out_items=1,timezone='Asia/Taipei',updated_at=CURRENT_TIMESTAMP;
 
+-- The demo deliberately has no real OA credential.  Keep this disabled rather
+-- than publishing a placeholder lin.ee URL or pretending that a visitor joined.
+INSERT INTO merchant_line_integrations(id,merchant_id,enabled,display_name,integration_mode)
+VALUES('demo_beef_line','demo_beef_noodle',0,'百工牛肉麵 LINE','add_friend_link')
+ON CONFLICT(merchant_id) DO UPDATE SET enabled=0,display_name=excluded.display_name,add_friend_url=NULL,
+  basic_id=NULL,liff_id=NULL,line_login_channel_id=NULL,integration_mode='add_friend_link',updated_at=CURRENT_TIMESTAMP;
+
 INSERT OR IGNORE INTO merchant_roles(id,merchant_id,code,name,is_system)
 VALUES('demo_beef_owner_role','demo_beef_noodle','owner','示範店擁有者',0);
 INSERT OR IGNORE INTO merchant_role_permissions(role_id,permission_code)

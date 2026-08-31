@@ -154,6 +154,10 @@ async function qrContext(db, code) {
   `).bind(clean(code, 64)).first();
 }
 
+async function lineIntegrationForMerchant(db, merchantId) {
+  return db.prepare("SELECT * FROM merchant_line_integrations WHERE merchant_id=? LIMIT 1").bind(merchantId).first();
+}
+
 async function memberSession(db, request, merchantId) {
   const token = bearer(request);
   if (!token) return null;
@@ -330,7 +334,8 @@ function resolveOrderType(context, input) {
 
 async function handleContext(request, db, context, cors) {
   const session = await memberSession(db, request, context.merchant_id);
-  return json({ context: publicContext(context), member: session ? publicMember(session) : null }, 200, cors);
+  const line = await lineIntegrationForMerchant(db, context.merchant_id);
+  return json({ context: { ...publicContext(context), line: publicLineIntegration(line) }, member: session ? publicMember(session) : null }, 200, cors);
 }
 
 async function handleJoin(request, db, context, cors) {
@@ -400,6 +405,39 @@ async function handleJoin(request, db, context, cors) {
   }, 201, cors);
 }
 
+export function validateMerchantLineAddFriendUrl(value) {
+  const raw = clean(value, 600);
+  if (!raw) return "";
+  try {
+    const parsed = new URL(raw);
+    const host = parsed.hostname.toLowerCase();
+    const allowed = new Set(["lin.ee", "line.me", "www.line.me", "page.line.me"]);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || !allowed.has(host)) return null;
+    return parsed.toString();
+  } catch { return null; }
+}
+
+function lineCapabilities(mode) {
+  if (mode === "add_friend_link") return { addFriendLink: true, login: false, friendshipStatus: false, messaging: false };
+  if (mode === "linked_line_login") return { addFriendLink: true, login: true, friendshipStatus: true, messaging: false };
+  return { addFriendLink: false, login: false, friendshipStatus: false, messaging: false };
+}
+
+function publicLineIntegration(row) {
+  const integrationMode = clean(row?.integration_mode || "add_friend_link", 60) || "add_friend_link";
+  const addFriendUrl = validateMerchantLineAddFriendUrl(row?.add_friend_url);
+  const configured = Boolean(row?.enabled) && integrationMode === "add_friend_link" && Boolean(addFriendUrl);
+  return {
+    configured,
+    display_name: clean(row?.display_name, 120),
+    basic_id: clean(row?.basic_id, 120),
+    add_friend_url: configured ? addFriendUrl : "",
+    integration_mode: integrationMode,
+    capabilities: lineCapabilities(integrationMode),
+    status: configured ? "configured" : "LINE_DEMO_NOT_CONFIGURED",
+  };
+}
+
 async function handleMenu(request, db, context, cors) {
   if (!context.enabled) return json({ error: "此商家的掃碼點餐尚未開放。" }, 409, cors);
   const session = await memberSession(db, request, context.merchant_id);
@@ -413,8 +451,9 @@ async function handleMenu(request, db, context, cors) {
     db.prepare(`SELECT id,group_id,name,price_delta_minor,sort_order FROM merchant_menu_option_values WHERE merchant_id=? AND active=1 AND archived_at IS NULL ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT menu_item_id,option_group_id,sort_order FROM merchant_menu_item_option_groups WHERE merchant_id=? ORDER BY sort_order`).bind(context.merchant_id).all(),
   ]);
+  const line = await lineIntegrationForMerchant(db, context.merchant_id);
   return json({
-    context: publicContext(context),
+    context: { ...publicContext(context), line: publicLineIntegration(line) },
     member: session ? publicMember(session) : null,
     categories: categories.results || [],
     items: (items.results || []).map((item) => ({ ...item, price_minor: Number(item.price_minor) })),
@@ -579,11 +618,27 @@ async function handleGetOrder(request, db, orderCodeValue, cors) {
   return order ? json({ order }, 200, cors) : json({ error: "找不到此訂單。" }, 404, cors);
 }
 
+async function handleLineEvent(request, db, context, cors) {
+  if (!await publicRateLimit(db, request, context.merchant_id, "line_event", 40)) return json({ error: "操作過於頻繁，請稍後再試。" }, 429, cors);
+  const input = await request.json().catch(() => ({}));
+  const source = clean(input?.source, 40);
+  const eventType = clean(input?.event_type, 40);
+  const allowedSource = ["menu_banner", "checkout_reminder", "order_success"];
+  const expectedEvent = eventType === "click" ? "line_cta_click" : eventType === "impression" ? "line_cta_impression" : "";
+  if (!expectedEvent || !allowedSource.includes(source)) return json({ error: "LINE 事件格式不正確。" }, 400, cors);
+  const line = await lineIntegrationForMerchant(db, context.merchant_id);
+  if (!publicLineIntegration(line).configured) return json({ error: "店家 LINE 官方帳號尚未設定。", code: "LINE_DEMO_NOT_CONFIGURED" }, 409, cors);
+  const qrContext = context.purpose === "takeaway" ? "takeaway" : `dine_in:${clean(context.table_label || context.label, 80)}`;
+  await db.prepare("INSERT INTO merchant_line_events(id,merchant_id,event_type,source,qr_context) VALUES(?,?,?,?,?)")
+    .bind(uid("lineevent"), context.merchant_id, expectedEvent, source, qrContext).run();
+  return json({ ok: true }, 201, cors);
+}
+
 export async function handleOrderingRequest(request, env, url, cors = {}) {
   if (!env.FINANCE_DB) return json({ error: CUSTOMER_ERROR }, 503, cors);
   const db = env.FINANCE_DB;
   try {
-    const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|menu|orders))?$/);
+    const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|menu|orders|line-events))?$/);
     if (qrMatch) {
       const context = await qrContext(db, qrMatch[1]);
       if (!context) return json({ error: "此 QR Code 無效、已停用或已過期。" }, 404, cors);
@@ -592,6 +647,7 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
       if (request.method === "POST" && action === "join") return handleJoin(request, db, context, cors);
       if (request.method === "GET" && action === "menu") return handleMenu(request, db, context, cors);
       if (request.method === "POST" && action === "orders") return handleCreateOrder(request, db, context, cors);
+      if (request.method === "POST" && action === "line-events") return handleLineEvent(request, db, context, cors);
       return json({ error: "Method not allowed" }, 405, cors);
     }
     const orderMatch = url.pathname.match(/^\/api\/ordering\/orders\/([^/]+)(?:\/(cancel))?$/);
@@ -606,7 +662,7 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
 
 async function adminOverview(db, merchantId) {
   const settings = await db.prepare(`SELECT * FROM merchant_ordering_settings WHERE merchant_id=?`).bind(merchantId).first();
-  const [qrs, categories, items, groups, values, links, sessions, orders, memberCount] = await Promise.all([
+  const [qrs, categories, items, groups, values, links, sessions, orders, memberCount, lineIntegration] = await Promise.all([
     db.prepare(`SELECT * FROM merchant_ordering_qr_codes WHERE merchant_id=? ORDER BY created_at DESC`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_menu_categories WHERE merchant_id=? ORDER BY sort_order,name`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_menu_items WHERE merchant_id=? ORDER BY sort_order,name`).bind(merchantId).all(),
@@ -622,6 +678,7 @@ async function adminOverview(db, merchantId) {
       WHERE o.merchant_id=? ORDER BY datetime(o.created_at) DESC LIMIT 200
     `).bind(merchantId).all(),
     db.prepare(`SELECT COUNT(*) total FROM merchant_ordering_memberships WHERE merchant_id=? AND status='active'`).bind(merchantId).first(),
+    lineIntegrationForMerchant(db, merchantId),
   ]);
   const orderRows = orders.results || [];
   let orderItems = [];
@@ -659,6 +716,7 @@ async function adminOverview(db, merchantId) {
       table_session_enabled: Boolean(settings.table_session_enabled),
       show_sold_out_items: Boolean(settings.show_sold_out_items),
     } : null,
+    line_integration: publicLineIntegration(lineIntegration),
     qrs: (qrs.results || []).map((row) => ({ ...row, active: Boolean(row.active) })),
     categories: (categories.results || []).map((row) => ({ ...row, active: Boolean(row.active) })),
     items: (items.results || []).map((row) => ({ ...row, available: Boolean(row.available), allow_customer_note: Boolean(row.allow_customer_note), price_minor: Number(row.price_minor) })),
@@ -704,6 +762,28 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
   try {
     if (url.pathname === "/api/admin/ordering/overview" && request.method === "GET") {
       return json({ merchant_id: merchantId, ...(await adminOverview(db, merchantId)) }, 200, cors);
+    }
+
+    if (url.pathname === "/api/admin/ordering/line-integration" && request.method === "GET") {
+      return json({ merchant_id: merchantId, line_integration: publicLineIntegration(await lineIntegrationForMerchant(db, merchantId)) }, 200, cors);
+    }
+
+    if (url.pathname === "/api/admin/ordering/line-integration" && request.method === "PUT") {
+      const input = await request.json();
+      const integrationMode = clean(input?.integration_mode || "add_friend_link", 60);
+      if (!["add_friend_link", "linked_line_login", "future_multi_account_liff"].includes(integrationMode)) return json({ error: "LINE 整合模式不正確。" }, 400, cors);
+      const addFriendUrl = validateMerchantLineAddFriendUrl(input?.add_friend_url);
+      if (addFriendUrl === null) return json({ error: "LINE 加好友網址必須是 HTTPS 的 LINE 官方網址。", code: "INVALID_LINE_ADD_FRIEND_URL" }, 400, cors);
+      const enabled = Boolean(input?.enabled) && integrationMode === "add_friend_link" && Boolean(addFriendUrl);
+      const id = (await lineIntegrationForMerchant(db, merchantId))?.id || uid("merchantline");
+      await db.prepare(`
+        INSERT INTO merchant_line_integrations(id,merchant_id,enabled,basic_id,display_name,add_friend_url,liff_id,line_login_channel_id,integration_mode)
+        VALUES(?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(merchant_id) DO UPDATE SET enabled=excluded.enabled,basic_id=excluded.basic_id,display_name=excluded.display_name,
+          add_friend_url=excluded.add_friend_url,liff_id=excluded.liff_id,line_login_channel_id=excluded.line_login_channel_id,integration_mode=excluded.integration_mode,updated_at=CURRENT_TIMESTAMP
+      `).bind(id, merchantId, enabled ? 1 : 0, clean(input?.basic_id, 120) || null, clean(input?.display_name, 120) || null, addFriendUrl || null, clean(input?.liff_id, 160) || null, clean(input?.line_login_channel_id, 160) || null, integrationMode).run();
+      await audit(db, merchantId, actorType, actorId, "merchant_line_integration_saved", "line_integration", id, { actor_role: actorRole, enabled, integration_mode: integrationMode });
+      return json({ ok: true, line_integration: publicLineIntegration(await lineIntegrationForMerchant(db, merchantId)) }, 200, cors);
     }
 
     if (url.pathname === "/api/admin/ordering/settings" && request.method === "PATCH") {

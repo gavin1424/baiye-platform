@@ -1232,6 +1232,15 @@
 .ordering-member-chip-compact > svg { width: 22px; height: 22px; }
 .ordering-member-chip-compact strong { font-size: 13px; }
 .ordering-storefront-hero + .ordering-message { margin-top: 6px; }
+.ordering-line-banner { width: min(100% - 40px, 960px); margin: 2px auto 12px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #c9e6d3; border-radius: 14px; background: #f4fbf6; }
+.ordering-line-banner div { min-width: 0; display: grid; gap: 2px; }
+.ordering-line-banner strong { color: #155e35; font-size: 14px; }
+.ordering-line-banner span, .ordering-line-unconfigured { color: #57615b; font-size: 12px; }
+.ordering-line-banner .btn { flex: 0 0 auto; min-height: 36px; padding: 7px 10px; font-size: 13px; }
+.ordering-line-unconfigured { width: min(100% - 40px, 960px); margin: 2px auto 12px; }
+.ordering-line-checkout-reminder { margin-top: 14px; padding: 12px; display: grid; gap: 7px; border-radius: 12px; background: #f4fbf6; border: 1px solid #c9e6d3; }
+.ordering-line-checkout-reminder > span { color: #53625a; font-size: 13px; }
+.ordering-line-checkout-reminder > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .ordering-storefront-hero ~ .ordering-menu-section { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .ordering-storefront-hero ~ .ordering-menu-section .ordering-menu-search { margin-top: 0; }
 .ordering-join-after-menu { margin-top: 22px; margin-bottom: 18px; }
@@ -1243,6 +1252,8 @@
   .ordering-storefront-brand { gap: 9px; }
   .ordering-storefront-hero h1 { font-size: 27px; }
   .ordering-storefront-meta { gap: 6px; font-size: 13px !important; }
+  .ordering-line-banner, .ordering-line-unconfigured { width: min(100% - 28px, 960px); }
+  .ordering-line-banner { align-items: flex-start; }
   .ordering-member-chip-compact { width: auto; padding: 7px 9px; }
   .ordering-storefront-hero ~ .ordering-menu-section { width: min(100% - 28px, 960px); padding: 10px 0 24px; }
   .ordering-storefront-hero ~ .ordering-menu-section .ordering-category-tabs { top: 0; margin-inline: 0; padding-inline: 0; }

@@ -185,6 +185,7 @@ export function AdminQrOrderingPage({
   const [itemGroupDraft, setItemGroupDraft] = useState<
     Record<string, string[]>
   >({});
+  const [lineForm, setLineForm] = useState({ enabled: false, display_name: "", basic_id: "", add_friend_url: "", integration_mode: "add_friend_link" });
   const knownOrders = useRef(new Set<string>());
 
   const request = useCallback(
@@ -213,6 +214,13 @@ export function AdminQrOrderingPage({
         "/api/admin/ordering/overview",
       );
       setOverview(data);
+      setLineForm({
+        enabled: Boolean(data.line_integration?.configured),
+        display_name: data.line_integration?.display_name || "",
+        basic_id: data.line_integration?.basic_id || "",
+        add_friend_url: data.line_integration?.add_friend_url || "",
+        integration_mode: data.line_integration?.integration_mode || "add_friend_link",
+      });
       setSettings(
         data.settings
           ? {
@@ -318,6 +326,11 @@ export function AdminQrOrderingPage({
       { method: "PATCH", body: JSON.stringify(settings) },
       "掃碼會員與點餐設定已儲存。",
     );
+  };
+
+  const saveLineIntegration = async (event: FormEvent) => {
+    event.preventDefault();
+    await mutate("/api/admin/ordering/line-integration", { method: "PUT", body: JSON.stringify(lineForm) }, "LINE 官方帳號設定已儲存。加好友連結不代表使用者已加入好友。");
   };
 
   const createQr = async (event: FormEvent) => {
@@ -840,6 +853,19 @@ export function AdminQrOrderingPage({
             >
               儲存設定
             </button>
+          </form>
+        </article>
+
+        <article className="ordering-admin-panel">
+          <div className="ordering-admin-panel-title"><Storefront /><div><span>商家整合</span><h2>LINE 官方帳號</h2></div></div>
+          <p>僅接受商家自己的 LINE 官方加好友網址；顧客點擊連結不等同已加入好友。</p>
+          <form className="ordering-admin-form" onSubmit={saveLineIntegration}>
+            <label>LINE OA 名稱<input value={lineForm.display_name} onChange={(event) => setLineForm({ ...lineForm, display_name: event.target.value })} placeholder="例如：百工牛肉麵 LINE" /></label>
+            <label>LINE Basic ID<input value={lineForm.basic_id} onChange={(event) => setLineForm({ ...lineForm, basic_id: event.target.value })} placeholder="@xxxxxxx" /></label>
+            <label className="ordering-admin-form-wide">LINE 加好友網址<input type="url" value={lineForm.add_friend_url} onChange={(event) => setLineForm({ ...lineForm, add_friend_url: event.target.value })} placeholder="https://lin.ee/..." /></label>
+            <label><span>整合模式</span><select value={lineForm.integration_mode} onChange={(event) => setLineForm({ ...lineForm, integration_mode: event.target.value })}><option value="add_friend_link">加好友連結</option><option value="linked_line_login">LINE Login（需完成商家關聯）</option><option value="future_multi_account_liff">多帳號 LIFF（預留）</option></select></label>
+            <label className="ordering-consent"><input type="checkbox" checked={lineForm.enabled} onChange={(event) => setLineForm({ ...lineForm, enabled: event.target.checked })} /><span>啟用加好友導流（未設定有效 LINE URL 不會啟用）</span></label>
+            <button className="btn btn-primary" type="submit" disabled={loading}>儲存 LINE 設定</button>
           </form>
         </article>
 

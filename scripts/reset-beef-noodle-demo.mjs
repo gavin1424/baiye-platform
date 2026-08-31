@@ -32,6 +32,7 @@ DELETE FROM merchant_dining_sessions WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_member_sessions WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_ordering_memberships WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_ordering_audit_logs WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_line_events WHERE merchant_id='demo_beef_noodle';
 DELETE FROM ordering_rate_limits WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_user_sessions WHERE merchant_id='demo_beef_noodle';
 UPDATE merchant_menu_items SET daily_sold_count=0,daily_sold_date=NULL,updated_at=CURRENT_TIMESTAMP WHERE merchant_id='demo_beef_noodle';

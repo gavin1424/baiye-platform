@@ -33,6 +33,11 @@ import {
   savePlatformMemberToken,
   getPlatformDeviceId,
   saveOrderingLastOrder,
+  clearPersistedOrderingCart,
+  getOrderingLineClicked,
+  getPersistedOrderingCart,
+  saveOrderingLineClicked,
+  savePersistedOrderingCart,
   type OrderingCategory,
   type OrderingContext,
   type OrderingCoupon,
@@ -146,6 +151,8 @@ export function QrOrderingPage() {
   const [tableLabel, setTableLabel] = useState("");
   const [customerNote, setCustomerNote] = useState("");
   const [demoInvoiceMethod, setDemoInvoiceMethod] = useState("carrier");
+  const [lineClicked, setLineClicked] = useState(false);
+  const [lineCheckoutSkipped, setLineCheckoutSkipped] = useState(false);
   const pendingOrderKey = useRef("");
   const joinRef = useRef<HTMLElement | null>(null);
 
@@ -197,7 +204,6 @@ export function QrOrderingPage() {
     setLoading(true);
     setMessage("");
     setOrder(null);
-    setCart({});
     try {
       const data = await orderingPublicApi<QrContextResponse>(
         `/api/ordering/qr/${encodeURIComponent(code)}`,
@@ -210,6 +216,15 @@ export function QrOrderingPage() {
       else if (ctx.qr.purpose === "dine_in") setOrderType("dine_in");
       else if (!ctx.dine_in_enabled && ctx.takeaway_enabled)
         setOrderType("takeaway");
+      const persisted = getPersistedOrderingCart(code);
+      if (persisted) {
+        setCart(persisted.cart || {});
+        setItemSelections(persisted.itemSelections || {});
+        setCustomerNote(persisted.customerNote || "");
+        if (!ctx.qr.table_label) setTableLabel(persisted.tableLabel || "");
+        if (ctx.qr.purpose === "member_order") setOrderType(persisted.orderType || "dine_in");
+      }
+      setLineClicked(getOrderingLineClicked(code));
 
       const savedToken = getOrderingMemberToken(ctx.merchant_id);
       if (savedToken) {
@@ -256,6 +271,19 @@ export function QrOrderingPage() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    if (!context || loading || order) return;
+    savePersistedOrderingCart(code, { cart, itemSelections, customerNote, orderType, tableLabel });
+  }, [cart, code, context, customerNote, itemSelections, loading, order, orderType, tableLabel]);
+
+  useEffect(() => {
+    if (!context?.line.configured) return;
+    const key = `baiye:ordering-line-impression:${code}:menu_banner`;
+    if (window.sessionStorage.getItem(key)) return;
+    window.sessionStorage.setItem(key, "1");
+    void orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/line-events`, { method: "POST", body: JSON.stringify({ event_type: "impression", source: "menu_banner" }) }).catch(() => undefined);
+  }, [code, context?.line.configured]);
 
   useEffect(() => {
     if (!order || !token || ["completed", "cancelled"].includes(order.status))
@@ -419,6 +447,16 @@ export function QrOrderingPage() {
     }
   };
 
+  const recordLineClick = (source: "menu_banner" | "checkout_reminder" | "order_success") => {
+    if (!context?.line.configured) return;
+    saveOrderingLineClicked(code);
+    setLineClicked(true);
+    void orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/line-events`, {
+      method: "POST",
+      body: JSON.stringify({ event_type: "click", source }),
+    }).catch(() => undefined);
+  };
+
   const submitOrder = async () => {
     if (!context || !token || !cartLines.length) return;
     setSubmitting(true);
@@ -460,6 +498,8 @@ export function QrOrderingPage() {
       setOrder(data.order);
       saveOrderingLastOrder(context.merchant_id, data.order.order_code);
       setCart({});
+      setItemSelections({});
+      clearPersistedOrderingCart(code);
       setCartOpen(false);
       setCustomerNote("");
       setMessage(data.message);
@@ -561,6 +601,17 @@ export function QrOrderingPage() {
         )}
       </section>
 
+      {IS_BEEF_NOODLE_DEMO && (
+        context.line.configured ? (
+          <section className="ordering-line-banner" aria-label="店家 LINE 官方帳號">
+            <div><strong>加入{context.line.display_name || "百工牛肉麵 LINE"}</strong><span>加入後方便接收優惠與店家消息</span></div>
+            <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("menu_banner")}>加入 LINE</a>
+          </section>
+        ) : (
+          <p className="ordering-line-unconfigured">LINE 官方帳號尚未設定</p>
+        )
+      )}
+
       {message && (
         <div className="ordering-message" role="status">
           {message}
@@ -593,6 +644,9 @@ export function QrOrderingPage() {
               >
                 再加點
               </button>
+              {IS_BEEF_NOODLE_DEMO && context.line.configured && !lineClicked && (
+                <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("order_success")}>加入店家 LINE</a>
+              )}
               {order.status === "submitted" &&
                 context.customer_cancel_before_accept && (
                   <button
@@ -1112,7 +1166,17 @@ export function QrOrderingPage() {
                   </select>
                 </label>
                 <p>電子發票功能尚未啟用（INVOICE_PROVIDER_DISABLED）。本 Demo 不會開立發票。</p>
-                <p>加入店家 LINE：尚未正式串接；送單成功後可在此預留接收訂單與優惠通知的位置。</p>
+                {context.line.configured && !lineClicked && !lineCheckoutSkipped && (
+                  <div className="ordering-line-checkout-reminder">
+                    <strong>加入{context.line.display_name || "店家 LINE"}</strong>
+                    <span>加入後可接收店家優惠與最新消息，不加入也能繼續結帳。</span>
+                    <div>
+                      <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("checkout_reminder")}>加入 LINE</a>
+                      <button type="button" className="btn btn-ghost" onClick={() => setLineCheckoutSkipped(true)}>先不用，繼續結帳</button>
+                    </div>
+                  </div>
+                )}
+                {!context.line.configured && <p>LINE 官方帳號尚未設定；本 Demo 不會偽造加入好友結果。</p>}
               </section>
             )}
             <button

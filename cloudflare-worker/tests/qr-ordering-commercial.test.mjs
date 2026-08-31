@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
-import { calculateOrderLines, canTransitionOrderStatus, handleOrderingAdminRequest, handleOrderingRequest } from "../src/qr-ordering.js";
+import { calculateOrderLines, canTransitionOrderStatus, handleOrderingAdminRequest, handleOrderingRequest, validateMerchantLineAddFriendUrl } from "../src/qr-ordering.js";
 import { permissionForOrderingRequest } from "../src/merchant-permissions.js";
 
 class Statement {
@@ -16,7 +16,7 @@ class D1 {
   constructor() {
     this.sqlite = new DatabaseSync(":memory:");
     this.sqlite.exec("PRAGMA foreign_keys=ON");
-    for (const name of ["0001_finance_core.sql", "0011_qr_membership_ordering.sql", "0012_member_benefits_integrations.sql", "0013_growth_completion.sql", "0013_qr_ordering_commercial_v1.sql", "0015_phone_only_platform_membership.sql"]) {
+    for (const name of ["0001_finance_core.sql", "0011_qr_membership_ordering.sql", "0012_member_benefits_integrations.sql", "0013_growth_completion.sql", "0013_qr_ordering_commercial_v1.sql", "0015_phone_only_platform_membership.sql", "0018_merchant_line_integrations.sql"]) {
       this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
     }
     this.sqlite.prepare("INSERT INTO merchants(id,merchant_code,name,status) VALUES('merchant_a','A','商用測試餐廳','active'),('merchant_b','B','隔離商家','active')").run();
@@ -69,6 +69,9 @@ test("QR migrations preserve the existing CRM merchant memberships table",()=>{
 });
 test("commercial migration rollback preserves the original ordering tables",()=>{const db=new D1();db.sqlite.exec(readFileSync(new URL("../migrations/rollback/0013_qr_ordering_commercial_v1.down.sql",import.meta.url),"utf8"));assert.ok(db.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='merchant_food_orders'").get());assert.equal(db.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='merchant_menu_option_groups'").get(),undefined);});
 test("invalid QR is rejected",async()=>{const db=new D1();const r=publicRequest("/api/ordering/qr/nope");assert.equal((await handleOrderingRequest(r,env(db),new URL(r.url),{})).status,404);});
+test("merchant LINE add-friend URL accepts only official HTTPS LINE hosts",()=>{assert.equal(validateMerchantLineAddFriendUrl("https://lin.ee/demo123"),"https://lin.ee/demo123");assert.equal(validateMerchantLineAddFriendUrl("javascript:alert(1)"),null);assert.equal(validateMerchantLineAddFriendUrl("https://evil.example/redirect"),null);assert.equal(validateMerchantLineAddFriendUrl("data:text/html,x"),null);});
+test("QR context has no enabled LINE CTA until the merchant config is valid",async()=>{const db=new D1();let r=publicRequest("/api/ordering/qr/opaque-A1-code-0123456789");let data=await (await handleOrderingRequest(r,env(db),new URL(r.url),{})).json();assert.equal(data.context.line.configured,false);await admin(db,"/api/admin/ordering/line-integration","PUT",{enabled:true,display_name:"測試 LINE",basic_id:"@test",add_friend_url:"https://lin.ee/demo123",integration_mode:"add_friend_link"});r=publicRequest("/api/ordering/qr/opaque-A1-code-0123456789");data=await (await handleOrderingRequest(r,env(db),new URL(r.url),{})).json();assert.equal(data.context.line.configured,true);assert.equal(data.context.line.capabilities.friendshipStatus,false);});
+test("LINE analytics resolve merchant only from opaque QR context",async()=>{const db=new D1();await admin(db,"/api/admin/ordering/line-integration","PUT",{enabled:true,add_friend_url:"https://lin.ee/demo123",integration_mode:"add_friend_link"});const r=publicRequest("/api/ordering/qr/opaque-A1-code-0123456789/line-events","POST",{event_type:"click",source:"menu_banner",merchant_id:"merchant_b"});assert.equal((await handleOrderingRequest(r,env(db),new URL(r.url),{})).status,201);const event=db.sqlite.prepare("SELECT merchant_id,event_type,qr_context FROM merchant_line_events").get();assert.deepEqual({...event},{merchant_id:"merchant_a",event_type:"line_cta_click",qr_context:"dine_in:A1"});});
 test("disabled QR is rejected",async()=>{const db=new D1();db.sqlite.prepare("UPDATE merchant_ordering_qr_codes SET active=0 WHERE id='qr_a'").run();const r=publicRequest("/api/ordering/qr/opaque-A1-code-0123456789");assert.equal((await handleOrderingRequest(r,env(db),new URL(r.url),{})).status,404);});
 test("expired QR is rejected",async()=>{const db=new D1();db.sqlite.prepare("UPDATE merchant_ordering_qr_codes SET expires_at='2000-01-01' WHERE id='qr_a'").run();const r=publicRequest("/api/ordering/qr/opaque-A1-code-0123456789");assert.equal((await handleOrderingRequest(r,env(db),new URL(r.url),{})).status,404);});
 test("new member joins without verified phone",async()=>{const db=new D1();const {response,data}=await join(db);assert.equal(response.status,201);assert.equal(db.sqlite.prepare("SELECT phone_verified FROM ordering_customers").get().phone_verified,0);assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_members").get().n,1);assert.equal(data.welcome.show,true);});
