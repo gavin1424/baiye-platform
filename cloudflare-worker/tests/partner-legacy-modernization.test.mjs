@@ -22,7 +22,7 @@ class D1 {
 }
 
 const cors = { "access-control-allow-origin": "https://staging.example" };
-const env = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://staging.example", PARTNER_OTP_MODE: "staging", CONTRACT_SIGNING_MODE: "staging" });
+const env = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://staging.example", PARTNER_OTP_MODE: "staging", CONTRACT_SIGNING_MODE: "staging", PARTNER_ID_FIELD_ENCRYPTION_KEY: "test-encryption-key-at-least-32-bytes", PARTNER_ID_HASH_SECRET: "test-hmac-secret-at-least-32-bytes" });
 function request(path, data) {
   return new Request(`https://worker.test${path}`, { method: "POST", headers: { "content-type": "application/json", "CF-Connecting-IP": "198.51.100.18" }, body: JSON.stringify(data) });
 }
@@ -40,7 +40,7 @@ function insertLegacy(db, overrides = {}) {
 
 test("L01 Legacy Apply 自動核准且不建立第二筆 Partner", async () => {
   const db = new D1(); const legacy = insertLegacy(db);
-  const result = await call(db, "/api/partner/apply", { legal_name: legacy.legal_name, display_name: legacy.display_name, email: legacy.email, phone: "0912-345-678", consent: true });
+  const result = await call(db, "/api/partner/apply", { legal_name: legacy.legal_name, id_number: "A123456789", email: legacy.email, phone: "0912-345-678", consent: true });
   assert.equal(result.response.status, 200); assert.equal(result.data.code, "PARTNER_LEGACY_MODERNIZED");
   const row = db.sqlite.prepare("SELECT status,approved_at,phone FROM partners WHERE id=?").get(legacy.id);
   assert.deepEqual([row.status, Boolean(row.approved_at), row.phone], ["pending_contract", true, "0912345678"]);

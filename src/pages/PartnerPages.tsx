@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
@@ -17,6 +17,7 @@ const formatDate = (value?: string | null) =>
         timeStyle: "short",
       }).format(new Date(value))
     : "—";
+const formatDateOnly = (value?: string | null) => value ? value.replaceAll("-", "/") : "—";
 const money = (value: unknown) =>
   new Intl.NumberFormat("zh-TW", {
     style: "currency",
@@ -230,7 +231,7 @@ export function PartnerLanding() {
 export function PartnerApply() {
   const [form, setForm] = useState<any>({
     legal_name: "",
-    display_name: "",
+    id_number: "",
     email: "",
     phone: "",
     company_name: "",
@@ -267,7 +268,7 @@ export function PartnerApply() {
       <form onSubmit={submit}>
         {[
           ["legal_name", "法定姓名"],
-          ["display_name", "顯示名稱"],
+          ["id_number", "身分證字號"],
           ["email", "Email"],
           ["phone", "手機"],
           ["company_name", "公司／行號（選填）"],
@@ -278,15 +279,14 @@ export function PartnerApply() {
             {label}
             <input
               type={key === "email" ? "email" : key === "phone" ? "tel" : "text"}
+              placeholder={key === "id_number" ? "A123456789" : undefined}
               required={
                 !key.includes("company") &&
                 !key.includes("tax") &&
                 !key.includes("note")
               }
               value={form[key]}
-              onChange={(event) =>
-                setForm({ ...form, [key]: event.target.value })
-              }
+              onChange={(event) => setForm({ ...form, [key]: key === "id_number" ? event.target.value.toUpperCase() : event.target.value })}
             />
           </label>
         ))}
@@ -321,6 +321,7 @@ export function PartnerApply() {
           <p className="partner-eyebrow">申請成功</p>
           <h2>恭喜您已通過創百業承攬夥伴申請。</h2>
           <p className="partner-approved-code">承攬夥伴編號：<strong>{success.partner_code}</strong></p>
+          {success.id_number_masked && <p>身分證字號：{success.id_number_masked}</p>}
           <ul>
             <li>✓ 承攬夥伴申請已核准</li>
             <li>✓ 創百業會員已建立</li>
@@ -602,6 +603,8 @@ export function PartnerDashboard() {
           <span>
             {data.contract.version} · {formatDate(data.contract.signed_at)}
           </span>
+          {data.contract.period && <span>目前契約期間：{formatDateOnly(data.contract.period.period_start)} ～ {formatDateOnly(data.contract.period.period_end)}（三個月一期）</span>}
+          {data.contract.period && <span>狀態：{data.contract.period.status === "active" ? "有效" : data.contract.period.status === "expiring" ? "即將到期" : data.contract.period.status === "renewal_required" ? "待續約" : "已到期"} · 剩餘 {Math.max(0, Number(data.contract.period.remaining_days || 0))} 天</span>}
           <button className="btn btn-outline btn-sm" onClick={download}>
             下載我的已簽契約 PDF
           </button>
@@ -618,9 +621,11 @@ export function PartnerDashboard() {
       {data.operation_locked && (
         <section className="partner-status warning">
           <strong>承攬營運功能已鎖定</strong>
-          <span>完成目前有效且已通過法律審閱之契約簽署後，才可建立正式推薦歸因、成交獎勵與結算。</span>
+          <span>{data.operation_lock_code === "PARTNER_CONTRACT_RENEWAL_REQUIRED" ? "本期契約已到期；完成下一期契約後，才可建立新的推薦歸因、成交獎勵與 Payout 申請。" : "完成目前有效且已通過法律審閱之契約簽署後，才可建立正式推薦歸因、成交獎勵與結算。"}</span>
         </section>
       )}
+      {data.partner.identity_completion_required && <section className="partner-status warning"><strong>新版契約身分資料待補充</strong><span>請補充身分證字號以完成新版契約資料；您仍可查看 Dashboard 與既有歷史資料。</span><Link className="btn btn-primary btn-sm" to="/partner/contract">前往補充資料</Link></section>}
+      {data.partner.id_number_masked && <section className="partner-status"><strong>承攬夥伴身分資料</strong><span>身分證字號：{data.partner.id_number_masked}</span></section>}
       <section className="partner-cards">
         {[
           ["累計有效成交", data.partner.total_valid_sales],
@@ -682,45 +687,144 @@ export function PartnerDashboard() {
 }
 
 export function PartnerContract() {
+  const navigate = useNavigate();
   const [contract, setContract] = useState<any>();
   const [name, setName] = useState("");
-  const [checks, setChecks] = useState([false, false, false]);
+  const [identityNumber, setIdentityNumber] = useState("");
+  const [checks, setChecks] = useState([false, false, false, false, false]);
   const [message, setMessage] = useState("");
   const [signature, setSignature] = useState<SignatureValue>({ strokes: [] });
   const [preview, setPreview] = useState<any>();
-  const [memberWelcome, setMemberWelcome] = useState<any>();
+  const [signed, setSigned] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [signSuccess, setSignSuccess] = useState<any>();
+  const [redirectSeconds, setRedirectSeconds] = useState(3);
+  const signIdempotencyKey = useRef(crypto.randomUUID());
+  const identitySectionRef = useRef<HTMLElement>(null);
+  const nameSectionRef = useRef<HTMLLabelElement>(null);
+  const consentsSectionRef = useRef<HTMLDivElement>(null);
+  const signatureSectionRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
     api("/api/partner/contract/current")
-      .then(setContract)
+      .then((result) => {
+        setContract(result);
+        setName(result?.partner_legal_name || "");
+        setSigned(Boolean(result?.signature?.signature_id));
+      })
       .catch((error) => setMessage(errorText(error)));
   }, []);
-  const openPreview = async () => {
+
+  useEffect(() => {
+    if (!signSuccess) return;
+    setRedirectSeconds(3);
+    const countdown = window.setInterval(
+      () => setRedirectSeconds((value) => Math.max(0, value - 1)),
+      1000,
+    );
+    const redirect = window.setTimeout(
+      () => navigate("/partner/dashboard", { replace: true }),
+      3000,
+    );
+    return () => {
+      window.clearInterval(countdown);
+      window.clearTimeout(redirect);
+    };
+  }, [navigate, signSuccess]);
+
+  const completeIdentity = async () => {
     setMessage("");
     try {
-      setPreview(await api("/api/partner/contract/sign-preview", { method: "POST", body: JSON.stringify({ legal_name: name }) }));
+      await api("/api/partner/identity", { method: "POST", body: JSON.stringify({ id_number: identityNumber }) });
+      const updated = await api("/api/partner/contract/current");
+      if (updated?.identity_completion_required) {
+        throw new Error("身分資料尚未完成確認，請重新檢查後再試。");
+      }
+      setContract(updated);
+      setName(updated?.partner_legal_name || name);
+      setIdentityNumber("");
+      setMessage("身分證字號已安全保存，現在可以繼續新版契約程序。");
+    } catch (error) { setMessage(errorText(error)); }
+  };
+
+  const signaturePointCount = signature.strokes.reduce(
+    (total, stroke) => total + stroke.length,
+    0,
+  );
+  const signatureStrokeCount = signature.strokes.filter(
+    (stroke) => stroke.length >= 2,
+  ).length;
+  const legalNameConfirmed = Boolean(
+    name.trim() && name.trim() === contract?.partner_legal_name,
+  );
+  const signatureReady = signatureStrokeCount >= 2 && signaturePointCount >= 12;
+
+  const showValidation = (text: string, target: { current: HTMLElement | null }) => {
+    setMessage(text);
+    target.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const validatePartnerContractForm = () => {
+    if (contract?.identity_completion_required) {
+      showValidation("請先完成身分資料，再進行契約預覽。", identitySectionRef);
+      return false;
+    }
+    if (!legalNameConfirmed) {
+      showValidation("請重新輸入與申請資料一致的法定姓名。", nameSectionRef);
+      return false;
+    }
+    if (!checks.every(Boolean)) {
+      showValidation(`請完成全部契約確認（目前 ${checks.filter(Boolean).length}/5）。`, consentsSectionRef);
+      return false;
+    }
+    if (!signatureReady) {
+      showValidation("請以正楷完成至少 2 筆、共 12 點以上的本人手寫簽名。", signatureSectionRef);
+      return false;
+    }
+    return true;
+  };
+
+  const openPreview = async () => {
+    setMessage("");
+    if (!validatePartnerContractForm()) return;
+    try {
+      setPreview(await api("/api/partner/contract/sign-preview", { method: "POST", body: JSON.stringify({ legal_name: name, read: checks[0], electronic: checks[1], independent: checks[2], identity: checks[3], block_letter_signature: checks[4], signature }) }));
     } catch (error) { setMessage(errorText(error)); }
   };
   const sign = async () => {
+    if (signing || signed) return;
     setMessage("");
+    setSigning(true);
     try {
       const result = await api("/api/partner/contract/sign", {
         method: "POST",
-        headers: { "idempotency-key": crypto.randomUUID() },
+        headers: { "idempotency-key": signIdempotencyKey.current },
         body: JSON.stringify({
           legal_name: name,
           read: checks[0],
           electronic: checks[1],
           independent: checks[2],
+          identity: checks[3],
+          block_letter_signature: checks[4],
           signature,
         }),
       });
+      if (!result.signature_id || !result.document_hash || !result.signed_at) {
+        setMessage("SIGN_RESULT_INCOMPLETE：簽署結果尚未完整確認，請勿重複簽署並稍後重試。");
+        return;
+      }
       if (result.member_session?.token) savePlatformMemberToken(result.member_session.token);
-      if (result.welcome?.show) setMemberWelcome(result.welcome);
-      setMessage(
-        `承攬夥伴合作契約已簽署並保存私有 PDF。文件雜湊：${result.document_hash}`,
-      );
+      setPreview(undefined);
+      setSignature({ strokes: [] });
+      setChecks([false, false, false, false, false]);
+      setSigned(true);
+      setSignSuccess(result);
+      signIdempotencyKey.current = crypto.randomUUID();
     } catch (error) {
       setMessage(errorText(error));
+      if (error instanceof ApiError) signIdempotencyKey.current = crypto.randomUUID();
+    } finally {
+      setSigning(false);
     }
   };
   return (
@@ -731,20 +835,31 @@ export function PartnerContract() {
           {contract.legal_review_status !== "approved" && (
             <section className="partner-status warning"><strong>契約法律審閱 Gate 已鎖定</strong><span>此版本目前為 {contract.legal_review_status || "pending_review"}；Production 不可簽署。僅隔離 Staging 可標示測試簽署。</span></section>
           )}
-          <article
-            dangerouslySetInnerHTML={{ __html: contract.content_html }}
-          />
-          <label>
+          {signed && !signSuccess ? (
+            <section className="partner-status success">
+              <strong>此版本已完成簽署</strong>
+              <span>契約版本：{contract.signature?.version || contract.version} · 簽署時間：{formatDate(contract.signature?.signed_at)}</span>
+              <div className="partner-workflow-actions">
+                {contract.signature?.signature_id && <a className="btn btn-outline" href={`${API}/api/partner/contracts/${contract.signature.signature_id}/pdf`}>查看／下載已簽 PDF</a>}
+                <Link className="btn btn-primary" to="/partner/dashboard">返回承攬夥伴中心</Link>
+              </div>
+            </section>
+          ) : !signed && <>
+          <article dangerouslySetInnerHTML={{ __html: contract.content_html }} />
+          {contract.identity_completion_required && <section ref={identitySectionRef} className="partner-status warning"><strong>請補充身分證字號以完成新版契約資料</strong><label>身分證字號<input type="text" inputMode="text" autoComplete="off" placeholder="A123456789" value={identityNumber} onChange={(event) => setIdentityNumber(event.target.value.toUpperCase())} /></label><button type="button" className="btn btn-primary" onClick={() => void completeIdentity()}>安全保存身分資料</button><span>完整資料會加密保存；一般畫面、Audit 與公開驗證頁不顯示明文。</span></section>}
+          <label ref={nameSectionRef}>
             重新輸入法定姓名
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
           </label>
-          {[
+          <div ref={consentsSectionRef}>{[
             "本人已閱讀並理解本承攬夥伴合作契約全部內容。",
-            "本人同意以電子方式簽署本契約。",
+            "本人同意使用電子形式完成本契約程序。",
             "本人了解本合作為獨立承攬／居間合作，非僱傭關係。",
+            "本人確認以上姓名及身分證字號均為本人真實資料。",
+            "本人確認手寫簽名係由本人親自以正楷完成。",
           ].map((text, index) => (
             <label className="partner-consent" key={text}>
               <input
@@ -760,15 +875,23 @@ export function PartnerContract() {
               />
               {text}
             </label>
-          ))}
-          <p><strong>手寫簽署證據</strong></p>
-          <ContractSignatureCanvas onChange={setSignature} />
-          <p className="partner-guidance-note">手寫簽名軌跡與系統紀錄作為線上契約查驗證據；不宣稱為憑證式數位簽章或政府認證電子簽章。</p>
-          <button className="btn btn-primary" onClick={() => void openPreview()}>
+          ))}</div>
+          <section ref={signatureSectionRef} className="partner-block-letter-signature"><h2>本人正楷手寫簽名</h2><p><strong>請以正楷清楚簽寫本人完整姓名，請勿草寫、潦草書寫、只寫英文縮寫、符號或隨意畫記。</strong></p><p>簽署姓名須與上方填寫之法定姓名一致。</p><p className="signature-copy-line">請正楷簽寫：<strong>{contract.partner_legal_name}</strong></p></section>
+          <ContractSignatureCanvas onChange={setSignature} minimumPoints={12} minimumStrokes={2} clearLabel="清除重寫" />
+          <p className="partner-guidance-note">手寫簽名軌跡與系統紀錄作為線上契約查驗證據；系統不進行筆跡生物辨識，也不宣稱為憑證式數位簽章或政府認證電子簽章。</p>
+          <section className="partner-status" aria-label="簽署前確認">
+            <strong>簽署前確認</strong>
+            <span>{!contract.identity_completion_required ? "✓" : "○"} 身分資料已完成</span>
+            <span>{legalNameConfirmed ? "✓" : "○"} 法定姓名已確認</span>
+            <span>{checks.every(Boolean) ? "✓" : "○"} 契約確認 {checks.filter(Boolean).length}/5</span>
+            <span>{signatureReady ? "✓" : "○"} 手寫簽名已記錄</span>
+          </section>
+          <button className="btn btn-primary" disabled={signing} onClick={() => void openPreview()}>
             預覽最後確認
           </button>
-          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最後確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" onClick={() => void sign()}>確認簽署</button></div></div></div>}
-          {memberWelcome && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>{memberWelcome.title}</h2><p>您已自動成為創百業會員，NT$100 迎新禮券已放入您的會員帳戶。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">查看我的優惠券</Link><Link className="btn btn-outline" to="/partner/dashboard">繼續前往承攬夥伴中心</Link></div></div></div>}
+          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最後確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>身分證字號</dt><dd>{preview.id_number_masked}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>契約期間</dt><dd>{preview.contract_period?.period_start} ～ {preview.contract_period?.period_end}（三個月一期）</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" disabled={signing} onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" disabled={signing} onClick={() => void sign()}>{signing ? "簽署處理中…" : "確認簽署"}</button></div></div></div>}
+          </>}
+          {signSuccess && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>契約簽署成功！</h2><p>您的承攬夥伴合作契約已完成線上簽署並保存。</p>{signSuccess.welcome?.show && !signSuccess.coupon_issue_failed ? <><h3>歡迎成為創百業會員！</h3><p>NT$100 迎新禮券已放入您的會員帳戶。</p>{signSuccess.coupon && <div className="member-coupon-card"><div><strong>NT$100</strong><span>迎新禮券</span><small>{signSuccess.coupon.expires_at ? `有效至 ${formatDate(signSuccess.coupon.expires_at)}` : "30 天效期"}</small></div></div>}</> : !signSuccess.coupon_issue_failed && <p>您的會員資格與迎新禮券已存在，不會重複發放。</p>}{signSuccess.coupon_issue_failed && <p className="partner-message">契約已簽署成功，但迎新禮券建立暫時失敗，系統將保留補發紀錄。</p>}<div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">查看我的優惠券</Link><Link className="btn btn-outline" to="/partner/dashboard">返回承攬夥伴中心</Link></div><p className="partner-guidance-note">{redirectSeconds} 秒後自動返回承攬夥伴中心</p></div></div>}
         </>
       )}
       {message && (

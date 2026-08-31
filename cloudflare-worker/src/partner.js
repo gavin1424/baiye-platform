@@ -5,10 +5,23 @@ import {
   beginContractOperation,
   buildSignedAgreement,
   completeContractOperation,
+  parseAndValidateSignature,
   sessionEvidenceHash,
   storePrivateAgreementArtifacts,
+  validateExplicitConsents,
 } from "./contract-engine.js";
 import { ensurePlatformMember, finalizePlatformMembershipBatch, normalizeTaiwanMobile, preparePlatformMembershipBatch } from "./platform-membership.js";
+import {
+  calculatePartnerContractPeriod,
+  decryptPartnerIdNumber,
+  encryptPartnerIdNumber,
+  hashPartnerIdNumber,
+  isValidTaiwanIdNumber,
+  maskTaiwanIdNumber,
+  normalizeTaiwanIdNumber,
+  partnerPeriodDisplayStatus,
+  taipeiDateFromInstant,
+} from "./partner-identity.js";
 
 const E = new TextEncoder();
 const D = new TextDecoder();
@@ -35,9 +48,21 @@ async function audit(db, request, actorType, actorId, action, entityType, entity
   await db.prepare("INSERT INTO audit_logs (id,actor_type,actor_id,action,entity_type,entity_id,metadata,ip_address) VALUES (?,?,?,?,?,?,?,?)")
     .bind(id("audit"), actorType, actorId, action, entityType, entityId, JSON.stringify(metadata), request ? clientIp(request) : null).run();
 }
-async function activeContract(db) { return db.prepare("SELECT * FROM contract_versions WHERE is_active=1 ORDER BY effective_date DESC LIMIT 1").first(); }
+async function activeContract(db, env = {}) {
+  if (env.CONTRACT_SIGNING_MODE === "staging") {
+    const staging = await db.prepare("SELECT * FROM contract_versions WHERE staging_signing_enabled=1 ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
+    if (staging) return staging;
+  }
+  return db.prepare("SELECT * FROM contract_versions WHERE is_active=1 ORDER BY effective_date DESC LIMIT 1").first();
+}
 async function signedApprovedContract(db, partnerId) {
-  return db.prepare("SELECT s.id,s.public_id,s.signed_at,s.status,v.version FROM contract_signatures s JOIN contract_versions v ON v.id=s.contract_version_id WHERE s.partner_id=? AND s.status='VALID' AND v.is_active=1 AND v.legal_review_status='approved' AND v.approved_content_hash=v.content_hash LIMIT 1").bind(partnerId).first();
+  const today = taipeiDateFromInstant();
+  return db.prepare("SELECT s.id,s.public_id,s.signed_at,s.status,v.version,cp.period_start,cp.period_end,cp.renewal_status FROM contract_signatures s JOIN contract_versions v ON v.id=s.contract_version_id LEFT JOIN partner_contract_periods cp ON cp.contract_signature_id=s.id WHERE s.partner_id=? AND s.status='VALID' AND v.is_active=1 AND v.legal_review_status='approved' AND v.approved_content_hash=v.content_hash AND (cp.id IS NULL OR (cp.period_end>=? AND cp.renewal_status IN ('active','expiring','renewed'))) LIMIT 1").bind(partnerId, today).first();
+}
+async function partnerOperationLockCode(db, partnerId) {
+  if (await signedApprovedContract(db, partnerId)) return null;
+  const expired = await db.prepare("SELECT id FROM partner_contract_periods WHERE partner_id=? AND (period_end<? OR renewal_status IN ('renewal_required','expired')) ORDER BY period_end DESC LIMIT 1").bind(partnerId, taipeiDateFromInstant()).first();
+  return expired ? "PARTNER_CONTRACT_RENEWAL_REQUIRED" : "PARTNER_CONTRACT_REQUIRED";
 }
 function contractFailure(error, cors) {
   if (error instanceof ContractError) return json({ error: error.message, code: error.code, details: error.details }, error.status, cors);
@@ -336,7 +361,8 @@ export async function awardCommissionForOrder(db, orderId, paymentId) {
   if (existing) { await syncPartnerTotals(db, order.partner_id); await syncVipReward(db, order.partner_id); return; }
   const partner = await db.prepare("SELECT * FROM partners WHERE id=?").bind(order.partner_id).first();
   if (!partner || partner.status !== "active") return;
-  if (!await signedApprovedContract(db, partner.id)) return { blocked: true, code: "PARTNER_CONTRACT_REQUIRED" };
+  const contractLock = await partnerOperationLockCode(db, partner.id);
+  if (contractLock) return { blocked: true, code: contractLock };
   const prior = await validSalesCount(db, order.partner_id);
   const sequence = prior + 1;
   // A threshold is earned by this sale and applies from the following valid sale.
@@ -365,16 +391,20 @@ export async function reverseOrderCommission(db, orderId, reason = "customer_ref
   }
 }
 
-async function partnerDashboard(db, partnerId) {
-  let partner = await db.prepare("SELECT partner_code,display_name,legal_name,referral_code,total_valid_sales,total_sales_amount,contract_status,contract_version,contract_signed_at,activated_at FROM partners WHERE id=?").bind(partnerId).first();
+async function partnerDashboard(db, partnerId, env = {}) {
+  let partner = await db.prepare("SELECT partner_code,display_name,legal_name,referral_code,total_valid_sales,total_sales_amount,contract_status,contract_version,contract_signed_at,activated_at,id_number_last4,identity_completion_required FROM partners WHERE id=?").bind(partnerId).first();
   const totals = await syncPartnerTotals(db, partnerId);
-  partner = { ...partner, total_valid_sales: totals.count, total_sales_amount: totals.total };
+  partner = { ...partner, id_number_masked: partner?.id_number_last4 ? `******${partner.id_number_last4}` : null, total_valid_sales: totals.count, total_sales_amount: totals.total };
+  delete partner.id_number_last4;
   const level = levelForCount(Math.max(1, totals.count));
   const previous = await upsertQualification(db, { ...partner, id: partnerId }, monthWindow(-1), level);
   const currentRate = previous.result === "missed" && level.key !== "starter" ? level.fallback : level.rate;
   const commissions = await db.prepare("SELECT COALESCE(SUM(CASE WHEN status='confirmed' THEN final_amount ELSE 0 END),0) pending,COALESCE(SUM(CASE WHEN status='payable' THEN final_amount ELSE 0 END),0) payable,COALESCE(SUM(CASE WHEN status='paid' THEN final_amount ELSE 0 END),0) paid,COALESCE(SUM(CASE WHEN status='reversed' THEN adjustment_amount ELSE 0 END),0) reversed FROM commissions WHERE partner_id=?").bind(partnerId).first();
-  const contract = await activeContract(db);
-  const signature = contract ? await db.prepare("SELECT id,public_id,pdf_hash,signed_at,status FROM contract_signatures WHERE partner_id=? AND contract_version_id=? ORDER BY signed_at DESC LIMIT 1").bind(partnerId, contract.id).first() : null;
+  const contract = await activeContract(db, env);
+  const signature = contract ? await db.prepare("SELECT id,public_id,pdf_hash,signed_at,status,contract_period_start,contract_period_end,contract_term_months FROM contract_signatures WHERE partner_id=? AND contract_version_id=? ORDER BY signed_at DESC LIMIT 1").bind(partnerId, contract.id).first() : null;
+  const period = signature ? await db.prepare("SELECT period_start,period_end,contract_term_months,renewal_status,timezone FROM partner_contract_periods WHERE contract_signature_id=?").bind(signature.id).first() : null;
+  const periodState = period ? partnerPeriodDisplayStatus(period.period_end) : null;
+  const lockCode = await partnerOperationLockCode(db, partnerId);
   const vip = await syncVipReward(db, partnerId);
   const nextBoundary = totals.count < 10 ? 11 : totals.count < 30 ? 31 : totals.count < 70 ? 71 : totals.count < 120 ? 121 : null;
   return {
@@ -387,9 +417,9 @@ async function partnerDashboard(db, partnerId) {
     previous_month_qualification: previous,
     next_tier: nextBoundary ? Math.max(0, nextBoundary - totals.count) : 0,
     vip: vip ? { cycle_no: vip.cycle_no, cycle_start: vip.cycle_start, cycle_end: vip.cycle_end, valid_new_merchants: vip.valid_new_merchants, target_merchants: vip.target_merchants, reward_amount: vip.reward_amount, status: vip.status } : null,
-    contract: { version: contract?.version || null, signed: Boolean(signature), signature_id: signature?.id || null, signed_at: signature?.signed_at || null, legal_review_status: contract?.legal_review_status || "pending_review", resign_required: Boolean(contract?.requires_resign && !signature) },
-    operation_locked: !Boolean(await signedApprovedContract(db, partnerId)),
-    operation_lock_code: await signedApprovedContract(db, partnerId) ? null : "PARTNER_CONTRACT_REQUIRED",
+    contract: { version: contract?.version || null, signed: Boolean(signature), signature_id: signature?.id || null, signed_at: signature?.signed_at || null, legal_review_status: contract?.legal_review_status || "pending_review", resign_required: Boolean(contract?.requires_resign && !signature), period: period ? { ...period, ...periodState } : null },
+    operation_locked: Boolean(lockCode),
+    operation_lock_code: lockCode,
   };
 }
 
@@ -450,19 +480,27 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
 
   if (path === "/api/partner/apply" && request.method === "POST") {
     const input = await body(request);
-    if (!input.legal_name || !input.email || !input.phone || !input.consent) return json({ error: "請完整填寫必填資料，並確認獨立承攬／居間合作聲明。" }, 400, cors);
+    if (!input.legal_name || !input.id_number || !input.email || !input.phone || !input.consent) return json({ error: "請完整填寫必填資料，並確認獨立承攬／居間合作聲明。" }, 400, cors);
     const email = String(input.email).trim().toLowerCase();
     const phone = normalizeTaiwanMobile(input.phone);
+    const idNumber = normalizeTaiwanIdNumber(input.id_number);
     if (!validEmail(email)) return json({ error: "請輸入有效的 Email。", code: "INVALID_EMAIL" }, 422, cors);
     if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+    if (!isValidTaiwanIdNumber(idNumber)) return json({ error: "請輸入正確的台灣身分證字號。", code: "INVALID_PARTNER_ID_NUMBER" }, 422, cors);
+    let idNumberHash;
+    try { idNumberHash = await hashPartnerIdNumber(idNumber, env.PARTNER_ID_HASH_SECRET); }
+    catch (error) { return json({ error: error?.code === "PARTNER_ID_SECURITY_UNAVAILABLE" ? "身分資料安全服務目前暫時無法使用。" : "請輸入正確的台灣身分證字號。", code: error?.code || "PARTNER_ID_SECURITY_UNAVAILABLE" }, Number(error?.status || 503), cors); }
     if (!await applicationRateLimit(db, request, email, phone)) return json({ error: "申請操作過於頻繁，請 15 分鐘後再試。", code: "RATE_LIMITED" }, 429, cors);
     const phoneOwner = await partnerByNormalizedPhone(db, phone);
     const emailOwner = (await workflowForEmail(db, email)).partner;
+    const idOwner = await db.prepare("SELECT id,status FROM partners WHERE id_number_hash=? LIMIT 1").bind(idNumberHash).first();
     if (emailOwner && phoneOwner && emailOwner.id !== phoneOwner.id) return json({ error: "Email 與手機分屬不同承攬夥伴資料，請聯絡平台客服。", code: "PARTNER_IDENTITY_CONFLICT" }, 409, cors);
     const existingPartner = emailOwner || phoneOwner;
+    if (idOwner && (!existingPartner || idOwner.id !== existingPartner.id)) return json({ error: "此身分資料已有承攬夥伴紀錄，請使用原手機登入或聯絡平台協助。", code: "PARTNER_ID_ALREADY_EXISTS" }, 409, cors);
     if (existingPartner) {
       if (emailOwner && normalizeTaiwanMobile(emailOwner.phone) !== phone) return json({ error: "此申請資料已存在，身分資料不符，請聯絡平台客服。", code: "PARTNER_IDENTITY_MISMATCH" }, 409, cors);
       if (phoneOwner && String(phoneOwner.email || "").trim().toLowerCase() !== email) return json({ error: "此手機已建立承攬夥伴帳號，請使用手機登入或聯絡平台客服。", code: "PARTNER_PHONE_ALREADY_REGISTERED", state: phoneOwner.status === "active" ? "active" : "pending_activation", next_url: "/partner/login" }, 409, cors);
+      if (existingPartner.id_number_hash && existingPartner.id_number_hash !== idNumberHash) return json({ error: "此申請資料已存在，身分資料不符，請聯絡平台客服。", code: "PARTNER_IDENTITY_MISMATCH" }, 409, cors);
       try {
         const modern = await ensurePartnerModernized(db, request, env, existingPartner, { createInvite: existingPartner.status !== "active", source: "partner_apply" });
         if (["suspended", "terminated", "rejected"].includes(existingPartner.status)) return json({ error: modern.workflow.message, ...modern.workflow }, 409, cors);
@@ -474,11 +512,12 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     }
     const partnerId = id("partner"), partnerCode = await uniquePartnerCode(db), approvedAt = now();
     try {
+      const idNumberEncrypted = await encryptPartnerIdNumber(idNumber, env.PARTNER_ID_FIELD_ENCRYPTION_KEY);
       const invite = await prepareActivationInvite(db, partnerId);
       const membership = await preparePlatformMembershipBatch(db, { phone, source: "phone", privacyConsentVersion: "partner-auto-approval-v1", issueSession: false });
       const statements = [
-        db.prepare("INSERT INTO partners (id,partner_code,legal_name,display_name,email,phone,company_name,tax_id,status,referral_code,approved_at,approved_by,approval_mode,auto_approved_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,'system','automatic',?)")
-          .bind(partnerId, partnerCode, String(input.legal_name).slice(0, 80), String(input.display_name || input.legal_name).slice(0, 80), email, phone, input.company_name || null, input.tax_id || null, "pending_contract", partnerCode, approvedAt, approvedAt),
+        db.prepare("INSERT INTO partners (id,partner_code,legal_name,display_name,email,phone,company_name,tax_id,status,referral_code,approved_at,approved_by,approval_mode,auto_approved_at,id_number_encrypted,id_number_hash,id_number_last4,identity_completion_required) VALUES (?,?,?,?,?,?,?,?,?,?,?,'system','automatic',?,?,?,?,0)")
+          .bind(partnerId, partnerCode, String(input.legal_name).slice(0, 80), String(input.legal_name).slice(0, 80), email, phone, input.company_name || null, input.tax_id || null, "pending_contract", partnerCode, approvedAt, approvedAt, idNumberEncrypted, idNumberHash, idNumber.slice(-4)),
         db.prepare("INSERT INTO partner_application_identities(phone_normalized,partner_id) VALUES(?,?)").bind(phone, partnerId),
         ...invite.statements,
         ...membership.statements,
@@ -492,9 +531,10 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       if (membership.couponCreated) statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_coupon.claimed", "platform_member", membership.memberId, { campaign_id: "platform_welcome_member_v1" }));
       await db.batch(statements);
       const member = await finalizePlatformMembershipBatch(db, membership);
-      const contract = await activeContract(db);
-      return json({ id: partnerId, partner_code: partnerCode, status: "pending_contract", state: "pending_activation", approved_at: approvedAt, approval_mode: "automatic", activation_url: activationUrl(invite.raw, env), activation_expires_at: invite.expiresAt, membership: member.member, welcome: { show: member.created, title: "歡迎成為創百業會員！", message: "您也已成為創百業會員，NT$100 迎新禮券已放入會員帳戶。" }, coupon: member.coupon, contract: { version: contract?.version || null, legal_review_status: contract?.legal_review_status || "pending_review", signing_available: Boolean(contract?.legal_review_status === "approved" && contract?.approved_content_hash === contract?.content_hash) } }, 201, { ...cors, "cache-control": "no-store" });
+      const contract = await activeContract(db, env);
+      return json({ id: partnerId, partner_code: partnerCode, id_number_masked: maskTaiwanIdNumber(idNumber), status: "pending_contract", state: "pending_activation", approved_at: approvedAt, approval_mode: "automatic", activation_url: activationUrl(invite.raw, env), activation_expires_at: invite.expiresAt, membership: member.member, welcome: { show: member.created, title: "歡迎成為創百業會員！", message: "您也已成為創百業會員，NT$100 迎新禮券已放入會員帳戶。" }, coupon: member.coupon, contract: { version: contract?.version || null, legal_review_status: contract?.legal_review_status || "pending_review", signing_available: Boolean((contract?.legal_review_status === "approved" && contract?.approved_content_hash === contract?.content_hash) || (env.CONTRACT_SIGNING_MODE === "staging" && Number(contract?.staging_signing_enabled) === 1)) } }, 201, { ...cors, "cache-control": "no-store" });
     } catch (error) {
+      if (String(error?.message || "").includes("idx_partners_id_number_hash") || String(error?.message || "").includes("partners.id_number_hash")) return json({ error: "此身分資料已有承攬夥伴紀錄，請使用原手機登入或聯絡平台協助。", code: "PARTNER_ID_ALREADY_EXISTS" }, 409, cors);
       if (String(error?.message || "").includes("UNIQUE")) return json({ error: "此 Email 或手機已建立承攬夥伴申請。", code: "PARTNER_DUPLICATE_IDENTITY" }, 409, cors);
       console.error(JSON.stringify({ service: "partner_apply", code: error?.code || "APPLY_FAILED" }));
       return json({ error: "申請暫時無法送出，請稍後再試。" }, Number(error?.status || 503), cors);
@@ -652,7 +692,8 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     const input = await body(request), referral = String(input.referral_code || "");
     const partner = await db.prepare("SELECT id,status FROM partners WHERE referral_code=?").bind(referral).first();
     if (!partner || partner.status !== "active" || !input.lead_name) return json({ error: "推薦連結無效，或請填寫聯絡人姓名。" }, 400, cors);
-    if (!await signedApprovedContract(db, partner.id)) return json({ error: "承攬夥伴須先簽署目前有效契約，才能建立正式推薦歸因。", code: "PARTNER_CONTRACT_REQUIRED" }, 423, cors);
+    const contractLock = await partnerOperationLockCode(db, partner.id);
+    if (contractLock) return json({ error: contractLock === "PARTNER_CONTRACT_RENEWAL_REQUIRED" ? "本期合作契約已到期，完成續約後才能建立新的正式推薦歸因。" : "承攬夥伴須先簽署目前有效契約，才能建立正式推薦歸因。", code: contractLock }, 423, cors);
     const existing = await db.prepare("SELECT id FROM partner_leads WHERE lead_email=? AND lead_email IS NOT NULL ORDER BY first_seen_at LIMIT 1").bind(input.lead_email || null).first();
     if (existing) return json({ lead_id: existing.id, attribution: "existing" }, 200, cors);
     const leadId = id("lead");
@@ -890,48 +931,98 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
   const partner = await db.prepare("SELECT * FROM partners WHERE id=?").bind(partnerId).first();
   if (!partner || partner.status !== "active") return json({ error: "承攬夥伴帳號目前尚未啟用或已終止。" }, 403, cors);
 
-  if (path === "/api/partner/me") return json({ id: partner.id, partner_code: partner.partner_code, legal_name: partner.legal_name, display_name: partner.display_name, status: partner.status, referral_code: partner.referral_code }, 200, cors);
-  if (path === "/api/partner/contract/current" && request.method === "GET") return json(await activeContract(db), 200, cors);
+  if (path === "/api/partner/me") return json({ id: partner.id, partner_code: partner.partner_code, legal_name: partner.legal_name, display_name: partner.display_name, status: partner.status, referral_code: partner.referral_code, identity_completion_required: Boolean(partner.identity_completion_required), id_number_masked: partner.id_number_last4 ? `******${partner.id_number_last4}` : null }, 200, cors);
+  if (path === "/api/partner/identity" && request.method === "POST") {
+    const input = await body(request), idNumber = normalizeTaiwanIdNumber(input.id_number);
+    if (!isValidTaiwanIdNumber(idNumber)) return json({ error: "請輸入正確的台灣身分證字號。", code: "INVALID_PARTNER_ID_NUMBER" }, 422, cors);
+    if (partner.id_number_hash) return json({ ok: true, id_number_masked: `******${partner.id_number_last4}`, identity_completion_required: false, existing: true }, 200, cors);
+    try {
+      const idNumberHash = await hashPartnerIdNumber(idNumber, env.PARTNER_ID_HASH_SECRET);
+      const owner = await db.prepare("SELECT id FROM partners WHERE id_number_hash=? AND id<>? LIMIT 1").bind(idNumberHash, partnerId).first();
+      if (owner) return json({ error: "此身分資料已有承攬夥伴紀錄，請使用原手機登入或聯絡平台協助。", code: "PARTNER_ID_ALREADY_EXISTS" }, 409, cors);
+      const encrypted = await encryptPartnerIdNumber(idNumber, env.PARTNER_ID_FIELD_ENCRYPTION_KEY);
+      const update = await db.prepare("UPDATE partners SET id_number_encrypted=?,id_number_hash=?,id_number_last4=?,identity_completion_required=0,updated_at=CURRENT_TIMESTAMP WHERE id=? AND id_number_hash IS NULL").bind(encrypted, idNumberHash, idNumber.slice(-4), partnerId).run();
+      if (Number(update.meta?.changes || 0) !== 1) return json({ error: "身分資料已完成或目前無法更新。", code: "PARTNER_IDENTITY_UPDATE_CONFLICT" }, 409, cors);
+      await audit(db, request, "partner", partnerId, "partner.identity_completed", "partner", partnerId, { identity_completion_required: false });
+      return json({ ok: true, id_number_masked: maskTaiwanIdNumber(idNumber), identity_completion_required: false }, 200, cors);
+    } catch (error) {
+      if (String(error?.message || "").includes("UNIQUE")) return json({ error: "此身分資料已有承攬夥伴紀錄，請使用原手機登入或聯絡平台協助。", code: "PARTNER_ID_ALREADY_EXISTS" }, 409, cors);
+      return json({ error: "身分資料安全服務目前暫時無法使用。", code: error?.code || "PARTNER_ID_SECURITY_UNAVAILABLE" }, Number(error?.status || 503), cors);
+    }
+  }
+  if (path === "/api/partner/contract/current" && request.method === "GET") {
+    const contract = await activeContract(db, env);
+    if (!contract) return json(null, 200, cors);
+    const period = contract.contract_term_months ? calculatePartnerContractPeriod(taipeiDateFromInstant(), Number(contract.contract_term_months)) : null;
+    const signature = await db.prepare("SELECT s.id signature_id,s.signed_at,s.document_hash,s.pdf_hash,s.status,v.version FROM contract_signatures s JOIN contract_versions v ON v.id=s.contract_version_id WHERE s.partner_id=? AND s.contract_version_id=? AND s.status='VALID' LIMIT 1").bind(partnerId, contract.id).first();
+    return json({ ...contract, partner_legal_name: partner.legal_name, identity_completion_required: Boolean(partner.identity_completion_required), id_number_masked: partner.id_number_last4 ? `******${partner.id_number_last4}` : null, period_preview: period, signature: signature || null }, 200, cors);
+  }
   if (path === "/api/partner/contract/sign-preview" && request.method === "POST") {
     try {
-      const input = await body(request), contract = await activeContract(db);
+      const input = await body(request), contract = await activeContract(db, env);
       assertContractSignable(contract, env);
       if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
-      return json({ version: contract.version, party_a: "平台契約正式設定法律主體", party_b: partner.legal_name, signatory: partner.legal_name, relationship: "獨立承攬／居間合作，非僱傭關係", signed_at: now(), important_terms: ["有效成交與五級獎勵", "每月合作資格維持", "退款與佣金沖回", "禁止私收款、假交易與未授權承諾", "線上簽署證據不等同憑證式數位簽章"] }, 200, cors);
+      if (!partner.id_number_hash || !partner.id_number_encrypted) throw new ContractError("PARTNER_IDENTITY_COMPLETION_REQUIRED", "請補充身分證字號以完成新版契約資料。", 422);
+      validateExplicitConsents({ read: input.read, electronic: input.electronic, independent: input.independent, identity: input.identity, block_letter_signature: input.block_letter_signature }, "partner", "partner-contract-consent-v1.5");
+      parseAndValidateSignature(input.signature, { minimumPoints: 12, minimumStrokes: 2 });
+      const period = calculatePartnerContractPeriod(taipeiDateFromInstant(), Number(contract.contract_term_months || 3));
+      return json({ version: contract.version, party_a: "平台契約正式設定法律主體", party_b: partner.legal_name, signatory: partner.legal_name, id_number_masked: `******${partner.id_number_last4}`, relationship: "獨立承攬／居間合作，非僱傭關係", contract_period: period, signed_at: now(), important_terms: ["三個月為一期", "有效成交與五級獎勵", "每月合作資格維持", "退款與佣金沖回", "禁止私收款、假交易與未授權承諾", "線上簽署證據不等同憑證式數位簽章"] }, 200, cors);
     } catch (error) { return contractFailure(error, cors); }
   }
   if (path === "/api/partner/contract/sign" && request.method === "POST") {
     try {
-      const input = await body(request), contract = await activeContract(db);
+      const input = await body(request), contract = await activeContract(db, env);
       const staging = assertContractSignable(contract, env).staging;
       if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
+      if (!partner.id_number_hash || !partner.id_number_encrypted) throw new ContractError("PARTNER_IDENTITY_COMPLETION_REQUIRED", "請補充身分證字號以完成新版契約資料。", 422);
       if (!normalizeTaiwanMobile(partner.phone)) throw new ContractError("PARTNER_PHONE_REQUIRED", "承攬夥伴手機資料不完整，請先聯絡平台更新後再簽署。", 422);
       const cookieToken = (request.headers.get("cookie") || "").match(/(?:^|;\s*)partner_session=([^;]+)/)?.[1] || "unknown";
       const operation = await beginContractOperation(db, { partyType: "partner", partyId: partnerId, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
-      if (operation.replay) return json({ ...operation.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
-      const existing = await db.prepare("SELECT id,public_id,document_hash,pdf_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
+      if (operation.replay) {
+        let replayResult = operation.result;
+        if (!replayResult.signed_at && replayResult.signature_id) {
+          const committed = await db.prepare("SELECT signed_at FROM contract_signatures WHERE id=? AND partner_id=?").bind(replayResult.signature_id, partnerId).first();
+          replayResult = { ...replayResult, signed_at: committed?.signed_at || null };
+        }
+        return json({ ...replayResult, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
+      }
+      const existing = await db.prepare("SELECT id,public_id,document_hash,pdf_hash,signed_at FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
       if (existing) {
         const membership = await ensurePlatformMember(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract", issueSession: true });
-        const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, replay: true };
+        const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, signed_at: existing.signed_at, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: membership.coupon, replay: true };
         await completeContractOperation(db, operation.operation.id, replay); return json(replay, 200, cors);
       }
       const signatureId = id("sign"), publicId = `BYPC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
       const sessionHash = await sessionEvidenceHash(cookieToken);
-      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：平台契約正式設定法律主體　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", signature: input.signature, consents: { read: input.read, electronic: input.electronic, independent: input.independent }, consentVersion: "partner-contract-consent-v1.4", ip: clientIp(request), userAgent: request.headers.get("user-agent"), sessionEvidence: sessionHash, staging });
+      const signedAt = now();
+      const contractPeriod = calculatePartnerContractPeriod(taipeiDateFromInstant(signedAt), Number(contract.contract_term_months || 3));
+      const idNumber = await decryptPartnerIdNumber(partner.id_number_encrypted, env.PARTNER_ID_FIELD_ENCRYPTION_KEY);
+      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：平台契約正式設定法律主體　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", identityHash: partner.id_number_hash, privateIdentityLabel: `乙方身分證字號：${idNumber}`, contractPeriod, signedAt, signature: input.signature, signatureValidation: { minimumPoints: 12, minimumStrokes: 2 }, consents: { read: input.read, electronic: input.electronic, independent: input.independent, identity: input.identity, block_letter_signature: input.block_letter_signature }, consentVersion: "partner-contract-consent-v1.5", ip: clientIp(request), userAgent: request.headers.get("user-agent"), sessionEvidence: sessionHash, staging });
       const prefix = `contracts/partners/${partnerId}/${contract.version}/${signatureId}`;
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
       const membershipBatch = await preparePlatformMembershipBatch(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract" });
       try {
         await db.batch([
-          db.prepare("INSERT INTO contract_signatures(id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version,signature_assurance_level,public_id,evidence_object_key,session_id_hash,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-            .bind(signatureId, partnerId, contract.id, partner.legal_name, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.4", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID"),
+          db.prepare("INSERT INTO contract_signatures(id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version,signature_assurance_level,public_id,evidence_object_key,session_id_hash,status,contract_term_months,contract_period_start,contract_period_end,id_number_hash,id_number_last4) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            .bind(signatureId, partnerId, contract.id, partner.legal_name, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.5", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID", contractPeriod.term_months, contractPeriod.period_start, contractPeriod.period_end, partner.id_number_hash, partner.id_number_last4),
+          db.prepare("INSERT INTO partner_contract_periods(id,partner_id,contract_signature_id,contract_version_id,contract_term_months,period_start,period_end,timezone,renewal_status) VALUES(?,?,?,?,?,?,?,?,?)")
+            .bind(id("partner_period"), partnerId, signatureId, contract.id, contractPeriod.term_months, contractPeriod.period_start, contractPeriod.period_end, "Asia/Taipei", "active"),
           db.prepare("UPDATE partners SET contract_status='signed',contract_version=?,contract_signed_at=?,updated_at=? WHERE id=?").bind(contract.version, agreement.signedAt, now(), partnerId),
           ...membershipBatch.statements,
         ]);
       } catch (error) { await stored.cleanup(); throw error; }
-      await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE });
-      const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
-      const result = { ok: true, signature_id: signatureId, public_id: publicId, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome };
+      await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE, contract_term_months: contractPeriod.term_months, period_start: contractPeriod.period_start, period_end: contractPeriod.period_end });
+      let membership = null, couponIssueFailed = false;
+      try {
+        membership = await finalizePlatformMembershipBatch(db, membershipBatch);
+        couponIssueFailed = !membership.coupon;
+      } catch (membershipError) {
+        couponIssueFailed = true;
+      }
+      if (couponIssueFailed) {
+        try { await audit(db, request, "system", "partner_contract", "welcome_coupon_issue_failed", "contract_signature", signatureId, { partner_id: partnerId }); } catch { /* Contract remains committed; reconciliation can retry the coupon. */ }
+      }
+      const result = { ok: true, signature_id: signatureId, public_id: publicId, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, signed_at: agreement.signedAt, contract_period: contractPeriod, membership: membership ? { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created } : null, member_session: membership?.session || null, welcome: membership?.welcome || { show: false }, coupon: membership?.coupon || null, coupon_issue_failed: couponIssueFailed };
       await completeContractOperation(db, operation.operation.id, result);
       return json(result, 201, cors);
     } catch (error) { return contractFailure(error, cors); }
@@ -947,13 +1038,15 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     return new Response(object.body, { headers: { ...cors, "content-type": "application/pdf", "content-disposition": `attachment; filename=contract-${signature.id}.pdf`, "x-pdf-sha256": signature.pdf_hash } });
   }
 
-  if (path === "/api/partner/dashboard") return json(await partnerDashboard(db, partnerId), 200, cors);
+  if (path === "/api/partner/dashboard") return json(await partnerDashboard(db, partnerId, env), 200, cors);
   if (path === "/api/partner/referral") {
-    if (!await signedApprovedContract(db, partnerId)) return json({ error: "請先簽署目前有效的承攬夥伴合作契約。", code: "PARTNER_CONTRACT_REQUIRED" }, 423, cors);
+    const contractLock = await partnerOperationLockCode(db, partnerId);
+    if (contractLock) return json({ error: contractLock === "PARTNER_CONTRACT_RENEWAL_REQUIRED" ? "本期合作契約已到期，請先完成續約。" : "請先簽署目前有效的承攬夥伴合作契約。", code: contractLock }, 423, cors);
     return json({ referral_code: partner.referral_code, url: `https://baiyeconnect.com/#/join?ref=${partner.referral_code}` }, 200, cors);
   }
   if (path === "/api/partner/leads") {
-    if (!await signedApprovedContract(db, partnerId)) return json({ error: "請先簽署目前有效的承攬夥伴合作契約。", code: "PARTNER_CONTRACT_REQUIRED" }, 423, cors);
+    const contractLock = await partnerOperationLockCode(db, partnerId);
+    if (contractLock) return json({ error: contractLock === "PARTNER_CONTRACT_RENEWAL_REQUIRED" ? "本期合作契約已到期，請先完成續約。" : "請先簽署目前有效的承攬夥伴合作契約。", code: contractLock }, 423, cors);
     return json({ items: (await db.prepare("SELECT id,lead_name,source,status,created_at,converted_at FROM partner_leads WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
   }
   if (path === "/api/partner/orders") return json({ items: (await db.prepare("SELECT order_no,title,amount_due,amount_paid,payment_status,created_at FROM orders WHERE partner_id=? ORDER BY created_at DESC").bind(partnerId).all()).results }, 200, cors);
