@@ -16,7 +16,7 @@ class D1 {
   constructor() {
     this.sqlite = new DatabaseSync(":memory:");
     this.sqlite.exec("PRAGMA foreign_keys=ON");
-    for (const name of ["0001_finance_core.sql", "0011_qr_membership_ordering.sql", "0012_member_benefits_integrations.sql", "0013_growth_completion.sql", "0013_qr_ordering_commercial_v1.sql", "0015_phone_only_platform_membership.sql", "0018_merchant_line_integrations.sql", "0019_demo_payment_adapters.sql", "0020_demo_invoice_core.sql"]) {
+    for (const name of ["0001_finance_core.sql", "0011_qr_membership_ordering.sql", "0012_member_benefits_integrations.sql", "0013_growth_completion.sql", "0013_qr_ordering_commercial_v1.sql", "0015_phone_only_platform_membership.sql", "0018_merchant_line_integrations.sql", "0019_demo_payment_adapters.sql", "0020_demo_invoice_core.sql", "0021_invoice_document_immutability.sql"]) {
       this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
     }
     this.sqlite.prepare("INSERT INTO merchants(id,merchant_code,name,status) VALUES('merchant_a','A','商用測試餐廳','active'),('merchant_b','B','隔離商家','active')").run();
