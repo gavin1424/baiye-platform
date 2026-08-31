@@ -144,6 +144,7 @@ export function QrOrderingPage() {
   const [orderType, setOrderType] = useState<OrderingOrderType>("dine_in");
   const [tableLabel, setTableLabel] = useState("");
   const [customerNote, setCustomerNote] = useState("");
+  const [demoInvoiceMethod, setDemoInvoiceMethod] = useState("carrier");
   const pendingOrderKey = useRef("");
 
   const loadBenefits = useCallback(
@@ -437,6 +438,9 @@ export function QrOrderingPage() {
             order_type: orderType,
             table_label: tableLabel,
             customer_note: customerNote,
+            // QR V1 remains merchant-confirmed collection. The Worker keeps the
+            // authoritative default (`counter`) and never trusts a customer-paid flag.
+            payment_method: "counter",
             items: cartLines.map((item) => ({
               item_id: item.id,
               quantity: item.quantity,
@@ -561,7 +565,7 @@ export function QrOrderingPage() {
               {orderStatusLabels[order.status]}
             </p>
             <small>
-              系統會自動更新處理狀態；需要協助時請向店家出示訂單編號。
+              系統會自動更新處理狀態；需要協助時請向店家出示訂單編號。現場付款將由店家確認。
             </small>
             <div className="ordering-status-actions">
               <button
@@ -1038,6 +1042,34 @@ export function QrOrderingPage() {
                   {money(Math.max(subtotal - 10000, 0), context.currency)}
                 </strong>
               </div>
+            )}
+            {IS_BEEF_NOODLE_DEMO && (
+              <section className="ordering-demo-checkout" aria-label="牛肉麵 Demo 結帳方式">
+                <div>
+                  <span>付款方式</span>
+                  <strong>現場付款</strong>
+                  <small>送單後由店家於現場確認收款，不會進行線上扣款。</small>
+                </div>
+                <label className="ordering-demo-payment-active">
+                  <input type="radio" checked readOnly name="demo-payment" />
+                  現場付款（可使用現金、刷卡或櫃檯確認）
+                </label>
+                <div className="ordering-demo-disabled-options" aria-label="後續付款功能預留">
+                  <button type="button" disabled>LINE Pay・測試中／尚未開放</button>
+                  <button type="button" disabled>Apple Pay・測試中／尚未開放</button>
+                </div>
+                <label>
+                  發票方式（功能預留）
+                  <select value={demoInvoiceMethod} onChange={(event) => setDemoInvoiceMethod(event.target.value)}>
+                    <option value="carrier">手機條碼載具</option>
+                    <option value="tax-id">統一編號</option>
+                    <option value="donation">捐贈</option>
+                    <option value="paper">紙本／其他</option>
+                  </select>
+                </label>
+                <p>電子發票功能尚未啟用（INVOICE_PROVIDER_DISABLED）。本 Demo 不會開立發票。</p>
+                <p>加入店家 LINE：尚未正式串接；送單成功後可在此預留接收訂單與優惠通知的位置。</p>
+              </section>
             )}
             <button
               type="button"

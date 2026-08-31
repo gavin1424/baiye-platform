@@ -405,7 +405,7 @@ export function AdminQrOrderingPage({
     setMessage("通知聲已播放；瀏覽器已取得聲音播放授權。");
   };
 
-  const printOrder = (orderCode: string) => {
+  const printOrder = (orderCode: string, kitchenOnly = false) => {
     const order = orders.find((item) => item.order_code === orderCode);
     if (!order) return;
     const popup = window.open("", "_blank", "width=520,height=720");
@@ -413,11 +413,11 @@ export function AdminQrOrderingPage({
     const lines = order.items
       .map(
         (item) =>
-          `<li>${escapeHtml(item.name)} × ${item.quantity}<b>${money(item.line_total_minor)}</b>${(item.options || []).map((option) => `<small>${escapeHtml(option.group_name)}：${escapeHtml(option.value_name)}</small>`).join("")}${item.note ? `<small>品項備註：${escapeHtml(item.note)}</small>` : ""}</li>`,
+          `<li>${escapeHtml(item.name)} × ${item.quantity}${kitchenOnly ? "" : `<b>${money(item.line_total_minor)}</b>`}${(item.options || []).map((option) => `<small>${escapeHtml(option.group_name)}：${escapeHtml(option.value_name)}</small>`).join("")}${item.note ? `<small>品項備註：${escapeHtml(item.note)}</small>` : ""}</li>`,
       )
       .join("");
     popup.document.write(
-      `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(order.order_code)}</title><style>body{font-family:system-ui;padding:24px}h1{font-size:24px}li{display:grid;grid-template-columns:1fr auto;padding:8px 0;border-bottom:1px dashed #aaa}small{grid-column:1/-1}</style></head><body><h1>${escapeHtml(settings.display_name)}</h1><p>${escapeHtml(order.order_code)}｜${order.order_type === "dine_in" ? escapeHtml(order.table_label) : "外帶"}</p><ul>${lines}</ul><h2>總額 ${money(order.total_minor)}</h2>${order.customer_note ? `<p>備註：${escapeHtml(order.customer_note)}</p>` : ""}<script>onload=()=>print()<\/script></body></html>`,
+      `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(order.order_code)}</title><style>body{font-family:system-ui;padding:24px}h1{font-size:24px}li{display:grid;grid-template-columns:1fr auto;padding:8px 0;border-bottom:1px dashed #aaa}small{grid-column:1/-1}</style></head><body><h1>${escapeHtml(settings.display_name)}</h1><h2>${kitchenOnly ? "廚房單" : "訂單明細"}</h2><p>${escapeHtml(order.order_code)}｜${order.order_type === "dine_in" ? escapeHtml(order.table_label) : "外帶"}</p><ul>${lines}</ul>${kitchenOnly ? "" : `<h2>總額 ${money(order.total_minor)}</h2>`}${order.customer_note ? `<p>備註：${escapeHtml(order.customer_note)}</p>` : ""}<script>onload=()=>print()<\/script></body></html>`,
     );
     popup.document.close();
   };
@@ -1483,6 +1483,13 @@ export function AdminQrOrderingPage({
                     >
                       <Printer />
                       列印此單
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => printOrder(order.order_code, true)}
+                    >
+                      <Printer />
+                      列印廚房單
                     </button>
                     {nextOrderActions(order.status).map((status) => (
                       <button

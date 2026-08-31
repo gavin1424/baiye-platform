@@ -16,6 +16,7 @@ import { FeaturesPage } from "./pages/FeaturesPage";
 import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
 import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
+import { MerchantKitchenDisplayPage } from "./pages/MerchantKitchenDisplayPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
@@ -182,6 +183,7 @@ export function App() {
           <Route path="/" element={<BeefNoodleDemoPage />} />
           <Route path="/q/:code" element={<QrOrderingPage />} />
           <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
+          <Route path="/merchant-admin/ordering/kitchen" element={<MerchantKitchenDisplayPage />} />
           <Route path="/privacy" element={<ProductionPrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -24,16 +24,17 @@ DELETE FROM merchant_food_order_item_options WHERE merchant_id='demo_beef_noodle
 DELETE FROM merchant_order_payment_events WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_order_payment_intents WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_order_pricing WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_coupon_redemptions WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_member_coupons WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_food_order_items WHERE order_id IN (SELECT id FROM merchant_food_orders WHERE merchant_id='demo_beef_noodle');
 DELETE FROM merchant_food_orders WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_dining_sessions WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_member_sessions WHERE merchant_id='demo_beef_noodle';
-DELETE FROM merchant_memberships WHERE merchant_id='demo_beef_noodle';
-DELETE FROM ordering_customers WHERE NOT EXISTS (SELECT 1 FROM merchant_memberships m WHERE m.customer_id=ordering_customers.id);
+DELETE FROM merchant_ordering_memberships WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_ordering_audit_logs WHERE merchant_id='demo_beef_noodle';
 DELETE FROM ordering_rate_limits WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_user_sessions WHERE merchant_id='demo_beef_noodle';
+UPDATE merchant_menu_items SET daily_sold_count=0,daily_sold_date=NULL,updated_at=CURRENT_TIMESTAMP WHERE merchant_id='demo_beef_noodle';
 CREATE TRIGGER trg_ordering_item_option_immutable_delete
 BEFORE DELETE ON merchant_food_order_item_options BEGIN SELECT RAISE(ABORT,'ORDER_OPTION_IMMUTABLE'); END;
 CREATE TRIGGER trg_food_order_items_no_delete
@@ -55,4 +56,4 @@ rmSync(temporaryDirectory, { recursive: true, force: true });
 
 if (result.error) throw result.error;
 if (result.status !== 0) throw new Error(`Demo cleanup failed with exit code ${result.status}.`);
-console.log("Demo transactional data reset completed. Merchant, menu, options and QR codes were preserved.");
+console.log("Demo transactional data reset completed. Merchant, customer identity core, platform members, menu, options and QR codes were preserved.");

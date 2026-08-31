@@ -19,15 +19,17 @@ assert.equal(context.response.status, 200); assert.equal(context.body.context.me
 assert.equal(context.body.context.enabled, true); assert.equal(context.body.context.accepting_orders, true); pass("Demo 商家已啟用且接單中");
 
 const phone = `09${String(Date.now()).slice(-8)}`;
-const joined = await request(`/api/ordering/qr/${qrCode}/join`, { method: "POST", body: JSON.stringify({ display_name: "STAGING 驗收顧客", phone, email: "beef-demo-e2e@example.test", privacy_consent: true, consent_version: "DEMO-2026-08-28" }) });
+const joined = await request(`/api/ordering/qr/${qrCode}/join`, { method: "POST", body: JSON.stringify({ phone, privacy_consent: true, consent_version: "DEMO-2026-08-28", device_id: `beef-e2e-${Date.now()}` }) });
 assert.equal(joined.response.status, 201); assert.ok(joined.body.session?.token); pass("快速會員加入");
 const memberToken = joined.body.session.token;
 
 const menu = await request(`/api/ordering/qr/${qrCode}/menu`, { headers: { authorization: `Bearer ${memberToken}` } });
-assert.equal(menu.response.status, 200); assert.equal(menu.body.categories.length, 4); assert.equal(menu.body.items.length, 17); pass("四分類十七商品菜單");
-assert.equal(menu.body.items.filter((item) => item.status === "active").length, 17); pass("十七品項皆可供 Demo 瀏覽");
+assert.equal(menu.response.status, 200); assert.equal(menu.body.categories.length, 5); assert.equal(menu.body.items.length, 20); pass("五分類二十商品菜單");
+assert.equal(menu.body.items.filter((item) => item.status === "active").length, 20); pass("二十品項皆可供 Demo 瀏覽");
 assert.equal(menu.body.option_groups.length, 5); assert.ok(menu.body.option_values.some((value) => value.id === "bn_val_more_beef" && value.price_delta_minor === 6000)); pass("五組後端加料價格");
 assert.equal(menu.body.item_option_groups.filter((link) => link.item_id === "bn_item_01").length, 5); pass("牛肉麵綁定五組選項");
+assert.equal(menu.body.items.find((item) => item.id === "bn_item_01").daily_limit, 5); pass("牛肉麵日限量庫存 Demo 為五份");
+assert.ok(menu.body.categories.some((category) => category.id === "bn_cat_soups")); pass("湯品分類獨立顯示");
 
 const orderKey = `beef-e2e-${Date.now()}`;
 const orderPayload = { order_type: "dine_in", table_label: "FORGED", items: [{ item_id: "bn_item_01", quantity: 1, option_value_ids: ["bn_val_thin", "bn_val_mild", "bn_val_more_noodle", "bn_val_more_beef", "bn_val_regular_pickles"], note: "STAGING E2E" }] };
@@ -67,6 +69,7 @@ const paidReplay = await request(`/api/merchant-admin/ordering/orders/${orderCod
 
 const sold = await request("/api/merchant-admin/ordering/items/bn_item_05", { method: "PATCH", headers: merchantHeaders, body: JSON.stringify({ status: "sold_out" }) });
 assert.equal(sold.response.status, 200); pass("商品售完");
+const soldMenu = await request(`/api/ordering/qr/${qrCode}/menu`, { headers: { authorization: `Bearer ${memberToken}` } }); assert.equal(soldMenu.body.items.find((item) => item.id === "bn_item_05").status, "sold_out"); pass("顧客菜單立即顯示售完");
 const restored = await request("/api/merchant-admin/ordering/items/bn_item_05", { method: "PATCH", headers: merchantHeaders, body: JSON.stringify({ status: "active" }) });
 assert.equal(restored.response.status, 200); pass("恢復供應");
 const restoredMenu = await request(`/api/ordering/qr/${qrCode}/menu`, { headers: { authorization: `Bearer ${memberToken}` } }); assert.equal(restoredMenu.body.items.find((item) => item.id === "bn_item_05").status, "active"); pass("顧客菜單同步恢復供應");
@@ -82,5 +85,5 @@ const guestAdmin = await request("/api/merchant-admin/ordering/overview"); asser
 const wrongOrigin = await fetch(`${api}/api/ordering/qr/${qrCode}`, { headers: { origin: "https://invalid.example" } }); assert.equal(wrongOrigin.status, 403); pass("非法 Origin 拒絕");
 const customerPayment = await request(`/api/ordering/orders/${second.body.order.order_code}/payment`, { method: "POST", headers: { authorization: `Bearer ${memberToken}` }, body: JSON.stringify({ payment_status: "paid" }) }); assert.ok([404, 405].includes(customerPayment.response.status)); pass("顧客不可標記付款");
 const paidOrder = await request(`/api/ordering/orders/${orderCode}`, { headers: { authorization: `Bearer ${memberToken}` } }); assert.equal(paidOrder.response.status, 200); assert.equal(paidOrder.body.order.payment_status, "paid"); pass("付款僅為店家人工確認");
-assert.equal(passed, 35);
-console.log(JSON.stringify({ result: "PASS", passed, total: 35, order_code: orderCode }));
+assert.equal(passed, 38);
+console.log(JSON.stringify({ result: "PASS", passed, total: 38, order_code: orderCode }));

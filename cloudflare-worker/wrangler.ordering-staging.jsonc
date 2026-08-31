@@ -12,6 +12,6 @@
     }
   ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://baiye-platform-ordering-staging.pages.dev"
+    "ALLOWED_ORIGINS": "https://baiye-platform-ordering-staging.pages.dev,https://baiye-beef-noodle-demo.pages.dev"
   }
 }
