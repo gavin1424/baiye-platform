@@ -581,7 +581,7 @@ export function AdminQrOrderingPage({
       </header>
 
       <nav className="container ordering-admin-tabs" aria-label="QR 點餐管理分頁">
-        <a href="#ordering-overview">總覽</a><a href="#ordering-orders">即時訂單</a><a href="#ordering-qrs">桌號 QR</a><a href="#ordering-menu">菜單</a><a href="#ordering-options">加料選項</a><a href="#ordering-members">會員</a><a href="#ordering-orders">付款</a><a href="#ordering-settings">設定</a>
+        <a href="#ordering-overview">總覽</a><a href="#ordering-orders">即時訂單</a><a href="#ordering-qrs">桌號 QR</a><a href="#ordering-menu">菜單</a><a href="#ordering-options">加料選項</a><a href="#ordering-members">會員</a><a href="#ordering-orders">付款</a><a href="#ordering-settings">設定</a><a href="#ordering-invoice">電子發票</a>
       </nav>
 
       {message && (
@@ -856,7 +856,7 @@ export function AdminQrOrderingPage({
           </form>
         </article>
 
-        <article className="ordering-admin-panel">
+        <article id="ordering-invoice" className="ordering-admin-panel">
           <div className="ordering-admin-panel-title"><Storefront /><div><span>商家整合</span><h2>LINE 官方帳號</h2></div></div>
           <p>僅接受商家自己的 LINE 官方加好友網址；顧客點擊連結不等同已加入好友。</p>
           <form className="ordering-admin-form" onSubmit={saveLineIntegration}>

@@ -66,6 +66,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/bookings": "預約管理｜創百業智慧鏈",
   "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
   "/merchant-admin/ordering": "商家 QR 點餐管理｜創百業智慧鏈",
+  "/merchant/settings/invoice": "電子發票設定｜創百業智慧鏈",
   "/member-benefits": "會員百元禮券｜創百業智慧鏈",
   "/business-financing": "商家融資合作專區｜創百業智慧鏈",
   "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
@@ -194,6 +195,7 @@ export function App() {
           <Route path="/q/:code" element={<QrOrderingPage />} />
           <Route path="/merchant-admin/ordering/kitchen" element={<MerchantKitchenDisplayPage />} />
           <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
+          <Route path="/merchant/settings/invoice" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-invoice" }} replace />} />
           <Route path="/privacy" element={<ProductionPrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -208,6 +210,7 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
+        <Route path="/merchant/settings/invoice" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-invoice" }} replace />} />
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
         <Route path="/member/join" element={<PlatformMemberJoinPage />} />
         <Route path="/member/welcome" element={<PlatformMemberWelcomePage />} />
