@@ -6,7 +6,7 @@ import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } 
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
 import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
 import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from "./member-integrations.js";
-import { authorizeMerchant, handleMerchantAuth } from "./merchant-auth.js";
+import { authorizeMerchant, handleMerchantAuth, merchantOperationsAllowed } from "./merchant-auth.js";
 import { permissionForOrderingRequest } from "./merchant-permissions.js";
 import {
   handleMerchantContractAdmin,
@@ -244,6 +244,8 @@ export default {
       const permission = permissionForOrderingRequest(url.pathname, request.method);
       const authorization = await authorizeMerchant(request, env, permission);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
+      if (!operationGate.ok) return json({ error: "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error, onboarding_state: operationGate.state }, operationGate.status, cors);
       const scopedUrl = new URL(url);
       scopedUrl.pathname = scopedUrl.pathname.replace(/^\/api\/merchant-admin\/ordering/, "/api/admin/ordering");
       scopedUrl.searchParams.set("merchant_id", authorization.session.merchant_id);

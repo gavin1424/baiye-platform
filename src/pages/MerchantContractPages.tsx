@@ -22,6 +22,7 @@ export function MerchantContractActivate() {
   const [form, setForm] = useState({ phone: "", privacy_consent: false });
   const [notice, setNotice] = useState("");
   const [success, setSuccess] = useState<any>();
+  const [seconds, setSeconds] = useState(3);
   const idempotencyKey = useRef(crypto.randomUUID());
   useEffect(() => { if (!token) return; void publicApi("/api/merchant/contracts/invite/validate", { method: "POST", body: JSON.stringify({ token }) }).then(setInvite).catch((error) => setNotice(message(error))); }, [token]);
   const submit = async (event: React.FormEvent) => {
@@ -29,12 +30,18 @@ export function MerchantContractActivate() {
     try {
       const result: any = await merchantOrderingApi("/api/merchant/contracts/accept-invite", { method: "POST", headers: { "idempotency-key": idempotencyKey.current, "x-device-id": getPlatformDeviceId() }, body: JSON.stringify({ token, ...form, consent_version: "merchant-registration-v1" }) });
       if (result.member_session?.token) savePlatformMemberToken(result.member_session.token);
-      setSuccess(result); setNotice("商家註冊完成，正在前往服務契約。");
-      window.setTimeout(() => { window.location.hash = "#/merchant/contract"; }, 1200);
+      setSuccess(result); setNotice("");
     } catch (error) { setNotice(message(error)); }
   };
+  useEffect(() => {
+    if (!success) return;
+    setSeconds(3);
+    const redirect = window.setTimeout(() => { window.location.hash = "#/merchant/contract"; }, 3000);
+    const countdown = window.setInterval(() => setSeconds((value) => Math.max(1, value - 1)), 1000);
+    return () => { window.clearTimeout(redirect); window.clearInterval(countdown); };
+  }, [success]);
   if (!token) return <MerchantRegisterPage />;
-  return <main className="partner-shell contract-shell"><h1>商家註冊</h1>{invite && <section className="contract-summary-card"><strong>{invite.merchant_name}</strong><span>{invite.plan_name} · {money(invite.discount_price_minor)}</span></section>}{invite && !success && <form className="partner-form" onSubmit={submit}><label>手機號碼<input required type="tel" inputMode="tel" placeholder="09xxxxxxxx" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label className="partner-consent"><input required type="checkbox" checked={form.privacy_consent} onChange={(event) => setForm({ ...form, privacy_consent: event.target.checked })} />我已閱讀並同意會員服務、隱私權說明及商家平台相關條款。</label><button className="btn btn-primary">完成商家註冊</button><p className="partner-guidance-note">不用設定密碼，使用手機即可註冊與登入。</p></form>}{success && <section className="partner-status success"><strong>🎉 商家註冊成功！</strong><span>✓ 商家帳號已建立</span><span>✓ 創百業會員已建立</span><span>✓ NT$100 迎新禮券已領取</span></section>}{notice && <div className="partner-message">{notice}</div>}<Link to="/merchant">前往商家中心</Link></main>;
+  return <main className="partner-shell contract-shell"><h1>商家註冊</h1>{invite && <section className="contract-summary-card"><strong>{invite.merchant_name}</strong><span>{invite.plan_name} · {money(invite.discount_price_minor)}</span></section>}{invite && !success && <form className="partner-form" onSubmit={submit}><label>手機號碼<input required type="tel" inputMode="tel" placeholder="09xxxxxxxx" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label className="partner-consent"><input required type="checkbox" checked={form.privacy_consent} onChange={(event) => setForm({ ...form, privacy_consent: event.target.checked })} />我已閱讀並同意會員服務、隱私權說明及商家平台相關條款。</label><button className="btn btn-primary">完成商家註冊</button><p className="partner-guidance-note">不用設定密碼，使用手機即可註冊與登入。</p></form>}{success && <section className="partner-status success"><strong>🎉 商家註冊成功！</strong><span>✓ 商家帳號已建立</span><span>✓ 創百業會員已建立</span><span>✓ NT$100 迎新禮券已領取</span>{success.membership?.created === false && <span>您的會員資格與迎新禮券已存在，不會重複發放。</span>}<span><strong>下一步：完成商家平台服務契約</strong></span><span>{seconds} 秒後自動前往商家契約</span><Link className="btn btn-primary" to="/merchant/contract">立即前往簽約</Link></section>}{notice && <div className="partner-message">{notice}</div>}<Link to="/merchant">前往商家中心</Link></main>;
 }
 
 export function MerchantContractPage() {
