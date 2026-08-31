@@ -110,3 +110,11 @@ test("POS07 cash confirmation requires a cash session and cash sessions are kept
   assert.equal((await handleSoftPosRequest(call, env(db), new URL(call.url), {}, actor)).status, 201);
   assert.equal(db.sqlite.prepare("SELECT amount_minor FROM cash_movements WHERE movement_type='sale'").get().amount_minor, 7000);
 });
+
+test("POS08 a normal sale decrements an existing balance without making it negative", () => {
+  const db = database();
+  db.exec("INSERT INTO merchants(id,merchant_code,name) VALUES('m-sale','MSALE','Merchant'); INSERT INTO inventory_locations(id,merchant_id,name) VALUES('l-sale','m-sale','主庫存'); INSERT INTO inventory_items(id,merchant_id,name) VALUES('i-sale','m-sale','雞排');");
+  db.prepare("INSERT INTO inventory_transactions(id,merchant_id,location_id,inventory_item_id,transaction_type,quantity_delta_minor,idempotency_key,actor_type) VALUES('in-sale','m-sale','l-sale','i-sale','purchase',5,'in-sale','merchant')").run();
+  db.prepare("INSERT INTO inventory_transactions(id,merchant_id,location_id,inventory_item_id,transaction_type,quantity_delta_minor,idempotency_key,actor_type) VALUES('out-sale','m-sale','l-sale','i-sale','sale',-1,'out-sale','merchant')").run();
+  assert.equal(db.prepare("SELECT quantity_minor FROM inventory_balances WHERE merchant_id='m-sale' AND inventory_item_id='i-sale'").get().quantity_minor, 4);
+});

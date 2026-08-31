@@ -205,8 +205,11 @@ CREATE TRIGGER IF NOT EXISTS trg_inventory_balance_guard BEFORE INSERT ON invent
 WHEN COALESCE((SELECT quantity_minor FROM inventory_balances WHERE merchant_id=NEW.merchant_id AND location_id=NEW.location_id AND inventory_item_id=NEW.inventory_item_id),0)+NEW.quantity_delta_minor<0
 BEGIN SELECT RAISE(ABORT,'INVENTORY_NEGATIVE_GUARD'); END;
 CREATE TRIGGER IF NOT EXISTS trg_inventory_balance_apply AFTER INSERT ON inventory_transactions BEGIN
- INSERT INTO inventory_balances(merchant_id,location_id,inventory_item_id,quantity_minor,updated_at) VALUES(NEW.merchant_id,NEW.location_id,NEW.inventory_item_id,NEW.quantity_delta_minor,CURRENT_TIMESTAMP)
- ON CONFLICT(merchant_id,location_id,inventory_item_id) DO UPDATE SET quantity_minor=quantity_minor+NEW.quantity_delta_minor,updated_at=CURRENT_TIMESTAMP;
+ UPDATE inventory_balances SET quantity_minor=quantity_minor+NEW.quantity_delta_minor,updated_at=CURRENT_TIMESTAMP
+   WHERE merchant_id=NEW.merchant_id AND location_id=NEW.location_id AND inventory_item_id=NEW.inventory_item_id;
+ INSERT INTO inventory_balances(merchant_id,location_id,inventory_item_id,quantity_minor,updated_at)
+ SELECT NEW.merchant_id,NEW.location_id,NEW.inventory_item_id,NEW.quantity_delta_minor,CURRENT_TIMESTAMP
+ WHERE NOT EXISTS(SELECT 1 FROM inventory_balances WHERE merchant_id=NEW.merchant_id AND location_id=NEW.location_id AND inventory_item_id=NEW.inventory_item_id);
 END;
 CREATE TRIGGER IF NOT EXISTS trg_cash_movement_no_update BEFORE UPDATE ON cash_movements BEGIN SELECT RAISE(ABORT,'CASH_MOVEMENT_IMMUTABLE'); END;
 CREATE TRIGGER IF NOT EXISTS trg_cash_movement_no_delete BEFORE DELETE ON cash_movements BEGIN SELECT RAISE(ABORT,'CASH_MOVEMENT_IMMUTABLE'); END;

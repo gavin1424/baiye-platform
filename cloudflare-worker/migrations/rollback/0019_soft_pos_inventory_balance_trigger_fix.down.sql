@@ -1,0 +1,2 @@
+-- Intentional no-op: a down migration must not restore the known-bad balance
+-- projection or mutate immutable inventory ledger entries.
