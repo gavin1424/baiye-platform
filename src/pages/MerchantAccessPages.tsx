@@ -7,11 +7,13 @@ const authHeaders = () => ({ "x-device-id": getPlatformDeviceId(), ...(getPlatfo
 
 export function MerchantRegisterPage() {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState(""), [consent, setConsent] = useState(false), [loading, setLoading] = useState(false), [result, setResult] = useState<any>(), [notice, setNotice] = useState("");
+  const [phone, setPhone] = useState(""), [consent, setConsent] = useState(false), [loading, setLoading] = useState(false), [result, setResult] = useState<any>(), [notice, setNotice] = useState(""), [seconds, setSeconds] = useState(3);
   useEffect(() => {
     if (!result) return;
-    const timer = window.setTimeout(() => navigate("/merchant/contract", { replace: true }), 1500);
-    return () => window.clearTimeout(timer);
+    setSeconds(3);
+    const redirect = window.setTimeout(() => navigate("/merchant/contract", { replace: true }), 3000);
+    const countdown = window.setInterval(() => setSeconds((value) => Math.max(1, value - 1)), 1000);
+    return () => { window.clearTimeout(redirect); window.clearInterval(countdown); };
   }, [navigate, result]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); if (loading) return; setLoading(true); setNotice("");
@@ -22,7 +24,10 @@ export function MerchantRegisterPage() {
     } catch (error: any) { setNotice(error?.code === "MERCHANT_ALREADY_REGISTERED" ? "此手機已有商家帳號，請前往商家登入。" : errorText(error)); }
     finally { setLoading(false); }
   };
-  if (result) return <main className="partner-shell merchant-access-shell"><section className="merchant-access-card merchant-success-card"><div className="member-celebration">🎉</div><h1>商家註冊成功！</h1><ul><li>✓ 商家帳號已建立</li><li>✓ 創百業會員已建立</li><li>✓ NT$100 迎新禮券已領取</li></ul><p>正在前往商家契約；若契約版本尚待平台開放，仍可登入商家中心查看狀態。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/merchant/contract">繼續完成商家契約</Link><Link className="btn btn-outline" to="/member">查看我的優惠券</Link></div></section></main>;
+  if (result) {
+    const existingBenefit = result.membership?.created === false || result.welcome?.show === false;
+    return <main className="partner-shell merchant-access-shell"><section className="merchant-access-card merchant-success-card"><div className="member-celebration">🎉</div><h1>商家註冊成功！</h1><ul><li>✓ 商家帳號已建立</li><li>✓ 創百業會員已建立</li><li>✓ NT$100 迎新禮券已領取</li></ul>{existingBenefit && <p className="partner-guidance-note">您的會員資格與迎新禮券已存在，不會重複發放。</p>}<p><strong>下一步：完成商家平台服務契約</strong></p><p aria-live="polite">{seconds} 秒後自動前往商家契約</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/merchant/contract">立即前往簽約</Link><Link className="btn btn-outline" to="/member">查看我的優惠券</Link></div></section></main>;
+  }
   return <main className="partner-shell merchant-access-shell"><section className="merchant-access-card"><p className="partner-eyebrow">AI 智慧網站與百業數位升級平台</p><h1>商家註冊</h1><p>一支手機即可開始建立商家資料與後續服務流程。</p><form onSubmit={submit}><label>手機號碼<input required type="tel" inputMode="tel" autoComplete="tel" placeholder="09xxxxxxxx" value={phone} onChange={(event) => setPhone(event.target.value)} /></label><label className="partner-consent"><input required type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />我已閱讀並同意會員服務、隱私權說明及商家平台相關條款。</label><button className="btn btn-primary btn-lg" disabled={loading}>{loading ? "註冊處理中…" : "完成商家註冊"}</button></form><p className="partner-guidance-note">不用設定密碼，使用手機即可註冊與登入。</p>{notice && <div className="partner-message">{notice}{notice.includes("已有商家") && <><br /><Link to="/merchant/login">前往商家登入</Link></>}</div>}<Link to="/merchant/login">已有商家帳號？前往登入</Link></section></main>;
 }
 
@@ -39,5 +44,6 @@ export function MerchantPortalPage() {
   useEffect(() => { void merchantOrderingApi<any>("/api/merchant-auth/session").then(setSession).catch(() => setNotice("請先使用手機登入商家中心。")); }, []);
   const logout = async () => { try { await merchantOrderingApi("/api/merchant-auth/logout", { method: "POST", body: "{}" }); window.location.hash = "#/merchant/login"; } catch (error) { setNotice(errorText(error)); } };
   if (!session) return <main className="partner-shell merchant-access-shell"><section className="merchant-access-card"><h1>商家中心</h1><p>{notice || "正在載入商家資料…"}</p>{notice && <Link className="btn btn-primary" to="/merchant/login">前往商家登入</Link>}</section></main>;
-  return <main className="partner-shell merchant-portal"><header><p className="partner-eyebrow">商家中心</p><h1>{session.merchant.name}</h1><p>{session.user.phone_masked || "商家 Owner"} · {session.assurance_level}</p></header><section className="merchant-portal-grid"><article><span>契約狀態</span><strong>{session.contract_status === "signed" ? "已簽署" : "待平台契約開放／簽署"}</strong><p>Legal Review Gate 不影響登入；契約正式開放後再完成簽署。</p><Link className="btn btn-outline" to={session.contract_status === "signed" ? "/merchant/contracts" : "/merchant/contract"}>查看契約</Link></article><article><span>QR 手機點餐</span><strong>依商家需求開通</strong><p>已開通點餐權限的商家可進入營運看板。</p><Link className="btn btn-outline" to="/merchant-admin/ordering">前往點餐管理</Link></article><article><span>平台會員</span><strong>已連結</strong><p>商家 Owner 與平台會員使用同一手機身份核心。</p><Link className="btn btn-outline" to="/member">查看會員與優惠券</Link></article></section><button className="btn btn-outline" onClick={() => void logout()}>登出商家中心</button>{notice && <div className="partner-message">{notice}</div>}</main>;
+  const operationLocked = Boolean(session.merchant.operation_locked);
+  return <main className="partner-shell merchant-portal"><header><p className="partner-eyebrow">商家中心</p><h1>{session.merchant.name}</h1><p>{session.user.phone_masked || "商家 Owner"} · {session.assurance_level}</p></header><section className="merchant-portal-grid"><article><span>契約狀態</span><strong>{session.contract_status === "signed" ? "已簽署" : "需完成商家平台服務契約"}</strong><p>{operationLocked ? "完成契約前，正式營運功能會維持鎖定。" : "商家平台服務契約已完成。"}</p><Link className="btn btn-outline" to={session.contract_status === "signed" ? "/merchant/contracts" : "/merchant/contract"}>{session.contract_status === "signed" ? "查看契約" : "立即前往簽約"}</Link></article><article><span>QR 手機點餐</span><strong>{operationLocked ? "完成契約後開放" : "依商家需求開通"}</strong><p>{operationLocked ? "接單、付款與其他正式營運功能目前鎖定。" : "已開通點餐權限的商家可進入營運看板。"}</p>{operationLocked ? <Link className="btn btn-outline" to="/merchant/contract">完成商家契約</Link> : <Link className="btn btn-outline" to="/merchant-admin/ordering">前往點餐管理</Link>}</article><article><span>平台會員</span><strong>已連結</strong><p>商家 Owner 與平台會員使用同一手機身份核心。</p><Link className="btn btn-outline" to="/member">查看會員與優惠券</Link></article></section><button className="btn btn-outline" onClick={() => void logout()}>登出商家中心</button>{notice && <div className="partner-message">{notice}</div>}</main>;
 }

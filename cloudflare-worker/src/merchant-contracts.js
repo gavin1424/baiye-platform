@@ -13,6 +13,7 @@ import {
 } from "./contract-engine.js";
 import { sha256 } from "./contract-pdf.js";
 import { ensurePlatformMember, finalizePlatformMembershipBatch, normalizeTaiwanMobile, preparePlatformMembershipBatch } from "./platform-membership.js";
+import { ensureStandardCommercialTerms, isStandardCommercialTerms } from "./merchant-standard-terms.js";
 
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=UTF-8", "cache-control": "no-store", ...headers } });
 const makeId = (prefix) => `${prefix}_${crypto.randomUUID()}`;
@@ -113,7 +114,10 @@ function commercialTermsSnapshot(terms) {
   };
 }
 
-async function currentMerchantContract(db) {
+async function currentMerchantContract(db, env) {
+  if (env.CONTRACT_SIGNING_MODE === "staging") {
+    return db.prepare("SELECT * FROM merchant_contract_versions WHERE is_active=1 OR staging_signing_enabled=1 ORDER BY is_active DESC,effective_date DESC,created_at DESC LIMIT 1").first();
+  }
   return db.prepare("SELECT * FROM merchant_contract_versions WHERE is_active=1 ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
 }
 
@@ -123,14 +127,24 @@ async function currentTerms(db, merchantId) {
 
 async function merchantContractContext(db, session, env) {
   if (!String(session.roles || "").split(",").includes("owner")) throw new ContractError("MERCHANT_OWNER_REQUIRED", "僅商家擁有者帳號可進行契約簽署。", 403);
-  const contract = await currentMerchantContract(db);
-  if (!contract) throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的商家服務契約。", 409);
+  const contract = await currentMerchantContract(db, env);
+  if (!contract) {
+    const latest = await db.prepare("SELECT * FROM merchant_contract_versions ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
+    if (latest?.legal_review_status !== "approved") throw new ContractError("LEGAL_REVIEW_REQUIRED", "此契約版本尚未完成正式法律審閱，目前不可簽署。", 423);
+    throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的商家服務契約。", 409);
+  }
   assertContractSignable(contract, env);
-  const terms = await currentTerms(db, session.merchant_id);
-  if (!terms) throw new ContractError("COMMERCIAL_TERMS_REQUIRED", "商業條件尚未經管理員核准。", 409);
+  const onboarding = await db.prepare("SELECT registration_mode,commercial_terms_approval_required FROM merchant_onboarding_states WHERE merchant_id=?").bind(session.merchant_id).first();
+  let terms = await currentTerms(db, session.merchant_id);
+  if (!terms && onboarding?.registration_mode === "standard_self_service") terms = (await ensureStandardCommercialTerms(db, session.merchant_id)).terms;
+  if (!terms) {
+    const custom = onboarding?.registration_mode === "custom_quote" || Number(onboarding?.commercial_terms_approval_required) === 1;
+    throw new ContractError(custom ? "ADMIN_COMMERCIAL_TERMS_APPROVAL" : "COMMERCIAL_TERMS_REQUIRED", custom ? "此自訂商業方案須先經平台核准商業條件。" : "商業條件尚未完成設定。", 409);
+  }
+  if (onboarding?.registration_mode === "standard_self_service" && !isStandardCommercialTerms(terms)) throw new ContractError("STANDARD_TERMS_MISMATCH", "標準方案商業條件不一致，已停止簽署。", 409);
   const merchant = await db.prepare("SELECT id,name,merchant_code,contact_name,phone,email,status FROM merchants WHERE id=?").bind(session.merchant_id).first();
-  const invite = await db.prepare("SELECT * FROM merchant_contract_invites WHERE merchant_id=? AND email=? AND used_at IS NOT NULL AND revoked_at IS NULL ORDER BY used_at DESC LIMIT 1")
-    .bind(session.merchant_id, session.email).first();
+  const invite = await db.prepare("SELECT * FROM merchant_contract_invites WHERE merchant_id=? AND commercial_terms_id=? AND used_at IS NOT NULL AND revoked_at IS NULL ORDER BY used_at DESC LIMIT 1")
+    .bind(session.merchant_id, terms.id).first();
   if (!merchant || !invite) throw new ContractError("MERCHANT_INVITE_REQUIRED", "找不到已完成的商家啟用邀請。", 403);
   return { contract, terms, merchant, invite };
 }
@@ -149,7 +163,7 @@ export async function handleMerchantContractPublic(request, env, url, cors = {})
       const phone = normalizeTaiwanMobile(input.phone);
       if (!phone) throw new ContractError("INVALID_PHONE", "請輸入正確的台灣手機號碼。", 422);
       if (input.privacy_consent !== true || !String(input.consent_version || "").trim()) throw new ContractError("PRIVACY_CONSENT_REQUIRED", "請閱讀並同意會員服務、隱私權說明及商家平台相關條款。", 422);
-      const invite = await db.prepare("SELECT * FROM merchant_contract_invites WHERE token_hash=? AND revoked_at IS NULL AND datetime(expires_at)>datetime('now')").bind(hashed).first();
+      const invite = await db.prepare("SELECT i.*,t.custom_quote_reference FROM merchant_contract_invites i JOIN merchant_contract_commercial_terms t ON t.id=i.commercial_terms_id AND t.merchant_id=i.merchant_id WHERE i.token_hash=? AND i.revoked_at IS NULL AND datetime(i.expires_at)>datetime('now')").bind(hashed).first();
       if (!invite) throw new ContractError("INVITE_INVALID", "商家啟用連結無效、已使用或已過期。", 401);
       const operation = await beginContractOperation(db, { partyType: "merchant", partyId: invite.merchant_id, operationType: "invite_accept", idempotencyKey: request.headers.get("idempotency-key") || "" });
       if (operation.replay) return json(operation.result, 200, cors);
@@ -158,7 +172,12 @@ export async function handleMerchantContractPublic(request, env, url, cors = {})
       const owner = await createPasswordlessMerchantOwner(db, { request, merchantId: invite.merchant_id, platformMember: membership.member, phone, email: invite.email });
       if (!owner.created) throw new ContractError("MERCHANT_ALREADY_REGISTERED", "此商家 Owner 已完成註冊，請直接登入。", 409);
       const merchantSession = await issueMerchantSession(db, { merchantId: invite.merchant_id, userId: owner.userId, platformMemberId: membership.member.id, assuranceLevel: "activation_invite", issuedVia: "merchant_contract_invite" });
-      await db.batch([db.prepare("UPDATE merchant_contract_invites SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(invite.id), db.prepare("UPDATE merchants SET phone=COALESCE(phone,?),status='pending_contract',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(phone, invite.merchant_id)]);
+      await db.batch([
+        db.prepare("UPDATE merchant_contract_invites SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(invite.id),
+        db.prepare("UPDATE merchants SET phone=COALESCE(phone,?),status='contract_required',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(phone, invite.merchant_id),
+        db.prepare("INSERT INTO merchant_onboarding_states(merchant_id,registration_mode,state,operation_locked,commercial_terms_approval_required,commercial_terms_id) VALUES(?,CASE WHEN ? IS NULL THEN 'standard_self_service' ELSE 'custom_quote' END,'contract_required',1,CASE WHEN ? IS NULL THEN 0 ELSE 1 END,?) ON CONFLICT(merchant_id) DO UPDATE SET state='contract_required',operation_locked=1,commercial_terms_id=excluded.commercial_terms_id,updated_at=CURRENT_TIMESTAMP")
+          .bind(invite.merchant_id, invite.custom_quote_reference || null, invite.custom_quote_reference || null, invite.commercial_terms_id),
+      ]);
       await contractEvent(db, request, { merchantId: invite.merchant_id, inviteId: invite.id, actorType: "merchant", actorId: owner.userId, action: "merchant.activation_invite_used", metadata: { member_id: membership.member.id } });
       const result = { ok: true, merchant_id: invite.merchant_id, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: membership.coupon, csrf_token: merchantSession.csrf, next_url: "/merchant/contract" }; await completeContractOperation(db, operation.operation.id, result); return json(result, 201, { ...cors, "set-cookie": merchantSessionCookie(merchantSession.raw) });
     }
@@ -230,6 +249,9 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
           db.prepare("INSERT INTO merchant_contract_artifacts(id,merchant_id,signature_id,artifact_type,object_key,sha256,content_type) VALUES(?,?,?,?,?,?,?)").bind(makeId("mcart"), session.merchant_id, signatureId, "signed_pdf", stored.pdfKey, agreement.pdfHash, "application/pdf"),
           db.prepare("INSERT INTO merchant_contract_artifacts(id,merchant_id,signature_id,artifact_type,object_key,sha256,content_type) VALUES(?,?,?,?,?,?,?)").bind(makeId("mcart"), session.merchant_id, signatureId, "evidence_json", stored.evidenceKey, stored.evidenceHash, "application/json"),
           db.prepare("UPDATE merchants SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(session.merchant_id),
+          db.prepare("UPDATE merchant_applications SET status='activated',updated_at=CURRENT_TIMESTAMP WHERE merchant_id=?").bind(session.merchant_id),
+          db.prepare("INSERT INTO merchant_onboarding_states(merchant_id,registration_mode,state,operation_locked,commercial_terms_approval_required,commercial_terms_id,contract_signed_at) VALUES(?,'custom_quote','active',0,1,?,?) ON CONFLICT(merchant_id) DO UPDATE SET state='active',operation_locked=0,commercial_terms_id=excluded.commercial_terms_id,contract_signed_at=excluded.contract_signed_at,updated_at=CURRENT_TIMESTAMP")
+            .bind(session.merchant_id, context.terms.id, agreement.signedAt),
           ...membershipBatch.statements,
         ]);
       } catch (error) { await stored.cleanup(); throw error; }
