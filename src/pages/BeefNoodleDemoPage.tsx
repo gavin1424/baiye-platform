@@ -66,7 +66,7 @@ export function BeefNoodleDemoPage() {
           <div className="beef-demo-menu-grid">
             {menu.map((item) => <article key={item.name}><img src={`${SITE_URL}/${item.image}`} alt={`${item.name}示意插畫`} loading="lazy"/><div><h3>{item.name}</h3><strong>NT${item.price}</strong></div></article>)}
           </div>
-          <div className="beef-demo-center"><Link className="beef-demo-btn" to={`/q/${A1_CODE}`}><MagnifyingGlass /> 查看 17 項完整菜單</Link></div>
+          <div className="beef-demo-center"><Link className="beef-demo-btn" to={`/q/${A1_CODE}`}><MagnifyingGlass /> 查看 20 項完整菜單</Link></div>
         </section>
 
         <section id="experience" className="beef-demo-section beef-demo-experience">

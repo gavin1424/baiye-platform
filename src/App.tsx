@@ -182,8 +182,8 @@ export function App() {
         <Routes>
           <Route path="/" element={<BeefNoodleDemoPage />} />
           <Route path="/q/:code" element={<QrOrderingPage />} />
-          <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
           <Route path="/merchant-admin/ordering/kitchen" element={<MerchantKitchenDisplayPage />} />
+          <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
           <Route path="/privacy" element={<ProductionPrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
