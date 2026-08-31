@@ -19,6 +19,7 @@ import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
+import { MerchantLoginPage, MerchantPortalPage, MerchantRegisterPage } from "./pages/MerchantAccessPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
 
@@ -78,7 +79,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/partner/contract": "線上承攬夥伴合作契約｜創百業智慧鏈",
   "/admin/partners": "承攬夥伴管理｜創百業智慧鏈",
   "/admin/contracts": "契約管理｜創百業智慧鏈",
-  "/merchant/activate": "啟用商家帳號｜創百業智慧鏈",
+  "/merchant/register": "商家註冊｜創百業智慧鏈",
+  "/merchant/login": "商家登入｜創百業智慧鏈",
+  "/merchant/activate": "商家註冊｜創百業智慧鏈",
+  "/merchant": "商家中心｜創百業智慧鏈",
   "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
   "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
   "/member/join": "手機一鍵加入會員｜創百業智慧鏈",
@@ -256,6 +260,9 @@ export function App() {
         <Route path="/partner/dashboard" element={<PartnerDashboard />} />
         <Route path="/partner/commissions" element={<PartnerDashboard />} />
         <Route path="/merchant/activate" element={<MerchantContractActivate />} />
+        <Route path="/merchant/register" element={<MerchantRegisterPage />} />
+        <Route path="/merchant/login" element={<MerchantLoginPage />} />
+        <Route path="/merchant" element={<MerchantPortalPage />} />
         <Route path="/merchant/contract" element={<MerchantContractPage />} />
         <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
         <Route path="/verify-contract/:publicId" element={<VerifyContractPage />} />

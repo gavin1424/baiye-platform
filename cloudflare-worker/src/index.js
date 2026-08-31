@@ -206,7 +206,7 @@ export default {
       return (await handleAdminAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
-    if (url.pathname.startsWith("/api/merchant-auth/")) {
+    if (url.pathname.startsWith("/api/merchant-auth/") || url.pathname === "/api/merchant/register") {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       return (await handleMerchantAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
