@@ -13,7 +13,7 @@ test("PDFVIEW-01 viewer route is registered", () => assert.match(app, /partner\/
 test("PDFVIEW-02 viewer resolves signature id from route", () => assert.match(page, /useParams\(\)/));
 test("PDFVIEW-03 viewer loads through authenticated fetch", () => { assert.match(helper, /credentials:\s*"include"/); assert.match(page, /fetchContractPdfBlob\(signatureId\)/); });
 test("PDFVIEW-04 signed state has no direct Worker PDF anchor", () => assert.doesNotMatch(page, /href=\{`\$\{API\}\/api\/partner\/contracts\/\$\{/));
-test("PDFVIEW-05 signed state links to same-site viewer", () => assert.match(page, /to=\{`\/partner\/contracts\/\$\{contract\.signature\.signature_id\}\/view`\}/));
+test("PDFVIEW-05 signed state no longer exposes the optional viewer route", () => assert.doesNotMatch(page, /to=\{`\/partner\/contracts\/\$\{contract\.signature\.signature_id\}\/view`\}/));
 test("PDFVIEW-06 authenticated response becomes blob", () => assert.match(helper, /await response\.blob\(\)/));
 test("PDFVIEW-07 blob URL is generated", () => assert.match(helper, /URL\.createObjectURL/));
 test("PDFVIEW-08 viewer embeds application PDF", () => assert.match(page, /<object[^>]+type="application\/pdf"/));
