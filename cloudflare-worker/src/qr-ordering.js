@@ -1,5 +1,6 @@
 import { couponOrderStateStatements, issueWelcomeCoupon, prepareCouponForOrder } from "./member-integrations.js";
 import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
+import { getPaymentProviderAdapter } from "./payment-providers.js";
 export { normalizeTaiwanMobile } from "./platform-membership.js";
 
 const E = new TextEncoder();
@@ -634,11 +635,186 @@ async function handleLineEvent(request, db, context, cors) {
   return json({ ok: true }, 201, cors);
 }
 
+const ONLINE_PAYMENT_PROVIDERS = new Set(["line_pay_online", "apple_pay_web"]);
+
+function publicPaymentProvider(config, env) {
+  const provider = clean(config.provider, 40);
+  const adapter = getPaymentProviderAdapter(provider, env);
+  const availability = adapter.isAvailable();
+  // Provider configuration and credential readiness are intentionally both
+  // required. A browser never learns why a credential is absent.
+  const enabled = Number(config.enabled) === 1 && availability.available;
+  return {
+    provider,
+    enabled,
+    configuration_status: config.configuration_status,
+    order_acceptance_policy: config.order_acceptance_policy,
+    availability_code: enabled ? "AVAILABLE" : availability.code,
+    capabilities: adapter.getCapabilities(),
+  };
+}
+
+async function paymentProvidersForMerchant(db, merchantId, env) {
+  const configured = await db.prepare(`SELECT provider,enabled,configuration_status,order_acceptance_policy FROM merchant_payment_provider_configs WHERE merchant_id=? ORDER BY provider`).bind(merchantId).all();
+  const rows = configured.results || [];
+  const byProvider = new Map(rows.map((row) => [row.provider, row]));
+  return ["manual_counter", "line_pay_online", "apple_pay_web"].map((provider) => publicPaymentProvider(byProvider.get(provider) || {
+    provider, enabled: 0, configuration_status: "configuration_required", order_acceptance_policy: "accept_after_payment",
+  }, env));
+}
+
+async function paymentSessionOrder(db, request, context, orderCode) {
+  const session = await memberSession(db, request, context.merchant_id);
+  if (!session) return { error: "MEMBER_REQUIRED" };
+  const order = await db.prepare(`
+    SELECT o.*,p.payable_total_minor FROM merchant_food_orders o
+    LEFT JOIN merchant_order_pricing p ON p.order_id=o.id AND p.merchant_id=o.merchant_id
+    WHERE o.merchant_id=? AND o.membership_id=? AND o.order_code=? LIMIT 1
+  `).bind(context.merchant_id, session.membership_id, clean(orderCode, 80)).first();
+  if (!order) return { error: "ORDER_NOT_FOUND" };
+  return { session, order: { ...order, amount_minor: Number(order.payable_total_minor ?? order.total_minor) } };
+}
+
+async function appendPaymentEvent(db, intent, eventType, fromStatus, toStatus, actorType, actorId, metadata = {}) {
+  return db.prepare(`INSERT INTO merchant_checkout_payment_events(id,merchant_id,payment_intent_id,event_type,from_status,to_status,actor_type,actor_id,metadata) VALUES(?,?,?,?,?,?,?,?,?)`)
+    .bind(uid("payevt"), intent.merchant_id, intent.id, eventType, fromStatus || null, toStatus, actorType, actorId || null, JSON.stringify(metadata));
+}
+
+async function releasePaymentReservation(db, intent, reason) {
+  const reservation = await db.prepare("SELECT status FROM merchant_order_inventory_reservations WHERE payment_intent_id=?").bind(intent.id).first();
+  if (!reservation || reservation.status !== "reserved") return;
+  // QR Ordering's current stock control is daily limited menu availability.
+  // Releasing an unsuccessful online payment returns only that reserved count;
+  // it never touches unrelated inventory or paid orders.
+  const lines = await db.prepare(`SELECT menu_item_id,quantity FROM merchant_food_order_items WHERE order_id=?`).bind(intent.order_id).all();
+  const statements = [db.prepare("UPDATE merchant_order_inventory_reservations SET status='released',released_reason=?,updated_at=CURRENT_TIMESTAMP WHERE payment_intent_id=? AND status='reserved'").bind(clean(reason, 80), intent.id)];
+  for (const line of lines.results || []) {
+    statements.push(db.prepare(`UPDATE merchant_menu_items SET daily_sold_count=MAX(0,daily_sold_count-?) WHERE id=? AND merchant_id=? AND daily_limit IS NOT NULL`).bind(Number(line.quantity), line.menu_item_id, intent.merchant_id));
+  }
+  await db.batch(statements);
+}
+
+async function recordConfirmedOnlinePayment(db, intent, providerResponse) {
+  if (intent.status === "paid") return { replayed: true };
+  if (!new Set(["requires_action", "processing", "authorized"]).has(intent.status)) throw new Error("PAYMENT_TRANSITION_INVALID");
+  const transactionId = clean(providerResponse?.safe?.transactionId || intent.provider_transaction_id, 128);
+  if (!transactionId) throw new Error("PROVIDER_TRANSACTION_REQUIRED");
+  const paymentId = uid("payment");
+  const paymentNo = `QR-${intent.id.slice(-12).toUpperCase()}`;
+  const amount = Number(intent.amount_minor) / 100;
+  const redacted = JSON.stringify(providerResponse?.safe || {});
+  await db.batch([
+    db.prepare(`UPDATE merchant_checkout_payment_intents SET status='paid',provider_transaction_id=?,paid_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('requires_action','processing','authorized')`).bind(transactionId, intent.id),
+    db.prepare(`INSERT OR IGNORE INTO merchant_checkout_payment_transactions(id,merchant_id,payment_intent_id,provider,provider_transaction_id,transaction_type,status,amount_minor,currency,provider_response_redacted) VALUES(?,?,?,?,?,'confirm','paid',?,?,?)`).bind(uid("paytxn"), intent.merchant_id, intent.id, intent.provider, transactionId, Number(intent.amount_minor), intent.currency, redacted),
+    appendPaymentEvent(db, intent, "provider_confirmed", intent.status, "paid", "provider", intent.provider, { transaction_id: transactionId }),
+    db.prepare(`UPDATE merchant_food_orders SET payment_status='paid',payment_method='line_pay',payment_method_v1='line_pay',payment_reference=?,payment_confirmed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=?`).bind(transactionId, intent.order_id, intent.merchant_id),
+    db.prepare(`UPDATE merchant_order_inventory_reservations SET status='committed',updated_at=CURRENT_TIMESTAMP WHERE payment_intent_id=? AND status='reserved'`).bind(intent.id),
+    // Finance Core is written once, only after the provider has confirmed the
+    // amount and currency. It remains the ledger of record.
+    db.prepare(`INSERT OR IGNORE INTO payments(id,payment_no,merchant_id,gross_amount,fee_amount,net_amount,amount,currency,payment_method,payment_provider,provider_trade_no,provider_payment_id,status,paid_at,source,note) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'paid',CURRENT_TIMESTAMP,'system',?)`).bind(paymentId, paymentNo, intent.merchant_id, amount, 0, amount, amount, intent.currency, "line_pay", "line_pay_sandbox", transactionId, intent.id, `qr_order:${intent.order_id}`),
+    db.prepare(`INSERT OR IGNORE INTO merchant_payment_domain_events(id,merchant_id,order_id,payment_intent_id,event_type,amount_minor,currency,paid_at) VALUES(?,?,?,?, 'PAYMENT_CONFIRMED',?,?,CURRENT_TIMESTAMP)`).bind(uid("paydomain"), intent.merchant_id, intent.order_id, intent.id, Number(intent.amount_minor), intent.currency),
+    db.prepare(`INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?)`).bind(uid("ordaudit"), intent.merchant_id, "provider", intent.provider, "payment_confirmed", "payment_intent", intent.id, JSON.stringify({ transaction_id: transactionId, amount_minor: Number(intent.amount_minor), currency: intent.currency })),
+  ]);
+  return { replayed: false };
+}
+
+async function handlePaymentCapabilities(db, context, env, cors) {
+  return json({ items: await paymentProvidersForMerchant(db, context.merchant_id, env), invoice_status: "INVOICE_PROVIDER_DISABLED" }, 200, cors);
+}
+
+async function handleCreatePayment(request, db, context, env, url, cors) {
+  const input = await request.json().catch(() => ({}));
+  const provider = clean(input.provider, 40);
+  if (!ONLINE_PAYMENT_PROVIDERS.has(provider)) return json({ error: "此付款方式不提供線上付款。" }, 400, cors);
+  const key = clean(request.headers.get("idempotency-key") || input.idempotency_key, 100);
+  if (!/^[A-Za-z0-9._:-]{8,100}$/.test(key)) return json({ error: "付款識別碼格式不正確。" }, 400, cors);
+  const resolved = await paymentSessionOrder(db, request, context, input.order_code);
+  if (resolved.error) return resolved.error === "MEMBER_REQUIRED"
+    ? json({ error: "會員登入已失效。", code: resolved.error }, 401, cors)
+    : json({ error: "找不到此訂單。" }, 404, cors);
+  const { order } = resolved;
+  if (["cancelled", "completed"].includes(order.status)) return json({ error: "此訂單目前無法付款。" }, 409, cors);
+  const config = await db.prepare("SELECT * FROM merchant_payment_provider_configs WHERE merchant_id=? AND provider=?").bind(context.merchant_id, provider).first();
+  const adapter = getPaymentProviderAdapter(provider, env);
+  const availability = adapter.isAvailable();
+  if (!config || Number(config.enabled) !== 1 || !availability.available) return json({ error: provider === "line_pay_online" ? "LINE Pay 測試環境尚未設定。" : "Apple Pay 測試設定尚未完成。", code: availability.code }, 409, cors);
+  const replay = await db.prepare("SELECT * FROM merchant_checkout_payment_intents WHERE merchant_id=? AND order_id=? AND idempotency_key=?").bind(context.merchant_id, order.id, key).first();
+  if (replay) return json({ intent: { id: replay.id, provider: replay.provider, status: replay.status, expires_at: replay.expires_at }, replayed: true }, 200, cors);
+  const intent = { id: uid("payint"), merchant_id: context.merchant_id, order_id: order.id, provider, amount_minor: order.amount_minor, currency: context.currency || "TWD", status: "requires_action" };
+  const callbackBase = `${url.origin}/api/ordering/payments/line-pay`;
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  await db.batch([
+    db.prepare(`INSERT INTO merchant_checkout_payment_intents(id,merchant_id,order_id,provider,amount_minor,currency,status,idempotency_key,qr_code,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(intent.id, intent.merchant_id, intent.order_id, provider, intent.amount_minor, intent.currency, intent.status, key, context.code, expiresAt),
+    db.prepare(`INSERT INTO merchant_order_inventory_reservations(id,merchant_id,order_id,payment_intent_id,status,expires_at) VALUES(?,?,?,?, 'reserved',?)`).bind(uid("reserve"), intent.merchant_id, intent.order_id, intent.id, expiresAt),
+    appendPaymentEvent(db, intent, "payment_created", null, "requires_action", "customer", null, { provider }),
+  ]);
+  const result = await adapter.createPayment({ amount_minor: intent.amount_minor, currency: intent.currency, order_id: intent.order_id, confirm_url: `${callbackBase}/confirm?payment_intent=${encodeURIComponent(intent.id)}`, cancel_url: `${callbackBase}/cancel?payment_intent=${encodeURIComponent(intent.id)}`, products: [{ name: "百工牛肉麵 Demo 訂單", quantity: 1, price: intent.amount_minor / 100 }] });
+  if (!result.ok) {
+    await db.prepare("UPDATE merchant_checkout_payment_intents SET status='failed',failed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(intent.id).run();
+    await releasePaymentReservation(db, intent, "provider_request_failed");
+    return json({ error: "LINE Pay 付款服務暫時無法建立，請改用現場付款。", code: result.code || "PAYMENT_REQUEST_FAILED" }, 502, cors);
+  }
+  const transactionId = clean(result.safe?.transactionId, 128);
+  const redirectUrl = clean(result.data?.info?.paymentUrl?.web || result.data?.info?.paymentUrl?.app, 2000);
+  await db.batch([
+    db.prepare("UPDATE merchant_checkout_payment_intents SET status='processing',provider_transaction_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(transactionId || null, intent.id),
+    db.prepare(`INSERT INTO merchant_checkout_payment_transactions(id,merchant_id,payment_intent_id,provider,provider_transaction_id,transaction_type,status,amount_minor,currency,provider_response_redacted) VALUES(?,?,?,?,?,'request','processing',?,?,?)`).bind(uid("paytxn"), intent.merchant_id, intent.id, provider, transactionId || null, intent.amount_minor, intent.currency, JSON.stringify(result.safe || {})),
+    appendPaymentEvent(db, intent, "provider_redirect_created", "requires_action", "processing", "system", null, { transaction_id: transactionId || null }),
+  ]);
+  return json({ intent: { id: intent.id, provider, status: "PROCESSING", expires_at: expiresAt }, redirect_url: redirectUrl }, 201, cors);
+}
+
+function paymentReturnLocation(intent, cancelled = false) {
+  const query = new URLSearchParams({ payment_intent: intent.id });
+  if (cancelled) query.set("payment_cancelled", "1");
+  return `https://baiye-beef-noodle-demo.pages.dev/#/q/${encodeURIComponent(intent.qr_code)}?${query}`;
+}
+
+// LINE Pay redirects are untrusted browser navigation. The Worker, rather than
+// the Demo page, performs the provider confirm and verifies its own amount,
+// currency, intent and transaction reference before any payment becomes paid.
+async function handleLinePayCallback(request, db, env, url) {
+  const intentId = clean(url.searchParams.get("payment_intent"), 160);
+  const intent = await db.prepare("SELECT * FROM merchant_checkout_payment_intents WHERE id=? AND provider='line_pay_online'").bind(intentId).first();
+  if (!intent) return json({ error: "找不到付款流程。" }, 404);
+  const cancelled = url.pathname.endsWith("/cancel");
+  if (cancelled) {
+    if (!["paid", "refunded", "partially_refunded"].includes(intent.status)) {
+      await db.batch([
+        db.prepare("UPDATE merchant_checkout_payment_intents SET status='cancelled',cancelled_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('created','requires_action','processing','authorized')").bind(intent.id),
+        appendPaymentEvent(db, intent, "customer_cancelled", intent.status, "cancelled", "customer", null),
+      ]);
+      await releasePaymentReservation(db, intent, "customer_cancelled");
+    }
+    return Response.redirect(paymentReturnLocation(intent, true), 302);
+  }
+  const transactionId = clean(url.searchParams.get("transactionId") || url.searchParams.get("transaction_id"), 128);
+  if (!transactionId || (intent.provider_transaction_id && intent.provider_transaction_id !== transactionId)) {
+    await db.batch([
+      db.prepare("UPDATE merchant_checkout_payment_intents SET status='failed',failed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('requires_action','processing','authorized')").bind(intent.id),
+      appendPaymentEvent(db, intent, "provider_confirmation_rejected", intent.status, "failed", "provider", "line_pay_online"),
+    ]);
+    await releasePaymentReservation(db, intent, "transaction_mismatch");
+    return Response.redirect(paymentReturnLocation(intent, true), 302);
+  }
+  const adapter = getPaymentProviderAdapter("line_pay_online", env);
+  if (!adapter.isAvailable().available) return Response.redirect(paymentReturnLocation(intent, true), 302);
+  const confirmed = await adapter.confirmPayment({ transaction_id: transactionId, amount_minor: Number(intent.amount_minor), currency: intent.currency });
+  if (!confirmed.ok || clean(confirmed.safe?.transactionId, 128) !== transactionId) {
+    // Timeouts are left processing: the provider can be safely checked again;
+    // a callback never turns an uncertain payment into paid or failed by itself.
+    return Response.redirect(paymentReturnLocation(intent), 302);
+  }
+  await recordConfirmedOnlinePayment(db, intent, confirmed);
+  return Response.redirect(paymentReturnLocation(intent), 302);
+}
+
 export async function handleOrderingRequest(request, env, url, cors = {}) {
   if (!env.FINANCE_DB) return json({ error: CUSTOMER_ERROR }, 503, cors);
   const db = env.FINANCE_DB;
   try {
-    const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|menu|orders|line-events))?$/);
+    if (request.method === "GET" && /^\/api\/ordering\/payments\/line-pay\/(confirm|cancel)$/.test(url.pathname)) return handleLinePayCallback(request, db, env, url);
+    const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|menu|orders|line-events|payment-capabilities|payments))?$/);
     if (qrMatch) {
       const context = await qrContext(db, qrMatch[1]);
       if (!context) return json({ error: "此 QR Code 無效、已停用或已過期。" }, 404, cors);
@@ -648,6 +824,8 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
       if (request.method === "GET" && action === "menu") return handleMenu(request, db, context, cors);
       if (request.method === "POST" && action === "orders") return handleCreateOrder(request, db, context, cors);
       if (request.method === "POST" && action === "line-events") return handleLineEvent(request, db, context, cors);
+      if (request.method === "GET" && action === "payment-capabilities") return handlePaymentCapabilities(db, context, env, cors);
+      if (request.method === "POST" && action === "payments") return handleCreatePayment(request, db, context, env, url, cors);
       return json({ error: "Method not allowed" }, 405, cors);
     }
     const orderMatch = url.pathname.match(/^\/api\/ordering\/orders\/([^/]+)(?:\/(cancel))?$/);
@@ -760,6 +938,33 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
   const actorRole = clean(actor.actor_role || (actor.actor_type === "merchant" ? "merchant" : "platform_admin"), 120);
 
   try {
+    const refundMatch = url.pathname.match(/^\/api\/admin\/ordering\/payments\/([^/]+)\/refund$/);
+    if (refundMatch && request.method === "POST") {
+      const input = await request.json().catch(() => ({}));
+      const key = clean(request.headers.get("idempotency-key") || input.idempotency_key, 100);
+      if (!/^[A-Za-z0-9._:-]{8,100}$/.test(key)) return json({ error: "退款識別碼格式不正確。" }, 400, cors);
+      const intent = await db.prepare("SELECT * FROM merchant_checkout_payment_intents WHERE id=? AND merchant_id=?").bind(clean(refundMatch[1], 160), merchantId).first();
+      if (!intent) return json({ error: "找不到付款資料。" }, 404, cors);
+      if (intent.status !== "paid") return json({ error: "此付款目前無法退款。" }, 409, cors);
+      if (intent.provider !== "line_pay_online") return json({ error: "此付款方式需依商家人工退款流程處理。" }, 409, cors);
+      const existing = await db.prepare("SELECT id FROM merchant_checkout_payment_transactions WHERE payment_intent_id=? AND transaction_type='refund' AND status='refunded' LIMIT 1").bind(intent.id).first();
+      if (existing) return json({ ok: true, replayed: true, status: "REFUNDED" }, 200, cors);
+      const adapter = getPaymentProviderAdapter(intent.provider, env);
+      if (!adapter.isAvailable().available) return json({ error: "LINE Pay 測試環境尚未設定。", code: "LINE_PAY_SANDBOX_CREDENTIAL_REQUIRED" }, 409, cors);
+      const result = await adapter.refundPayment({ transaction_id: intent.provider_transaction_id, amount_minor: Number(intent.amount_minor), currency: intent.currency });
+      if (!result.ok) return json({ error: "退款尚未經付款服務確認。", code: result.code || "REFUND_PROCESSING" }, 502, cors);
+      const payment = await db.prepare("SELECT id FROM payments WHERE merchant_id=? AND provider_payment_id=? AND status='paid' LIMIT 1").bind(merchantId, intent.id).first();
+      const refundId = uid("refund");
+      await db.batch([
+        db.prepare("UPDATE merchant_checkout_payment_intents SET status='refunded',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='paid'").bind(intent.id),
+        db.prepare("UPDATE merchant_food_orders SET payment_status='refunded',updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=?").bind(intent.order_id, merchantId),
+        db.prepare(`INSERT INTO merchant_checkout_payment_transactions(id,merchant_id,payment_intent_id,provider,provider_transaction_id,transaction_type,status,amount_minor,currency,provider_response_redacted) VALUES(?,?,?,?,?,'refund','refunded',?,?,?)`).bind(uid("paytxn"), merchantId, intent.id, intent.provider, clean(result.safe?.transactionId, 128) || null, Number(intent.amount_minor), intent.currency, JSON.stringify(result.safe || {})),
+        appendPaymentEvent(db, intent, "provider_refunded", "paid", "refunded", "merchant", actorId, { idempotency_key: key }),
+        ...(payment ? [db.prepare("INSERT INTO refunds(id,payment_id,amount,provider_refund_id,reason,status,refunded_at) VALUES(?,?,?,?,?,'refunded',CURRENT_TIMESTAMP)").bind(refundId, payment.id, Number(intent.amount_minor) / 100, clean(result.safe?.transactionId, 128) || null, clean(input.reason, 300) || null), db.prepare("INSERT OR IGNORE INTO payment_events(id,provider,event_type,provider_event_id,payment_id,status,metadata,processed_at) VALUES(?,?,?,?,?,'refunded',?,CURRENT_TIMESTAMP)").bind(uid("payevidence"), "line_pay_sandbox", "refund", `${intent.id}:refund`, payment.id, JSON.stringify({ payment_intent_id: intent.id }))] : []),
+        db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?)").bind(uid("ordaudit"), merchantId, actorType, actorId, "payment_refunded", "payment_intent", intent.id, JSON.stringify({ amount_minor: Number(intent.amount_minor), provider: intent.provider })),
+      ]);
+      return json({ ok: true, status: "REFUNDED" }, 200, cors);
+    }
     if (url.pathname === "/api/admin/ordering/overview" && request.method === "GET") {
       return json({ merchant_id: merchantId, ...(await adminOverview(db, merchantId)) }, 200, cors);
     }

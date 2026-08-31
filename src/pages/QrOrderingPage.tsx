@@ -49,6 +49,8 @@ import {
   type OrderingItemOptionGroup,
   type OrderingOrder,
   type OrderingPaymentOption,
+  type CheckoutPaymentCapability,
+  type CheckoutPaymentProvider,
   type OrderingOrderStatus,
   type OrderingOrderType,
   type OrderingPurpose,
@@ -125,6 +127,8 @@ export function QrOrderingPage() {
   const [paymentOptions, setPaymentOptions] = useState<OrderingPaymentOption[]>(
     [],
   );
+  const [checkoutPaymentOptions, setCheckoutPaymentOptions] = useState<CheckoutPaymentCapability[]>([]);
+  const [checkoutPaymentProvider, setCheckoutPaymentProvider] = useState<CheckoutPaymentProvider>("manual_counter");
   const [deliveryLinks, setDeliveryLinks] = useState<OrderingDeliveryLink[]>(
     [],
   );
@@ -159,7 +163,7 @@ export function QrOrderingPage() {
   const loadBenefits = useCallback(
     async (memberToken: string) => {
       if (!memberToken) return;
-      const [couponData, paymentData, deliveryData] = await Promise.all([
+      const [couponData, paymentData, deliveryData, checkoutPayments] = await Promise.all([
         orderingPublicApi<{ items: OrderingCoupon[] }>(
           `/api/ordering/qr/${encodeURIComponent(code)}/coupons`,
           {},
@@ -171,10 +175,14 @@ export function QrOrderingPage() {
         orderingPublicApi<{ items: OrderingDeliveryLink[] }>(
           `/api/ordering/qr/${encodeURIComponent(code)}/delivery-links`,
         ),
+        orderingPublicApi<{ items: CheckoutPaymentCapability[] }>(
+          `/api/ordering/qr/${encodeURIComponent(code)}/payment-capabilities`,
+        ),
       ]);
       setCoupons(couponData.items || []);
       setPaymentOptions(paymentData.items || []);
       setDeliveryLinks(deliveryData.items || []);
+      setCheckoutPaymentOptions(checkoutPayments.items || []);
       const usable = (couponData.items || []).find(
         (c) => c.status === "active",
       );
@@ -503,6 +511,22 @@ export function QrOrderingPage() {
       setCartOpen(false);
       setCustomerNote("");
       setMessage(data.message);
+      if (checkoutPaymentProvider !== "manual_counter") {
+        const paymentKey = `${pendingOrderKey.current || crypto.randomUUID()}:payment`;
+        const payment = await orderingPublicApi<{ redirect_url?: string; intent: { status: string } }>(
+          `/api/ordering/qr/${encodeURIComponent(code)}/payments`,
+          {
+            method: "POST",
+            headers: { "idempotency-key": paymentKey },
+            body: JSON.stringify({ order_code: data.order.order_code, provider: checkoutPaymentProvider }),
+          },
+          token,
+        );
+        if (payment.redirect_url) {
+          window.location.assign(payment.redirect_url);
+          return;
+        }
+      }
       pendingOrderKey.current = "";
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
@@ -1145,16 +1169,23 @@ export function QrOrderingPage() {
               <section className="ordering-demo-checkout" aria-label="牛肉麵 Demo 結帳方式">
                 <div>
                   <span>付款方式</span>
-                  <strong>現場付款</strong>
-                  <small>送單後由店家於現場確認收款，不會進行線上扣款。</small>
+                  <strong>{checkoutPaymentProvider === "manual_counter" ? "現場付款" : checkoutPaymentProvider === "line_pay_online" ? "LINE Pay（Sandbox）" : "Apple Pay"}</strong>
+                  <small>{checkoutPaymentProvider === "manual_counter" ? "送單後由店家於現場確認收款，不會進行線上扣款。" : "金額由系統重新核算後才會建立付款流程。"}</small>
                 </div>
                 <label className="ordering-demo-payment-active">
-                  <input type="radio" checked readOnly name="demo-payment" />
+                  <input type="radio" checked={checkoutPaymentProvider === "manual_counter"} onChange={() => setCheckoutPaymentProvider("manual_counter")} name="demo-payment" />
                   現場付款（可使用現金、刷卡或櫃檯確認）
                 </label>
                 <div className="ordering-demo-disabled-options" aria-label="後續付款功能預留">
-                  <button type="button" disabled>LINE Pay・測試中／尚未開放</button>
-                  <button type="button" disabled>Apple Pay・測試中／尚未開放</button>
+                  {(["line_pay_online", "apple_pay_web"] as const).map((provider) => {
+                    const option = checkoutPaymentOptions.find((item) => item.provider === provider);
+                    const label = provider === "line_pay_online" ? "LINE Pay" : "Apple Pay";
+                    const unavailable = provider === "line_pay_online" ? "LINE Pay 測試環境尚未設定" : "Apple Pay 測試設定尚未完成";
+                    return <label key={provider} className={option?.enabled ? "ordering-demo-payment-active" : "ordering-demo-payment-disabled"}>
+                      <input type="radio" name="demo-payment" checked={checkoutPaymentProvider === provider} disabled={!option?.enabled} onChange={() => setCheckoutPaymentProvider(provider)} />
+                      {label}・{option?.enabled ? "Sandbox 可用" : unavailable}
+                    </label>;
+                  })}
                 </div>
                 <label>
                   發票方式（功能預留）

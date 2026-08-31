@@ -14,7 +14,16 @@ export type OrderingOrderStatus =
   | "served"
   | "completed"
   | "cancelled";
-export type OrderingPaymentStatus = "unpaid" | "paid" | "refunded";
+export type OrderingPaymentStatus = "unpaid" | "pending" | "paid" | "partially_refunded" | "refunded" | "failed";
+export type CheckoutPaymentProvider = "manual_counter" | "line_pay_online" | "apple_pay_web";
+export type CheckoutPaymentCapability = {
+  provider: CheckoutPaymentProvider;
+  enabled: boolean;
+  configuration_status: "configuration_required" | "sandbox_ready" | "active" | "disabled";
+  order_acceptance_policy: "accept_before_payment" | "accept_after_payment";
+  availability_code: string;
+  capabilities: { authorize: boolean; capture: boolean; refund: boolean; partial_refund: boolean; redirect: boolean; wallet: boolean; webhook: boolean };
+};
 
 export type OrderingContext = {
   merchant_id: string;

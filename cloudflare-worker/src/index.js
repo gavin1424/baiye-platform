@@ -294,7 +294,10 @@ export default {
 
     if (url.pathname.startsWith("/api/ordering/") || url.pathname.startsWith("/api/member-benefits/") || url.pathname.startsWith("/api/financing/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
-      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      // LINE Pay redirects are top-level provider navigation, not CORS API
+      // calls. Only this exact server-confirmed callback can omit Origin.
+      const linePayCallback = /^\/api\/ordering\/payments\/line-pay\/(confirm|cancel)$/.test(url.pathname);
+      if (!origin && !linePayCallback) return json({ error: "Origin not allowed" }, 403);
       const integrationResponse = await handleMemberIntegrationsPublic(request, env, url, cors);
       if (integrationResponse) return integrationResponse;
       return handleOrderingRequest(request, env, url, cors);
