@@ -1,8 +1,8 @@
 const REGULAR_KEY = "contract-assets/fonts/NotoSansTC-Regular-ContractSubset.ttf";
 const BOLD_KEY = "contract-assets/fonts/NotoSansTC-Bold-ContractSubset.ttf";
 const MONO_KEY = "contract-assets/fonts/NotoSansMono-Regular.ttf";
-const REGULAR_SHA256 = "6f228a0415ada99b413bca4e9ee44c89851a1e7ff7c831f5f55731db4a8f7cf6";
-const BOLD_SHA256 = "b2219c4e23f99230a90ecef0624c877129f36e3187b926529e51207dc71ed1ff";
+const REGULAR_SHA256 = "3cfa5b78cf780a7e7cf8d64cc7a6c22f6c39bd5fdab2c3cc6e8874b409c23a65";
+const BOLD_SHA256 = "0ef5af4ec41b6f50d784e193c662cdc8f971fc7691ea5d9394d6e133a4834dac";
 const MONO_SHA256 = "44cc404d8cea929c02a92900a646598bafc9ef726b7d881e7525296adc9fb8ac";
 
 let cachedContractFontAssets;

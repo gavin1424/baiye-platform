@@ -6,12 +6,12 @@
 - Upstream source: https://github.com/google/fonts/tree/main/ofl/notosanstc
 - License: SIL Open Font License 1.1
 - License source: https://github.com/google/fonts/blob/main/ofl/notosanstc/OFL.txt
-- Source version: Google Fonts `NotoSansTC[wght].ttf`, retrieved 2026-08-30
+- Source version: Google Fonts `NotoSansTC[wght].ttf`, retrieved 2026-09-02
 - Static instance generation: weight 400 and 700 generated with FontTools `varLib.instancer`; naming records normalized without changing outlines
 - Regular asset preparation: the Regular static instance is subset offline with FontTools from the Traditional Chinese Big5 repertoire plus repository contract text, renderer labels, and punctuation regression corpus (13,808 Unicode characters).
-- Bold asset preparation: the Bold static instance is subset offline with FontTools from the repository's contract versions, renderer headings, labels, and regression corpus (608 Unicode characters). A contract text change must regenerate both deployed assets and update their integrity hashes before release.
-- Regular asset SHA-256: `6f228a0415ada99b413bca4e9ee44c89851a1e7ff7c831f5f55731db4a8f7cf6`
-- Bold asset SHA-256: `b2219c4e23f99230a90ecef0624c877129f36e3187b926529e51207dc71ed1ff`
+- Bold asset preparation: the Bold static instance is subset offline with FontTools from the Traditional Chinese Big5 repertoire plus repository contract text, renderer labels, and punctuation regression corpus (13,808 Unicode characters). A contract text change must regenerate both deployed assets and update their integrity hashes before release.
+- Regular asset SHA-256: `3cfa5b78cf780a7e7cf8d64cc7a6c22f6c39bd5fdab2c3cc6e8874b409c23a65`
+- Bold asset SHA-256: `0ef5af4ec41b6f50d784e193c662cdc8f971fc7691ea5d9394d6e133a4834dac`
 - Monospace asset SHA-256: `44cc404d8cea929c02a92900a646598bafc9ef726b7d881e7525296adc9fb8ac`
 - Private R2 keys:
   - `contract-assets/fonts/NotoSansTC-Regular-ContractSubset.ttf`
