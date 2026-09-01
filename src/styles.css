@@ -50,6 +50,10 @@
 /* Contract Engine V1 */
 .contract-shell { max-width: 1040px; }
 .contract-document { max-height: 520px; overflow: auto; padding: 1.5rem; border: 1px solid #ded8cf; border-radius: 16px; background: #fff; line-height: 1.75; }
+.contract-attachment { margin-top: 1rem; }
+.contract-staging-notice { display: inline-block; margin: 0 0 1rem; padding: .45rem .7rem; border: 1px solid #e5a7a2; border-radius: 999px; background: #fff0ef; color: #9a2e28; font-size: .9rem; font-weight: 700; }
+.merchant-signature-notice { margin: 1.25rem 0 .75rem; padding: 1rem; border-left: 4px solid #17677b; border-radius: 0 12px 12px 0; background: #f1f8f8; }
+.merchant-signature-notice p { margin: .45rem 0 0; line-height: 1.65; }
 .contract-summary-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 1.25rem 0; }
 .contract-summary-grid article,.contract-summary-card { display: flex; flex-direction: column; gap: 5px; padding: 1rem; border: 1px solid #ded8cf; border-radius: 14px; background: #fff; }
 .contract-summary-grid span,.contract-summary-card span { color: #665e55; font-size: .88rem; }
