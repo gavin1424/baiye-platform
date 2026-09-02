@@ -15,6 +15,7 @@ import {
   handlePublicContractVerification,
 } from "./merchant-contracts.js";
 import { handlePlatformMemberRequest } from "./platform-membership.js";
+import { handleSharedQrMembershipCompatibility } from "./membership-compat.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -222,6 +223,12 @@ export default {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       return (await handlePlatformMemberRequest(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname.startsWith("/api/join/") || ["/api/member/register", "/api/member/login"].includes(url.pathname)) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleSharedQrMembershipCompatibility(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname.startsWith("/api/merchant/contracts/invite/") || url.pathname === "/api/merchant/contracts/accept-invite") {

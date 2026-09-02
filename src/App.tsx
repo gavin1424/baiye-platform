@@ -22,6 +22,7 @@ import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, 
 import { MerchantLoginPage, MerchantPortalPage, MerchantRegisterPage } from "./pages/MerchantAccessPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
+import { MemberLoginCompatibility, MerchantQrCodesCompatibility, QrMembershipJoinCompatibility } from "./pages/QrMembershipCompatibilityPages";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -67,6 +68,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
   "/merchant-admin/ordering": "商家 QR 點餐管理｜創百業智慧鏈",
   "/member-benefits": "會員百元禮券｜創百業智慧鏈",
+  "/member/login": "手機會員登入｜創百業智慧鏈",
+  "/dashboard/qr-codes": "商家 QR 管理｜創百業智慧鏈",
   "/business-financing": "商家融資合作專區｜創百業智慧鏈",
   "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
   "/services/deposit-settlement": "訂金代收與月結對帳服務｜創百業智慧鏈",
@@ -206,6 +209,9 @@ export function App() {
         <Route path="/member/join" element={<PlatformMemberJoinPage />} />
         <Route path="/member/welcome" element={<PlatformMemberWelcomePage />} />
         <Route path="/member" element={<PlatformMemberCenterPage />} />
+        <Route path="/member/login" element={<MemberLoginCompatibility />} />
+        <Route path="/join/:merchantSlug" element={<QrMembershipJoinCompatibility />} />
+        <Route path="/dashboard/qr-codes" element={<MerchantQrCodesCompatibility />} />
         <Route path="/business-financing" element={<BusinessFinancingPage />} />
         <Route path="/categories" element={<VerifiedBusinessesPage />} />
         <Route path="/categories/:category" element={<VerifiedBusinessesPage />} />
