@@ -64,5 +64,5 @@ export async function resetMerchantProductAssets(env, merchantId) {
     if (page.objects.length) await env.MERCHANT_ASSETS.delete(page.objects.map((object) => object.key));
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
-  await env.FINANCE_DB.prepare("UPDATE merchant_product_assets SET status='deleted',deleted_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND status<>'deleted'").bind(merchantId).run();
+  await env.FINANCE_DB.prepare("DELETE FROM merchant_product_assets WHERE merchant_id=?").bind(merchantId).run();
 }

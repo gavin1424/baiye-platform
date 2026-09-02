@@ -72,6 +72,7 @@ export async function handleDemoMerchantLogin(request, env, url, cors = {}) {
 export async function resetBeefNoodleDemo(env, request, session) {
   const db = env.FINANCE_DB;
   if (session.merchant_id !== DEMO_MERCHANT_ID) return json({ code: "DEMO_RESET_FORBIDDEN", error: "此功能只限百工牛肉麵試用環境。" }, 403);
+  await resetMerchantProductAssets(env, DEMO_MERCHANT_ID);
   const statements = [
     db.prepare("DROP TRIGGER IF EXISTS trg_ordering_item_option_immutable_delete"),
     db.prepare("DROP TRIGGER IF EXISTS trg_food_order_items_no_delete"),
@@ -151,7 +152,6 @@ export async function resetBeefNoodleDemo(env, request, session) {
       .bind(uid("membership"), DEMO_MERCHANT_ID, `MBR-DEMO-${String(session.platform_member_id).slice(-8).toUpperCase()}`, session.platform_member_id));
   }
   await db.batch(statements);
-  await resetMerchantProductAssets(env, DEMO_MERCHANT_ID);
   await db.prepare("INSERT INTO staging_demo_auth_events(id,merchant_id,username_hash,action,ip_hash,user_agent_hash,metadata_json) VALUES(?,?,?,?,?,?,?)").bind(uid("sdauth"), DEMO_MERCHANT_ID, await sha("username:baiye-beef-demo"), "demo_reset", await sha(`ip:${request.headers.get("cf-connecting-ip") || "unknown"}`), await sha(`ua:${request.headers.get("user-agent") || "unknown"}`), JSON.stringify({ actor_user_id: session.user_id, golden_restored: true })).run();
   return json({ ok: true, merchant_id: DEMO_MERCHANT_ID, golden_restored: true, preserved: ["merchant", "credentials", "contract_evidence", "audit"] }, 200);
 }
