@@ -59,7 +59,7 @@ async function pdfText(bytes) {
   return { pages: document.numPages, normalized: text.replace(/\s+/g, "") };
 }
 
-async function registerSelectSign({ planId, expectedVersion, expectedAmount, suffix, merchantName, signatory }) {
+async function registerSelectSign({ planId, expectedVersion, expectedAmount, expectedTermsAmount = expectedAmount, suffix, merchantName, signatory }) {
   const client = merchantClient(suffix);
   const registration = await client.call("/api/merchant/register", { method: "POST", body: { phone: client.phone, privacy_consent: true, consent_version: "unified-commercial-center-staging-e2e-v1", intended_plan: planId }, headers: { "x-device-id": client.device }, expected: [201] });
   if (registration.value.registration_price_minor !== 0 || registration.value.coupon !== null || registration.value.next_url !== "/merchant/select-plan") throw new Error(`${planId}: free registration contract failed`);
@@ -68,10 +68,10 @@ async function registerSelectSign({ planId, expectedVersion, expectedAmount, suf
   if (selected.value.plan.price_minor !== expectedAmount || selected.value.plan.contract_version !== expectedVersion || selected.value.payment_transaction_created !== false) throw new Error(`${planId}: server pricing was not authoritative`);
   d1(`UPDATE merchants SET name=${quote(merchantName)},contact_name=${quote(signatory)} WHERE id=${quote(merchantId)};`);
   const current = await client.call("/api/merchant/contracts/current");
-  if (current.value.contract.id !== expectedVersion || Number(current.value.terms.discount_price_minor) !== expectedAmount || Number(current.value.terms.contract_term_months) !== 24 || current.value.legal_entity?.entity?.legal_name !== "陳靈有限公司" || current.value.legal_entity?.entity?.tax_id !== "42868714") throw new Error(`${planId}: contract render mismatch`);
+  if (current.value.contract.id !== expectedVersion || Number(current.value.terms.list_price_minor) !== expectedAmount || Number(current.value.terms.discount_price_minor) !== expectedTermsAmount || Number(current.value.terms.contract_term_months) !== 24 || current.value.legal_entity?.entity?.legal_name !== "陳靈有限公司" || current.value.legal_entity?.entity?.tax_id !== "42868714") throw new Error(`${planId}: contract render mismatch`);
   const signBody = { signatory_legal_name: signatory, signatory_role: "legal_representative", legal_representative_name: signatory, read: true, electronic: true, commercial_terms: true, authority: true, signature_evidence: true, signature };
   const preview = await client.call("/api/merchant/contracts/sign-preview", { method: "POST", body: signBody });
-  if (Number(preview.value.total_minor) !== expectedAmount || Number(preview.value.term_months) !== 24) throw new Error(`${planId}: preview mismatch`);
+  if (Number(preview.value.total_minor) !== expectedTermsAmount || Number(preview.value.term_months) !== 24) throw new Error(`${planId}: preview mismatch`);
   const key = `unified-sign-${planId}-${runId}`;
   const signed = await client.call("/api/merchant/contracts/sign", { method: "POST", body: signBody, headers: { "idempotency-key": key }, expected: [201] });
   const replay = await client.call("/api/merchant/contracts/sign", { method: "POST", body: signBody, headers: { "idempotency-key": key }, expected: [200] });
@@ -92,7 +92,7 @@ const changeRequest = await standard.client.call("/api/merchant-admin/content-ch
 const signedPlanChange = await standard.client.call("/api/merchant/plans/select", { method: "POST", body: { plan_id: "baiye_commerce_ai_45000", installment_plan_requested: 24 }, expected: [409] });
 if (signedPlanChange.value.code !== "ACTIVE_PLAN_EXISTS") throw new Error("Signed plan overwrite guard failed");
 
-const softpos = await registerSelectSign({ planId: "baiye_softpos_24000", expectedVersion: "merchant_softpos_v1_0_24000", expectedAmount: 2400000, suffix: 22, merchantName: "STAGING 統一中心｜免 POS 機智慧點餐", signatory: "陳小安" });
+const softpos = await registerSelectSign({ planId: "baiye_softpos_24000", expectedVersion: "merchant_softpos_v1_0_24000", expectedAmount: 2400000, expectedTermsAmount: 1800000, suffix: 22, merchantName: "STAGING 統一中心｜免 POS 機智慧點餐", signatory: "陳小安" });
 for (const expected of ["NT$24,000", "3個月", "NT$18,000", "陳靈有限公司"]) if (!softpos.text.normalized.includes(expected.replace(/\s+/g, ""))) throw new Error(`SoftPOS PDF missing ${expected}`);
 await softpos.client.call("/api/merchant-admin/ordering/settings", { method: "PATCH", body: { display_name: "STAGING SoftPOS", enabled: true, ordering_open: true, accepting_orders: true, consent_version: "unified-v1" }, expected: [200, 201] });
 const category = await softpos.client.call("/api/merchant-admin/ordering/categories", { method: "POST", body: { name: "SoftPOS E2E" }, expected: [201] });
@@ -102,7 +102,7 @@ if (!String(trial.value.subscription.renewal_state).startsWith("TRIAL")) throw n
 d1(`UPDATE merchant_service_subscriptions SET trial_ends_at=date('now','-1 day') WHERE merchant_id=${quote(softpos.merchantId)};`);
 const due = await softpos.client.call("/api/merchant/contracts/renewal");
 const firstCycle = await softpos.client.call("/api/merchant/contracts/renewal/prepare", { method: "POST", body: {}, expected: [201] });
-if (due.value.subscription.renewal_state !== "RENEWAL_REQUIRED" || Number(firstCycle.value.cycle.cycle_fee_minor) !== 2400000 || Number(firstCycle.value.cycle.deposit_credit_minor) !== 600000 || Number(firstCycle.value.cycle.balance_due_minor) !== 1800000 || firstCycle.value.payment_provider.production_verified !== false) throw new Error("SoftPOS first cycle calculation/provider gate failed");
+if (due.value.subscription.renewal_state !== "RENEWAL_REQUIRED" || Number(firstCycle.value.cycle.cycle_fee_minor) !== 2400000 || Number(firstCycle.value.cycle.deposit_credit_minor) !== 600000 || Number(firstCycle.value.cycle.balance_due_minor) !== 1800000 || firstCycle.value.payment_provider.ready !== false || firstCycle.value.payment_provider.transaction_created !== false) throw new Error("SoftPOS first cycle calculation/provider gate failed");
 
 const crossMerchant = await standard.client.call(`/api/merchant-admin/profile?merchant_id=${encodeURIComponent(softpos.merchantId)}`, { expected: [403] });
 if (crossMerchant.value.code !== "MERCHANT_CROSS_ACCESS_DENIED") throw new Error("Cross merchant access was not blocked");
