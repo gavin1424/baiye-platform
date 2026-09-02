@@ -331,7 +331,7 @@ export function PartnerApply() {
           <ul>
             <li>✓ 承攬夥伴申請已核准</li>
             <li>✓ 創百業會員已建立</li>
-            <li>✓ NT$100 迎新禮券已領取</li>
+            <li>✓ 會員經營功能已連結</li>
           </ul>
           {success.activation_url && <a className="btn btn-primary btn-lg" href={success.activation_url}>立即進入承攬夥伴中心</a>}
           {success.contract?.signing_available === false && <p className="partner-guidance-note">您的承攬夥伴資格已核准。正式合作契約目前尚待平台法律版本開放，開放後即可完成簽署。</p>}
@@ -946,7 +946,7 @@ export function PartnerContract() {
           </button>
           {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最後確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>身分證字號</dt><dd>{preview.id_number_masked}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>契約期間</dt><dd>{preview.contract_period?.period_start} ～ {preview.contract_period?.period_end}（三個月一期）</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" disabled={signing} onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" disabled={signing} onClick={() => void sign()}>{signing ? "簽署處理中…" : "確認簽署"}</button></div></div></div>}
           </>}
-          {signSuccess && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>契約簽署成功！</h2><p>您的承攬夥伴合作契約已完成線上簽署並保存。</p>{signSuccess.welcome?.show && !signSuccess.coupon_issue_failed ? <><h3>歡迎成為創百業會員！</h3><p>NT$100 迎新禮券已放入您的會員帳戶。</p>{signSuccess.coupon && <div className="member-coupon-card"><div><strong>NT$100</strong><span>迎新禮券</span><small>{signSuccess.coupon.expires_at ? `有效至 ${formatDate(signSuccess.coupon.expires_at)}` : "30 天效期"}</small></div></div>}</> : !signSuccess.coupon_issue_failed && <p>您的會員資格與迎新禮券已存在，不會重複發放。</p>}{signSuccess.coupon_issue_failed && <p className="partner-message">契約已簽署成功，但迎新禮券建立暫時失敗，系統將保留補發紀錄。</p>}<div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">查看我的優惠券</Link><Link className="btn btn-outline" to="/partner/dashboard">返回承攬夥伴中心</Link></div><p className="partner-guidance-note">{redirectSeconds} 秒後自動返回承攬夥伴中心</p></div></div>}
+          {signSuccess && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>契約簽署成功！</h2><p>您的承攬夥伴合作契約已完成線上簽署並保存。</p>{signSuccess.welcome?.show ? <><h3>歡迎成為創百業會員！</h3><p>您的會員資格已建立，可前往會員中心查看資料與消費歷程。</p></> : <p>您的創百業會員資格已連結。</p>}<div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">前往會員中心</Link><Link className="btn btn-outline" to="/partner/dashboard">返回承攬夥伴中心</Link></div><p className="partner-guidance-note">{redirectSeconds} 秒後自動返回承攬夥伴中心</p></div></div>}
         </>
       )}
       {message && (

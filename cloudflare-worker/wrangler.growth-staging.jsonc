@@ -5,6 +5,7 @@
   "compatibility_date": "2026-08-01",
   "workers_dev": true,
   "vars": {
+    "MEMBERSHIP_COUPON_ISSUANCE_ENABLED": "0",
     "APP_MODE": "staging",
     "ALLOWED_ORIGINS": "https://baiye-platform-growth-staging.pages.dev,http://127.0.0.1:4173,http://localhost:4173",
     "AI_MODE": "disabled",

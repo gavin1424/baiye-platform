@@ -119,7 +119,7 @@ export function Header() {
         <PlatformLogo />
         <nav className="desktop-nav" aria-label="主要導覽">
           {navItems.map(([label, to]) => (
-            <NavLink key={to} to={to}>
+            <NavLink key={`${label}:${to}`} to={to}>
               {label}
             </NavLink>
           ))}
@@ -185,7 +185,7 @@ export function Header() {
       {menuOpen && (
         <div className="mobile-menu">
           {navItems.map(([label, to]) => (
-            <NavLink key={to} to={to}>
+            <NavLink key={`${label}:${to}`} to={to}>
               {label}
               <CaretRight />
             </NavLink>

@@ -67,7 +67,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/bookings": "預約管理｜創百業智慧鏈",
   "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
   "/merchant-admin/ordering": "商家 QR 點餐管理｜創百業智慧鏈",
-  "/member-benefits": "會員百元禮券｜創百業智慧鏈",
+  "/member-benefits": "會員回購｜創百業智慧鏈",
   "/member/login": "手機會員登入｜創百業智慧鏈",
   "/dashboard/qr-codes": "商家 QR 管理｜創百業智慧鏈",
   "/business-financing": "商家融資合作專區｜創百業智慧鏈",

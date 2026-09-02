@@ -1,39 +1,46 @@
-import { ArrowRight, CalendarCheck, Check, CirclesFour, CreditCard, Gift, GlobeHemisphereWest, HandCoins, Handshake, Motorcycle, QrCode, Receipt, Robot, Storefront, X } from "@phosphor-icons/react";
-import { useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { ArrowRight, CalendarCheck, ChartLineUp, CheckCircle, CirclesFour, GlobeHemisphereWest, GoogleLogo, Handshake, LineSegments, QrCode, Robot, Scissors, ShieldCheck, ShoppingBag, Storefront, X } from "@phosphor-icons/react";
+import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
-import { PublicLayout, SectionHeading } from "../components";
+import { PublicLayout } from "../components";
 
-const capabilities = [
-  { icon: GlobeHemisphereWest, title: "品牌官網", text: "建立可長期經營、手機優先的品牌數位門面。" },
-  { icon: Robot, title: "AI 智能客服", text: "以商家專屬知識回覆網站與 LINE 顧客問題。" },
-  { icon: CalendarCheck, title: "線上預約", text: "服務、時段、防撞單、改期與取消整合管理。" },
-  { icon: Storefront, title: "數位營運", text: "商家資料、顧客互動與營運工具逐步整合。" },
-  { icon: Receipt, title: "訂金代收與月結對帳", text: "依商家契約整合訂金代收、費用拆分、月結對帳與抵付進度。" },
-  { icon: Gift, title: "加入會員領 NT$100 禮券", text: "掃碼加入已開通活動的合作商家會員，符合資格即可領取。" },
-  { icon: CreditCard, title: "悠遊支付", text: "依商家實際開通狀態，提供悠遊付 QR 或到店悠遊卡感應付款。" },
-  { icon: Motorcycle, title: "外送平台串接", text: "可連結 Uber Eats、foodpanda、LINE 與商家自有訂購服務。" },
-  { icon: HandCoins, title: "商家融資合作", text: "提供經審核合作機構資訊及申請轉介，實際條件以合作機構審核為準。" },
+type Feature = { name: string; summary: string; audience: string; value: string; items: string[]; cta: string; to: string; icon: ComponentType<{ weight?: "duotone" | "fill" }> };
+
+const features: Feature[] = [
+  { name: "官網建置", icon: GlobeHemisphereWest, summary: "快速建立兼具品牌形象與商業轉換的數位門面。", audience: "餐飲、零售、美業、工作室與專業服務商家", value: "讓顧客從搜尋、理解服務到採取行動，都在一致的品牌體驗中完成。", items: ["RWD 響應式品牌網站", "商品與服務介紹", "聯絡表單與 SEO 基礎結構", "串接預約、點餐、會員與 LINE"], cta: "了解建置方案", to: "/pricing" },
+  { name: "AI智能客服", icon: Robot, summary: "部署在網站與 LINE 的商家專屬 AI 客服助手。", audience: "常有重複詢問、需要延長服務時間的商家", value: "用一致內容回答常見問題，減少人工負擔並把顧客導向下一步。", items: ["常見問題自動回覆", "商品與服務介紹", "預約與流程說明", "固定問答與 LINE 導流"], cta: "了解 AI 服務", to: "/features" },
+  { name: "LINE官方帳號", icon: LineSegments, summary: "協助商家建立、整合並經營自己的 LINE 官方帳號。", audience: "希望累積可持續互動顧客關係的實體商家", value: "把網站訪客與到店顧客導入商家可持續經營的溝通管道。", items: ["LINE OA 串接", "Rich Menu 與歡迎訊息", "加好友導流", "會員綁定與後續通知擴充"], cta: "洽詢 LINE 整合", to: "/contact" },
+  { name: "會員回購", icon: ChartLineUp, summary: "用一致會員識別整理顧客關係、消費與回購歷程。", audience: "重視熟客、回訪率與長期留存的商家", value: "不靠短期促銷，從資料與互動建立長期會員經營能力。", items: ["會員資料管理", "消費與回購追蹤", "顧客標籤", "會員分級規劃與 LINE 再行銷導流"], cta: "了解會員經營", to: "/member-benefits" },
+  { name: "預約管理", icon: CalendarCheck, summary: "讓顧客線上選時段，商家在同一後台管理預約。", audience: "美業、服務業、顧問、教室與個人工作室", value: "降低來回確認成本，讓時段、狀態與異動更清楚。", items: ["線上預約", "時段與狀態管理", "改期與取消", "行事曆式後台檢視"], cta: "了解預約功能", to: "/features" },
+  { name: "免POS機點餐", icon: QrCode, summary: "免專用 POS 主機，顧客掃碼、商家用手機或平板接單。", audience: "餐廳、早餐店、攤販、小吃與外帶商家", value: "降低專用硬體門檻，串起菜單、訂單、KDS、庫存與財務。", items: ["QR 掃碼點餐", "手機／平板接單", "桌號、外帶、規格與加料", "KDS 與訂單流程整合"], cta: "體驗掃碼點餐", to: "/pos-comparison" },
+  { name: "Google地圖預約", icon: GoogleLogo, summary: "從 Google 商家資訊把在地搜尋流量導入預約流程。", audience: "美業、工作室與實體店家", value: "縮短顧客從找到商家到完成預約的距離，提高在地曝光轉換。", items: ["Google 地圖商家資訊導流", "快速進入預約頁", "網站預約資料整合", "在地曝光轉換規劃"], cta: "洽詢導入方式", to: "/contact" },
+  { name: "承攬 / 商家簽約", icon: Handshake, summary: "平台合作、商家加入與契約留存的一體化手機流程。", audience: "承攬夥伴、商家負責人與受授權代表", value: "從身分確認、閱讀到電子簽署與文件下載，都能安全留存。", items: ["承攬夥伴合作契約", "商家平台服務契約", "線上簽署與證據留存", "私人 PDF 契約下載"], cta: "查看合作入口", to: "/partner" },
 ];
 
+const values = [[CirclesFour, "多業態整合", "一站式管理"], [ChartLineUp, "智慧經營", "數據驅動決策"], [ShieldCheck, "安全穩定", "企業級防護"], [Handshake, "專業服務", "陪伴成長"]] as const;
+
 export function HomePage() {
-  const [showDemoQr, setShowDemoQr] = useState(false);
-  const demoUrl = "https://baiye-beef-noodle-demo.pages.dev/";
+  const [selected, setSelected] = useState<Feature | null>(null);
+  useEffect(() => {
+    if (!selected) return;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelected(null); };
+    document.body.classList.add("home-detail-open"); window.addEventListener("keydown", close);
+    return () => { document.body.classList.remove("home-detail-open"); window.removeEventListener("keydown", close); };
+  }, [selected]);
   return <PublicLayout>
-    <section className="hero-section"><div className="container hero-grid"><div className="hero-copy"><span className="eyebrow hero-eyebrow"><CirclesFour weight="fill"/> AI 智慧網站與百業數位升級平台</span><h1>讓商家的專業，<br/><em>真正被看見與找到</em></h1><p>把品牌官網、LINE、AI 客服、線上預約與數位營運串成一套可持續使用的商業入口。</p><div className="hero-actions"><Link to="/businesses" className="btn btn-primary btn-lg">我要找商家 <ArrowRight/></Link><Link to="/pricing" className="btn btn-outline btn-lg">商家加入創百業</Link><Link to="/partner" className="btn btn-ghost btn-lg">承攬夥伴</Link></div><p className="contractor-partner-contract-note">平台只公開已確認的正式商家與真實內容，不以測試數據製造營運成果。</p></div><div className="hero-visual"><img src={`${import.meta.env.BASE_URL}assets/hero-industry-collage.jpg`} alt="台灣各行業商家與專業工作者" fetchPriority="high"/></div></div></section>
-
-    <section className="section"><div className="container"><SectionHeading eyebrow="商家 AI 數位升級" title="不只是做網站，而是建立可營運的數位入口" description="從品牌內容到客戶互動，依商家實際需求導入可驗證的功能。" action={{label:"查看全部功能",to:"/features"}}/><div className="steps-grid">{capabilities.map(({icon:Icon,title,text})=><article className="step-card" key={title}><span className="step-icon"><Icon weight="duotone"/></span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
-
-    <section className="section section-pricing-preview"><div className="container pricing-preview-shell"><div className="pricing-preview-copy"><span className="eyebrow">商家 AI 數位升級</span><h2>方案定價 NT$30,000</h2><p>響應 AI 應用及產業數位轉型趨勢，現階段推廣優惠 NT$18,000。</p><Link to="/pricing" className="btn btn-primary">了解 NT$18,000 推廣方案 <ArrowRight/></Link><Link to="/features" className="text-link">查看創百業全部功能 <ArrowRight/></Link><Link to="/services/deposit-settlement" className="text-link">了解訂金代收與月結對帳選配服務 <ArrowRight/></Link><Link to="/pos-comparison" className="text-link">比較 Web 數位營運與專業 POS 成本 <ArrowRight/></Link></div><div className="price-spotlight"><div className="price-label"><span>現階段推廣優惠</span>標準規格網站免費附贈</div><div className="price"><strong>NT$18,000</strong><span>AI 行銷推廣、平台上架及數位服務優惠費用</span></div><ul><li><Check/>標準網站基礎建置費 NT$0</li><li><Check/>LINE、AI 與預約依正式導入範圍設定</li><li><Check/>原方案外客製功能另行評估報價</li><li><Check/>第 3 年起續用合計 NT$7,000／年</li></ul><small>本優惠為陳靈有限公司／創百業智慧鏈自主商業促銷，不代表政府補助、核准、背書或保證。</small></div></div></section>
-
-    <section className="section online-demo-section"><div className="container"><SectionHeading eyebrow="線上功能示範" title="親自掃碼，走完一筆桌邊點餐" description="示範站使用隔離測試資料，不是正式合作案例，也不會進行真實扣款。"/><article className="online-demo-card"><div className="online-demo-visual"><span><QrCode weight="duotone"/></span><strong>百工牛肉麵</strong><small>QR 手機點餐示範</small></div><div className="online-demo-content"><span className="status-badge">雲端互動 Demo</span><h3>不用下載 App，手機就能完成點餐</h3><p>掃碼加入會員後即可看菜單、選加料、送單、查看製作進度與再次加點。</p><p className="online-demo-disclaimer">創百業智慧鏈 QR 點餐功能示範，非實際營業店家。</p><div className="online-demo-actions"><a href={demoUrl} target="_blank" rel="noreferrer" className="btn btn-primary">立即體驗 <ArrowRight/></a><button type="button" className="btn btn-outline" onClick={()=>setShowDemoQr(true)}>掃碼體驗 <QrCode/></button></div></div></article></div></section>
-
-    {showDemoQr ? <div className="online-demo-modal" role="dialog" aria-modal="true" aria-label="百工牛肉麵示範 QR"><button type="button" className="online-demo-modal-backdrop" aria-label="關閉 QR 視窗" onClick={()=>setShowDemoQr(false)}/><div className="online-demo-modal-card"><button type="button" className="online-demo-modal-close" aria-label="關閉" onClick={()=>setShowDemoQr(false)}><X/></button><span className="eyebrow">雲端互動 Demo</span><h2>掃碼開啟百工牛肉麵</h2><QRCodeSVG value={demoUrl} size={224} level="M" includeMargin/><p>功能展示環境，不會實際扣款。</p></div></div> : null}
-
-    <section id="official-case" className="section section-website-cases"><div className="container"><SectionHeading eyebrow="正式案例" title="已上線的商家數位服務" description="只展示已確認的正式合作內容。"/><div className="website-cases-grid"><article className="website-case-card"><img src="https://meilingpatchwork.com/wp-content/themes/meiling-patchwork/assets/images/home/patchwork-hero-poster.webp" alt="美玲拼布正式網站" loading="lazy"/><div className="website-case-content"><p className="website-case-category">手作・拼布・文創</p><h3>美玲拼布</h3><p>品牌網站、LINE、AI 智能客服與線上預約整合。</p><span className="website-case-status status-badge status-success">正式合作案例</span><a href="https://meilingpatchwork.com/" className="text-link" target="_blank" rel="noreferrer">查看正式網站 <ArrowRight/></a></div></article></div></div></section>
-
-    <section className="section contractor-partner-section"><div className="container contractor-partner-shell"><div className="contractor-partner-copy"><span className="eyebrow"><Handshake weight="fill"/>承攬夥伴專區</span><h2>推薦商家，共創推廣成果</h2><p>以獨立承攬／居間合作形式，線上申請、啟用帳號、簽署契約，並查看成交與獎勵進度。</p><p className="contractor-partner-contract-note">已完成資格核准的承攬夥伴，可登入後閱讀、簽署並下載承攬夥伴合作契約 PDF。</p></div><div className="contractor-partner-actions"><Link to="/partner" className="btn btn-primary btn-lg">了解承攬合作 <ArrowRight/></Link><Link to="/partner/apply" className="btn btn-outline btn-lg">申請成為承攬夥伴</Link><Link to="/partner/login" className="btn btn-ghost btn-lg">承攬夥伴登入</Link></div></div></section>
-
-    <section className="home-cta"><div className="container"><div><span>每個行業，都值得擁有自己的數位入口。</span><h2>準備好讓商家正式上線？</h2><p>先了解方案範圍，再由平台協助確認導入內容。</p></div><div className="home-cta-actions"><Link to="/pricing" className="btn btn-accent btn-lg">商家加入創百業 <ArrowRight/></Link><Link to="/contact" className="btn btn-light btn-lg">聯絡平台</Link></div></div></section>
+    <main className="home-interactive">
+      <section className="home-platform-hero"><div className="container">
+        <div className="home-platform-heading"><span className="home-platform-kicker"><CirclesFour weight="fill" /> 百工 Baiye Connect</span><h1>全業態數位升級，一站完成</h1><p>餐飲 × 美業 × 零售，多產業整合的智慧經營平台</p></div>
+        <div className="home-feature-orbit" aria-label="百工八大功能">
+          <div className="home-feature-column">{features.slice(0, 4).map((feature) => <FeatureButton key={feature.name} feature={feature} onClick={() => setSelected(feature)} />)}</div>
+          <div className="home-industry-stage" aria-label="餐飲、美業與零售整合場景"><div className="home-stage-glow" /><div className="home-stage-core"><Storefront weight="duotone" /><strong>一站式經營平台</strong><span>網站・會員・預約・點餐・AI</span></div><article className="home-industry-tile tile-food"><QrCode weight="duotone" /><strong>餐飲</strong><span>掃碼點餐</span></article><article className="home-industry-tile tile-beauty"><Scissors weight="duotone" /><strong>美業</strong><span>預約管理</span></article><article className="home-industry-tile tile-retail"><ShoppingBag weight="duotone" /><strong>零售</strong><span>會員經營</span></article></div>
+          <div className="home-feature-column">{features.slice(4).map((feature) => <FeatureButton key={feature.name} feature={feature} onClick={() => setSelected(feature)} />)}</div>
+        </div>
+        <div className="home-platform-actions"><Link className="btn btn-primary btn-lg" to="/pricing">查看商家方案 <ArrowRight /></Link><Link className="btn btn-outline btn-lg" to="/contact">立即洽詢</Link></div>
+      </div></section>
+      <section className="home-brand-values" aria-label="品牌價值"><div className="container">{values.map(([Icon, title, text]) => <article key={title}><Icon weight="duotone" /><div><strong>{title}</strong><span>{text}</span></div></article>)}</div></section>
+    </main>
+    {selected && <div className="home-feature-detail" role="dialog" aria-modal="true" aria-labelledby="home-feature-title"><button type="button" className="home-feature-backdrop" aria-label="關閉功能介紹" onClick={() => setSelected(null)} /><article className="home-feature-panel"><button type="button" className="home-feature-close" aria-label="關閉" onClick={() => setSelected(null)}><X /></button><span className="home-feature-panel-icon"><selected.icon weight="duotone" /></span><p className="home-feature-label">百工數位服務</p><h2 id="home-feature-title">{selected.name}</h2><p className="home-feature-summary">{selected.summary}</p><dl><dt>適用對象</dt><dd>{selected.audience}</dd><dt>核心價值</dt><dd>{selected.value}</dd></dl><h3>主要功能</h3><ul>{selected.items.map((item) => <li key={item}><CheckCircle weight="fill" />{item}</li>)}</ul><Link className="btn btn-primary btn-lg" to={selected.to}>{selected.cta} <ArrowRight /></Link></article></div>}
   </PublicLayout>;
 }
+
+function FeatureButton({ feature, onClick }: { feature: Feature; onClick: () => void }) { const Icon = feature.icon; return <button className="home-feature-button" type="button" onClick={onClick} aria-haspopup="dialog"><span><Icon weight="duotone" /></span><strong>{feature.name}</strong><ArrowRight /></button>; }

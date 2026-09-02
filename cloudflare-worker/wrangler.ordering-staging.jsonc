@@ -12,6 +12,7 @@
     }
   ],
   "vars": {
+    "MEMBERSHIP_COUPON_ISSUANCE_ENABLED": "0",
     "ALLOWED_ORIGINS": "https://baiye-platform-ordering-staging.pages.dev"
   }
 }
