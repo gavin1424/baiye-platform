@@ -11,7 +11,13 @@ if (!workerUrl?.includes("contract-signing-staging") || origin !== "https://baiy
 
 const runId = Date.now().toString(36);
 const phone = `096${String(Date.now()).slice(-7)}`;
+const memberPhone = `095${String(Date.now() + 7).slice(-7)}`;
 const signatory = "王小明";
+const merchantName = "百工管理者 ACTIVE 示範店";
+const quote = (value) => `'${String(value).replaceAll("'", "''")}'`;
+const executable = process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : "npx";
+const prefix = process.platform === "win32" ? ["/d", "/s", "/c", "npx"] : [];
+const d1 = (sql) => execFileSync(executable, [...prefix, "wrangler", "d1", "execute", "baiye-contract-signing-staging", "--remote", "--config", "wrangler.contract-staging.jsonc", "--command", sql], { cwd: join(process.cwd(), "cloudflare-worker"), stdio: "pipe", timeout: 30_000 });
 const signature = JSON.stringify({
   strokes: [
     [[18, 22], [38, 34], [61, 18], [86, 43], [111, 25], [137, 48]],
@@ -50,6 +56,7 @@ const registration = await api("/api/merchant/register", {
 csrf = registration.value.csrf_token;
 const merchantId = registration.value.merchant.id;
 if (!cookie || !csrf || !merchantId) throw new Error("Registration did not create a secure Merchant Session");
+d1(`UPDATE merchants SET name=${quote(merchantName)},contact_name=${quote(signatory)} WHERE id=${quote(merchantId)} AND status='contract_required';`);
 const registrationCookie = registration.response.headers.get("set-cookie") || "";
 if (!/HttpOnly/i.test(registrationCookie) || !/Secure/i.test(registrationCookie) || !/SameSite=None/i.test(registrationCookie)) throw new Error("Merchant Session cookie flags are incomplete");
 if (registration.value.coupon) throw new Error("Welcome coupon issuance unexpectedly enabled");
@@ -61,6 +68,7 @@ if (lockedWrite.value.code !== "MERCHANT_ACTIVATION_REQUIRED") throw new Error("
 
 const current = await api("/api/merchant/contracts/current");
 if (current.value.contract.id !== "merchant_service_v1_1_18000" || !current.value.contract.content_html) throw new Error("Merchant v1.1 contract is unavailable");
+if (current.value.merchant.name !== merchantName) throw new Error("Merchant legal party fixture is incomplete");
 if (Number(current.value.terms.discount_price_minor) !== 1800000 || Number(current.value.terms.contract_term_months) !== 24) throw new Error("Commercial terms mismatch");
 if (!current.value.legal_entity?.configured || current.value.legal_entity.entity.legal_name !== "陳靈有限公司" || current.value.legal_entity.entity.tax_id !== "42868714") throw new Error("Approved Staging legal entity is not rendered");
 if (!current.value.attachments?.some((item) => item.title === "附件 A｜商業條件")) throw new Error("Attachment A is missing");
@@ -114,28 +122,27 @@ const product = await api("/api/merchant-admin/ordering/items", { method: "POST"
 await api(`/api/merchant-admin/ordering/items/${product.value.id}`, { method: "PATCH", body: { price_minor: 38000, status: "hidden" } });
 await api(`/api/merchant-admin/ordering/items/${product.value.id}`, { method: "PATCH", body: { status: "active" } });
 
-const quote = (value) => `'${String(value).replaceAll("'", "''")}'`;
 const fixtureSql = `PRAGMA foreign_keys=ON;
 INSERT OR IGNORE INTO merchant_booking_settings(merchant_id,enabled,minimum_notice_minutes) VALUES(${quote(merchantId)},1,0);
 INSERT INTO merchant_booking_services(id,merchant_id,name,duration_minutes,active) VALUES(${quote(`ma-service-${runId}`)},${quote(merchantId)},'ACTIVE E2E 服務',60,1);
 INSERT INTO merchant_booking_staff(id,merchant_id,display_name,active) VALUES(${quote(`ma-staff-${runId}`)},${quote(merchantId)},'ACTIVE E2E 顧問',1);
 INSERT INTO merchant_booking_service_staff(merchant_id,service_id,staff_id) VALUES(${quote(merchantId)},${quote(`ma-service-${runId}`)},${quote(`ma-staff-${runId}`)});
-INSERT INTO merchant_bookings(id,merchant_id,booking_code,manage_token_hash,service_id,staff_id,customer_name,customer_phone,start_at,end_at,blocked_start_at,blocked_end_at,timezone,status,source,booking_source) VALUES(${quote(`ma-booking-${runId}`)},${quote(merchantId)},${quote(`MA-${runId}`)},${quote(`TOKEN-${runId}`)},${quote(`ma-service-${runId}`)},${quote(`ma-staff-${runId}`)},'測試顧客','0955555555','2026-09-20T02:00:00.000Z','2026-09-20T03:00:00.000Z','2026-09-20T02:00:00.000Z','2026-09-20T03:00:00.000Z','Asia/Taipei','pending','admin','manual');
-INSERT INTO ordering_customers(id,display_name,phone_normalized,phone_display) VALUES(${quote(`ma-customer-${runId}`)},'測試會員','0955555555','09** *** 555');
+INSERT INTO merchant_bookings(id,merchant_id,booking_code,manage_token_hash,service_id,staff_id,customer_name,customer_phone,start_at,end_at,blocked_start_at,blocked_end_at,timezone,status,source,booking_source) VALUES(${quote(`ma-booking-${runId}`)},${quote(merchantId)},${quote(`MA-${runId}`)},${quote(`TOKEN-${runId}`)},${quote(`ma-service-${runId}`)},${quote(`ma-staff-${runId}`)},'測試顧客',${quote(memberPhone)},'2026-09-20T02:00:00.000Z','2026-09-20T03:00:00.000Z','2026-09-20T02:00:00.000Z','2026-09-20T03:00:00.000Z','Asia/Taipei','pending','admin','manual');
+INSERT INTO ordering_customers(id,display_name,phone_normalized,phone_display) VALUES(${quote(`ma-customer-${runId}`)},'測試會員',${quote(memberPhone)},'09** *** 555');
 INSERT INTO merchant_ordering_memberships(id,merchant_id,customer_id,membership_no,consent_version,consented_at) VALUES(${quote(`ma-relation-${runId}`)},${quote(merchantId)},${quote(`ma-customer-${runId}`)},${quote(`MBR-${runId}`)},'merchant-admin-active-v1',CURRENT_TIMESTAMP);`;
-const executable = process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : "npx";
-const prefix = process.platform === "win32" ? ["/d", "/s", "/c", "npx"] : [];
-execFileSync(executable, [...prefix, "wrangler", "d1", "execute", "baiye-contract-signing-staging", "--remote", "--config", "wrangler.contract-staging.jsonc", "--command", fixtureSql], { cwd: join(process.cwd(), "cloudflare-worker"), stdio: "pipe", timeout: 30_000 });
+for (const statement of fixtureSql.split(";").map((item) => item.trim()).filter(Boolean)) {
+  d1(`${statement};`);
+}
 
 const bookings = await api("/api/merchant-admin/bookings");
 if (!bookings.value.bookings.some((item) => item.id === `ma-booking-${runId}`)) throw new Error("Booking read failed");
 await api(`/api/merchant-admin/bookings/ma-booking-${runId}`, { method: "PATCH", body: { status: "confirmed" } });
 const members = await api("/api/merchant-admin/members");
-if (!members.value.members.some((item) => item.id === `ma-relation-${runId}`) || JSON.stringify(members.value).includes("0955555555")) throw new Error("Member isolation or masking failed");
+if (!members.value.members.some((item) => item.id === `ma-relation-${runId}`) || JSON.stringify(members.value).includes(memberPhone)) throw new Error("Member isolation or masking failed");
 
 const googleRead = await api("/api/merchant/google-maps-booking");
 if (googleRead.value.contract_signed !== true) throw new Error("Google Maps Booking contract gate mismatch");
-const googleApply = await api("/api/merchant/google-maps-booking", { method: "POST", body: { merchant_name: "百工管理者 ACTIVE 示範店", google_maps_url: "https://www.google.com/maps/place/Taipei", contact_name: signatory, contact_phone: phone, merchant_type: "service", services: ["ACTIVE E2E 服務"], has_staff_schedule: true, business_hours: { weekdays: "09:00-18:00" }, has_google_profile: true, has_booking_system: true, note: "STAGING ONLY" }, expected: [201] });
+const googleApply = await api("/api/merchant/google-maps-booking", { method: "POST", body: { merchant_name: merchantName, google_maps_url: "https://www.google.com/maps/place/Taipei", contact_name: signatory, contact_phone: phone, merchant_type: "service", services: ["ACTIVE E2E 服務"], has_staff_schedule: true, business_hours: { description: "週一至週五 09:00–18:00" }, has_google_profile: true, has_booking_system: true, note: "STAGING ONLY" }, expected: [201] });
 if (googleApply.value.application.status !== "UNDER_REVIEW") throw new Error("Google Maps Booking apply failed");
 const line = await api("/api/merchant-admin/line");
 if (line.value.secrets_exposed !== false) throw new Error("LINE endpoint exposed secrets");
