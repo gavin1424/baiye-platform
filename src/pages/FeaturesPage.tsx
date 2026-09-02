@@ -87,10 +87,10 @@ const groups: FeatureGroup[] = [
     items: [
       { name: "商家會員資料隔離", description: "以 merchant_id 隔離商家會員，不讓不同商家互相讀取。", status: "development" },
       { name: "掃碼加入會員", description: "QR Code 加入快速會員，使用雜湊 Session Token 保護登入狀態。", status: "development" },
-      { name: "NT$100 迎新券", description: "新會員活動、資格、防重複發券、折抵與兌換流程。", status: "development" },
+      { name: "會員回購追蹤", description: "整理消費歷程、回訪狀態與會員經營成效。", status: "development" },
       { name: "CRM／標籤／Timeline", description: "顧客分類、互動紀錄、回購與服務追蹤。", status: "development" },
       { name: "會員分級與會員價", description: "依消費、訂單等條件建立會員等級、會員專屬價格與商品。", status: "development" },
-      { name: "購物金 Ledger", description: "不可變購物金流水、發送、到期、折抵與退款回沖。", status: "development" },
+      { name: "消費歷程", description: "以可稽核紀錄整理訂單、回訪與服務互動。", status: "development" },
     ],
   },
   {
@@ -147,7 +147,7 @@ const groups: FeatureGroup[] = [
     title: "行銷、促銷與數據",
     description: "把會員、促銷、訊息與成效分析串成可追蹤的營運流程。",
     items: [
-      { name: "優惠券／優惠碼", description: "迎新券基礎已完成，完整統一促銷計算引擎持續開發。", status: "development" },
+      { name: "會員標籤與分級", description: "依顧客互動與消費歷程建立會員經營工具。", status: "development" },
       { name: "滿額折扣／滿額贈／免運／加購", description: "促銷規則、條件、優先順序與可否併用。", status: "development" },
       { name: "棄單／補貨／生日提醒", description: "行銷自動化 Queue、條件與通知歷程。", status: "development" },
       { name: "LINE／Email／SMS 訊息中心", description: "範本、排程、分眾與發送紀錄；真實外部發送需權限。", status: "provider" },

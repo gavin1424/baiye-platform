@@ -382,7 +382,7 @@ async function handleJoin(request, db, context, cors) {
     return json({ error: "此會員狀態目前無法使用，請洽店家協助。" }, 403, cors);
   }
   const session = await issueSession(db, context.merchant_id, membership.membership_id);
-  const coupon = await issueWelcomeCoupon(db, { merchantId: context.merchant_id, membershipId: membership.membership_id, phoneVerified: Boolean(customer.phone_verified), newlyCreated: !previousMembership });
+  const coupon = await issueWelcomeCoupon(db, { merchantId: context.merchant_id, membershipId: membership.membership_id, phoneVerified: Boolean(customer.phone_verified), newlyCreated: !previousMembership, issuanceEnabled: false });
   await audit(db, context.merchant_id, "customer", membership.membership_id, "member_joined_or_returned", "membership", membership.membership_id, { qr_id: context.id });
   return json({
     message: "加入會員成功，現在可以開始點餐。",
@@ -445,6 +445,7 @@ async function handleCreateOrder(request, db, context, cors) {
   const session = await memberSession(db, request, context.merchant_id);
   if (!session) return json({ error: "會員登入已失效，請重新掃描 QR Code 加入會員。", code: "MEMBER_REQUIRED" }, 401, cors);
   const input = await request.json();
+  if (clean(input?.coupon_id, 120)) return json({ error: "會員優惠券功能已停用。", code: "COUPON_FEATURE_DISABLED" }, 409, cors);
   const orderType = resolveOrderType(context, input?.order_type);
   if (!orderType) return json({ error: "此商家目前未開放所選的用餐方式。" }, 409, cors);
   const tableLabel = orderType === "dine_in" ? clean(context.table_label || input?.table_label, 80) : null;

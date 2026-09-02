@@ -45,12 +45,12 @@ async function issueMemberSession(db, memberId, deviceId = "contract-session") {
   return { token, expires_at: expiresAt };
 }
 
-export async function preparePlatformMembershipBatch(db, { phone, source, originVerified = false, deviceId = "trusted-contract-session", privacyConsentVersion = null, issueSession = true }) {
+export async function preparePlatformMembershipBatch(db, { phone, source, originVerified = false, deviceId = "trusted-contract-session", privacyConsentVersion = null, issueSession = true, couponIssuanceEnabled = false }) {
   const normalized = normalizeTaiwanMobile(phone);
   if (!normalized) throw Object.assign(new Error("手機號碼格式不正確。"), { code: "INVALID_PHONE", status: 422 });
   const existing = await memberByPhone(db, normalized);
   if (existing && existing.status !== "active") throw Object.assign(new Error("此會員帳戶目前無法使用。"), { code: "MEMBER_ACCOUNT_UNAVAILABLE", status: 403 });
-  const existingCoupon = existing ? await db.prepare("SELECT id FROM platform_member_coupons WHERE member_id=? AND campaign_id=?").bind(existing.id, WELCOME_CAMPAIGN_ID).first() : null;
+  const existingCoupon = couponIssuanceEnabled && existing ? await db.prepare("SELECT id FROM platform_member_coupons WHERE member_id=? AND campaign_id=?").bind(existing.id, WELCOME_CAMPAIGN_ID).first() : null;
   const customerId = uid("customer");
   const memberId = uid("pmember");
   const memberNo = `BYM-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
@@ -67,17 +67,20 @@ export async function preparePlatformMembershipBatch(db, { phone, source, origin
     db.prepare("UPDATE ordering_customers SET privacy_consent_version=COALESCE(privacy_consent_version,?),privacy_consented_at=CASE WHEN privacy_consented_at IS NULL AND ? IS NOT NULL THEN CURRENT_TIMESTAMP ELSE privacy_consented_at END,updated_at=CURRENT_TIMESTAMP WHERE phone_normalized=?").bind(privacyConsentVersion, privacyConsentVersion, normalized),
     db.prepare("INSERT OR IGNORE INTO platform_members(id,customer_id,member_no,joined_source,phone_verified,membership_origin_verified) SELECT ?,c.id,?,?,c.phone_verified,? FROM ordering_customers c WHERE c.phone_normalized=?").bind(memberId, memberNo, source, Number(Boolean(originVerified)), normalized),
     db.prepare("INSERT OR IGNORE INTO platform_member_welcome_events(id,member_id,source) SELECT ?,p.id,? FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE c.phone_normalized=?").bind(welcomeId, source, normalized),
-    db.prepare("INSERT OR IGNORE INTO platform_member_coupons(id,member_id,campaign_id,status,expires_at) SELECT ?,p.id,campaign.id,'claimed',? FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id JOIN platform_coupon_campaigns campaign ON campaign.id=? AND campaign.enabled=1 WHERE c.phone_normalized=?").bind(couponId, couponExpiresAt, WELCOME_CAMPAIGN_ID, normalized),
-    db.prepare("UPDATE platform_members SET welcome_coupon_claimed_at=COALESCE(welcome_coupon_claimed_at,CURRENT_TIMESTAMP),membership_origin_verified=MAX(membership_origin_verified,?),updated_at=CURRENT_TIMESTAMP WHERE customer_id=(SELECT id FROM ordering_customers WHERE phone_normalized=?)").bind(Number(Boolean(originVerified)), normalized),
+    db.prepare("UPDATE platform_members SET membership_origin_verified=MAX(membership_origin_verified,?),updated_at=CURRENT_TIMESTAMP WHERE customer_id=(SELECT id FROM ordering_customers WHERE phone_normalized=?)").bind(Number(Boolean(originVerified)), normalized),
   ];
+  if (couponIssuanceEnabled) {
+    statements.push(db.prepare("INSERT OR IGNORE INTO platform_member_coupons(id,member_id,campaign_id,status,expires_at) SELECT ?,p.id,campaign.id,'claimed',? FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id JOIN platform_coupon_campaigns campaign ON campaign.id=? AND campaign.enabled=1 WHERE c.phone_normalized=?").bind(couponId, couponExpiresAt, WELCOME_CAMPAIGN_ID, normalized));
+    statements.push(db.prepare("UPDATE platform_members SET welcome_coupon_claimed_at=COALESCE(welcome_coupon_claimed_at,CURRENT_TIMESTAMP),updated_at=CURRENT_TIMESTAMP WHERE customer_id=(SELECT id FROM ordering_customers WHERE phone_normalized=?)").bind(normalized));
+  }
   if (issueSession) statements.push(db.prepare("INSERT INTO platform_member_sessions(id,member_id,token_hash,device_hash,expires_at) SELECT ?,p.id,?,?,? FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE c.phone_normalized=?").bind(sessionId, tokenHash, deviceHash, sessionExpiresAt, normalized));
-  return { normalized, existing: Boolean(existing), memberId: existing?.id || memberId, memberCreated: !existing, couponCreated: !existingCoupon, token: issueSession ? token : null, sessionExpiresAt: issueSession ? sessionExpiresAt : null, statements };
+  return { normalized, existing: Boolean(existing), memberId: existing?.id || memberId, memberCreated: !existing, couponCreated: couponIssuanceEnabled && !existingCoupon, couponIssuanceEnabled, token: issueSession ? token : null, sessionExpiresAt: issueSession ? sessionExpiresAt : null, statements };
 }
 
 export async function finalizePlatformMembershipBatch(db, prepared) {
   const member = await memberByPhone(db, prepared.normalized);
   if (!member) throw Object.assign(new Error("會員資格建立失敗。"), { code: "MEMBERSHIP_COMMIT_FAILED", status: 503 });
-  const coupon = (await claimWelcomeCoupon(db, member.id)).coupon;
+  const coupon = prepared.couponIssuanceEnabled ? (await claimWelcomeCoupon(db, member.id)).coupon : null;
   const welcome = welcomeCopy(member.joined_source);
   return { member: { id: member.id, member_no: member.member_no, status: member.status, phone_masked: maskMemberPhone(prepared.normalized), joined_at: member.joined_at }, created: !prepared.existing, session: prepared.token ? { token: prepared.token, expires_at: prepared.sessionExpiresAt } : null, coupon, welcome: { ...welcome, show: !prepared.existing }, customer: member };
 }
@@ -108,12 +111,12 @@ async function checkRateLimit(db, request, phone, deviceId) {
 }
 
 function welcomeCopy(source) {
-  if (source === "partner_contract") return { title: "歡迎成為創百業會員！", message: "契約簽署完成！您也已自動成為創百業會員，NT$100 迎新禮券已放入帳戶。" };
-  if (source === "merchant_contract") return { title: "歡迎成為創百業會員！", message: "商家契約簽署完成！您的創百業會員資格也已建立，NT$100 迎新禮券已放入帳戶。" };
-  return { title: "歡迎成為創百業會員！", message: "NT$100 迎新禮券已放入您的會員帳戶" };
+  if (source === "partner_contract") return { title: "歡迎成為創百業會員！", message: "契約簽署完成，您的創百業會員資格也已建立。" };
+  if (source === "merchant_contract") return { title: "歡迎成為創百業會員！", message: "商家契約簽署完成，您的創百業會員資格也已建立。" };
+  return { title: "歡迎成為創百業會員！", message: "您的會員資格已建立。" };
 }
 
-export async function ensurePlatformMember(db, { phone, source, privacyConsentVersion = null, originVerified = false, deviceId = "trusted-contract-session", issueSession = true }) {
+export async function ensurePlatformMember(db, { phone, source, privacyConsentVersion = null, originVerified = false, deviceId = "trusted-contract-session", issueSession = true, couponIssuanceEnabled = false }) {
   const normalized = normalizeTaiwanMobile(phone);
   if (!normalized) throw Object.assign(new Error("手機號碼格式不正確。"), { code: "INVALID_PHONE", status: 422 });
   let customer = await db.prepare("SELECT * FROM ordering_customers WHERE phone_normalized=?").bind(normalized).first();
@@ -137,7 +140,7 @@ export async function ensurePlatformMember(db, { phone, source, privacyConsentVe
   } else if (member.status !== "active") {
     throw Object.assign(new Error("此會員帳戶目前無法使用。"), { code: "MEMBER_ACCOUNT_UNAVAILABLE", status: 403 });
   }
-  const claimed = await claimWelcomeCoupon(db, member.id);
+  const claimed = couponIssuanceEnabled ? await claimWelcomeCoupon(db, member.id) : { coupon: null, created: false };
   const session = issueSession ? await issueMemberSession(db, member.id, deviceId) : null;
   const welcome = welcomeCopy(source);
   return {
@@ -166,15 +169,14 @@ export async function handlePlatformMemberRequest(request, env, url, cors = {}) 
         if (!current || current.id !== existing.id) return json({ error: "此手機已建立會員，請先完成手機或 LINE 身分驗證。", code: "MEMBER_VERIFICATION_REQUIRED", verification_methods: env.SMS_OTP_MODE === "staging" ? ["staging_otp"] : ["sms_otp", "line_login"], verification_available: env.SMS_OTP_MODE === "staging" }, 409, cors);
         return json({ member: { id: current.id, member_no: current.member_no, status: current.status, phone_masked: maskMemberPhone(current.phone_normalized), joined_at: current.joined_at }, new_member: false, welcome: { show: false }, session: null }, 200, cors);
       }
-      const result = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version).slice(0, 100), deviceId });
+      const result = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version).slice(0, 100), deviceId, couponIssuanceEnabled: env.MEMBERSHIP_COUPON_ISSUANCE_ENABLED === "1" });
       return json({ member: result.member, new_member: true, welcome: result.welcome, coupon: result.coupon, session: result.session }, 201, cors);
     }
     const member = await authenticatePlatformMember(db, request);
     if (!member) return json({ error: "會員 Session 無效或已過期。", code: "MEMBER_SESSION_REQUIRED" }, 401, cors);
     if (url.pathname === "/api/members/me" && request.method === "GET") return json({ member: { id: member.id, member_no: member.member_no, status: member.status, phone_masked: maskMemberPhone(member.phone_normalized), joined_at: member.joined_at, display_name: member.display_name, email: member.email } }, 200, cors);
     if (url.pathname === "/api/members/coupons" && request.method === "GET") {
-      const rows = await db.prepare("SELECT c.id,c.status,c.claimed_at,c.expires_at,p.name,p.discount_value_minor,p.currency,p.redemption_enabled FROM platform_member_coupons c JOIN platform_coupon_campaigns p ON p.id=c.campaign_id WHERE c.member_id=? ORDER BY c.claimed_at DESC").bind(member.id).all();
-      return json({ coupons: rows.results || [], redemption_enabled: false }, 200, cors);
+      return json({ coupons: [], disabled: true, redemption_enabled: false }, 200, cors);
     }
     if (url.pathname === "/api/members/welcome/acknowledge" && request.method === "POST") {
       await db.prepare("UPDATE platform_member_welcome_events SET acknowledged_at=COALESCE(acknowledged_at,CURRENT_TIMESTAMP) WHERE member_id=?").bind(member.id).run();
@@ -185,6 +187,7 @@ export async function handlePlatformMemberRequest(request, env, url, cors = {}) 
       return json({ ok: true }, 200, cors);
     }
     if (url.pathname === "/api/members/coupons/redeem" && request.method === "POST") {
+      if (env.MEMBERSHIP_COUPON_ISSUANCE_ENABLED !== "1") return json({ error: "會員優惠券功能已停用。", code: "COUPON_FEATURE_DISABLED" }, 409, cors);
       if (env.PLATFORM_WELCOME_COUPON_REDEMPTION_ENABLED !== "1") return json({ error: "使用通路開放後即可折抵。", code: "PLATFORM_COUPON_REDEMPTION_DISABLED" }, 409, cors);
       if (!Number(member.phone_verified)) return json({ error: "首次使用迎新券前，請完成手機驗證。", code: "PHONE_VERIFICATION_REQUIRED_FOR_WELCOME_COUPON" }, 409, cors);
       return json({ error: "跨商家補貼與對帳尚未開放。", code: "PLATFORM_COUPON_REIMBURSEMENT_REQUIRED" }, 409, cors);

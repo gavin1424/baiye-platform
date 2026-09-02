@@ -35,7 +35,6 @@ import {
   saveOrderingLastOrder,
   type OrderingCategory,
   type OrderingContext,
-  type OrderingCoupon,
   type OrderingDeliveryLink,
   type OrderingMember,
   type OrderingMenuItem,
@@ -114,8 +113,6 @@ export function QrOrderingPage() {
   const [itemOptionGroups, setItemOptionGroups] = useState<
     OrderingItemOptionGroup[]
   >([]);
-  const [coupons, setCoupons] = useState<OrderingCoupon[]>([]);
-  const [selectedCoupon, setSelectedCoupon] = useState("");
   const [paymentOptions, setPaymentOptions] = useState<OrderingPaymentOption[]>(
     [],
   );
@@ -149,12 +146,7 @@ export function QrOrderingPage() {
   const loadBenefits = useCallback(
     async (memberToken: string) => {
       if (!memberToken) return;
-      const [couponData, paymentData, deliveryData] = await Promise.all([
-        orderingPublicApi<{ items: OrderingCoupon[] }>(
-          `/api/ordering/qr/${encodeURIComponent(code)}/coupons`,
-          {},
-          memberToken,
-        ),
+      const [paymentData, deliveryData] = await Promise.all([
         orderingPublicApi<{ items: OrderingPaymentOption[] }>(
           `/api/ordering/qr/${encodeURIComponent(code)}/payment-options`,
         ),
@@ -162,13 +154,8 @@ export function QrOrderingPage() {
           `/api/ordering/qr/${encodeURIComponent(code)}/delivery-links`,
         ),
       ]);
-      setCoupons(couponData.items || []);
       setPaymentOptions(paymentData.items || []);
       setDeliveryLinks(deliveryData.items || []);
-      const usable = (couponData.items || []).find(
-        (c) => c.status === "active",
-      );
-      if (usable) setSelectedCoupon(usable.id);
     },
     [code],
   );
@@ -383,7 +370,6 @@ export function QrOrderingPage() {
         member: OrderingMember;
         session: { token: string; expires_at: string };
         message: string;
-        coupon?: OrderingCoupon | null;
         platform_session?: { token: string; expires_at: string } | null;
         welcome?: { show: boolean; title?: string; message?: string };
       }>(`/api/ordering/qr/${encodeURIComponent(code)}/join`, {
@@ -404,7 +390,6 @@ export function QrOrderingPage() {
       saveOrderingMemberToken(context.merchant_id, data.session.token);
       if (data.platform_session?.token) savePlatformMemberToken(data.platform_session.token);
       setMessage(data.welcome?.show ? `${data.welcome.title} ${data.welcome.message}` : data.message);
-      if (data.coupon) setCoupons([data.coupon]);
       await loadBenefits(data.session.token);
       if (context.qr.purpose !== "member_only")
         await loadMenu(context, data.session.token);
@@ -445,7 +430,6 @@ export function QrOrderingPage() {
                 ? itemSelections[item.id]?.note || ""
                 : "",
             })),
-            coupon_id: selectedCoupon || undefined,
           }),
         },
         token,
@@ -717,36 +701,6 @@ export function QrOrderingPage() {
               </label>
             )}
           </section>
-          {coupons.length > 0 && (
-            <section className="ordering-controls-card">
-              <div>
-                <span>我的禮券</span>
-                <strong>會員 NT$100 禮券</strong>
-                <small>外送平台訂單預設不適用</small>
-              </div>
-              <div>
-                {coupons.map((c) => (
-                  <label key={c.id} className="ordering-consent">
-                    <input
-                      type="radio"
-                      name="coupon"
-                      checked={selectedCoupon === c.id}
-                      disabled={c.status !== "active"}
-                      onChange={() => setSelectedCoupon(c.id)}
-                    />
-                    <span>
-                      {money(c.discount_value_minor, context.currency)}・
-                      {c.status === "active"
-                        ? "可使用"
-                        : c.status === "pending_verification"
-                          ? "待手機驗證"
-                          : c.status}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </section>
-          )}
           {deliveryLinks.length > 0 && (
             <section className="ordering-controls-card">
               <div>
@@ -1023,22 +977,6 @@ export function QrOrderingPage() {
               <span>合計</span>
               <strong>{money(subtotal, context.currency)}</strong>
             </div>
-            {selectedCoupon && (
-              <div className="ordering-cart-total">
-                <span>會員禮券</span>
-                <strong>
-                  -{money(Math.min(10000, subtotal), context.currency)}
-                </strong>
-              </div>
-            )}
-            {selectedCoupon && (
-              <div className="ordering-cart-total">
-                <span>應付金額</span>
-                <strong>
-                  {money(Math.max(subtotal - 10000, 0), context.currency)}
-                </strong>
-              </div>
-            )}
             <button
               type="button"
               className="btn btn-primary btn-lg"
