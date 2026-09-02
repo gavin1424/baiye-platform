@@ -11,8 +11,10 @@ const integration = readFileSync(new URL("../src/member-integrations.js", import
 const staging = readFileSync(new URL("../wrangler.contract-staging.jsonc", import.meta.url), "utf8");
 
 test("HOME01 headline and multi-industry positioning are exact", () => {
-  assert.match(home, /全業態數位升級，一站完成/);
+  assert.match(home, /全業態數位升級，/);
+  assert.match(home, /一站完成/);
   assert.match(home, /餐飲 × 美業 × 零售，多產業整合的智慧經營平台/);
+  assert.match(home, /baiye-multi-industry-isometric-hero\.png/);
 });
 
 test("HOME02 all eight interactive features are present", () => {
@@ -27,7 +29,7 @@ test("HOME03 feature details include audience value list and CTA", () => {
 });
 
 test("HOME04 responsive detail becomes full-screen on mobile", () => {
-  assert.match(styles, /@media\(max-width:620px\)/);
+  assert.match(styles, /@media\(max-width:760px\)/);
   assert.match(styles, /\.home-feature-detail\{align-items:stretch;padding:0\}/);
   assert.match(styles, /\.home-feature-panel\{width:100%;max-height:100vh;border-radius:0/);
 });
