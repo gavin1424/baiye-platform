@@ -101,7 +101,7 @@ for (let pageNo = 1; pageNo <= pdfDocument.numPages; pageNo += 1) {
   pdfText += ` ${(text.items || []).map((item) => item.str || "").join(" ")}`;
 }
 const normalizedPdfText = pdfText.replace(/\s+/g, "");
-for (const expected of ["創百業智慧鏈", "商家平台服務契約", "附件A", "NT$18,000", "24個月", "陳靈有限公司", "42868714", "陳美玲", "民生東路三段57號", signatory]) {
+for (const expected of ["創百業智慧鏈", "商家平台服務契約", "附件A", "NT$18,000", "24個月", "陳靈有限公司", "42868714", "陳美玲", "民生東路三段57號", merchantName, signatory]) {
   if (!normalizedPdfText.includes(expected.replace(/\s+/g, ""))) throw new Error(`PDF text missing: ${expected}`);
 }
 const pdfBinary = new TextDecoder("latin1").decode(pdf.value);
