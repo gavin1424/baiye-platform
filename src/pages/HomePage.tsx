@@ -37,7 +37,7 @@ export function HomePage() {
         {menuOpen && <nav className="immersive-menu" aria-label="首頁選單"><Link to="/features">平台功能</Link><Link to="/pricing">商家方案</Link><Link to="/pricing">商家加入</Link><Link to="/partner">承攬夥伴</Link><Link to="/contact">聯絡我們</Link></nav>}
       </header>
 
-      <div className="immersive-home-heading"><h1>全業態數位升級，<em>一站完成</em></h1><p>餐飲 × 美業 × 零售，多產業整合的智慧經營平台</p></div>
+      <div className="immersive-home-heading"><h1>全業態數位升級，<em>一站完成</em></h1><p>餐飲 × 美業 × 零售，多產業整合的智慧經營平台</p><Link className="btn btn-primary immersive-demo-cta" to="/demo/beef-noodle">立即試用完整商家系統 <ArrowRight /></Link></div>
 
       <div className="immersive-showcase" aria-label="餐飲、美業與零售智慧經營場景">
         <img src={heroScene} alt="餐飲、美業與零售整合的智慧經營場景" />

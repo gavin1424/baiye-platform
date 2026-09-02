@@ -21,6 +21,10 @@ import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
+import { DemoMerchantLoginPage } from "./pages/DemoMerchantLoginPage";
+import { MerchantKitchenDisplayPage } from "./pages/MerchantKitchenDisplayPage";
+import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantGoogleBookingPage, MerchantInventoryPage, MerchantInvoicePage, MerchantLinePage, MerchantMembersPage, MerchantPaymentsPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
+import { BeefNoodleBookingPage } from "./pages/BeefNoodleBookingPage";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -84,6 +88,11 @@ const PAGE_TITLES: Record<string, string> = {
   "/member/join": "手機一鍵加入會員｜創百業智慧鏈",
   "/member/welcome": "歡迎成為創百業會員｜創百業智慧鏈",
   "/member": "我的會員｜創百業智慧鏈",
+  "/demo/beef-noodle": "百工牛肉麵｜完整功能試用店",
+  "/demo/beef-noodle/login": "百工官方示範店試用驗證",
+  "/merchant/dashboard": "百工牛肉麵商家管理中心",
+  "/merchant/inventory": "百工牛肉麵庫存管理",
+  "/merchant-admin/ordering/kitchen": "百工牛肉麵廚房 KDS",
 };
 
 function ScrollAndMetadata() {
@@ -194,8 +203,22 @@ export function App() {
       <ScrollAndMetadata />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/demo/beef-noodle" element={<BeefNoodleDemoPage />} />
+        <Route path="/demo/beef-noodle/login" element={<DemoMerchantLoginPage />} />
+        <Route path="/booking/beef-noodle-demo" element={<BeefNoodleBookingPage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
+        <Route path="/merchant-admin/ordering/kitchen" element={<MerchantKitchenDisplayPage />} />
+        <Route path="/merchant/dashboard" element={<MerchantAdminDashboardPage />} />
+        <Route path="/merchant/inventory" element={<MerchantInventoryPage />} />
+        <Route path="/merchant/bookings" element={<MerchantBookingsPage />} />
+        <Route path="/merchant/members" element={<MerchantMembersPage />} />
+        <Route path="/merchant/profile" element={<MerchantProfilePage />} />
+        <Route path="/merchant/line" element={<MerchantLinePage />} />
+        <Route path="/merchant/account" element={<MerchantAccountPage />} />
+        <Route path="/merchant/google-maps-booking" element={<MerchantGoogleBookingPage />} />
+        <Route path="/merchant/payments" element={<MerchantPaymentsPage />} />
+        <Route path="/merchant/invoice" element={<MerchantInvoicePage />} />
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
         <Route path="/member/join" element={<PlatformMemberJoinPage />} />
         <Route path="/member/welcome" element={<PlatformMemberWelcomePage />} />

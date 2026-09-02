@@ -14,7 +14,16 @@ export type OrderingOrderStatus =
   | "served"
   | "completed"
   | "cancelled";
-export type OrderingPaymentStatus = "unpaid" | "paid" | "refunded";
+export type OrderingPaymentStatus = "unpaid" | "pending" | "paid" | "partially_refunded" | "refunded" | "failed";
+export type CheckoutPaymentProvider = "manual_counter" | "line_pay_online" | "apple_pay_web";
+export type CheckoutPaymentCapability = {
+  provider: CheckoutPaymentProvider;
+  enabled: boolean;
+  configuration_status: "configuration_required" | "sandbox_ready" | "active" | "disabled";
+  order_acceptance_policy: "accept_before_payment" | "accept_after_payment";
+  availability_code: string;
+  capabilities: { authorize: boolean; capture: boolean; refund: boolean; partial_refund: boolean; redirect: boolean; wallet: boolean; webhook: boolean };
+};
 
 export type OrderingContext = {
   merchant_id: string;
@@ -32,6 +41,15 @@ export type OrderingContext = {
   estimated_prep_minutes: number;
   show_sold_out_items: boolean;
   customer_cancel_before_accept: boolean;
+  line: {
+    configured: boolean;
+    display_name: string;
+    basic_id: string;
+    add_friend_url: string;
+    integration_mode: "add_friend_link" | "linked_line_login" | "future_multi_account_liff";
+    capabilities: { addFriendLink: boolean; login: boolean; friendshipStatus: boolean; messaging: boolean };
+    status: "configured" | "LINE_DEMO_NOT_CONFIGURED";
+  };
   qr: {
     id: string;
     code: string;
@@ -69,6 +87,9 @@ export type OrderingMenuItem = {
   status: "active" | "sold_out" | "hidden" | "archived";
   allow_customer_note: boolean;
   daily_limit?: number | null;
+  inventory_enabled?: boolean;
+  inventory_exists?: boolean;
+  stock_on_hand?: number | null;
 };
 
 export type OrderingOptionGroup = {
@@ -132,6 +153,7 @@ export type OrderingOrder = {
     payable_total_minor: number;
     coupon_id?: string | null;
   };
+  invoice?: { status: string; invoice_number?: string | null };
 };
 export type OrderingCoupon = {
   id: string;
@@ -215,6 +237,13 @@ export type OrderingSettingsAdmin = {
 export type OrderingAdminOverview = {
   merchant_id: string;
   settings: OrderingSettingsAdmin | null;
+  line_integration: OrderingContext["line"];
+  invoice_integration?: {
+    provider: string;
+    readiness_status: string;
+    enabled: boolean;
+    credential_status: string;
+  };
   qrs: OrderingQrAdmin[];
   categories: OrderingCategory[];
   items: OrderingMenuItem[];
@@ -251,8 +280,9 @@ export async function merchantOrderingApi<T>(
   init: RequestInit = {},
 ): Promise<T> {
   const method = String(init.method || "GET").toUpperCase();
+  const multipart = typeof FormData !== "undefined" && init.body instanceof FormData;
   const headers: Record<string, string> = {
-    ...(init.body ? { "content-type": "application/json" } : {}),
+    ...(init.body && !multipart ? { "content-type": "application/json" } : {}),
     ...(merchantCsrfToken && !["GET", "HEAD", "OPTIONS"].includes(method)
       ? { "x-csrf-token": merchantCsrfToken }
       : {}),
@@ -296,6 +326,27 @@ export function clearOrderingMemberToken(merchantId: string) {
     // Ignore storage failures.
   }
 }
+
+function orderingCartKey(code: string) { return `baiye:ordering-cart:${code}`; }
+function orderingLineClickKey(code: string) { return `baiye:ordering-line-click:${code}`; }
+
+export type PersistedOrderingCart = {
+  cart: Record<string, number>;
+  itemSelections: Record<string, { option_value_ids: string[]; note: string }>;
+  customerNote: string;
+  orderType: OrderingOrderType;
+  tableLabel: string;
+};
+
+export function getPersistedOrderingCart(code: string): PersistedOrderingCart | null {
+  try { const raw = window.localStorage.getItem(orderingCartKey(code)); return raw ? JSON.parse(raw) as PersistedOrderingCart : null; } catch { return null; }
+}
+export function savePersistedOrderingCart(code: string, value: PersistedOrderingCart) {
+  try { window.localStorage.setItem(orderingCartKey(code), JSON.stringify(value)); } catch { /* Private browsing can still use the in-memory cart. */ }
+}
+export function clearPersistedOrderingCart(code: string) { try { window.localStorage.removeItem(orderingCartKey(code)); } catch { /* ignore */ } }
+export function getOrderingLineClicked(code: string) { try { return window.localStorage.getItem(orderingLineClickKey(code)) === "1"; } catch { return false; } }
+export function saveOrderingLineClicked(code: string) { try { window.localStorage.setItem(orderingLineClickKey(code), "1"); } catch { /* ignore */ } }
 
 const PLATFORM_MEMBER_TOKEN_KEY = "baiye_platform_member_token";
 const PLATFORM_DEVICE_KEY = "baiye_platform_device_id";

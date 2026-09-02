@@ -6,8 +6,12 @@ import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } 
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
 import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
 import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from "./member-integrations.js";
-import { authorizeMerchant, handleMerchantAuth } from "./merchant-auth.js";
+import { authorizeMerchant, handleMerchantAuth, merchantOperationsAllowed } from "./merchant-auth.js";
 import { permissionForOrderingRequest } from "./merchant-permissions.js";
+import { handleProductionDemoLogin, isProductionDemoMerchant, resetBeefNoodleDemo } from "./demo-merchant.js";
+import { handleMerchantProductAsset, serveMerchantProductAsset } from "./merchant-assets.js";
+import { handleMerchantAdmin } from "./merchant-admin.js";
+import { handleMerchantInventory } from "./inventory.js";
 import {
   handleMerchantContractAdmin,
   handleMerchantContractPublic,
@@ -196,6 +200,8 @@ export default {
     const origin = allowedOrigin(request, env);
     const cors = corsHeaders(origin);
 
+    if (request.method === "GET" && url.pathname.startsWith("/api/merchant-assets/")) return (await serveMerchantProductAsset(env, url)) || new Response("Not found", { status: 404 });
+
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, service: "創百業智慧鏈", checks: { worker: "ok", d1: Boolean(env.FINANCE_DB), r2: Boolean(env.CONTRACTS_BUCKET), ai: Boolean(env.OPENAI_API_KEY), line: Boolean(env.LINE_MEILING_CHANNEL_SECRET), ordering: Boolean(env.FINANCE_DB) } });
     }
@@ -210,6 +216,12 @@ export default {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       return (await handleMerchantAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname === "/api/production-demo/login") {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleProductionDemoLogin(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname.startsWith("/api/contract-verification/") && request.method === "GET") {
@@ -244,6 +256,7 @@ export default {
       const permission = permissionForOrderingRequest(url.pathname, request.method);
       const authorization = await authorizeMerchant(request, env, permission);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      if (!await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id)) return json({ code: "MERCHANT_ACTIVATION_REQUIRED" }, 423, cors);
       const scopedUrl = new URL(url);
       scopedUrl.pathname = scopedUrl.pathname.replace(/^\/api\/merchant-admin\/ordering/, "/api/admin/ordering");
       scopedUrl.searchParams.set("merchant_id", authorization.session.merchant_id);
@@ -252,6 +265,21 @@ export default {
         actor_id: authorization.session.user_id,
         actor_role: authorization.session.roles || "merchant",
       });
+    }
+
+    if (url.pathname.startsWith("/api/merchant-admin/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const authorization = await authorizeMerchant(request, env);
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      if (!await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id)) return json({ code: "MERCHANT_ACTIVATION_REQUIRED" }, 423, cors);
+      if (/^\/api\/merchant-admin\/products\/[^/]+\/image$/.test(url.pathname)) return (await handleMerchantProductAsset(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
+      if (url.pathname.startsWith("/api/merchant-admin/inventory")) return (await handleMerchantInventory(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
+      if (url.pathname === "/api/merchant-admin/demo/reset") {
+        if (!await isProductionDemoMerchant(env, authorization.session.merchant_id)) return json({ code: "DEMO_RESET_FORBIDDEN" }, 403, cors);
+        return resetBeefNoodleDemo(env, request, authorization.session, cors);
+      }
+      return (await handleMerchantAdmin(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname === "/widgets/meiling-chat-widget.js" && request.method === "GET") {

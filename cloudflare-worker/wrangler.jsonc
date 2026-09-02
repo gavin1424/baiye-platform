@@ -17,6 +17,10 @@
     {
       "binding": "CONTRACTS_BUCKET",
       "bucket_name": "baiye-contracts"
+    },
+    {
+      "binding": "MERCHANT_ASSETS",
+      "bucket_name": "baiye-merchant-assets"
     }
   ],
   "triggers": {
@@ -25,6 +29,7 @@
   "vars": {
     "ALLOWED_ORIGINS": "https://baiyeconnect.com,https://www.baiyeconnect.com,https://meilingpatchwork.com,https://www.meilingpatchwork.com",
     "PARTNER_OTP_MODE": "disabled",
-    "MEMBERSHIP_COUPON_ISSUANCE_ENABLED": "0"
+    "MEMBERSHIP_COUPON_ISSUANCE_ENABLED": "0",
+    "PRODUCTION_DEMO_ENABLED": "true"
   }
 }
