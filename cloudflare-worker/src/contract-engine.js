@@ -43,9 +43,12 @@ export function parseAndValidateSignature(signature, { minimumPoints = 6, minimu
 }
 
 export function assertContractSignable(contract, env = {}) {
-  if (!contract || Number(contract.is_active) !== 1) throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的有效契約版本。", 409);
-  if (contract.legal_review_status === "revoked") throw new ContractError("CONTRACT_REVOKED", "此契約版本已撤銷。", 409);
   const staging = env.CONTRACT_SIGNING_MODE === "staging";
+  const stagingPreviewEnabled = staging && Number(contract?.staging_signing_enabled) === 1;
+  if (!contract || (Number(contract.is_active) !== 1 && !stagingPreviewEnabled)) {
+    throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的有效契約版本。", 409);
+  }
+  if (contract.legal_review_status === "revoked") throw new ContractError("CONTRACT_REVOKED", "此契約版本已撤銷。", 409);
   if (contract.legal_review_status !== "approved" && !staging) {
     throw new ContractError("LEGAL_REVIEW_REQUIRED", "此契約版本尚未完成正式法律審閱，目前不可簽署。", 423);
   }

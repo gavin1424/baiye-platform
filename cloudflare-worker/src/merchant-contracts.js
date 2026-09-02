@@ -169,7 +169,7 @@ async function currentMerchantContract(db, env, planCode = null) {
       const standardV2 = await db.prepare("SELECT * FROM merchant_contract_versions WHERE id='merchant_service_v1_2_18000_addons' AND (is_active=1 OR staging_signing_enabled=1)").first();
       if (standardV2) return standardV2;
     }
-    return db.prepare("SELECT * FROM merchant_contract_versions WHERE is_active=1 OR staging_signing_enabled=1 ORDER BY staging_signing_enabled DESC,effective_date DESC,created_at DESC LIMIT 1").first();
+    return db.prepare("SELECT * FROM merchant_contract_versions WHERE id<>'merchant_service_v1_2_18000_addons' AND (is_active=1 OR staging_signing_enabled=1) ORDER BY staging_signing_enabled DESC,effective_date DESC,created_at DESC LIMIT 1").first();
   }
   return db.prepare("SELECT * FROM merchant_contract_versions WHERE is_active=1 ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
 }
