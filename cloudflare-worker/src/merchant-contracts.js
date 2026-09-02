@@ -86,6 +86,12 @@ function commercialAttachments(terms, contract) {
   const excluded = JSON.parse(terms.excluded_services_json || "[]");
   const configured = JSON.parse(terms.attachments_json || "{}");
   const money = (minor) => `NT$${Math.round(Number(minor || 0) / 100).toLocaleString("en-US")}`;
+  if (contract?.id === "merchant_service_v1_2_18000_addons") {
+    return [
+      { title: "附件 A｜標準方案商業條件", content: `方案：${terms.plan_name}\n固定價格：${money(1800000)}\n服務期間：24 個月\n基礎商品／服務：20 項\n網站主要內容、商品主要建檔與版型由百工協助修改\nmerchant_content_editable：false\n服務期間：${terms.start_date} 至 ${terms.service_period_end}` },
+      { title: "加購說明", content: "本次主契約沒有加購時，不產生附件 B。日後加購須另經百工報價、商家接受及補充協議簽署。" },
+    ];
+  }
   return [
     { title: "附件 A｜商業條件", content: `方案：${terms.plan_name}\n定價：${money(terms.list_price_minor)}\n本契約價：${money(terms.discount_price_minor)}\n付款方式：${terms.payment_plan === "upfront_18000" ? "一次付清方案" : "銷售抵付方案"}\n服務期間：${terms.start_date} 至 ${terms.service_period_end}\n續約：${terms.renewal_terms}` },
     { title: "附件 B｜正式交付項目", content: included.join("\n") || "依核准服務清單" },
@@ -157,8 +163,12 @@ function commercialTermsSnapshot(terms) {
   };
 }
 
-async function currentMerchantContract(db, env) {
+async function currentMerchantContract(db, env, planCode = null) {
   if (env.CONTRACT_SIGNING_MODE === "staging") {
+    if (planCode === "baiye_standard_18000_addons") {
+      const standardV2 = await db.prepare("SELECT * FROM merchant_contract_versions WHERE id='merchant_service_v1_2_18000_addons' AND (is_active=1 OR staging_signing_enabled=1)").first();
+      if (standardV2) return standardV2;
+    }
     return db.prepare("SELECT * FROM merchant_contract_versions WHERE is_active=1 OR staging_signing_enabled=1 ORDER BY staging_signing_enabled DESC,effective_date DESC,created_at DESC LIMIT 1").first();
   }
   return db.prepare("SELECT * FROM merchant_contract_versions WHERE is_active=1 ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
@@ -170,13 +180,6 @@ async function currentTerms(db, merchantId) {
 
 async function merchantContractContext(db, session, env) {
   if (!String(session.roles || "").split(",").includes("owner")) throw new ContractError("MERCHANT_OWNER_REQUIRED", "僅商家管理者帳號可進行契約簽署。", 403);
-  const contract = await currentMerchantContract(db, env);
-  if (!contract) {
-    const latest = await db.prepare("SELECT * FROM merchant_contract_versions ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
-    if (latest?.legal_review_status !== "approved") throw new ContractError("LEGAL_REVIEW_REQUIRED", "此契約版本尚未完成正式法律審閱，目前不可簽署。", 423);
-    throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的商家服務契約。", 409);
-  }
-  assertContractSignable(contract, env);
   const onboarding = await db.prepare("SELECT registration_mode,commercial_terms_approval_required FROM merchant_onboarding_states WHERE merchant_id=?").bind(session.merchant_id).first();
   let terms = await currentTerms(db, session.merchant_id);
   if (!terms && onboarding?.registration_mode === "standard_self_service") terms = (await ensureStandardCommercialTerms(db, session.merchant_id)).terms;
@@ -185,6 +188,13 @@ async function merchantContractContext(db, session, env) {
     throw new ContractError(custom ? "ADMIN_COMMERCIAL_TERMS_APPROVAL" : "COMMERCIAL_TERMS_REQUIRED", custom ? "此自訂商業方案須先經平台核准商業條件。" : "商業條件尚未完成設定。", 409);
   }
   if (onboarding?.registration_mode === "standard_self_service" && !isStandardCommercialTerms(terms)) throw new ContractError("STANDARD_TERMS_MISMATCH", "標準方案商業條件不一致，已停止簽署。", 409);
+  const contract = await currentMerchantContract(db, env, terms.plan_code);
+  if (!contract) {
+    const latest = await db.prepare("SELECT * FROM merchant_contract_versions ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
+    if (latest?.legal_review_status !== "approved") throw new ContractError("LEGAL_REVIEW_REQUIRED", "此契約版本尚未完成正式法律審閱，目前不可簽署。", 423);
+    throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的商家服務契約。", 409);
+  }
+  assertContractSignable(contract, env);
   const merchant = await db.prepare("SELECT id,name,merchant_code,contact_name,phone,email,status FROM merchants WHERE id=?").bind(session.merchant_id).first();
   const invite = await db.prepare("SELECT * FROM merchant_contract_invites WHERE merchant_id=? AND commercial_terms_id=? AND used_at IS NOT NULL AND revoked_at IS NULL ORDER BY used_at DESC LIMIT 1")
     .bind(session.merchant_id, terms.id).first();
@@ -414,6 +424,8 @@ export async function handleMerchantContractAdmin(request, env, url, cors = {}, 
 
 export async function handlePublicContractVerification(env, publicId, cors = {}) {
   const db = env.FINANCE_DB;
+  const addendum = await db.prepare("SELECT public_id,signed_at,status,document_hash,addendum_version version FROM merchant_contract_addenda WHERE public_id=? AND status='SIGNED'").bind(publicId).first().catch(() => null);
+  if (addendum) return json(publicVerificationRecord(addendum, "MERCHANT_CONTRACT_ADDENDUM", addendum.version), 200, cors);
   const merchant = await db.prepare("SELECT s.public_id,s.signed_at,s.status,s.document_hash,v.version FROM merchant_contract_signatures s JOIN merchant_contract_versions v ON v.id=s.contract_version_id WHERE s.public_id=?").bind(publicId).first();
   if (merchant) return json(publicVerificationRecord(merchant, "MERCHANT_PLATFORM_SERVICE", merchant.version), 200, cors);
   const partner = await db.prepare("SELECT s.public_id,s.signed_at,s.status,s.document_hash,v.version FROM contract_signatures s JOIN contract_versions v ON v.id=s.contract_version_id WHERE s.public_id=?").bind(publicId).first();

@@ -1,7 +1,7 @@
 import { hashCanonical } from "./contract-engine.js";
 
-export const STANDARD_MERCHANT_TERMS_PRESET_ID = "baiye_standard_18000";
-export const STANDARD_MERCHANT_PLAN_CODE = "baiye_standard_18000";
+export const STANDARD_MERCHANT_TERMS_PRESET_ID = "baiye_standard_18000_addons";
+export const STANDARD_MERCHANT_PLAN_CODE = "baiye_standard_18000_addons";
 
 function taipeiCalendarDate(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -24,8 +24,8 @@ export function standardCommercialTermsSnapshot(now = new Date()) {
   const startDate = taipeiCalendarDate(now);
   return {
     plan_code: STANDARD_MERCHANT_PLAN_CODE,
-    plan_name: "創百業智慧鏈｜AI 行銷推廣及數位服務方案",
-    list_price_minor: 3000000,
+    plan_name: "創百業智慧鏈｜NT$18,000 標準版＋加價購",
+    list_price_minor: 1800000,
     discount_price_minor: 1800000,
     currency: "TWD",
     contract_term_months: 24,
@@ -36,15 +36,20 @@ export function standardCommercialTermsSnapshot(now = new Date()) {
     withholding_enabled: 0,
     included_services: [
       "標準規格網站基礎建置（NT$0）",
-      "創百業智慧鏈數位服務方案之標準交付項目",
+      "百工協助建立與維護網站",
+      "協助上架 20 項商品／服務",
+      "商家管理中心（契約、預約、會員、Google 地圖預約、LINE 狀態、基本營運資料）",
     ],
     excluded_services: [
       "超出標準規格之客製設計、程式、API 或第三方整合",
       "第三方服務之審核、費率及啟用結果",
+      "完整網站內容編輯器、完整商品 CMS 與網站版型自行修改權限",
     ],
     attachments: {
       acceptance: "依商家契約附件與雙方核准之交付清單逐項驗收。",
       third_party: "第三方服務的實際啟用、費率、審核與服務條件，依第三方業者及個別契約為準。",
+      merchant_content_editable: false,
+      base_product_limit: 20,
     },
     start_date: startDate,
     service_period_end: addMonthsMinusDay(startDate, 24),
@@ -55,7 +60,7 @@ export function standardCommercialTermsSnapshot(now = new Date()) {
 
 export function isStandardCommercialTerms(terms) {
   return terms?.plan_code === STANDARD_MERCHANT_PLAN_CODE
-    && Number(terms?.list_price_minor) === 3000000
+    && Number(terms?.list_price_minor) === 1800000
     && Number(terms?.discount_price_minor) === 1800000
     && terms?.currency === "TWD"
     && terms?.payment_plan === "upfront_18000"

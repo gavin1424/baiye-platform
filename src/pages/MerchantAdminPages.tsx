@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CalendarCheck, FileText, Gear, Globe, LineSegments, Package, Storefront, UserCircle, UsersThree } from "@phosphor-icons/react";
+import { CalendarCheck, FileText, Gear, Globe, LineSegments, NotePencil, Storefront, UserCircle, UsersThree } from "@phosphor-icons/react";
 import { merchantOrderingApi } from "../qr-ordering-client";
 import { downloadMerchantContractPdf } from "../merchant-contract-pdf";
+import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
 
 type Dashboard = any;
 const money = (minor = 0) => `NT$${Math.round(Number(minor) / 100).toLocaleString("zh-TW")}`;
@@ -19,9 +20,8 @@ export function MerchantAdminDashboardPage() {
   const locked = data.operation_locked;
   const modules = [
     { icon: Storefront, name: "商家基本資料", text: "品牌、介紹、聯絡與營業資訊", to: "/merchant/profile", ready: true },
-    { icon: Globe, name: "網站內容", text: "管理公告與一般網站內容資料", to: "/merchant/profile", ready: true },
-    { icon: Package, name: "商品／菜單", text: "商品、分類、價格與售完狀態", to: "/merchant-admin/ordering", ready: true },
-    { icon: FileText, name: "訂單", text: "查看與處理店內 QR 訂單", to: "/merchant-admin/ordering", ready: true },
+    { icon: NotePencil, name: "申請內容修改", text: "提交網站文字、圖片、商品建檔與版型需求，由百工協助處理", to: "/merchant/content-change", ready: true },
+    { icon: FileText, name: "加購與補充協議", text: "查看報價、附件 B、接受加購並簽署補充協議", to: "/merchant/addons", ready: true },
     { icon: CalendarCheck, name: "預約管理", text: "查看、確認與取消預約", to: "/merchant/bookings", ready: true },
     { icon: UsersThree, name: "會員管理", text: "只顯示與本商家有關的會員", to: "/merchant/members", ready: true },
     { icon: Globe, name: "Google 地圖預約", text: "申請、補件與查看開通狀態", to: "/merchant/google-maps-booking", ready: true },
@@ -33,11 +33,27 @@ export function MerchantAdminDashboardPage() {
 }
 
 export function MerchantProfilePage() {
-  const [data, setData] = useState<any>(), [form, setForm] = useState<any>({}), [notice, setNotice] = useState("");
-  useEffect(() => { void merchantOrderingApi<any>("/api/merchant-admin/profile").then((value) => { setData(value); setForm(value.profile || {}); }).catch((error) => setNotice(message(error))); }, []);
-  const submit = async (event: React.FormEvent) => { event.preventDefault(); setNotice(""); try { await merchantOrderingApi("/api/merchant-admin/profile", { method: "PATCH", body: JSON.stringify(form) }); setNotice("商家基本資料已儲存。"); } catch (error) { setNotice(message(error)); } };
-  const field = (key: string, label: string, type = "text") => <label>{label}{type === "textarea" ? <textarea value={form[key] || ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} /> : <input type={type} value={form[key] || ""} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />}</label>;
-  return <Shell title="商家基本資料"><form className="merchant-admin-form" onSubmit={submit}><p className="merchant-admin-lock-note">{data?.legal_fields_locked ? "公司法定名稱、統一編號、契約簽署人等法定資料已鎖定；請聯絡百工辦理正式變更。" : "此頁管理一般商家內容，不包含法定契約資料。"}</p>{field("brand_name","品牌名稱")}{field("business_description","商家介紹","textarea")}{field("support_phone","客服電話","tel")}{field("support_email","客服 Email","email")}{field("business_address","營業地址")}{field("business_hours","營業時間","textarea")}{field("transportation_info","交通資訊","textarea")}{field("homepage_notice","首頁公告","textarea")}<button className="btn btn-primary">儲存資料</button>{notice && <p className="partner-message">{notice}</p>}</form></Shell>;
+  const [data, setData] = useState<any>(), [notice, setNotice] = useState("");
+  useEffect(() => { void merchantOrderingApi<any>("/api/merchant-admin/profile").then(setData).catch((error) => setNotice(message(error))); }, []);
+  const p = data?.profile;
+  return <Shell title="商家基本營運資料"><section className="merchant-admin-account"><p className="merchant-admin-lock-note">本方案 merchant_content_editable = false。網站主要內容、商品主要建檔與網站版型由百工協助修改，不提供完整 CMS Editor。</p>{p && <dl><dt>品牌名稱</dt><dd>{p.brand_name || p.name || "未設定"}</dd><dt>客服電話</dt><dd>{p.support_phone || p.phone || "未設定"}</dd><dt>客服 Email</dt><dd>{p.support_email || p.email || "未設定"}</dd><dt>營業地址</dt><dd>{p.business_address || "未設定"}</dd><dt>營業時間</dt><dd>{p.business_hours || "未設定"}</dd></dl>}<Link className="btn btn-primary" to="/merchant/content-change">申請內容修改</Link>{notice && <p>{notice}</p>}</section></Shell>;
+}
+
+export function MerchantContentChangePage() {
+  const [items, setItems] = useState(""), [text, setText] = useState(""), [images, setImages] = useState(""), [rows, setRows] = useState<any[]>([]), [notice, setNotice] = useState("");
+  const load = () => merchantOrderingApi<any>("/api/merchant-admin/content-change-requests").then((data) => setRows(data.items || [])).catch((error) => setNotice(message(error)));
+  useEffect(() => { void load(); }, []);
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); try { await merchantOrderingApi("/api/merchant-admin/content-change-requests", { method: "POST", body: JSON.stringify({ items, text, images: images.split("\n").map((v) => v.trim()).filter(Boolean) }) }); setItems(""); setText(""); setImages(""); setNotice("修改申請已送出，百工將進行審查；保固事項可為 NT$0，額外人工服務會另行報價。"); await load(); } catch (error) { setNotice(message(error)); } };
+  return <Shell title="申請內容修改"><form className="merchant-admin-form" onSubmit={submit}><p className="merchant-admin-lock-note">請提交修改項目、圖片與文字需求。這不是完整網站編輯器或商品 CMS。</p><label>修改項目<textarea required value={items} onChange={(e) => setItems(e.target.value)} placeholder="例如：首頁營業時間、替換商品圖片、上架 3 項新品" /></label><label>指定文字<textarea value={text} onChange={(e) => setText(e.target.value)} /></label><label>圖片連結（每行一個）<textarea value={images} onChange={(e) => setImages(e.target.value)} /></label><button className="btn btn-primary">送出申請</button>{notice && <p className="partner-message">{notice}</p>}</form><section className="merchant-admin-list">{rows.map((row) => <article key={row.id}><div><strong>{row.items_text}</strong><p>{row.status} · {new Date(row.created_at).toLocaleString("zh-TW")}</p></div></article>)}</section></Shell>;
+}
+
+export function MerchantAddonsPage() {
+  const [quotes, setQuotes] = useState<any[]>([]), [signing, setSigning] = useState<string>(), [name, setName] = useState(""), [signature, setSignature] = useState<SignatureValue>({ strokes: [] }), [notice, setNotice] = useState("");
+  const load = () => merchantOrderingApi<any>("/api/merchant-admin/addon-quotes").then((data) => setQuotes(data.items || [])).catch((error) => setNotice(message(error)));
+  useEffect(() => { void load(); }, []);
+  const accept = async (id: string) => { if (!window.confirm("確認接受此加購報價？接受後會建立新的附件 B／補充協議，原已簽 PDF 不會修改。")) return; try { const result = await merchantOrderingApi<any>(`/api/merchant-admin/addon-quotes/${id}/accept`, { method: "POST", body: "{}" }); setSigning(result.addendum_id); await load(); } catch (error) { setNotice(message(error)); } };
+  const sign = async (event: React.FormEvent) => { event.preventDefault(); if (!signing) return; try { await merchantOrderingApi(`/api/merchant-admin/addenda/${signing}/sign`, { method: "POST", body: JSON.stringify({ signatory_legal_name: name, signatory_role: "legal_representative", signature, read: true, electronic: true, commercial_terms: true, authority: true, signature_evidence: true }) }); setSigning(undefined); setNotice("補充協議已完成簽署，PDF 與 Evidence 已獨立保存。"); await load(); } catch (error) { setNotice(message(error)); } };
+  return <Shell title="加購與附件 B"><section className="merchant-admin-state"><p>主方案固定 NT$18,000。附件 B 只在有加購時顯示；顯示金額皆由伺服器計算。</p></section><section className="merchant-admin-list">{quotes.map((q) => <article key={q.id}><div><strong>{q.quote_no}｜總額 {money(q.contract_total_minor)}</strong><p>主方案 {money(q.base_amount_minor)} ＋ 加購 {money(q.addon_amount_minor)} · {q.status}</p>{q.annex_b && <ul>{q.items.map((item: any) => <li key={item.pricing_code}>{item.label}：{money(item.amount_minor)}</li>)}</ul>}</div>{q.status === "ISSUED" && <button className="btn btn-primary" onClick={() => void accept(q.id)}>接受報價</button>}{q.addendum_status === "AWAITING_SIGNATURE" && <button className="btn btn-primary" onClick={() => setSigning(q.addendum_id)}>簽署補充協議</button>}{q.addendum_status === "SIGNED" && <button className="btn btn-outline" onClick={() => window.open(`/api/merchant-admin/addenda/${q.addendum_id}/pdf`, "_blank")}>下載 PDF</button>}</article>)}</section>{signing && <form className="merchant-admin-form" onSubmit={sign}><h2>簽署加購補充協議</h2><label>法定簽署姓名<input required value={name} onChange={(e) => setName(e.target.value)} /></label><ContractSignatureCanvas onChange={setSignature} /><label className="partner-consent"><input required type="checkbox" />我已閱讀並同意附件 B、總金額與電子簽署證據保存。</label><button className="btn btn-primary">完成簽署</button></form>}{notice && <p className="partner-message">{notice}</p>}</Shell>;
 }
 
 export function MerchantBookingsPage() {
