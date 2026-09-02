@@ -1,6 +1,9 @@
+import { paymentReadiness } from "./commerce-ai-contract.js";
+import { merchantPlanEntitlements } from "./merchant-plan-catalog.js";
+
 const PERMISSIONS = Object.freeze([
-  "merchant.profile.read","merchant.profile.write","merchant.content.read","merchant.content.write",
-  "merchant.products.read","merchant.products.write","merchant.bookings.read","merchant.bookings.write",
+  "merchant.profile.read","merchant.content.read",
+  "merchant.products.read","merchant.bookings.read","merchant.bookings.write",
   "merchant.members.read","merchant.orders.read","merchant.orders.write","merchant.google_booking.read",
   "merchant.google_booking.apply","merchant.line.read","merchant.contract.read","merchant.contract.download",
   "merchant.settings.read","merchant.settings.write",
@@ -40,7 +43,7 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
   if (!db) return json({ error: "商家管理服務暫時無法使用。" }, 503, cors);
 
   if (url.pathname === "/api/merchant-admin/dashboard" && request.method === "GET") {
-    const [state, profile, terms, counts] = await Promise.all([
+    const [state, profile, terms, counts, entitlements, payment] = await Promise.all([
       lifecycle(db, merchantId),
       db.prepare("SELECT * FROM merchant_admin_profiles WHERE merchant_id=?").bind(merchantId).first(),
       db.prepare(`SELECT t.plan_name,t.discount_price_minor,t.contract_term_months,t.payment_plan
@@ -50,8 +53,16 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
         (SELECT COUNT(*) FROM merchant_bookings WHERE merchant_id=?) bookings,
         (SELECT COUNT(*) FROM merchant_ordering_memberships WHERE merchant_id=? AND status='active') members,
         (SELECT COUNT(*) FROM merchant_food_orders WHERE merchant_id=?) orders`).bind(merchantId, merchantId, merchantId, merchantId).first(),
+      merchantPlanEntitlements(db, merchantId),
+      paymentReadiness(db, merchantId),
     ]);
-    return json({ merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name, status: session.merchant_status }, administrator: { display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), status: state.administrator_status }, account_status: state.account_status, contract: { status: state.signature ? "signed" : "contract_required", signature: state.signature }, plan: terms || { plan_name: "NT$18,000 標準方案", discount_price_minor: 1800000, contract_term_months: 24 }, profile, counts, permissions: PERMISSIONS, operation_locked: !state.active }, 200, cors);
+    const plan = terms || { plan_code: "baiye_standard_18000_addons", plan_name: "NT$18,000 標準方案", discount_price_minor: 1800000, contract_term_months: 24 };
+    return json({ merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name, status: session.merchant_status }, administrator: { display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), status: state.administrator_status }, account_status: state.account_status, contract: { status: state.signature ? "signed" : "contract_required", signature: state.signature }, plan: { ...plan, code: plan.plan_code, merchant_content_editable: entitlements?.merchant_content_editable === true, base_product_limit: plan.plan_code === "baiye_standard_18000_addons" ? 20 : null }, entitlements, payment_readiness: payment, profile, counts, permissions: PERMISSIONS, operation_locked: !state.active }, 200, cors);
+  }
+
+  if (url.pathname === "/api/merchant-admin/commerce" && request.method === "GET") {
+    const [entitlements, payment] = await Promise.all([merchantPlanEntitlements(db, merchantId), paymentReadiness(db, merchantId)]);
+    return json({ entitlements, payment_readiness: payment, paid: false, payment_state_source: "provider_readiness_only" }, 200, cors);
   }
 
   if (url.pathname === "/api/merchant-admin/account" && request.method === "GET") {
@@ -70,11 +81,16 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
   }
 
   if (url.pathname === "/api/merchant-admin/profile" && request.method === "GET") {
-    const row = await db.prepare(`SELECT m.id,m.name,m.contact_name,m.phone,m.email,m.status,p.* FROM merchants m LEFT JOIN merchant_admin_profiles p ON p.merchant_id=m.id WHERE m.id=?`).bind(merchantId).first();
-    return json({ profile: row, legal_fields_locked: Boolean((await lifecycle(db, merchantId)).signature) }, 200, cors);
+    const [row, entitlements] = await Promise.all([
+      db.prepare(`SELECT m.id,m.name,m.contact_name,m.phone,m.email,m.status,p.* FROM merchants m LEFT JOIN merchant_admin_profiles p ON p.merchant_id=m.id WHERE m.id=?`).bind(merchantId).first(),
+      merchantPlanEntitlements(db, merchantId),
+    ]);
+    return json({ profile: row, entitlements, legal_fields_locked: Boolean((await lifecycle(db, merchantId)).signature) }, 200, cors);
   }
 
   if (url.pathname === "/api/merchant-admin/profile" && request.method === "PATCH") {
+    const entitlements = await merchantPlanEntitlements(db, merchantId);
+    if (!entitlements.merchant_content_editable) return json({ code: "MERCHANT_CONTENT_EDIT_DISABLED", error: "NT$18,000 標準方案由百工協助修改網站與商品內容，請使用「申請內容修改」。", merchant_content_editable: false }, 403, cors);
     const gate = await requireActive(db, merchantId); if (gate) return new Response(gate.body, { status: gate.status, headers: { ...Object.fromEntries(gate.headers), ...cors } });
     const input = await request.json().catch(() => ({}));
     if (rejectForeignMerchant(input, merchantId)) return json({ code: "MERCHANT_CROSS_ACCESS_DENIED", error: "無法存取其他商家資料。" }, 403, cors);
@@ -82,7 +98,8 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
     const before = await db.prepare("SELECT * FROM merchant_admin_profiles WHERE merchant_id=?").bind(merchantId).first();
     const next = { brand_name: clean(input.brand_name ?? before?.brand_name,120), business_description: clean(input.business_description ?? before?.business_description,2000), support_phone: clean(input.support_phone ?? before?.support_phone,30), support_email: clean(input.support_email ?? before?.support_email,160), business_address: clean(input.business_address ?? before?.business_address,300), business_hours: clean(input.business_hours ?? before?.business_hours,1000), transportation_info: clean(input.transportation_info ?? before?.transportation_info,1000), social_links_json: safeJson(input.social_links ?? JSON.parse(before?.social_links_json || "{}")), homepage_notice: clean(input.homepage_notice ?? before?.homepage_notice,500) };
     await db.prepare(`INSERT INTO merchant_admin_profiles(merchant_id,brand_name,business_description,support_phone,support_email,business_address,business_hours,transportation_info,social_links_json,homepage_notice)
-      VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(merchant_id) DO UPDATE SET brand_name=excluded.brand_name,business_description=excluded.business_description,support_phone=excluded.support_phone,support_email=excluded.support_email,business_address=excluded.business_address,business_hours=excluded.business_hours,transportation_info=excluded.transportation_info,social_links_json=excluded.social_links_json,homepage_notice=excluded.homepage_notice,updated_at=CURRENT_TIMESTAMP`).bind(merchantId,next.brand_name,next.business_description,next.support_phone,next.support_email,next.business_address,next.business_hours,next.transportation_info,next.social_links_json,next.homepage_notice).run();
+      VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(merchant_id) DO UPDATE SET brand_name=excluded.brand_name,business_description=excluded.business_description,support_phone=excluded.support_phone,support_email=excluded.support_email,business_address=excluded.business_address,business_hours=excluded.business_hours,transportation_info=excluded.transportation_info,social_links_json=excluded.social_links_json,homepage_notice=excluded.homepage_notice,updated_at=CURRENT_TIMESTAMP`)
+      .bind(merchantId,next.brand_name,next.business_description,next.support_phone,next.support_email,next.business_address,next.business_hours,next.transportation_info,next.social_links_json,next.homepage_notice).run();
     await audit(db, session, "merchant.profile.updated", "merchant_profile", merchantId, before, next);
     return json({ ok: true, profile: next }, 200, cors);
   }

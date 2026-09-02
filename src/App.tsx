@@ -5,9 +5,9 @@ import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/AuthPages";
 import { AdminFinancePage } from "./pages/AdminFinance";
 import { AdminBookings } from "./pages/AdminBookings";
-import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerContractPdfViewer, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
+import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerContractPdfViewer, PartnerDashboard, PartnerLogin } from "./pages/PartnerPages";
 import { AiChatWidget } from "./components/AiChatWidget";
-import { FaqPageV13, HowItWorksPageV13, PricingPageV13, TermsPageV13 } from "./pages/CommercialV13Pages";
+import { FaqPageV13, HowItWorksPageV13, TermsPageV13 } from "./pages/CommercialV13Pages";
 import { AccountUnavailablePage, CatalogUnavailablePage, EmptyCollaborationPage, MerchantAccessUnavailablePage, ProductionContactPage, ProductionNotFoundPage, ProductionPrivacyPage, VerifiedBusinessesPage } from "./pages/ProductionPublicPages";
 import { ProductionAdminOverview } from "./pages/ProductionAdminOverview";
 import { DepositSettlementPage, MerchantSettlementsUnavailablePage } from "./pages/DepositSettlementPage";
@@ -21,10 +21,12 @@ import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
 import { MerchantLoginPage, MerchantPortalPage, MerchantRegisterPage } from "./pages/MerchantAccessPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
+import { AdminAddonsPage } from "./pages/AdminAddonsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
 import { MemberLoginCompatibility, MerchantQrCodesCompatibility, QrMembershipJoinCompatibility } from "./pages/QrMembershipCompatibilityPages";
 import { AdminGoogleMapsBookingPage, GoogleMapsBookingLandingPage, GoogleMapsBookingPage, MerchantGoogleMapsBookingPage } from "./pages/GoogleMapsBookingPages";
-import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantLinePage, MerchantMembersPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
+import { MerchantAccountPage, MerchantAddonsPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantContentChangePage, MerchantLinePage, MerchantMembersPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
+import { JoinPage, MerchantPlanSelectorPage } from "./pages/JoinPages";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -85,8 +87,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/partner/contract": "線上承攬夥伴合作契約｜創百業智慧鏈",
   "/admin/partners": "承攬夥伴管理｜創百業智慧鏈",
   "/admin/contracts": "契約管理｜創百業智慧鏈",
+  "/admin/addons": "內容修改與加購管理｜創百業智慧鏈",
   "/admin/google-maps-booking": "Google 地圖預約開通管理｜創百業智慧鏈",
   "/merchant/register": "商家註冊｜創百業智慧鏈",
+  "/merchant/select-plan": "選擇商家服務方案｜創百業智慧鏈",
   "/merchant/login": "商家登入｜創百業智慧鏈",
   "/merchant/activate": "商家註冊｜創百業智慧鏈",
   "/merchant": "商家中心｜創百業智慧鏈",
@@ -96,6 +100,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/merchant/bookings": "商家預約管理｜創百業智慧鏈",
   "/merchant/members": "商家會員管理｜創百業智慧鏈",
   "/merchant/line": "LINE 官方帳號｜創百業智慧鏈",
+  "/merchant/content-change": "申請內容修改｜創百業智慧鏈",
+  "/merchant/addons": "加購與補充協議｜創百業智慧鏈",
   "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
   "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
   "/merchant/google-maps-booking": "Google 地圖預約開通申請｜創百業智慧鏈",
@@ -257,7 +263,7 @@ export function App() {
         ))}
         <Route path="/messages" element={<MerchantAccessUnavailablePage />} />
         <Route path="/notifications" element={<MerchantAccessUnavailablePage />} />
-        <Route path="/pricing" element={<PricingPageV13 />} />
+        <Route path="/pricing" element={<Navigate to="/join" replace />} />
         <Route path="/features" element={<FeaturesPage />} />
         <Route path="/google-maps-booking" element={<GoogleMapsBookingLandingPage />} />
         <Route path="/booking/:token" element={<GoogleMapsBookingPage />} />
@@ -272,7 +278,7 @@ export function App() {
         <Route path="/privacy" element={<ProductionPrivacyPage />} />
         <Route path="/terms" element={<TermsPageV13 />} />
         <Route path="/report" element={<ProductionContactPage />} />
-        <Route path="/partner" element={<PartnerLanding />} />
+        <Route path="/partner" element={<Navigate to="/join" replace />} />
         <Route path="/partner/apply" element={<PartnerApply />} />
         <Route path="/partner/activate" element={<PartnerActivate />} />
         <Route path="/partner/login" element={<PartnerLogin />} />
@@ -282,11 +288,14 @@ export function App() {
         <Route path="/partner/commissions" element={<PartnerDashboard />} />
         <Route path="/merchant/activate" element={<MerchantContractActivate />} />
         <Route path="/merchant/register" element={<MerchantRegisterPage />} />
+        <Route path="/merchant/select-plan" element={<MerchantPlanSelectorPage />} />
         <Route path="/merchant/login" element={<MerchantLoginPage />} />
         <Route path="/merchant" element={<MerchantPortalPage />} />
         <Route path="/merchant/dashboard" element={<MerchantAdminDashboardPage />} />
         <Route path="/merchant/account" element={<MerchantAccountPage />} />
         <Route path="/merchant/profile" element={<MerchantProfilePage />} />
+        <Route path="/merchant/content-change" element={<MerchantContentChangePage />} />
+        <Route path="/merchant/addons" element={<MerchantAddonsPage />} />
         <Route path="/merchant/bookings" element={<MerchantBookingsPage />} />
         <Route path="/merchant/members" element={<MerchantMembersPage />} />
         <Route path="/merchant/line" element={<MerchantLinePage />} />
@@ -294,7 +303,7 @@ export function App() {
         <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
         <Route path="/merchant/google-maps-booking" element={<MerchantGoogleMapsBookingPage />} />
         <Route path="/verify-contract/:publicId" element={<VerifyContractPage />} />
-        <Route path="/join" element={<PartnerReferralJoin />} />
+        <Route path="/join" element={<JoinPage />} />
         <Route path="/admin" element={<AdminRoute><ProductionAdminOverview /></AdminRoute>} />
         <Route path="/admin/finance" element={<AdminRoute><AdminFinancePage /></AdminRoute>} />
         <Route path="/admin/bookings" element={<AdminRoute><AdminBookings /></AdminRoute>} />
@@ -302,6 +311,7 @@ export function App() {
         <Route path="/admin/financing" element={<AdminRoute><AdminFinancingPage /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
         <Route path="/admin/contracts" element={<AdminRoute><AdminContractsPage /></AdminRoute>} />
+        <Route path="/admin/addons" element={<AdminRoute><AdminAddonsPage /></AdminRoute>} />
         <Route path="/admin/google-maps-booking" element={<AdminRoute><AdminGoogleMapsBookingPage /></AdminRoute>} />
         <Route path="*" element={<ProductionNotFoundPage />} />
       </Routes>

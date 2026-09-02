@@ -33,6 +33,7 @@ export function AdminModuleNav({ current }: { current: AdminModule }) {
           <Signature /> 契約管理
         </Link>
       )}
+      <Link to="/admin/addons">內容修改與加購</Link>
     </nav>
   );
 }

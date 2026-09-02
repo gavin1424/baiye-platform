@@ -4,14 +4,11 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
-test("merchant staging hub exposes four existing flows", () => {
-  const partner = read("src/pages/PartnerPages.tsx");
-  for (const label of ["承攬夥伴註冊", "商家註冊", "商家簽約", "登入"]) {
-    assert.match(partner, new RegExp(`<h2>${label}</h2>`));
-  }
-  for (const route of ["/partner/apply", "/merchant/register", "/merchant/contract", "/partner/login", "/merchant/login"]) {
-    assert.match(partner, new RegExp(route.replaceAll("/", "\\/")));
-  }
+test("unified join center exposes only the five public choices plus two logins", () => {
+  const join = read("src/pages/JoinPages.tsx");
+  for (const label of ["商家免費註冊", "承攬夥伴簽約", "選擇 NT$18,000 方案", "選擇 NT$45,000 商城", "申請免 POS 機方案"]) assert.match(join, new RegExp(label.replaceAll("$", "\\$")));
+  for (const route of ["/partner/apply", "/merchant/register", "/partner/login", "/merchant/login"]) assert.match(join, new RegExp(route.replaceAll("/", "\\/")));
+  assert.doesNotMatch(join, /to="\/merchant\/contract"|contract-18|contract-45|contract-pos/);
 });
 
 test("merchant register remains phone-only and has actionable network copy", () => {
@@ -25,8 +22,8 @@ test("merchant register remains phone-only and has actionable network copy", () 
 test("unauthenticated merchant contract offers login and register routes", () => {
   const contract = read("src/pages/MerchantContractPages.tsx");
   assert.match(contract, /請先登入商家帳號後進行簽約。/);
-  assert.match(contract, /to="\/merchant\/login">商家登入/);
-  assert.match(contract, /to="\/merchant\/register">尚未註冊/);
+  assert.match(contract, /to="\/merchant\/login">\s*商家登入/);
+  assert.match(contract, /to="\/merchant\/register">\s*尚未註冊/);
 });
 
 test("merchant contract reuses the reviewed staging v1.1 model", () => {

@@ -13,7 +13,7 @@ const features: Feature[] = [
   { name: "預約管理", icon: CalendarCheck, summary: "讓顧客線上選時段，商家在同一後台管理預約。", audience: "美業、服務業、顧問、教室與個人工作室", value: "降低來回確認成本，讓時段、狀態與異動更清楚。", items: ["線上預約", "時段與狀態管理", "改期與取消", "行事曆式後台檢視"], cta: "了解預約功能", to: "/features" },
   { name: "免POS機點餐", icon: QrCode, summary: "免專用 POS 主機，顧客掃碼、商家用手機或平板接單。", audience: "餐廳、早餐店、攤販、小吃與外帶商家", value: "降低專用硬體門檻，串起菜單、訂單、KDS、庫存與財務。", items: ["QR 掃碼點餐", "手機／平板接單", "桌號、外帶、規格與加料", "KDS 與訂單流程整合"], cta: "體驗掃碼點餐", to: "/pos-comparison" },
   { name: "Google地圖預約", icon: GoogleLogo, summary: "從 Google 商家資訊把在地搜尋流量導入預約流程。", audience: "美業、工作室與實體店家", value: "縮短顧客從找到商家到完成預約的距離，提高在地曝光轉換。", items: ["Google 地圖商家資訊導流", "快速進入預約頁", "網站預約資料整合", "在地曝光轉換規劃"], cta: "了解更多", to: "/google-maps-booking" },
-  { name: "承攬 / 商家簽約", icon: Handshake, summary: "平台合作、商家加入與契約留存的一體化手機流程。", audience: "承攬夥伴、商家負責人與受授權代表", value: "從身分確認、閱讀到電子簽署與文件下載，都能安全留存。", items: ["承攬夥伴合作契約", "商家平台服務契約", "線上簽署與證據留存", "私人 PDF 契約下載"], cta: "查看合作入口", to: "/partner" },
+  { name: "承攬 / 商家簽約", icon: Handshake, summary: "平台合作、商家加入與契約留存的一體化手機流程。", audience: "承攬夥伴、商家負責人與受授權代表", value: "從身分確認、閱讀到電子簽署與文件下載，都能安全留存。", items: ["商家免費註冊", "承攬夥伴合作契約", "三種商家服務方案", "私人 PDF 契約下載"], cta: "前往統一加入中心", to: "/join" },
 ];
 
 const values = [[QrCode, "多業態整合", "一站式管理"], [ChartLineUp, "智慧經營", "數據驅動決策"], [ShieldCheck, "安全穩定", "企業級防護"], [Handshake, "專業服務", "陪伴成長"]] as const;
@@ -33,7 +33,7 @@ export function HomePage() {
       <header className="immersive-home-header">
         <Link className="immersive-home-brand" to="/" aria-label="創百業智慧鏈首頁"><span><LinkSimpleHorizontal weight="duotone" /></span><div><strong>創百業智慧鏈</strong><small>baiyeconnect</small></div></Link>
         <button type="button" className="immersive-menu-button" aria-label={menuOpen ? "關閉選單" : "開啟選單"} aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>{menuOpen ? <X /> : <List />}</button>
-        {menuOpen && <nav className="immersive-menu" aria-label="首頁選單"><Link to="/features">平台功能</Link><Link to="/pricing">商家方案</Link><Link to="/merchant/register">商家加入</Link><Link to="/partner">承攬夥伴</Link><Link to="/contact">聯絡我們</Link></nav>}
+        {menuOpen && <nav className="immersive-menu" aria-label="首頁選單"><Link to="/features">平台功能</Link><Link to="/pricing">商家方案</Link><Link to="/join">加入／方案中心</Link><Link to="/contact">聯絡我們</Link></nav>}
       </header>
 
       <div className="immersive-home-heading"><h1>全業態數位升級，<em>一站完成</em></h1><p>餐飲 × 美業 × 零售，多產業整合的智慧經營平台</p></div>

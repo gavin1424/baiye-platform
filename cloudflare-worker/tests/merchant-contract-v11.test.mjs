@@ -7,7 +7,6 @@ import { handleMerchantContractRequest } from "../src/merchant-contracts.js";
 import { hashCanonical } from "../src/contract-engine.js";
 import { sha256 } from "../src/contract-pdf.js";
 import { MERCHANT_SERVICE_V11_CONTENT_HTML, MERCHANT_SERVICE_V11_ID, merchantServiceV11AttachmentA } from "../src/merchant-contract-v11.js";
-import { ensureStandardCommercialTerms } from "../src/merchant-standard-terms.js";
 import { testContractFontEnv } from "./contract-font-fixture.mjs";
 
 class Statement {
@@ -39,7 +38,11 @@ async function seed({ legalEntity = true } = {}) {
   if (legalEntity) db.sqlite.prepare("INSERT INTO platform_contract_legal_entity_configs(id,legal_name,tax_id,responsible_person,registered_address,support_contact,updated_by) VALUES('default','測試平台股份有限公司','12345678','測試負責人','台北市測試路 1 號','service@example.test','test')").run();
   db.sqlite.prepare("INSERT INTO merchants(id,merchant_code,name,contact_name,phone,email,status) VALUES('merchant-v11','MV11','標準測試商家','測試代表','0911222333','merchant@example.test','contract_required')").run();
   db.sqlite.prepare("INSERT INTO merchant_onboarding_states(merchant_id,registration_mode,state,operation_locked,commercial_terms_approval_required) VALUES('merchant-v11','standard_self_service','contract_required',1,0)").run();
-  const terms = (await ensureStandardCommercialTerms(db, "merchant-v11", new Date("2026-09-02T00:00:00+08:00"))).terms;
+  const legacySnapshot = { plan_code: "baiye_standard_18000", plan_name: "創百業智慧鏈｜AI 行銷推廣及數位服務方案", list_price_minor: 3000000, discount_price_minor: 1800000, currency: "TWD", contract_term_months: 24, payment_plan: "upfront_18000", upfront_amount_minor: 1800000, offset_target_amount_minor: 0, tax_reserve_enabled: 0, withholding_enabled: 0, included_services: [], excluded_services: [], attachments: {}, start_date: "2026-09-02", service_period_end: "2028-09-01", renewal_terms: "第三年起續約依契約", custom_quote_reference: null };
+  const legacyHash = await hashCanonical(legacySnapshot);
+  db.sqlite.prepare(`INSERT INTO merchant_contract_commercial_terms(id,merchant_id,plan_code,plan_name,list_price_minor,discount_price_minor,contract_term_months,payment_plan,upfront_amount_minor,offset_target_amount_minor,included_services_json,excluded_services_json,attachments_json,start_date,service_period_end,renewal_terms,status,created_by,approved_by,approved_at,terms_hash,source_preset_id)
+    VALUES('terms-v11','merchant-v11','baiye_standard_18000','創百業智慧鏈｜AI 行銷推廣及數位服務方案',3000000,1800000,24,'upfront_18000',1800000,0,'[]','[]','{}','2026-09-02','2028-09-01','第三年起續約依契約','approved','test','test',CURRENT_TIMESTAMP,?,'baiye_standard_18000')`).run(legacyHash);
+  const terms = db.sqlite.prepare("SELECT * FROM merchant_contract_commercial_terms WHERE id='terms-v11'").get();
   db.sqlite.prepare("UPDATE merchant_onboarding_states SET commercial_terms_id=? WHERE merchant_id='merchant-v11'").run(terms.id);
   db.sqlite.prepare("INSERT INTO merchant_contract_invites(id,merchant_id,commercial_terms_id,email,token_hash,expires_at,used_at,created_by) VALUES('invite-v11','merchant-v11',?,'merchant@example.test','hash','2099-01-01',CURRENT_TIMESTAMP,'test')").run(terms.id);
   db.sqlite.prepare("INSERT INTO merchant_users(id,merchant_id,email,password_hash,password_salt,display_name,phone_normalized,auth_mode) VALUES('user-v11','merchant-v11','merchant@example.test','PASSWORDLESS_DISABLED','','測試代表','0911222333','passwordless_phone')").run();

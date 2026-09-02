@@ -15901,3 +15901,27 @@ body.home-detail-open .ai-chat{display:none}
 
 .google-source-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px;padding:22px;border:1px solid #bdd8d3;border-radius:22px;background:#fff}.google-source-stats h2{grid-column:1/-1;margin:0 0 4px}.google-source-stats div{display:grid;gap:4px;min-width:0;padding:14px;border-radius:14px;background:#f1f8f6}.google-source-stats strong{color:#0b7169;font-size:1.65rem}.booking-source{display:inline-flex;padding:4px 8px;border-radius:999px;background:rgba(18,119,107,.12);color:#12776b;font-size:.78rem;font-weight:700;white-space:nowrap}
 @media(max-width:600px){.google-source-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Unified registration and contract center */
+.join-center-shell{min-height:100vh;background:linear-gradient(180deg,#f4fbf8 0,#fff 34%);padding:clamp(1rem,3vw,2.5rem)}
+.join-center-hero{max-width:1120px;margin:0 auto 1.25rem;text-align:center;padding:clamp(1.25rem,4vw,2.75rem) 1rem}
+.join-center-hero h1{margin:.35rem 0;font-size:clamp(2rem,6vw,4rem);line-height:1.08;color:#153f35}
+.join-center-hero>p:last-child{margin:.65rem auto 0;max-width:720px;color:#50665f;font-size:clamp(1rem,2vw,1.2rem)}
+.join-identity-grid,.join-plan-grid{width:min(1120px,100%);margin:0 auto;display:grid;gap:1rem}
+.join-identity-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:2.5rem}
+.join-identity-card,.join-plan-card{position:relative;border:1px solid #d9e7e1;border-radius:22px;background:#fff;padding:1.4rem;box-shadow:0 12px 34px rgba(20,63,53,.08)}
+.join-identity-card{display:grid;align-content:start;gap:.7rem;min-height:245px}
+.join-identity-card svg{color:#187b63}.join-identity-card h2,.join-plan-card h2{margin:0;color:#153f35}
+.join-identity-card>span{position:absolute;right:1.25rem;top:1.25rem;padding:.35rem .65rem;border-radius:999px;background:#e8fff5;color:#087653;font-weight:800}
+.join-free-card{border:2px solid #1d9a75;background:linear-gradient(145deg,#f4fff9,#fff)}
+.join-identity-card .btn,.join-plan-card .btn{margin-top:auto;justify-content:center}
+.join-plan-section{padding:1rem 0 2.5rem}.join-section-heading{width:min(1120px,100%);margin:0 auto 1rem;display:flex;gap:.8rem;align-items:flex-start}.join-section-heading h2{margin:0}.join-section-heading svg{color:#187b63;flex:none}
+.join-plan-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.join-plan-card{display:flex;flex-direction:column;gap:.75rem;min-height:100%}
+.join-plan-tag{align-self:flex-start;padding:.35rem .7rem;border-radius:999px;background:#eef5f2;color:#37675a;font-size:.82rem;font-weight:800}
+.join-plan-softpos{border:2px solid #e8a82f;background:linear-gradient(160deg,#fffaf0,#fff)}.join-plan-softpos .join-plan-tag{background:#ffdf85;color:#6f4900}
+.join-plan-price{font-size:clamp(1.65rem,4vw,2.35rem);font-weight:900;color:#153f35;margin:0}.join-plan-price small{font-size:.9rem;font-weight:700}.join-plan-term{font-weight:700;color:#547068}
+.join-softpos-terms{display:grid;gap:.3rem;margin:.15rem 0}.join-softpos-terms>div{display:flex;justify-content:space-between;gap:.75rem;border-bottom:1px dashed #e7d39d;padding:.25rem 0}.join-softpos-terms dt{color:#6a6351}.join-softpos-terms dd{margin:0;text-align:right;font-weight:750}.join-softpos-balance{color:#9a5200}
+.join-installment-note{font-size:.82rem;color:#6c716e}.join-loading{text-align:center;padding:2rem}
+.join-login-footer{width:min(1120px,100%);margin:0 auto;padding:2rem 0;text-align:center;border-top:1px solid #dfe9e5}.join-login-footer>div{display:flex;justify-content:center;gap:.75rem;flex-wrap:wrap}.join-login-footer .btn{gap:.4rem}
+.join-selector-card{cursor:pointer;min-height:auto}.join-selector-card input{position:absolute;right:1rem;top:1rem;width:1.25rem;height:1.25rem}.join-selector-card.is-selected{border:2px solid #14785e;box-shadow:0 0 0 4px rgba(20,120,94,.12)}
+.merchant-plan-confirm{width:min(760px,100%);margin:1.25rem auto;padding:1.4rem;border-radius:20px;background:#153f35;color:#fff}.merchant-plan-confirm h2{color:#fff}.merchant-plan-confirm .btn{width:100%;justify-content:center}.merchant-intended-plan{padding:.75rem;border-radius:12px;background:#eef8f4;color:#285c4e}
+@media(max-width:760px){.join-center-shell{padding:.75rem}.join-center-hero{padding:1rem .35rem;margin-bottom:.5rem}.join-center-hero h1{font-size:2.1rem}.join-identity-grid{grid-template-columns:1fr;gap:.75rem;margin-bottom:1.35rem}.join-identity-card{min-height:0;padding:1rem 1.1rem}.join-plan-grid{grid-template-columns:1fr}.join-plan-section{padding-top:.25rem}.join-plan-card{padding:1.1rem}.join-section-heading{padding:.25rem}.join-login-footer{padding-bottom:5.5rem}}

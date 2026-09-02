@@ -76,7 +76,7 @@ const result = {
   signature_id: signed.value.signature_id,
   application_masked: applied.value.id_number_masked === `******${idNumber.slice(-4)}`,
   membership_created: Boolean(applied.value.membership?.id),
-  welcome_coupon_claimed: Boolean(applied.value.coupon?.id),
+  welcome_coupon_absent: !applied.value.coupon,
   activation_session: true,
   contract_version: current.value.version,
   legal_review_status: current.value.legal_review_status,
@@ -94,7 +94,7 @@ const result = {
   public_verification_no_id: !serializedVerification.includes(idNumber) && !serializedVerification.includes(idNumber.slice(-4)),
 };
 
-if (!result.application_masked || !result.membership_created || !result.welcome_coupon_claimed || result.contract_version !== "v1.5" || result.legal_review_status !== "pending_review" || result.is_active !== 0 || !result.preview_masked || result.preview_term_months !== 3 || !result.signed || !result.idempotency_replay || result.pdf_bytes < 1000 || !result.document_hash || !result.pdf_hash || result.dashboard_term_months !== 3 || !result.public_verification_no_id) {
+if (!result.application_masked || !result.membership_created || !result.welcome_coupon_absent || result.contract_version !== "v1.5" || result.legal_review_status !== "pending_review" || result.is_active !== 0 || !result.preview_masked || result.preview_term_months !== 3 || !result.signed || !result.idempotency_replay || result.pdf_bytes < 1000 || !result.document_hash || !result.pdf_hash || result.dashboard_term_months !== 3 || !result.public_verification_no_id) {
   throw new Error(`Partner v1.5 Staging E2E failed: ${JSON.stringify(result)}`);
 }
 console.log(JSON.stringify({ ok: true, ...result }));
