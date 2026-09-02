@@ -137,7 +137,7 @@ INSERT OR IGNORE INTO merchant_contract_versions(
 ) VALUES (
   'merchant_service_v1_2_18000_addons','merchant_service_v1_2_18000_addons','創百業智慧鏈｜NT$18,000 標準版＋加價購服務契約 V2',
   '<h1>創百業智慧鏈｜標準版服務契約 V2</h1><h2>標準方案</h2><p>契約固定價新臺幣 18,000 元，服務期間 24 個月，由百工協助建立與維護標準網站，並協助上架最多 20 項商品或服務。</p><h2>商家管理中心</h2><p>商家可登入查看契約、預約、會員、Google 地圖預約、LINE 狀態及基本營運資料；本方案不提供完整網站內容編輯器、完整商品 CMS 或網站版型自行修改權限。</p><h2>內容修改</h2><p>網站主要內容、商品主要建檔及版型由百工協助修改。商家應透過「申請內容修改」提交文字、圖片與需求；保固或百工應處理事項得為 NT$0，額外人工服務須另行報價。</p><h2>加購及附件 B</h2><p>加購項目不屬於本主契約固定價。只有實際選購時，始以報價、商家接受及附件 B／補充協議記載品項與金額；正式金流 API 等起價項目之最終金額須由百工管理員確認，不得由系統自行決定。</p><h2>契約證據</h2><p>已簽署之主契約 PDF 不得修改。任何使契約金額變動之加購，均須建立新的報價接受紀錄、補充協議、電子簽署、付款狀態及稽核證據。</p>',
-  'merchant-service-v1-2-18000-addons-pending-runtime-hash','2026-09-02','pending_review',1,0,0,1
+  'E_3UqnifRc6HEcmnuhkav1Cvih1uqGSapB51Es-OYQE','2026-09-02','pending_review',1,0,0,1
 );
 
 INSERT OR IGNORE INTO platform_service_plans(code,label,base_price_minor,currency,service_months,base_product_limit,merchant_content_editable,contract_version_id)
