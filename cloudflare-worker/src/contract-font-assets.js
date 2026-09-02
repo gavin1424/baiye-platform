@@ -38,7 +38,7 @@ export async function loadContractFontAssets(bucket) {
   if (regularSha256 !== REGULAR_SHA256 || boldSha256 !== BOLD_SHA256 || monoSha256 !== MONO_SHA256) {
     throw new Error("CONTRACT_FONT_ASSET_INTEGRITY_MISMATCH");
   }
-  cachedContractFontAssets = { regularBytes, boldBytes, monoBytes, regularSha256, boldSha256, monoSha256 };
+  cachedContractFontAssets = { regularBytes, boldBytes, monoBytes, regularSha256, boldSha256, monoSha256, subsetSafe: true };
   return cachedContractFontAssets;
 }
 

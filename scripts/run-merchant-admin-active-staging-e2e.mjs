@@ -1,8 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const workerUrl = process.env.CONTRACT_STAGING_WORKER_URL;
@@ -94,8 +92,9 @@ for (let pageNo = 1; pageNo <= pdfDocument.numPages; pageNo += 1) {
   const text = await page.getTextContent();
   pdfText += ` ${(text.items || []).map((item) => item.str || "").join(" ")}`;
 }
-for (const expected of ["創百業智慧鏈", "商家平台服務契約", "附件 A", "NT$18,000", "24 個月", "陳靈有限公司", "42868714", "陳美玲", "民生東路三段57號", signatory]) {
-  if (!pdfText.includes(expected)) throw new Error(`PDF text missing: ${expected}`);
+const normalizedPdfText = pdfText.replace(/\s+/g, "");
+for (const expected of ["創百業智慧鏈", "商家平台服務契約", "附件A", "NT$18,000", "24個月", "陳靈有限公司", "42868714", "陳美玲", "民生東路三段57號", signatory]) {
+  if (!normalizedPdfText.includes(expected.replace(/\s+/g, ""))) throw new Error(`PDF text missing: ${expected}`);
 }
 const pdfBinary = new TextDecoder("latin1").decode(pdf.value);
 if (/MSung-Light|UniCNS-UTF16-H/.test(pdfBinary)) throw new Error("Legacy CJK renderer dependency found in PDF");
@@ -109,7 +108,7 @@ if (profile.value.profile.brand_name !== "百工管理者 ACTIVE 示範店" || p
 const legalChange = await api("/api/merchant-admin/profile", { method: "PATCH", body: { tax_id: "12345678" }, expected: [409] });
 if (legalChange.value.code !== "LEGAL_PROFILE_CHANGE_REQUIRED") throw new Error("Signed legal fields were not locked");
 
-await api("/api/merchant-admin/ordering/settings", { method: "PATCH", body: { display_name: "百工管理者 ACTIVE 示範店", enabled: true, consent_version: "merchant-admin-active-v1", ordering_open: true, accepting_orders: true } });
+await api("/api/merchant-admin/ordering/settings", { method: "PATCH", body: { display_name: "百工管理者 ACTIVE 示範店", enabled: true, consent_version: "merchant-admin-active-v1", ordering_open: true, accepting_orders: true }, expected: [200, 201] });
 const category = await api("/api/merchant-admin/ordering/categories", { method: "POST", body: { name: "E2E 商品" }, expected: [201] });
 const product = await api("/api/merchant-admin/ordering/items", { method: "POST", body: { category_id: category.value.id, sku: `E2E-${runId}`, name: "管理者測試商品", price_minor: 35000, status: "active" }, expected: [201] });
 await api(`/api/merchant-admin/ordering/items/${product.value.id}`, { method: "PATCH", body: { price_minor: 38000, status: "hidden" } });
@@ -121,18 +120,12 @@ INSERT OR IGNORE INTO merchant_booking_settings(merchant_id,enabled,minimum_noti
 INSERT INTO merchant_booking_services(id,merchant_id,name,duration_minutes,active) VALUES(${quote(`ma-service-${runId}`)},${quote(merchantId)},'ACTIVE E2E 服務',60,1);
 INSERT INTO merchant_booking_staff(id,merchant_id,display_name,active) VALUES(${quote(`ma-staff-${runId}`)},${quote(merchantId)},'ACTIVE E2E 顧問',1);
 INSERT INTO merchant_booking_service_staff(merchant_id,service_id,staff_id) VALUES(${quote(merchantId)},${quote(`ma-service-${runId}`)},${quote(`ma-staff-${runId}`)});
-INSERT INTO merchant_bookings(id,merchant_id,booking_code,slot_key,service_id,staff_id,customer_name,customer_phone,start_at,end_at,requested_start_at,requested_end_at,timezone,status,created_via,booking_source) VALUES(${quote(`ma-booking-${runId}`)},${quote(merchantId)},${quote(`MA-${runId}`)},${quote(`SLOT-${runId}`)},${quote(`ma-service-${runId}`)},${quote(`ma-staff-${runId}`)},'測試顧客','0955555555','2026-09-20T02:00:00.000Z','2026-09-20T03:00:00.000Z','2026-09-20T02:00:00.000Z','2026-09-20T03:00:00.000Z','Asia/Taipei','pending','merchant_admin','manual');
+INSERT INTO merchant_bookings(id,merchant_id,booking_code,manage_token_hash,service_id,staff_id,customer_name,customer_phone,start_at,end_at,blocked_start_at,blocked_end_at,timezone,status,source,booking_source) VALUES(${quote(`ma-booking-${runId}`)},${quote(merchantId)},${quote(`MA-${runId}`)},${quote(`TOKEN-${runId}`)},${quote(`ma-service-${runId}`)},${quote(`ma-staff-${runId}`)},'測試顧客','0955555555','2026-09-20T02:00:00.000Z','2026-09-20T03:00:00.000Z','2026-09-20T02:00:00.000Z','2026-09-20T03:00:00.000Z','Asia/Taipei','pending','admin','manual');
 INSERT INTO ordering_customers(id,display_name,phone_normalized,phone_display) VALUES(${quote(`ma-customer-${runId}`)},'測試會員','0955555555','09** *** 555');
 INSERT INTO merchant_ordering_memberships(id,merchant_id,customer_id,membership_no,consent_version,consented_at) VALUES(${quote(`ma-relation-${runId}`)},${quote(merchantId)},${quote(`ma-customer-${runId}`)},${quote(`MBR-${runId}`)},'merchant-admin-active-v1',CURRENT_TIMESTAMP);`;
-const fixturePath = join(tmpdir(), `merchant-admin-active-${runId}.sql`);
-writeFileSync(fixturePath, fixtureSql, { encoding: "utf8", mode: 0o600 });
-try {
-  const executable = process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : "npx";
-  const prefix = process.platform === "win32" ? ["/d", "/s", "/c", "npx"] : [];
-  execFileSync(executable, [...prefix, "wrangler", "d1", "execute", "baiye-contract-signing-staging", "--remote", "--config", "wrangler.contract-staging.jsonc", "--file", fixturePath], { cwd: join(process.cwd(), "cloudflare-worker"), stdio: "pipe" });
-} finally {
-  unlinkSync(fixturePath);
-}
+const executable = process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : "npx";
+const prefix = process.platform === "win32" ? ["/d", "/s", "/c", "npx"] : [];
+execFileSync(executable, [...prefix, "wrangler", "d1", "execute", "baiye-contract-signing-staging", "--remote", "--config", "wrangler.contract-staging.jsonc", "--command", fixtureSql], { cwd: join(process.cwd(), "cloudflare-worker"), stdio: "pipe", timeout: 30_000 });
 
 const bookings = await api("/api/merchant-admin/bookings");
 if (!bookings.value.bookings.some((item) => item.id === `ma-booking-${runId}`)) throw new Error("Booking read failed");
@@ -161,11 +154,16 @@ for (const action of ["merchant.activation.completed", "merchant.profile.updated
   if (!audit.value.items.some((item) => item.action === action)) throw new Error(`Merchant audit missing: ${action}`);
 }
 
-const loginStart = await api("/api/merchant-auth/login/start", { method: "POST", body: { phone }, headers: { "x-device-id": `merchant-admin-second-${runId}` } });
-if (!loginStart.value.staging_otp) throw new Error("Staging OTP was not issued");
+const loginStartResponse = await fetch(`${workerUrl}/api/merchant-auth/login/start`, {
+  method: "POST",
+  headers: { Origin: origin, "content-type": "application/json", "x-device-id": `merchant-admin-second-${runId}` },
+  body: JSON.stringify({ phone }),
+});
+const loginStartValue = await loginStartResponse.json();
+if (!loginStartResponse.ok || !loginStartValue.staging_otp) throw new Error(`Staging OTP was not issued: ${JSON.stringify(loginStartValue)}`);
 let secondCookie = "";
 let secondCsrf = "";
-const verifyResponse = await fetch(`${workerUrl}/api/merchant-auth/login/verify`, { method: "POST", headers: { Origin: origin, "content-type": "application/json", "x-device-id": `merchant-admin-second-${runId}` }, body: JSON.stringify({ challenge_id: loginStart.value.challenge_id, code: loginStart.value.staging_otp }) });
+const verifyResponse = await fetch(`${workerUrl}/api/merchant-auth/login/verify`, { method: "POST", headers: { Origin: origin, "content-type": "application/json", "x-device-id": `merchant-admin-second-${runId}` }, body: JSON.stringify({ challenge_id: loginStartValue.challenge_id, code: loginStartValue.staging_otp }) });
 const verifyValue = await verifyResponse.json();
 if (!verifyResponse.ok) throw new Error(`OTP verify failed: ${JSON.stringify(verifyValue)}`);
 secondCookie = (verifyResponse.headers.get("set-cookie") || "").split(";", 1)[0];

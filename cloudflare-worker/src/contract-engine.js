@@ -116,6 +116,7 @@ export async function buildSignedAgreement(input) {
   });
   const evidence = {
     ...canonicalDocument,
+    document_hash: documentHash,
     public_id: input.publicId,
     pdf_hash: pdf.pdfHash,
     ip: input.ip || null,
