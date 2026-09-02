@@ -21,6 +21,8 @@ html = html
 if (!html.includes('name="robots"')) {
   html = html.replace("</head>", '    <meta name="robots" content="noindex,nofollow">\n  </head>');
 }
+html = html.replace(/\s*<meta name="app-variant"[^>]*>/g, "");
+html = html.replace("</head>", '    <meta name="app-variant" content="beef-noodle-demo">\n  </head>');
 await writeFile(indexPath, html, "utf8");
 
 const headersPath = path.join(distDir, "_headers");

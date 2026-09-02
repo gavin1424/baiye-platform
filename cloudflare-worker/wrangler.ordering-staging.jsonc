@@ -8,11 +8,12 @@
       "binding": "FINANCE_DB",
       "database_name": "baiye-ordering-staging",
       "database_id": "2e485adf-780a-424e-8299-5d2b25f307c9",
-      "migrations_dir": "migrations"
+      "migrations_dir": "migrations-ordering-demo"
     }
   ],
   "vars": {
     "MEMBERSHIP_COUPON_ISSUANCE_ENABLED": "0",
-    "ALLOWED_ORIGINS": "https://baiye-platform-ordering-staging.pages.dev"
+    "DEMO_PASSWORD_LOGIN_ENABLED": "true",
+    "ALLOWED_ORIGINS": "https://baiye-platform-ordering-staging.pages.dev,https://baiye-beef-noodle-demo.pages.dev"
   }
 }

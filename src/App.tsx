@@ -16,6 +16,7 @@ import { FeaturesPage } from "./pages/FeaturesPage";
 import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
 import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
+import { MerchantKitchenDisplayPage } from "./pages/MerchantKitchenDisplayPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
@@ -27,6 +28,7 @@ import { MemberLoginCompatibility, MerchantQrCodesCompatibility, QrMembershipJoi
 import { AdminGoogleMapsBookingPage, GoogleMapsBookingLandingPage, GoogleMapsBookingPage, MerchantGoogleMapsBookingPage } from "./pages/GoogleMapsBookingPages";
 import { MerchantAccountPage, MerchantAddonsPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantContentChangePage, MerchantLinePage, MerchantMembersPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 import { JoinPage, MerchantPlanSelectorPage } from "./pages/JoinPages";
+import { DemoMerchantLoginPage } from "./pages/DemoMerchantLoginPage";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -75,6 +77,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/member-benefits": "會員回購｜創百業智慧鏈",
   "/member/login": "手機會員登入｜創百業智慧鏈",
   "/dashboard/qr-codes": "商家 QR 管理｜創百業智慧鏈",
+  "/merchant/settings/invoice": "電子發票設定｜創百業智慧鏈",
   "/business-financing": "商家融資合作專區｜創百業智慧鏈",
   "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
   "/services/deposit-settlement": "訂金代收與月結對帳服務｜創百業智慧鏈",
@@ -198,18 +201,42 @@ function ContextualAiChatWidget() {
   return <AiChatWidget />;
 }
 
+function BeefNoodleDemoEnvironmentBanner() {
+  const location = useLocation();
+  // The public landing page explains the demo. A scanned QR is a merchant
+  // storefront, so it must not look like a platform entry screen.
+  if (location.pathname.startsWith("/q/")) return null;
+  return (
+    <div className="beef-demo-env-banner" role="status">
+      創百業智慧鏈 QR 點餐示範店｜此為功能展示環境，非實際營業店家
+    </div>
+  );
+}
+
 export function App() {
   if (IS_BEEF_NOODLE_DEMO) {
     return (
       <>
         <ScrollAndMetadata />
-        <div className="beef-demo-env-banner" role="status">
-          創百業智慧鏈 QR 點餐示範店｜此為功能展示環境，非實際營業店家
-        </div>
+        <BeefNoodleDemoEnvironmentBanner />
         <Routes>
           <Route path="/" element={<BeefNoodleDemoPage />} />
           <Route path="/q/:code" element={<QrOrderingPage />} />
+          <Route path="/merchant/demo-login" element={<DemoMerchantLoginPage />} />
+          <Route path="/merchant/dashboard" element={<MerchantAdminDashboardPage />} />
+          <Route path="/merchant/profile" element={<MerchantProfilePage />} />
+          <Route path="/merchant/bookings" element={<MerchantBookingsPage />} />
+          <Route path="/merchant/members" element={<MerchantMembersPage />} />
+          <Route path="/merchant/google-maps-booking" element={<MerchantGoogleMapsBookingPage />} />
+          <Route path="/merchant/line" element={<MerchantLinePage />} />
+          <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
+          <Route path="/merchant/account" element={<MerchantAccountPage />} />
+          <Route path="/merchant/inventory" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-items" }} replace />} />
+          <Route path="/merchant/payments" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-payments" }} replace />} />
+          <Route path="/merchant/invoice" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-invoice" }} replace />} />
+          <Route path="/merchant-admin/ordering/kitchen" element={<MerchantKitchenDisplayPage />} />
           <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
+          <Route path="/merchant/settings/invoice" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-invoice" }} replace />} />
           <Route path="/privacy" element={<ProductionPrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -224,6 +251,7 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
+        <Route path="/merchant/settings/invoice" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-invoice" }} replace />} />
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
         <Route path="/member/join" element={<PlatformMemberJoinPage />} />
         <Route path="/member/welcome" element={<PlatformMemberWelcomePage />} />

@@ -16,6 +16,13 @@ INSERT INTO merchant_ordering_settings(
   dine_in_enabled=1,takeaway_enabled=1,require_member=1,customer_cancel_before_accept=1,
   estimated_prep_minutes=15,table_session_enabled=1,show_sold_out_items=1,timezone='Asia/Taipei',updated_at=CURRENT_TIMESTAMP;
 
+-- The demo deliberately has no real OA credential.  Keep this disabled rather
+-- than publishing a placeholder lin.ee URL or pretending that a visitor joined.
+INSERT INTO merchant_line_integrations(id,merchant_id,enabled,display_name,integration_mode)
+VALUES('demo_beef_line','demo_beef_noodle',0,'百工牛肉麵 LINE','add_friend_link')
+ON CONFLICT(merchant_id) DO UPDATE SET enabled=0,display_name=excluded.display_name,add_friend_url=NULL,
+  basic_id=NULL,liff_id=NULL,line_login_channel_id=NULL,integration_mode='add_friend_link',updated_at=CURRENT_TIMESTAMP;
+
 INSERT OR IGNORE INTO merchant_roles(id,merchant_id,code,name,is_system)
 VALUES('demo_beef_owner_role','demo_beef_noodle','owner','示範店擁有者',0);
 INSERT OR IGNORE INTO merchant_role_permissions(role_id,permission_code)
@@ -31,9 +38,10 @@ VALUES('demo_beef_noodle','demo_beef_owner','demo_beef_owner_role');
 
 INSERT OR REPLACE INTO merchant_menu_categories(id,merchant_id,name,description,sort_order,active,updated_at) VALUES
 ('bn_cat_beef','demo_beef_noodle','招牌牛肉麵','紅燒與清燉慢熬湯頭',10,1,CURRENT_TIMESTAMP),
-('bn_cat_noodles','demo_beef_noodle','乾麵與湯品','乾拌麵、家常麵食與暖湯',20,1,CURRENT_TIMESTAMP),
+('bn_cat_noodles','demo_beef_noodle','乾麵／拌麵','香辣乾拌麵與家常麵食',20,1,CURRENT_TIMESTAMP),
 ('bn_cat_sides','demo_beef_noodle','小菜','搭配牛肉麵的台式經典小菜',30,1,CURRENT_TIMESTAMP),
-('bn_cat_drinks','demo_beef_noodle','飲品','清爽茶飲',40,1,CURRENT_TIMESTAMP);
+('bn_cat_soups','demo_beef_noodle','湯品','暖胃湯品與開胃小湯',40,1,CURRENT_TIMESTAMP),
+('bn_cat_drinks','demo_beef_noodle','飲品','清爽茶飲',50,1,CURRENT_TIMESTAMP);
 
 INSERT OR REPLACE INTO merchant_menu_items(
  id,merchant_id,category_id,sku,name,description,price_minor,image_url,available,sort_order,status,allow_customer_note,updated_at
@@ -55,6 +63,29 @@ INSERT OR REPLACE INTO merchant_menu_items(
 ('bn_item_15','demo_beef_noodle','bn_cat_drinks','BN-015','古早味紅茶','示範茶飲，不進行實際交易。',3500,'https://baiye-beef-noodle-demo.pages.dev/assets/demo-beef-noodle/side-dish.svg',1,10,'active',0,CURRENT_TIMESTAMP),
 ('bn_item_16','demo_beef_noodle','bn_cat_drinks','BN-016','冬瓜茶','清涼冬瓜茶。',3500,'https://baiye-beef-noodle-demo.pages.dev/assets/demo-beef-noodle/side-dish.svg',1,20,'active',0,CURRENT_TIMESTAMP),
 ('bn_item_17','demo_beef_noodle','bn_cat_drinks','BN-017','無糖茶','無糖清茶。',3000,'https://baiye-beef-noodle-demo.pages.dev/assets/demo-beef-noodle/side-dish.svg',1,30,'active',0,CURRENT_TIMESTAMP);
+
+-- V2 keeps the existing 17 items and adds a separate soup category plus three
+-- clearly labelled Demo dishes.  The small daily limits are an isolated
+-- inventory-concurrency demonstration, not a production stock ledger.
+UPDATE merchant_menu_items SET category_id='bn_cat_soups',sort_order=10 WHERE id='bn_item_08' AND merchant_id='demo_beef_noodle';
+UPDATE merchant_menu_items SET category_id='bn_cat_soups',sort_order=20 WHERE id='bn_item_09' AND merchant_id='demo_beef_noodle';
+INSERT OR REPLACE INTO merchant_menu_items(
+ id,merchant_id,category_id,sku,name,description,price_minor,image_url,available,sort_order,status,allow_customer_note,daily_limit,updated_at
+) VALUES
+('bn_item_18','demo_beef_noodle','bn_cat_noodles','BN-018','紅燒牛肉燴飯','慢燉紅燒牛肉與白飯。',17000,'https://baiye-beef-noodle-demo.pages.dev/assets/demo-beef-noodle/braised-bowl.svg',1,30,'active',1,5,CURRENT_TIMESTAMP),
+('bn_item_19','demo_beef_noodle','bn_cat_soups','BN-019','酸辣湯','酸香開胃的熱湯。',5500,'https://baiye-beef-noodle-demo.pages.dev/assets/demo-beef-noodle/side-dish.svg',1,30,'active',0,8,CURRENT_TIMESTAMP),
+('bn_item_20','demo_beef_noodle','bn_cat_drinks','BN-020','梅子冰茶','清爽梅香茶飲。',4000,'https://baiye-beef-noodle-demo.pages.dev/assets/demo-beef-noodle/side-dish.svg',1,40,'active',0,10,CURRENT_TIMESTAMP);
+UPDATE merchant_menu_items
+SET daily_limit=CASE id
+  WHEN 'bn_item_01' THEN 5
+  WHEN 'bn_item_02' THEN 6
+  WHEN 'bn_item_03' THEN 4
+  WHEN 'bn_item_04' THEN 5
+  WHEN 'bn_item_05' THEN 3
+  ELSE daily_limit
+END,
+updated_at=CURRENT_TIMESTAMP
+WHERE merchant_id='demo_beef_noodle';
 
 INSERT OR REPLACE INTO merchant_menu_option_groups(id,merchant_id,name,selection_type,required,min_select,max_select,sort_order,active,updated_at) VALUES
 ('bn_opt_noodle','demo_beef_noodle','麵條','single',1,1,1,10,1,CURRENT_TIMESTAMP),

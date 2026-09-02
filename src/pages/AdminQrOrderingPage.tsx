@@ -74,6 +74,12 @@ function statusTone(status: OrderingOrderStatus) {
   return "info";
 }
 
+function MerchantMenuItemEditor({ item, categories, onSave }: { item: any; categories: any[]; onSave: (payload: Record<string, unknown>) => Promise<void> }) {
+  const [draft, setDraft] = useState({ category_id: item.category_id || "", name: item.name || "", price: String(Number(item.price_minor || 0) / 100), description: item.description || "", image_url: item.image_url || "", sku: item.sku || "", status: item.status || "active" });
+  const submit = async (event: FormEvent) => { event.preventDefault(); const amount = Number(draft.price); if (!Number.isFinite(amount) || amount < 0) return; await onSave({ ...draft, price_minor: Math.round(amount * 100) }); };
+  return <details className="ordering-item-editor"><summary>編輯商品資料</summary><form className="ordering-admin-form" onSubmit={submit}><label>分類<select value={draft.category_id} onChange={(event) => setDraft({ ...draft, category_id: event.target.value })}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label>商品名稱<input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>售價（NT$）<input required min="0" step="1" inputMode="numeric" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} /></label><label>SKU<input value={draft.sku} onChange={(event) => setDraft({ ...draft, sku: event.target.value })} /></label><label className="ordering-admin-form-wide">商品介紹<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><label className="ordering-admin-form-wide">圖片網址<input type="url" value={draft.image_url} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} /></label><label>銷售狀態<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}><option value="active">上架</option><option value="sold_out">售完</option><option value="hidden">下架</option></select></label><button className="btn btn-primary ordering-admin-form-wide">儲存商品</button></form></details>;
+}
+
 type MerchantOption = { id: string; name: string; merchant_code?: string };
 type AdminSettingsForm = {
   display_name: string;
@@ -185,6 +191,7 @@ export function AdminQrOrderingPage({
   const [itemGroupDraft, setItemGroupDraft] = useState<
     Record<string, string[]>
   >({});
+  const [lineForm, setLineForm] = useState({ enabled: false, display_name: "", basic_id: "", add_friend_url: "", integration_mode: "add_friend_link" });
   const knownOrders = useRef(new Set<string>());
 
   const request = useCallback(
@@ -213,6 +220,13 @@ export function AdminQrOrderingPage({
         "/api/admin/ordering/overview",
       );
       setOverview(data);
+      setLineForm({
+        enabled: Boolean(data.line_integration?.configured),
+        display_name: data.line_integration?.display_name || "",
+        basic_id: data.line_integration?.basic_id || "",
+        add_friend_url: data.line_integration?.add_friend_url || "",
+        integration_mode: data.line_integration?.integration_mode || "add_friend_link",
+      });
       setSettings(
         data.settings
           ? {
@@ -320,6 +334,11 @@ export function AdminQrOrderingPage({
     );
   };
 
+  const saveLineIntegration = async (event: FormEvent) => {
+    event.preventDefault();
+    await mutate("/api/admin/ordering/line-integration", { method: "PUT", body: JSON.stringify(lineForm) }, "LINE 官方帳號設定已儲存。加好友連結不代表使用者已加入好友。");
+  };
+
   const createQr = async (event: FormEvent) => {
     event.preventDefault();
     const ok = await mutate(
@@ -405,7 +424,7 @@ export function AdminQrOrderingPage({
     setMessage("通知聲已播放；瀏覽器已取得聲音播放授權。");
   };
 
-  const printOrder = (orderCode: string) => {
+  const printOrder = (orderCode: string, kitchenOnly = false) => {
     const order = orders.find((item) => item.order_code === orderCode);
     if (!order) return;
     const popup = window.open("", "_blank", "width=520,height=720");
@@ -413,11 +432,11 @@ export function AdminQrOrderingPage({
     const lines = order.items
       .map(
         (item) =>
-          `<li>${escapeHtml(item.name)} × ${item.quantity}<b>${money(item.line_total_minor)}</b>${(item.options || []).map((option) => `<small>${escapeHtml(option.group_name)}：${escapeHtml(option.value_name)}</small>`).join("")}${item.note ? `<small>品項備註：${escapeHtml(item.note)}</small>` : ""}</li>`,
+          `<li>${escapeHtml(item.name)} × ${item.quantity}${kitchenOnly ? "" : `<b>${money(item.line_total_minor)}</b>`}${(item.options || []).map((option) => `<small>${escapeHtml(option.group_name)}：${escapeHtml(option.value_name)}</small>`).join("")}${item.note ? `<small>品項備註：${escapeHtml(item.note)}</small>` : ""}</li>`,
       )
       .join("");
     popup.document.write(
-      `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(order.order_code)}</title><style>body{font-family:system-ui;padding:24px}h1{font-size:24px}li{display:grid;grid-template-columns:1fr auto;padding:8px 0;border-bottom:1px dashed #aaa}small{grid-column:1/-1}</style></head><body><h1>${escapeHtml(settings.display_name)}</h1><p>${escapeHtml(order.order_code)}｜${order.order_type === "dine_in" ? escapeHtml(order.table_label) : "外帶"}</p><ul>${lines}</ul><h2>總額 ${money(order.total_minor)}</h2>${order.customer_note ? `<p>備註：${escapeHtml(order.customer_note)}</p>` : ""}<script>onload=()=>print()<\/script></body></html>`,
+      `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(order.order_code)}</title><style>body{font-family:system-ui;padding:24px}h1{font-size:24px}li{display:grid;grid-template-columns:1fr auto;padding:8px 0;border-bottom:1px dashed #aaa}small{grid-column:1/-1}</style></head><body><h1>${escapeHtml(settings.display_name)}</h1><h2>${kitchenOnly ? "廚房單" : "訂單明細"}</h2><p>${escapeHtml(order.order_code)}｜${order.order_type === "dine_in" ? escapeHtml(order.table_label) : "外帶"}</p><ul>${lines}</ul>${kitchenOnly ? "" : `<h2>總額 ${money(order.total_minor)}</h2>`}${order.customer_note ? `<p>備註：${escapeHtml(order.customer_note)}</p>` : ""}<script>onload=()=>print()<\/script></body></html>`,
     );
     popup.document.close();
   };
@@ -568,7 +587,7 @@ export function AdminQrOrderingPage({
       </header>
 
       <nav className="container ordering-admin-tabs" aria-label="QR 點餐管理分頁">
-        <a href="#ordering-overview">總覽</a><a href="#ordering-orders">即時訂單</a><a href="#ordering-qrs">桌號 QR</a><a href="#ordering-menu">菜單</a><a href="#ordering-options">加料選項</a><a href="#ordering-members">會員</a><a href="#ordering-orders">付款</a><a href="#ordering-settings">設定</a>
+        <a href="#ordering-overview">總覽</a><a href="#ordering-orders">即時訂單</a><a href="#ordering-qrs">桌號 QR</a><a href="#ordering-menu">菜單</a><a href="#ordering-options">加料選項</a><a href="#ordering-members">會員</a><a href="#ordering-orders">付款</a><a href="#ordering-settings">設定</a><a href="#ordering-invoice">電子發票</a>
       </nav>
 
       {message && (
@@ -841,6 +860,36 @@ export function AdminQrOrderingPage({
               儲存設定
             </button>
           </form>
+        </article>
+
+        <article className="ordering-admin-panel">
+          <div className="ordering-admin-panel-title"><Storefront /><div><span>商家整合</span><h2>LINE 官方帳號</h2></div></div>
+          <p>僅接受商家自己的 LINE 官方加好友網址；顧客點擊連結不等同已加入好友。</p>
+          <form className="ordering-admin-form" onSubmit={saveLineIntegration}>
+            <label>LINE OA 名稱<input value={lineForm.display_name} onChange={(event) => setLineForm({ ...lineForm, display_name: event.target.value })} placeholder="例如：百工牛肉麵 LINE" /></label>
+            <label>LINE Basic ID<input value={lineForm.basic_id} onChange={(event) => setLineForm({ ...lineForm, basic_id: event.target.value })} placeholder="@xxxxxxx" /></label>
+            <label className="ordering-admin-form-wide">LINE 加好友網址<input type="url" value={lineForm.add_friend_url} onChange={(event) => setLineForm({ ...lineForm, add_friend_url: event.target.value })} placeholder="https://lin.ee/..." /></label>
+            <label><span>整合模式</span><select value={lineForm.integration_mode} onChange={(event) => setLineForm({ ...lineForm, integration_mode: event.target.value })}><option value="add_friend_link">加好友連結</option><option value="linked_line_login">LINE Login（需完成商家關聯）</option><option value="future_multi_account_liff">多帳號 LIFF（預留）</option></select></label>
+            <label className="ordering-consent"><input type="checkbox" checked={lineForm.enabled} onChange={(event) => setLineForm({ ...lineForm, enabled: event.target.checked })} /><span>啟用加好友導流（未設定有效 LINE URL 不會啟用）</span></label>
+            <button className="btn btn-primary" type="submit" disabled={loading}>儲存 LINE 設定</button>
+          </form>
+        </article>
+
+        <article id="ordering-invoice" className="ordering-admin-panel">
+          <div className="ordering-admin-panel-title"><Storefront /><div><span>商家整合</span><h2>電子發票設定</h2></div></div>
+          <p>
+            目前狀態：<strong>{overview?.invoice_integration?.enabled ? "電子發票服務已啟用" : "尚未完成商業／發票服務設定"}</strong>
+          </p>
+          <p className="muted">此處只顯示啟用準備狀態；不會因填寫資料而自動取得電子發票資格或開立正式發票。</p>
+          <ul className="ordering-admin-list">
+            <li>□ 商家／公司登記</li>
+            <li>□ 統一編號</li>
+            <li>□ 電子發票服務商</li>
+            <li>□ 發票字軌／相關授權</li>
+            <li>□ Provider Credential</li>
+            <li>□ 測試驗證</li>
+          </ul>
+          <p className="muted">Readiness：{overview?.invoice_integration?.readiness_status || "NOT_CONFIGURED"}</p>
         </article>
 
         <article className="ordering-admin-panel">
@@ -1272,6 +1321,10 @@ export function AdminQrOrderingPage({
                     複製
                   </button>
                 </div>
+                <MerchantMenuItemEditor item={item} categories={categories} onSave={async (payload) => { await mutate(`/api/admin/ordering/items/${item.id}`, { method: "PATCH", body: JSON.stringify(payload) }, "商品資料已儲存並同步前台。"); }} />
+                <button type="button" className="ordering-item-archive" onClick={() => window.confirm("確定將此商品下架並封存？歷史訂單不會被刪除。") && void mutate(`/api/admin/ordering/items/${item.id}`, { method: "PATCH", body: JSON.stringify({ status: "archived" }) }, "商品已安全封存。")}>
+                  刪除／封存商品
+                </button>
                 <details className="ordering-item-option-links">
                   <summary>設定此品項的加料選項</summary>
                   {(overview?.option_groups || []).map((group) => {
@@ -1483,6 +1536,13 @@ export function AdminQrOrderingPage({
                     >
                       <Printer />
                       列印此單
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => printOrder(order.order_code, true)}
+                    >
+                      <Printer />
+                      列印廚房單
                     </button>
                     {nextOrderActions(order.status).map((status) => (
                       <button

@@ -20,20 +20,37 @@ PRAGMA foreign_keys=ON;
 DROP TRIGGER IF EXISTS trg_ordering_item_option_immutable_delete;
 DROP TRIGGER IF EXISTS trg_food_order_items_no_delete;
 DROP TRIGGER IF EXISTS trg_order_pricing_no_delete;
+DROP TRIGGER IF EXISTS trg_invoices_document_immutable_delete;
+DELETE FROM invoice_events WHERE merchant_id='demo_beef_noodle';
+DELETE FROM invoice_allowances WHERE merchant_id='demo_beef_noodle';
+DELETE FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE merchant_id='demo_beef_noodle');
+DELETE FROM invoices WHERE merchant_id='demo_beef_noodle';
+DELETE FROM invoice_requests WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_order_invoice_preferences WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_payment_domain_events WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_order_inventory_reservations WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_checkout_payment_events WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_checkout_payment_transactions WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_checkout_payment_intents WHERE merchant_id='demo_beef_noodle';
+DELETE FROM payment_events WHERE payment_id IN (SELECT id FROM payments WHERE merchant_id='demo_beef_noodle' AND note LIKE 'qr_order:%');
+DELETE FROM refunds WHERE payment_id IN (SELECT id FROM payments WHERE merchant_id='demo_beef_noodle' AND note LIKE 'qr_order:%');
+DELETE FROM payments WHERE merchant_id='demo_beef_noodle' AND note LIKE 'qr_order:%';
 DELETE FROM merchant_food_order_item_options WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_order_payment_events WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_order_payment_intents WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_order_pricing WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_coupon_redemptions WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_member_coupons WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_food_order_items WHERE order_id IN (SELECT id FROM merchant_food_orders WHERE merchant_id='demo_beef_noodle');
 DELETE FROM merchant_food_orders WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_dining_sessions WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_member_sessions WHERE merchant_id='demo_beef_noodle';
-DELETE FROM merchant_memberships WHERE merchant_id='demo_beef_noodle';
-DELETE FROM ordering_customers WHERE NOT EXISTS (SELECT 1 FROM merchant_memberships m WHERE m.customer_id=ordering_customers.id);
+DELETE FROM merchant_ordering_memberships WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_ordering_audit_logs WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_line_events WHERE merchant_id='demo_beef_noodle';
 DELETE FROM ordering_rate_limits WHERE merchant_id='demo_beef_noodle';
 DELETE FROM merchant_user_sessions WHERE merchant_id='demo_beef_noodle';
+UPDATE merchant_menu_items SET daily_sold_count=0,daily_sold_date=NULL,updated_at=CURRENT_TIMESTAMP WHERE merchant_id='demo_beef_noodle';
 CREATE TRIGGER trg_ordering_item_option_immutable_delete
 BEFORE DELETE ON merchant_food_order_item_options BEGIN SELECT RAISE(ABORT,'ORDER_OPTION_IMMUTABLE'); END;
 CREATE TRIGGER trg_food_order_items_no_delete
@@ -42,6 +59,10 @@ BEGIN SELECT RAISE(ABORT, 'submitted order items are immutable'); END;
 CREATE TRIGGER trg_order_pricing_no_delete
 BEFORE DELETE ON merchant_order_pricing
 BEGIN SELECT RAISE(ABORT,'order pricing is immutable'); END;
+CREATE TRIGGER trg_invoices_document_immutable_delete
+BEFORE DELETE ON invoices
+FOR EACH ROW
+BEGIN SELECT RAISE(ABORT, 'issued invoices cannot be deleted'); END;
 `;
 
 const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "baiye-beef-demo-reset-"));
@@ -55,4 +76,4 @@ rmSync(temporaryDirectory, { recursive: true, force: true });
 
 if (result.error) throw result.error;
 if (result.status !== 0) throw new Error(`Demo cleanup failed with exit code ${result.status}.`);
-console.log("Demo transactional data reset completed. Merchant, menu, options and QR codes were preserved.");
+console.log("Demo transactional data reset completed. Merchant, customer identity core, platform members, menu, options and QR codes were preserved.");

@@ -66,7 +66,7 @@ export function BeefNoodleDemoPage() {
           <div className="beef-demo-menu-grid">
             {menu.map((item) => <article key={item.name}><img src={`${SITE_URL}/${item.image}`} alt={`${item.name}示意插畫`} loading="lazy"/><div><h3>{item.name}</h3><strong>NT${item.price}</strong></div></article>)}
           </div>
-          <div className="beef-demo-center"><Link className="beef-demo-btn" to={`/q/${A1_CODE}`}><MagnifyingGlass /> 查看 17 項完整菜單</Link></div>
+          <div className="beef-demo-center"><Link className="beef-demo-btn" to={`/q/${A1_CODE}`}><MagnifyingGlass /> 查看 20 項完整菜單</Link></div>
         </section>
 
         <section id="experience" className="beef-demo-section beef-demo-experience">
@@ -85,6 +85,10 @@ export function BeefNoodleDemoPage() {
             <article><Storefront weight="duotone"/><h3>商家接單</h3><p>接單、製作、待出餐、完成、售完品項與現場付款確認。</p></article>
             <article><Users weight="duotone"/><h3>桌位 Session</h3><p>同桌加點自動歸組，清桌後下一組客人不會看到前桌資料。</p></article>
             <article><Clock weight="duotone"/><h3>即時進度</h3><p>送出後可查看訂單編號與製作狀態，無需下載 App。</p></article>
+          </div>
+          <div className="beef-demo-center beef-demo-operations-links" style={{ gap: 12, flexWrap: "wrap" }}>
+            <Link className="beef-demo-btn beef-demo-btn-outline" to="/merchant-admin/ordering">商家接單測試入口</Link>
+            <Link className="beef-demo-btn beef-demo-btn-outline" to="/merchant-admin/ordering/kitchen">廚房看板（KDS）</Link>
           </div>
         </section>
 

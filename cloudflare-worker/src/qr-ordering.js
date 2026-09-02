@@ -1,5 +1,7 @@
 import { couponOrderStateStatements, issueWelcomeCoupon, prepareCouponForOrder } from "./member-integrations.js";
 import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
+import { getPaymentProviderAdapter } from "./payment-providers.js";
+import { getInvoiceProviderAdapter } from "./invoice-providers.js";
 export { normalizeTaiwanMobile } from "./platform-membership.js";
 
 const E = new TextEncoder();
@@ -21,6 +23,41 @@ const clean = (value, max = 200) => String(value ?? "").trim().slice(0, max);
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
 const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 const hash = async (value) => b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", E.encode(String(value)))));
+
+const invoiceMask = (value, head = 2, tail = 2) => {
+  const text = clean(value, 120);
+  if (!text) return "";
+  if (text.length <= head + tail) return "*".repeat(text.length);
+  return `${text.slice(0, head)}${"*".repeat(Math.max(4, text.length - head - tail))}${text.slice(-tail)}`;
+};
+function validTaiwanTaxId(value) {
+  if (!/^\d{8}$/.test(value)) return false;
+  const weights = [1, 2, 1, 2, 1, 2, 4, 1];
+  const sum = [...value].reduce((total, digit, index) => {
+    const n = Number(digit) * weights[index]; return total + Math.floor(n / 10) + (n % 10);
+  }, 0);
+  return sum % 10 === 0 || (value[6] === "7" && (sum + 1) % 10 === 0);
+}
+function validMobileBarcode(value) { return /^\/[0-9A-Z.+-]{7}$/.test(value); }
+async function encryptInvoicePii(value, env) {
+  if (!value || !env.INVOICE_PII_ENCRYPTION_KEY) return null;
+  const material = await crypto.subtle.digest("SHA-256", E.encode(String(env.INVOICE_PII_ENCRYPTION_KEY)));
+  const key = await crypto.subtle.importKey("raw", material, { name: "AES-GCM" }, false, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, E.encode(value)));
+  return `${b64url(iv)}.${b64url(ciphertext)}`;
+}
+async function invoicePreference(input, env) {
+  const type = clean(input?.type || "individual", 40);
+  if (!["individual", "mobile_barcode", "business_tax_id", "donation"].includes(type)) throw new Error("INVOICE_TYPE_INVALID");
+  const value = clean(input?.carrier_value, 80).toUpperCase();
+  const buyer = clean(input?.buyer_identifier, 20);
+  const donation = clean(input?.donation_code, 40);
+  if (type === "mobile_barcode" && !validMobileBarcode(value)) throw new Error("MOBILE_BARCODE_INVALID");
+  if (type === "business_tax_id" && !validTaiwanTaxId(buyer)) throw new Error("BUSINESS_TAX_ID_INVALID");
+  if (type === "donation" && !donation) throw new Error("DONATION_CODE_REQUIRED");
+  return { type, carrier_type: type === "mobile_barcode" ? "mobile_barcode" : null, carrier_value_encrypted: await encryptInvoicePii(value, env), carrier_value_masked: type === "mobile_barcode" ? invoiceMask(value, 2, 2) : null, buyer_identifier: type === "business_tax_id" ? buyer : null, buyer_identifier_masked: type === "business_tax_id" ? invoiceMask(buyer, 0, 4) : null, buyer_name: type === "business_tax_id" ? clean(input?.buyer_name, 160) || null : null, donation_code: type === "donation" ? donation : null };
+}
 
 function randomToken(byteLength = 32) {
   const bytes = new Uint8Array(byteLength);
@@ -154,6 +191,10 @@ async function qrContext(db, code) {
   `).bind(clean(code, 64)).first();
 }
 
+async function lineIntegrationForMerchant(db, merchantId) {
+  return db.prepare("SELECT * FROM merchant_line_integrations WHERE merchant_id=? LIMIT 1").bind(merchantId).first();
+}
+
 async function memberSession(db, request, merchantId) {
   const token = bearer(request);
   if (!token) return null;
@@ -233,7 +274,8 @@ async function orderWithItems(db, merchantId, membershipId, orderCodeValue) {
   }
   const itemRows = (items.results || []).map((item) => ({ ...item, options: optionsByItem.get(item.id) || [] }));
   const pricing = await db.prepare(`SELECT gross_subtotal_minor,coupon_discount_minor,payable_total_minor,coupon_id FROM merchant_order_pricing WHERE order_id=?`).bind(row.id).first();
-  return { ...publicOrder(row, itemRows), pricing: pricing || { gross_subtotal_minor: Number(row.subtotal_minor), coupon_discount_minor: 0, payable_total_minor: Number(row.total_minor), coupon_id: null } };
+  const invoice = await db.prepare(`SELECT r.status request_status,i.status invoice_status,i.invoice_number FROM invoice_requests r LEFT JOIN invoices i ON i.invoice_request_id=r.id WHERE r.merchant_id=? AND r.order_id=? LIMIT 1`).bind(merchantId, row.id).first().catch(() => null);
+  return { ...publicOrder(row, itemRows), pricing: pricing || { gross_subtotal_minor: Number(row.subtotal_minor), coupon_discount_minor: 0, payable_total_minor: Number(row.total_minor), coupon_id: null }, invoice: invoice ? { status: invoice.invoice_status || invoice.request_status, invoice_number: invoice.invoice_number || null } : { status: "NOT_REQUIRED", invoice_number: null } };
 }
 
 async function publicRateLimit(db, request, merchantId, scope, limit = 30) {
@@ -340,7 +382,8 @@ function resolveOrderType(context, input) {
 
 async function handleContext(request, db, context, cors) {
   const session = await memberSession(db, request, context.merchant_id);
-  return json({ context: publicContext(context), member: session ? publicMember(session) : null }, 200, cors);
+  const line = await lineIntegrationForMerchant(db, context.merchant_id);
+  return json({ context: { ...publicContext(context), line: publicLineIntegration(line) }, member: session ? publicMember(session) : null }, 200, cors);
 }
 
 async function handleJoin(request, db, context, cors) {
@@ -410,10 +453,45 @@ async function handleJoin(request, db, context, cors) {
   }, 201, cors);
 }
 
+export function validateMerchantLineAddFriendUrl(value) {
+  const raw = clean(value, 600);
+  if (!raw) return "";
+  try {
+    const parsed = new URL(raw);
+    const host = parsed.hostname.toLowerCase();
+    const allowed = new Set(["lin.ee", "line.me", "www.line.me", "page.line.me"]);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || !allowed.has(host)) return null;
+    return parsed.toString();
+  } catch { return null; }
+}
+
+function lineCapabilities(mode) {
+  if (mode === "add_friend_link") return { addFriendLink: true, login: false, friendshipStatus: false, messaging: false };
+  if (mode === "linked_line_login") return { addFriendLink: true, login: true, friendshipStatus: true, messaging: false };
+  return { addFriendLink: false, login: false, friendshipStatus: false, messaging: false };
+}
+
+function publicLineIntegration(row) {
+  const integrationMode = clean(row?.integration_mode || "add_friend_link", 60) || "add_friend_link";
+  const addFriendUrl = validateMerchantLineAddFriendUrl(row?.add_friend_url);
+  const configured = Boolean(row?.enabled) && integrationMode === "add_friend_link" && Boolean(addFriendUrl);
+  return {
+    configured,
+    display_name: clean(row?.display_name, 120),
+    basic_id: clean(row?.basic_id, 120),
+    add_friend_url: configured ? addFriendUrl : "",
+    integration_mode: integrationMode,
+    capabilities: lineCapabilities(integrationMode),
+    status: configured ? "configured" : "LINE_DEMO_NOT_CONFIGURED",
+  };
+}
+
 async function handleMenu(request, db, context, cors) {
   if (!context.enabled) return json({ error: "此商家的掃碼點餐尚未開放。" }, 409, cors);
   const session = await memberSession(db, request, context.merchant_id);
-  if (context.require_member && !session) return json({ error: "請先加入會員或重新掃描 QR Code。", code: "MEMBER_REQUIRED" }, 401, cors);
+  // The QR token grants menu browsing only. Membership remains mandatory for
+  // submitting an order; an invalid supplied token still fails closed.
+  if (bearer(request) && !session) return json({ error: "會員登入已失效，請重新掃描 QR Code。", code: "MEMBER_REQUIRED" }, 401, cors);
   const [categories, items, groups, values, links] = await Promise.all([
     db.prepare(`SELECT id,name,description,sort_order FROM merchant_menu_categories WHERE merchant_id=? AND active=1 ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT id,category_id,sku,name,description,price_minor,image_url,sort_order,status,allow_customer_note,daily_limit,daily_sold_count,daily_sold_date FROM merchant_menu_items WHERE merchant_id=? AND status IN('active','sold_out') AND (status='active' OR ?=1) ORDER BY sort_order,name`).bind(context.merchant_id, Number(context.show_sold_out_items ?? 1)).all(),
@@ -421,8 +499,9 @@ async function handleMenu(request, db, context, cors) {
     db.prepare(`SELECT id,group_id,name,price_delta_minor,sort_order FROM merchant_menu_option_values WHERE merchant_id=? AND active=1 AND archived_at IS NULL ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT menu_item_id,option_group_id,sort_order FROM merchant_menu_item_option_groups WHERE merchant_id=? ORDER BY sort_order`).bind(context.merchant_id).all(),
   ]);
+  const line = await lineIntegrationForMerchant(db, context.merchant_id);
   return json({
-    context: publicContext(context),
+    context: { ...publicContext(context), line: publicLineIntegration(line) },
     member: session ? publicMember(session) : null,
     categories: categories.results || [],
     items: (items.results || []).map((item) => ({ ...item, price_minor: Number(item.price_minor) })),
@@ -444,7 +523,7 @@ async function handleMenu(request, db, context, cors) {
   }, 200, cors);
 }
 
-async function handleCreateOrder(request, db, context, cors) {
+async function handleCreateOrder(request, db, context, env, cors) {
   if (!context.enabled || context.purpose === "member_only") return json({ error: "此 QR Code 目前不提供點餐。" }, 409, cors);
   if (!context.ordering_open || !context.accepting_orders) return json({ error: context.temporary_closed_message || "店家目前暫停接單", code: "ORDERING_PAUSED" }, 409, cors);
   if (context.last_order_time) {
@@ -456,6 +535,13 @@ async function handleCreateOrder(request, db, context, cors) {
   if (!session) return json({ error: "會員登入已失效，請重新掃描 QR Code 加入會員。", code: "MEMBER_REQUIRED" }, 401, cors);
   const input = await request.json();
   if (clean(input?.coupon_id, 120)) return json({ error: "會員優惠券功能已停用。", code: "COUPON_FEATURE_DISABLED" }, 409, cors);
+  let requestedInvoice;
+  try { requestedInvoice = await invoicePreference(input?.invoice, env); }
+  catch (error) {
+    const code = error instanceof Error ? error.message : "INVOICE_INPUT_INVALID";
+    const messages = { MOBILE_BARCODE_INVALID: "手機條碼載具格式不正確。", BUSINESS_TAX_ID_INVALID: "統一編號格式不正確。", DONATION_CODE_REQUIRED: "請輸入捐贈碼。", INVOICE_TYPE_INVALID: "發票方式不正確。" };
+    return json({ error: messages[code] || "發票資料格式不正確。", code }, 400, cors);
+  }
   const orderType = resolveOrderType(context, input?.order_type);
   if (!orderType) return json({ error: "此商家目前未開放所選的用餐方式。" }, 409, cors);
   const tableLabel = orderType === "dine_in" ? clean(context.table_label || input?.table_label, 80) : null;
@@ -527,6 +613,7 @@ async function handleCreateOrder(request, db, context, cors) {
     ...(diningSessionId ? [db.prepare("UPDATE merchant_dining_sessions SET last_order_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status='open'").bind(diningSessionId, context.merchant_id)] : []),
     ...couponPricing.statements,
     db.prepare(`INSERT INTO merchant_order_pricing(order_id,merchant_id,gross_subtotal_minor,coupon_discount_minor,payable_total_minor,coupon_id,merchant_funded_minor,platform_funded_minor) VALUES(?,?,?,?,?,?,?,0)`).bind(orderId, context.merchant_id, calculation.subtotal_minor, couponPricing.discount, Math.max(calculation.subtotal_minor - couponPricing.discount, 0), couponPricing.couponId, couponPricing.discount),
+    db.prepare(`INSERT INTO merchant_order_invoice_preferences(id,merchant_id,order_id,invoice_type,carrier_type,carrier_value_encrypted,carrier_value_masked,buyer_identifier,buyer_identifier_masked,buyer_name,donation_code) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(uid("invoicepref"), context.merchant_id, orderId, requestedInvoice.type, requestedInvoice.carrier_type, requestedInvoice.carrier_value_encrypted, requestedInvoice.carrier_value_masked, requestedInvoice.buyer_identifier, requestedInvoice.buyer_identifier_masked, requestedInvoice.buyer_name, requestedInvoice.donation_code),
     db.prepare(`UPDATE merchant_ordering_memberships SET order_count=order_count+1,last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?`).bind(context.merchant_id, session.membership_id),
     db.prepare(`
       INSERT INTO merchant_ordering_audit_logs
@@ -588,11 +675,287 @@ async function handleGetOrder(request, db, orderCodeValue, cors) {
   return order ? json({ order }, 200, cors) : json({ error: "找不到此訂單。" }, 404, cors);
 }
 
+async function handleLineEvent(request, db, context, cors) {
+  if (!await publicRateLimit(db, request, context.merchant_id, "line_event", 40)) return json({ error: "操作過於頻繁，請稍後再試。" }, 429, cors);
+  const input = await request.json().catch(() => ({}));
+  const source = clean(input?.source, 40);
+  const eventType = clean(input?.event_type, 40);
+  const allowedSource = ["menu_banner", "checkout_reminder", "order_success"];
+  const expectedEvent = eventType === "click" ? "line_cta_click" : eventType === "impression" ? "line_cta_impression" : "";
+  if (!expectedEvent || !allowedSource.includes(source)) return json({ error: "LINE 事件格式不正確。" }, 400, cors);
+  const line = await lineIntegrationForMerchant(db, context.merchant_id);
+  if (!publicLineIntegration(line).configured) return json({ error: "店家 LINE 官方帳號尚未設定。", code: "LINE_DEMO_NOT_CONFIGURED" }, 409, cors);
+  const qrContext = context.purpose === "takeaway" ? "takeaway" : `dine_in:${clean(context.table_label || context.label, 80)}`;
+  await db.prepare("INSERT INTO merchant_line_events(id,merchant_id,event_type,source,qr_context) VALUES(?,?,?,?,?)")
+    .bind(uid("lineevent"), context.merchant_id, expectedEvent, source, qrContext).run();
+  return json({ ok: true }, 201, cors);
+}
+
+async function invoiceIntegration(db, merchantId) {
+  return (await db.prepare("SELECT * FROM merchant_invoice_integrations WHERE merchant_id=? LIMIT 1").bind(merchantId).first()) || {
+    provider: "disabled", readiness_status: "NOT_CONFIGURED", enabled: 0, credential_status: "not_configured",
+  };
+}
+
+function publicInvoiceReadiness(row) {
+  return { provider: row.provider, readiness_status: row.readiness_status, enabled: Boolean(row.enabled), credential_status: row.credential_status };
+}
+
+async function createInvoiceRequestForPayment(db, env, payment) {
+  const existing = await db.prepare("SELECT id,status FROM invoice_requests WHERE merchant_id=? AND payment_id=? LIMIT 1").bind(payment.merchant_id, payment.payment_id).first();
+  if (existing) return { id: existing.id, status: existing.status, replayed: true };
+  const [preference, integration] = await Promise.all([
+    db.prepare("SELECT * FROM merchant_order_invoice_preferences WHERE merchant_id=? AND order_id=? LIMIT 1").bind(payment.merchant_id, payment.order_id).first(),
+    invoiceIntegration(db, payment.merchant_id),
+  ]);
+  const pref = preference || { invoice_type: "individual", carrier_type: null, carrier_value_encrypted: null, carrier_value_masked: null, buyer_identifier: null, donation_code: null };
+  const request = { id: uid("invreq"), merchant_id: payment.merchant_id, order_id: payment.order_id, payment_id: payment.payment_id, invoice_type: pref.invoice_type, amount_minor: Number(payment.amount_minor), currency: payment.currency || "TWD", status: "PENDING" };
+  await db.batch([
+    db.prepare(`INSERT INTO invoice_requests(id,merchant_id,order_id,payment_id,invoice_type,status,buyer_identifier,carrier_type,carrier_value_encrypted,carrier_value_masked,donation_code,amount_minor,tax_amount_minor,currency,idempotency_key) VALUES(?,?,?,?,?,'PENDING',?,?,?,?,?,?,0,?,?)`).bind(request.id, request.merchant_id, request.order_id, request.payment_id, request.invoice_type, pref.buyer_identifier, pref.carrier_type, pref.carrier_value_encrypted, pref.carrier_value_masked, pref.donation_code, request.amount_minor, request.currency, `payment_confirmed:${request.payment_id}`),
+    db.prepare("INSERT INTO invoice_events(id,merchant_id,invoice_request_id,event_type,from_status,to_status,actor_type,metadata) VALUES(?,?,?,'invoice_requested',NULL,'PENDING','system',?)").bind(uid("invevt"), request.merchant_id, request.id, JSON.stringify({ payment_id: request.payment_id, provider: integration.provider })),
+    db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?)").bind(uid("ordaudit"), request.merchant_id, "system", "invoice_service", "invoice_requested", "invoice_request", request.id, JSON.stringify({ order_id: request.order_id, payment_id: request.payment_id, invoice_type: request.invoice_type })),
+  ]);
+  const adapter = getInvoiceProviderAdapter(integration.provider, env);
+  // Disabled/non-ready integrations deliberately leave a visible PENDING
+  // request. They never mint a number or pretend a provider issued anything.
+  if (!Boolean(integration.enabled) || !adapter.isAvailable().available) return { id: request.id, status: "PENDING", readiness: publicInvoiceReadiness(integration) };
+  const issue = await adapter.issueInvoice({ request_id: request.id, amount_minor: request.amount_minor, currency: request.currency });
+  if (!issue.ok) {
+    await db.batch([
+      db.prepare("UPDATE invoice_requests SET status='FAILED',retry_count=retry_count+1,last_error_code=?,next_retry_at=datetime('now','+15 minutes'),updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(clean(issue.code, 80), request.id),
+      db.prepare("INSERT INTO invoice_events(id,merchant_id,invoice_request_id,event_type,from_status,to_status,actor_type,metadata) VALUES(?,?,?,'invoice_failed','PENDING','FAILED','provider',?)").bind(uid("invevt"), request.merchant_id, request.id, JSON.stringify({ code: clean(issue.code, 80) })),
+    ]);
+    return { id: request.id, status: "FAILED" };
+  }
+  const invoiceId = uid("invoice");
+  const orderItems = await db.prepare("SELECT id,name_snapshot,quantity,unit_price_minor,line_total_minor FROM merchant_food_order_items WHERE order_id=? ORDER BY created_at,id").bind(request.order_id).all();
+  await db.batch([
+    db.prepare("UPDATE invoice_requests SET status='ISSUED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(request.id),
+    db.prepare("INSERT INTO invoices(id,merchant_id,order_id,invoice_request_id,provider,provider_invoice_id,invoice_number,invoice_date,random_number,status,issued_at) VALUES(?,?,?,?,?,?,?,?,?,'ISSUED',CURRENT_TIMESTAMP)").bind(invoiceId, request.merchant_id, request.order_id, request.id, integration.provider, issue.provider_invoice_id, issue.invoice_number, issue.invoice_date, issue.random_number),
+    ...(orderItems.results || []).map((item) => db.prepare("INSERT INTO invoice_items(id,invoice_id,order_item_id,name_snapshot,quantity,unit_price_minor,amount_minor) VALUES(?,?,?,?,?,?,?)").bind(uid("invitem"), invoiceId, item.id, item.name_snapshot, Number(item.quantity), Number(item.unit_price_minor), Number(item.line_total_minor))),
+    db.prepare("INSERT INTO invoice_events(id,merchant_id,invoice_request_id,invoice_id,event_type,from_status,to_status,actor_type) VALUES(?,?,?,?, 'invoice_issued','PENDING','ISSUED','provider')").bind(uid("invevt"), request.merchant_id, request.id, invoiceId),
+  ]);
+  return { id: request.id, status: "ISSUED", invoice_id: invoiceId };
+}
+
+async function coordinateInvoiceRefund(db, env, payment) {
+  const request = await db.prepare("SELECT * FROM invoice_requests WHERE merchant_id=? AND payment_id=? LIMIT 1").bind(payment.merchant_id, payment.payment_id).first();
+  if (!request) return { status: "NOT_REQUIRED" };
+  const invoice = await db.prepare("SELECT * FROM invoices WHERE invoice_request_id=? LIMIT 1").bind(request.id).first();
+  if (!invoice) {
+    await db.prepare("UPDATE invoice_requests SET status='CANCELLED',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('PENDING','ISSUING','FAILED')").bind(request.id).run();
+    return { status: "CANCELLED" };
+  }
+  const integration = await invoiceIntegration(db, payment.merchant_id);
+  const adapter = getInvoiceProviderAdapter(integration.provider, env);
+  if (!adapter.isAvailable().available) {
+    await db.prepare("UPDATE invoice_requests SET status='MANUAL_REVIEW_REQUIRED',last_error_code=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(adapter.isAvailable().code, request.id).run();
+    return { status: "MANUAL_REVIEW_REQUIRED" };
+  }
+  const refundMinor = Number(payment.refund_minor || request.amount_minor);
+  if (refundMinor > 0 && refundMinor < Number(request.amount_minor)) {
+    const allowance = await adapter.issueAllowance({ invoice_id: invoice.id, provider_invoice_id: invoice.provider_invoice_id, amount_minor: refundMinor });
+    if (!allowance.ok) return { status: "ALLOWANCE_PENDING" };
+    await db.batch([
+      db.prepare("UPDATE invoices SET status='PARTIALLY_REFUNDED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(invoice.id),
+      db.prepare("UPDATE invoice_requests SET status='PARTIALLY_REFUNDED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(request.id),
+      db.prepare("INSERT INTO invoice_allowances(id,merchant_id,invoice_id,provider_allowance_id,allowance_number,amount_minor,status) VALUES(?,?,?,?,?,?,'ISSUED')").bind(uid("allowance"), payment.merchant_id, invoice.id, allowance.provider_allowance_id, allowance.allowance_number, refundMinor),
+      db.prepare("INSERT INTO invoice_events(id,merchant_id,invoice_request_id,invoice_id,event_type,from_status,to_status,actor_type) VALUES(?,?,?,?, 'allowance_issued','ISSUED','PARTIALLY_REFUNDED','provider')").bind(uid("invevt"), payment.merchant_id, request.id, invoice.id),
+    ]);
+    return { status: "PARTIALLY_REFUNDED" };
+  }
+  const result = await adapter.voidInvoice({ invoice_id: invoice.id, provider_invoice_id: invoice.provider_invoice_id });
+  if (!result.ok) return { status: "VOID_PENDING" };
+  await db.batch([
+    db.prepare("UPDATE invoices SET status='VOIDED',voided_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(invoice.id),
+    db.prepare("UPDATE invoice_requests SET status='FULLY_REFUNDED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(request.id),
+    db.prepare("INSERT INTO invoice_events(id,merchant_id,invoice_request_id,invoice_id,event_type,from_status,to_status,actor_type) VALUES(?,?,?,?, 'invoice_voided','ISSUED','VOIDED','provider')").bind(uid("invevt"), payment.merchant_id, request.id, invoice.id),
+  ]);
+  return { status: "VOIDED" };
+}
+
+const ONLINE_PAYMENT_PROVIDERS = new Set(["line_pay_online", "apple_pay_web"]);
+
+function publicPaymentProvider(config, env) {
+  const provider = clean(config.provider, 40);
+  const adapter = getPaymentProviderAdapter(provider, env);
+  const availability = adapter.isAvailable();
+  // Provider configuration and credential readiness are intentionally both
+  // required. A browser never learns why a credential is absent.
+  const enabled = Number(config.enabled) === 1 && availability.available;
+  return {
+    provider,
+    enabled,
+    configuration_status: config.configuration_status,
+    order_acceptance_policy: config.order_acceptance_policy,
+    availability_code: enabled ? "AVAILABLE" : availability.code,
+    capabilities: adapter.getCapabilities(),
+  };
+}
+
+async function paymentProvidersForMerchant(db, merchantId, env) {
+  const configured = await db.prepare(`SELECT provider,enabled,configuration_status,order_acceptance_policy FROM merchant_payment_provider_configs WHERE merchant_id=? ORDER BY provider`).bind(merchantId).all();
+  const rows = configured.results || [];
+  const byProvider = new Map(rows.map((row) => [row.provider, row]));
+  return ["manual_counter", "line_pay_online", "apple_pay_web"].map((provider) => publicPaymentProvider(byProvider.get(provider) || {
+    provider, enabled: 0, configuration_status: "configuration_required", order_acceptance_policy: "accept_after_payment",
+  }, env));
+}
+
+async function paymentSessionOrder(db, request, context, orderCode) {
+  const session = await memberSession(db, request, context.merchant_id);
+  if (!session) return { error: "MEMBER_REQUIRED" };
+  const order = await db.prepare(`
+    SELECT o.*,p.payable_total_minor FROM merchant_food_orders o
+    LEFT JOIN merchant_order_pricing p ON p.order_id=o.id AND p.merchant_id=o.merchant_id
+    WHERE o.merchant_id=? AND o.membership_id=? AND o.order_code=? LIMIT 1
+  `).bind(context.merchant_id, session.membership_id, clean(orderCode, 80)).first();
+  if (!order) return { error: "ORDER_NOT_FOUND" };
+  return { session, order: { ...order, amount_minor: Number(order.payable_total_minor ?? order.total_minor) } };
+}
+
+async function appendPaymentEvent(db, intent, eventType, fromStatus, toStatus, actorType, actorId, metadata = {}) {
+  return db.prepare(`INSERT INTO merchant_checkout_payment_events(id,merchant_id,payment_intent_id,event_type,from_status,to_status,actor_type,actor_id,metadata) VALUES(?,?,?,?,?,?,?,?,?)`)
+    .bind(uid("payevt"), intent.merchant_id, intent.id, eventType, fromStatus || null, toStatus, actorType, actorId || null, JSON.stringify(metadata));
+}
+
+async function releasePaymentReservation(db, intent, reason) {
+  const reservation = await db.prepare("SELECT status FROM merchant_order_inventory_reservations WHERE payment_intent_id=?").bind(intent.id).first();
+  if (!reservation || reservation.status !== "reserved") return;
+  // QR Ordering's current stock control is daily limited menu availability.
+  // Releasing an unsuccessful online payment returns only that reserved count;
+  // it never touches unrelated inventory or paid orders.
+  const lines = await db.prepare(`SELECT menu_item_id,quantity FROM merchant_food_order_items WHERE order_id=?`).bind(intent.order_id).all();
+  const statements = [db.prepare("UPDATE merchant_order_inventory_reservations SET status='released',released_reason=?,updated_at=CURRENT_TIMESTAMP WHERE payment_intent_id=? AND status='reserved'").bind(clean(reason, 80), intent.id)];
+  for (const line of lines.results || []) {
+    statements.push(db.prepare(`UPDATE merchant_menu_items SET daily_sold_count=MAX(0,daily_sold_count-?) WHERE id=? AND merchant_id=? AND daily_limit IS NOT NULL`).bind(Number(line.quantity), line.menu_item_id, intent.merchant_id));
+  }
+  await db.batch(statements);
+}
+
+async function recordConfirmedOnlinePayment(db, intent, providerResponse, env = {}) {
+  if (intent.status === "paid") return { replayed: true };
+  if (!new Set(["requires_action", "processing", "authorized"]).has(intent.status)) throw new Error("PAYMENT_TRANSITION_INVALID");
+  const transactionId = clean(providerResponse?.safe?.transactionId || intent.provider_transaction_id, 128);
+  if (!transactionId) throw new Error("PROVIDER_TRANSACTION_REQUIRED");
+  const paymentId = uid("payment");
+  const paymentNo = `QR-${intent.id.slice(-12).toUpperCase()}`;
+  const amount = Number(intent.amount_minor) / 100;
+  const redacted = JSON.stringify(providerResponse?.safe || {});
+  await db.batch([
+    db.prepare(`UPDATE merchant_checkout_payment_intents SET status='paid',provider_transaction_id=?,paid_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('requires_action','processing','authorized')`).bind(transactionId, intent.id),
+    db.prepare(`INSERT OR IGNORE INTO merchant_checkout_payment_transactions(id,merchant_id,payment_intent_id,provider,provider_transaction_id,transaction_type,status,amount_minor,currency,provider_response_redacted) VALUES(?,?,?,?,?,'confirm','paid',?,?,?)`).bind(uid("paytxn"), intent.merchant_id, intent.id, intent.provider, transactionId, Number(intent.amount_minor), intent.currency, redacted),
+    appendPaymentEvent(db, intent, "provider_confirmed", intent.status, "paid", "provider", intent.provider, { transaction_id: transactionId }),
+    db.prepare(`UPDATE merchant_food_orders SET payment_status='paid',payment_method='line_pay',payment_method_v1='line_pay',payment_reference=?,payment_confirmed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=?`).bind(transactionId, intent.order_id, intent.merchant_id),
+    db.prepare(`UPDATE merchant_order_inventory_reservations SET status='committed',updated_at=CURRENT_TIMESTAMP WHERE payment_intent_id=? AND status='reserved'`).bind(intent.id),
+    // Finance Core is written once, only after the provider has confirmed the
+    // amount and currency. It remains the ledger of record.
+    db.prepare(`INSERT OR IGNORE INTO payments(id,payment_no,merchant_id,gross_amount,fee_amount,net_amount,amount,currency,payment_method,payment_provider,provider_trade_no,provider_payment_id,status,paid_at,source,note) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'paid',CURRENT_TIMESTAMP,'system',?)`).bind(paymentId, paymentNo, intent.merchant_id, amount, 0, amount, amount, intent.currency, "line_pay", "line_pay_sandbox", transactionId, intent.id, `qr_order:${intent.order_id}`),
+    db.prepare(`INSERT OR IGNORE INTO merchant_payment_domain_events(id,merchant_id,order_id,payment_intent_id,event_type,amount_minor,currency,paid_at) VALUES(?,?,?,?, 'PAYMENT_CONFIRMED',?,?,CURRENT_TIMESTAMP)`).bind(uid("paydomain"), intent.merchant_id, intent.order_id, intent.id, Number(intent.amount_minor), intent.currency),
+    db.prepare(`INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?)`).bind(uid("ordaudit"), intent.merchant_id, "provider", intent.provider, "payment_confirmed", "payment_intent", intent.id, JSON.stringify({ transaction_id: transactionId, amount_minor: Number(intent.amount_minor), currency: intent.currency })),
+  ]);
+  await createInvoiceRequestForPayment(db, env, { merchant_id: intent.merchant_id, order_id: intent.order_id, payment_id: intent.id, amount_minor: Number(intent.amount_minor), currency: intent.currency });
+  return { replayed: false };
+}
+
+async function handlePaymentCapabilities(db, context, env, cors) {
+  const readiness = publicInvoiceReadiness(await invoiceIntegration(db, context.merchant_id));
+  return json({ items: await paymentProvidersForMerchant(db, context.merchant_id, env), invoice_status: readiness.enabled ? "INVOICE_PROVIDER_AVAILABLE" : "INVOICE_PROVIDER_DISABLED", invoice_readiness: readiness }, 200, cors);
+}
+
+async function handleCreatePayment(request, db, context, env, url, cors) {
+  const input = await request.json().catch(() => ({}));
+  const provider = clean(input.provider, 40);
+  if (!ONLINE_PAYMENT_PROVIDERS.has(provider)) return json({ error: "此付款方式不提供線上付款。" }, 400, cors);
+  const key = clean(request.headers.get("idempotency-key") || input.idempotency_key, 100);
+  if (!/^[A-Za-z0-9._:-]{8,100}$/.test(key)) return json({ error: "付款識別碼格式不正確。" }, 400, cors);
+  const resolved = await paymentSessionOrder(db, request, context, input.order_code);
+  if (resolved.error) return resolved.error === "MEMBER_REQUIRED"
+    ? json({ error: "會員登入已失效。", code: resolved.error }, 401, cors)
+    : json({ error: "找不到此訂單。" }, 404, cors);
+  const { order } = resolved;
+  if (["cancelled", "completed"].includes(order.status)) return json({ error: "此訂單目前無法付款。" }, 409, cors);
+  const config = await db.prepare("SELECT * FROM merchant_payment_provider_configs WHERE merchant_id=? AND provider=?").bind(context.merchant_id, provider).first();
+  const adapter = getPaymentProviderAdapter(provider, env);
+  const availability = adapter.isAvailable();
+  if (!config || Number(config.enabled) !== 1 || !availability.available) return json({ error: provider === "line_pay_online" ? "LINE Pay 測試環境尚未設定。" : "Apple Pay 測試設定尚未完成。", code: availability.code }, 409, cors);
+  const replay = await db.prepare("SELECT * FROM merchant_checkout_payment_intents WHERE merchant_id=? AND order_id=? AND idempotency_key=?").bind(context.merchant_id, order.id, key).first();
+  if (replay) return json({ intent: { id: replay.id, provider: replay.provider, status: replay.status, expires_at: replay.expires_at }, replayed: true }, 200, cors);
+  const intent = { id: uid("payint"), merchant_id: context.merchant_id, order_id: order.id, provider, amount_minor: order.amount_minor, currency: context.currency || "TWD", status: "requires_action" };
+  const callbackBase = `${url.origin}/api/ordering/payments/line-pay`;
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  await db.batch([
+    db.prepare(`INSERT INTO merchant_checkout_payment_intents(id,merchant_id,order_id,provider,amount_minor,currency,status,idempotency_key,qr_code,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(intent.id, intent.merchant_id, intent.order_id, provider, intent.amount_minor, intent.currency, intent.status, key, context.code, expiresAt),
+    db.prepare(`INSERT INTO merchant_order_inventory_reservations(id,merchant_id,order_id,payment_intent_id,status,expires_at) VALUES(?,?,?,?, 'reserved',?)`).bind(uid("reserve"), intent.merchant_id, intent.order_id, intent.id, expiresAt),
+    appendPaymentEvent(db, intent, "payment_created", null, "requires_action", "customer", null, { provider }),
+  ]);
+  const result = await adapter.createPayment({ amount_minor: intent.amount_minor, currency: intent.currency, order_id: intent.order_id, confirm_url: `${callbackBase}/confirm?payment_intent=${encodeURIComponent(intent.id)}`, cancel_url: `${callbackBase}/cancel?payment_intent=${encodeURIComponent(intent.id)}`, products: [{ name: "百工牛肉麵 Demo 訂單", quantity: 1, price: intent.amount_minor / 100 }] });
+  if (!result.ok) {
+    await db.prepare("UPDATE merchant_checkout_payment_intents SET status='failed',failed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(intent.id).run();
+    await releasePaymentReservation(db, intent, "provider_request_failed");
+    return json({ error: "LINE Pay 付款服務暫時無法建立，請改用現場付款。", code: result.code || "PAYMENT_REQUEST_FAILED" }, 502, cors);
+  }
+  const transactionId = clean(result.safe?.transactionId, 128);
+  const redirectUrl = clean(result.data?.info?.paymentUrl?.web || result.data?.info?.paymentUrl?.app, 2000);
+  await db.batch([
+    db.prepare("UPDATE merchant_checkout_payment_intents SET status='processing',provider_transaction_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(transactionId || null, intent.id),
+    db.prepare(`INSERT INTO merchant_checkout_payment_transactions(id,merchant_id,payment_intent_id,provider,provider_transaction_id,transaction_type,status,amount_minor,currency,provider_response_redacted) VALUES(?,?,?,?,?,'request','processing',?,?,?)`).bind(uid("paytxn"), intent.merchant_id, intent.id, provider, transactionId || null, intent.amount_minor, intent.currency, JSON.stringify(result.safe || {})),
+    appendPaymentEvent(db, intent, "provider_redirect_created", "requires_action", "processing", "system", null, { transaction_id: transactionId || null }),
+  ]);
+  return json({ intent: { id: intent.id, provider, status: "PROCESSING", expires_at: expiresAt }, redirect_url: redirectUrl }, 201, cors);
+}
+
+function paymentReturnLocation(intent, cancelled = false) {
+  const query = new URLSearchParams({ payment_intent: intent.id });
+  if (cancelled) query.set("payment_cancelled", "1");
+  return `https://baiye-beef-noodle-demo.pages.dev/#/q/${encodeURIComponent(intent.qr_code)}?${query}`;
+}
+
+// LINE Pay redirects are untrusted browser navigation. The Worker, rather than
+// the Demo page, performs the provider confirm and verifies its own amount,
+// currency, intent and transaction reference before any payment becomes paid.
+async function handleLinePayCallback(request, db, env, url) {
+  const intentId = clean(url.searchParams.get("payment_intent"), 160);
+  const intent = await db.prepare("SELECT * FROM merchant_checkout_payment_intents WHERE id=? AND provider='line_pay_online'").bind(intentId).first();
+  if (!intent) return json({ error: "找不到付款流程。" }, 404);
+  const cancelled = url.pathname.endsWith("/cancel");
+  if (cancelled) {
+    if (!["paid", "refunded", "partially_refunded"].includes(intent.status)) {
+      await db.batch([
+        db.prepare("UPDATE merchant_checkout_payment_intents SET status='cancelled',cancelled_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('created','requires_action','processing','authorized')").bind(intent.id),
+        appendPaymentEvent(db, intent, "customer_cancelled", intent.status, "cancelled", "customer", null),
+      ]);
+      await releasePaymentReservation(db, intent, "customer_cancelled");
+    }
+    return Response.redirect(paymentReturnLocation(intent, true), 302);
+  }
+  const transactionId = clean(url.searchParams.get("transactionId") || url.searchParams.get("transaction_id"), 128);
+  if (!transactionId || (intent.provider_transaction_id && intent.provider_transaction_id !== transactionId)) {
+    await db.batch([
+      db.prepare("UPDATE merchant_checkout_payment_intents SET status='failed',failed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('requires_action','processing','authorized')").bind(intent.id),
+      appendPaymentEvent(db, intent, "provider_confirmation_rejected", intent.status, "failed", "provider", "line_pay_online"),
+    ]);
+    await releasePaymentReservation(db, intent, "transaction_mismatch");
+    return Response.redirect(paymentReturnLocation(intent, true), 302);
+  }
+  const adapter = getPaymentProviderAdapter("line_pay_online", env);
+  if (!adapter.isAvailable().available) return Response.redirect(paymentReturnLocation(intent, true), 302);
+  const confirmed = await adapter.confirmPayment({ transaction_id: transactionId, amount_minor: Number(intent.amount_minor), currency: intent.currency });
+  if (!confirmed.ok || clean(confirmed.safe?.transactionId, 128) !== transactionId) {
+    // Timeouts are left processing: the provider can be safely checked again;
+    // a callback never turns an uncertain payment into paid or failed by itself.
+    return Response.redirect(paymentReturnLocation(intent), 302);
+  }
+  await recordConfirmedOnlinePayment(db, intent, confirmed, env);
+  return Response.redirect(paymentReturnLocation(intent), 302);
+}
+
 export async function handleOrderingRequest(request, env, url, cors = {}) {
   if (!env.FINANCE_DB) return json({ error: CUSTOMER_ERROR }, 503, cors);
   const db = env.FINANCE_DB;
   try {
-    const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|menu|orders))?$/);
+    if (request.method === "GET" && /^\/api\/ordering\/payments\/line-pay\/(confirm|cancel)$/.test(url.pathname)) return handleLinePayCallback(request, db, env, url);
+    const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|menu|orders|line-events|payment-capabilities|payments))?$/);
     if (qrMatch) {
       const context = await qrContext(db, qrMatch[1]);
       if (!context) return json({ error: "此 QR Code 無效、已停用或已過期。" }, 404, cors);
@@ -600,7 +963,10 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
       if (request.method === "GET" && action === "context") return handleContext(request, db, context, cors);
       if (request.method === "POST" && action === "join") return handleJoin(request, db, context, cors);
       if (request.method === "GET" && action === "menu") return handleMenu(request, db, context, cors);
-      if (request.method === "POST" && action === "orders") return handleCreateOrder(request, db, context, cors);
+      if (request.method === "POST" && action === "orders") return handleCreateOrder(request, db, context, env, cors);
+      if (request.method === "POST" && action === "line-events") return handleLineEvent(request, db, context, cors);
+      if (request.method === "GET" && action === "payment-capabilities") return handlePaymentCapabilities(db, context, env, cors);
+      if (request.method === "POST" && action === "payments") return handleCreatePayment(request, db, context, env, url, cors);
       return json({ error: "Method not allowed" }, 405, cors);
     }
     const orderMatch = url.pathname.match(/^\/api\/ordering\/orders\/([^/]+)(?:\/(cancel))?$/);
@@ -615,7 +981,7 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
 
 async function adminOverview(db, merchantId) {
   const settings = await db.prepare(`SELECT * FROM merchant_ordering_settings WHERE merchant_id=?`).bind(merchantId).first();
-  const [qrs, categories, items, groups, values, links, sessions, orders, memberCount] = await Promise.all([
+  const [qrs, categories, items, groups, values, links, sessions, orders, memberCount, lineIntegration, invoiceIntegrationRow] = await Promise.all([
     db.prepare(`SELECT * FROM merchant_ordering_qr_codes WHERE merchant_id=? ORDER BY created_at DESC`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_menu_categories WHERE merchant_id=? ORDER BY sort_order,name`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_menu_items WHERE merchant_id=? ORDER BY sort_order,name`).bind(merchantId).all(),
@@ -631,6 +997,8 @@ async function adminOverview(db, merchantId) {
       WHERE o.merchant_id=? ORDER BY datetime(o.created_at) DESC LIMIT 200
     `).bind(merchantId).all(),
     db.prepare(`SELECT COUNT(*) total FROM merchant_ordering_memberships WHERE merchant_id=? AND status='active'`).bind(merchantId).first(),
+    lineIntegrationForMerchant(db, merchantId),
+    invoiceIntegration(db, merchantId),
   ]);
   const orderRows = orders.results || [];
   let orderItems = [];
@@ -668,6 +1036,8 @@ async function adminOverview(db, merchantId) {
       table_session_enabled: Boolean(settings.table_session_enabled),
       show_sold_out_items: Boolean(settings.show_sold_out_items),
     } : null,
+    line_integration: publicLineIntegration(lineIntegration),
+    invoice_integration: publicInvoiceReadiness(invoiceIntegrationRow),
     qrs: (qrs.results || []).map((row) => ({ ...row, active: Boolean(row.active) })),
     categories: (categories.results || []).map((row) => ({ ...row, active: Boolean(row.active) })),
     items: (items.results || []).map((row) => ({ ...row, available: Boolean(row.available), allow_customer_note: Boolean(row.allow_customer_note), price_minor: Number(row.price_minor) })),
@@ -711,8 +1081,77 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
   const actorRole = clean(actor.actor_role || (actor.actor_type === "merchant" ? "merchant" : "platform_admin"), 120);
 
   try {
+    const invoiceRetry = url.pathname.match(/^\/api\/admin\/ordering\/invoice-requests\/([^/]+)\/retry$/);
+    if (invoiceRetry && request.method === "POST") {
+      const requestRow = await db.prepare("SELECT * FROM invoice_requests WHERE id=? AND merchant_id=?").bind(clean(invoiceRetry[1], 160), merchantId).first();
+      if (!requestRow) return json({ error: "找不到發票請求。" }, 404, cors);
+      if (!["FAILED", "MANUAL_REVIEW_REQUIRED", "PENDING"].includes(requestRow.status)) return json({ error: "此發票請求目前不可重試。" }, 409, cors);
+      if (Number(requestRow.retry_count) >= 5) return json({ error: "已達重試上限，請改由人工處理。", code: "MANUAL_REVIEW_REQUIRED" }, 409, cors);
+      const integration = await invoiceIntegration(db, merchantId);
+      const adapter = getInvoiceProviderAdapter(integration.provider, env);
+      if (!Boolean(integration.enabled) || !adapter.isAvailable().available) return json({ error: "電子發票服務尚未啟用。", code: "INVOICE_PROVIDER_DISABLED" }, 409, cors);
+      await db.batch([
+        db.prepare("UPDATE invoice_requests SET status='PENDING',retry_count=retry_count+1,next_retry_at=NULL,last_error_code=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(requestRow.id),
+        db.prepare("INSERT INTO invoice_events(id,merchant_id,invoice_request_id,event_type,from_status,to_status,actor_type,actor_id) VALUES(?,?,?,'invoice_retried',?,'PENDING','merchant',?)").bind(uid("invevt"), merchantId, requestRow.id, requestRow.status, actorId),
+      ]);
+      return json({ ok: true, status: "PENDING" }, 200, cors);
+    }
+    const refundMatch = url.pathname.match(/^\/api\/admin\/ordering\/payments\/([^/]+)\/refund$/);
+    if (refundMatch && request.method === "POST") {
+      const input = await request.json().catch(() => ({}));
+      const key = clean(request.headers.get("idempotency-key") || input.idempotency_key, 100);
+      if (!/^[A-Za-z0-9._:-]{8,100}$/.test(key)) return json({ error: "退款識別碼格式不正確。" }, 400, cors);
+      const intent = await db.prepare("SELECT * FROM merchant_checkout_payment_intents WHERE id=? AND merchant_id=?").bind(clean(refundMatch[1], 160), merchantId).first();
+      if (!intent) return json({ error: "找不到付款資料。" }, 404, cors);
+      if (intent.status !== "paid") return json({ error: "此付款目前無法退款。" }, 409, cors);
+      if (intent.provider !== "line_pay_online") return json({ error: "此付款方式需依商家人工退款流程處理。" }, 409, cors);
+      const existing = await db.prepare("SELECT id FROM merchant_checkout_payment_transactions WHERE payment_intent_id=? AND transaction_type='refund' AND status='refunded' LIMIT 1").bind(intent.id).first();
+      if (existing) return json({ ok: true, replayed: true, status: "REFUNDED" }, 200, cors);
+      const adapter = getPaymentProviderAdapter(intent.provider, env);
+      if (!adapter.isAvailable().available) return json({ error: "LINE Pay 測試環境尚未設定。", code: "LINE_PAY_SANDBOX_CREDENTIAL_REQUIRED" }, 409, cors);
+      const result = await adapter.refundPayment({ transaction_id: intent.provider_transaction_id, amount_minor: Number(intent.amount_minor), currency: intent.currency });
+      if (!result.ok) return json({ error: "退款尚未經付款服務確認。", code: result.code || "REFUND_PROCESSING" }, 502, cors);
+      const payment = await db.prepare("SELECT id FROM payments WHERE merchant_id=? AND provider_payment_id=? AND status='paid' LIMIT 1").bind(merchantId, intent.id).first();
+      const refundId = uid("refund");
+      await db.batch([
+        db.prepare("UPDATE merchant_checkout_payment_intents SET status='refunded',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='paid'").bind(intent.id),
+        db.prepare("UPDATE merchant_food_orders SET payment_status='refunded',updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=?").bind(intent.order_id, merchantId),
+        db.prepare(`INSERT INTO merchant_checkout_payment_transactions(id,merchant_id,payment_intent_id,provider,provider_transaction_id,transaction_type,status,amount_minor,currency,provider_response_redacted) VALUES(?,?,?,?,?,'refund','refunded',?,?,?)`).bind(uid("paytxn"), merchantId, intent.id, intent.provider, clean(result.safe?.transactionId, 128) || null, Number(intent.amount_minor), intent.currency, JSON.stringify(result.safe || {})),
+        appendPaymentEvent(db, intent, "provider_refunded", "paid", "refunded", "merchant", actorId, { idempotency_key: key }),
+        ...(payment ? [db.prepare("INSERT INTO refunds(id,payment_id,amount,provider_refund_id,reason,status,refunded_at) VALUES(?,?,?,?,?,'refunded',CURRENT_TIMESTAMP)").bind(refundId, payment.id, Number(intent.amount_minor) / 100, clean(result.safe?.transactionId, 128) || null, clean(input.reason, 300) || null), db.prepare("INSERT OR IGNORE INTO payment_events(id,provider,event_type,provider_event_id,payment_id,status,metadata,processed_at) VALUES(?,?,?,?,?,'refunded',?,CURRENT_TIMESTAMP)").bind(uid("payevidence"), "line_pay_sandbox", "refund", `${intent.id}:refund`, payment.id, JSON.stringify({ payment_intent_id: intent.id }))] : []),
+        db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?)").bind(uid("ordaudit"), merchantId, actorType, actorId, "payment_refunded", "payment_intent", intent.id, JSON.stringify({ amount_minor: Number(intent.amount_minor), provider: intent.provider })),
+      ]);
+      await coordinateInvoiceRefund(db, env, { merchant_id: merchantId, order_id: intent.order_id, payment_id: intent.id });
+      return json({ ok: true, status: "REFUNDED" }, 200, cors);
+    }
     if (url.pathname === "/api/admin/ordering/overview" && request.method === "GET") {
       return json({ merchant_id: merchantId, ...(await adminOverview(db, merchantId)) }, 200, cors);
+    }
+
+    if (url.pathname === "/api/admin/ordering/line-integration" && request.method === "GET") {
+      return json({ merchant_id: merchantId, line_integration: publicLineIntegration(await lineIntegrationForMerchant(db, merchantId)) }, 200, cors);
+    }
+
+    if (url.pathname === "/api/admin/ordering/invoice-integration" && request.method === "GET") {
+      return json({ merchant_id: merchantId, invoice_integration: publicInvoiceReadiness(await invoiceIntegration(db, merchantId)), checklist: ["商家／公司登記", "統一編號", "電子發票服務商", "發票字軌／相關授權", "Provider Credential", "測試驗證"] }, 200, cors);
+    }
+
+    if (url.pathname === "/api/admin/ordering/line-integration" && request.method === "PUT") {
+      const input = await request.json();
+      const integrationMode = clean(input?.integration_mode || "add_friend_link", 60);
+      if (!["add_friend_link", "linked_line_login", "future_multi_account_liff"].includes(integrationMode)) return json({ error: "LINE 整合模式不正確。" }, 400, cors);
+      const addFriendUrl = validateMerchantLineAddFriendUrl(input?.add_friend_url);
+      if (addFriendUrl === null) return json({ error: "LINE 加好友網址必須是 HTTPS 的 LINE 官方網址。", code: "INVALID_LINE_ADD_FRIEND_URL" }, 400, cors);
+      const enabled = Boolean(input?.enabled) && integrationMode === "add_friend_link" && Boolean(addFriendUrl);
+      const id = (await lineIntegrationForMerchant(db, merchantId))?.id || uid("merchantline");
+      await db.prepare(`
+        INSERT INTO merchant_line_integrations(id,merchant_id,enabled,basic_id,display_name,add_friend_url,liff_id,line_login_channel_id,integration_mode)
+        VALUES(?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(merchant_id) DO UPDATE SET enabled=excluded.enabled,basic_id=excluded.basic_id,display_name=excluded.display_name,
+          add_friend_url=excluded.add_friend_url,liff_id=excluded.liff_id,line_login_channel_id=excluded.line_login_channel_id,integration_mode=excluded.integration_mode,updated_at=CURRENT_TIMESTAMP
+      `).bind(id, merchantId, enabled ? 1 : 0, clean(input?.basic_id, 120) || null, clean(input?.display_name, 120) || null, addFriendUrl || null, clean(input?.liff_id, 160) || null, clean(input?.line_login_channel_id, 160) || null, integrationMode).run();
+      await audit(db, merchantId, actorType, actorId, "merchant_line_integration_saved", "line_integration", id, { actor_role: actorRole, enabled, integration_mode: integrationMode });
+      return json({ ok: true, line_integration: publicLineIntegration(await lineIntegrationForMerchant(db, merchantId)) }, 200, cors);
     }
 
     if (url.pathname === "/api/admin/ordering/settings" && request.method === "PATCH") {
@@ -1034,11 +1473,40 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       if (!key) return json({ error: "付款操作需要 Idempotency-Key。" }, 400, cors);
       const existing = await db.prepare("SELECT action FROM merchant_order_payment_events WHERE merchant_id=? AND order_id=? AND idempotency_key=?").bind(merchantId, order.id, key).first();
       if (existing) return json({ ok: true, replayed: true, payment_status: existing.action === "confirmed" ? "paid" : "refunded" }, 200, cors);
+      if (action === "refunded" && order.payment_status !== "paid") return json({ error: "僅能退款已確認收款的訂單。" }, 409, cors);
       const next = action === "confirmed" ? "paid" : "refunded";
       await db.batch([
         db.prepare("INSERT INTO merchant_order_payment_events(id,merchant_id,order_id,action,payment_method,reference,actor_type,actor_id,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?)").bind(uid("payevent"), merchantId, order.id, action, method, clean(input.reference, 120) || null, actor.actor_type === "merchant" ? "merchant" : "admin", actorId, key),
         db.prepare("UPDATE merchant_food_orders SET payment_status=?,payment_method_v1=?,payment_reference=?,payment_confirmed_at=CASE WHEN ?='paid' THEN CURRENT_TIMESTAMP ELSE payment_confirmed_at END,payment_confirmed_by=?,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?").bind(next, method, clean(input.reference, 120) || null, next, actorId, merchantId, order.id),
       ]);
+      if (action === "confirmed") {
+        const pricing = await db.prepare("SELECT payable_total_minor FROM merchant_order_pricing WHERE merchant_id=? AND order_id=?").bind(merchantId, order.id).first();
+        const amountMinor = Number(pricing?.payable_total_minor ?? order.total_minor);
+        const paymentId = `manualpay_${order.id}`;
+        const financeMethod = method === "counter" ? "cash" : method === "easycard_terminal" ? "other" : method;
+        await db.batch([
+          db.prepare(`INSERT OR IGNORE INTO merchant_checkout_payment_intents(id,merchant_id,order_id,provider,amount_minor,currency,status,idempotency_key,qr_code,expires_at,paid_at) VALUES(?,?,?,?,?,'TWD','paid',?,'manual',datetime('now','+15 minutes'),CURRENT_TIMESTAMP)`).bind(paymentId, merchantId, order.id, "manual_counter", amountMinor, `manual_confirm:${order.id}`),
+          // Manual counter payments still belong in the existing Finance Core.
+          // The provider/payment reference is deterministic, so a retry cannot
+          // create a second revenue record.
+          db.prepare(`INSERT OR IGNORE INTO payments(id,payment_no,merchant_id,gross_amount,fee_amount,net_amount,amount,currency,payment_method,payment_provider,provider_trade_no,provider_payment_id,status,paid_at,source,note) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'paid',CURRENT_TIMESTAMP,'manual',?)`).bind(paymentId, `QR-MAN-${order.id.slice(-12).toUpperCase()}`, merchantId, amountMinor / 100, 0, amountMinor / 100, amountMinor / 100, "TWD", financeMethod, "manual_counter", paymentId, paymentId, `qr_order:${order.id}`),
+          db.prepare(`INSERT OR IGNORE INTO merchant_payment_domain_events(id,merchant_id,order_id,payment_intent_id,event_type,amount_minor,currency,paid_at) VALUES(?,?,?,?, 'PAYMENT_CONFIRMED',?,'TWD',CURRENT_TIMESTAMP)`).bind(uid("paydomain"), merchantId, order.id, paymentId, amountMinor),
+        ]);
+        await createInvoiceRequestForPayment(db, env, { merchant_id: merchantId, order_id: order.id, payment_id: paymentId, amount_minor: amountMinor, currency: "TWD" });
+      }
+      if (action === "refunded") {
+        const paymentId = `manualpay_${order.id}`;
+        const financePayment = await db.prepare("SELECT id,amount FROM payments WHERE merchant_id=? AND payment_provider='manual_counter' AND provider_payment_id=? LIMIT 1").bind(merchantId, paymentId).first();
+        await db.batch([
+          db.prepare("UPDATE merchant_checkout_payment_intents SET status='refunded',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='paid'").bind(paymentId),
+          ...(financePayment ? [
+            db.prepare("UPDATE payments SET status='refunded',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='paid'").bind(financePayment.id),
+            db.prepare("INSERT OR IGNORE INTO refunds(id,payment_id,amount,reason,status,refunded_at) VALUES(?,?,?,?, 'refunded',CURRENT_TIMESTAMP)").bind(`refund_${paymentId}`, financePayment.id, Number(financePayment.amount), clean(input.reference, 300) || "manual_counter_refund"),
+            db.prepare("INSERT OR IGNORE INTO payment_events(id,provider,event_type,provider_event_id,payment_id,status,metadata,processed_at) VALUES(?,?,?,?,?,'refunded',?,CURRENT_TIMESTAMP)").bind(`payevidence_${paymentId}_refund`, "manual_counter", "refund", `${paymentId}:refund`, financePayment.id, JSON.stringify({ order_id: order.id, manual: true })),
+          ] : []),
+        ]);
+        await coordinateInvoiceRefund(db, env, { merchant_id: merchantId, order_id: order.id, payment_id: paymentId });
+      }
       await audit(db, merchantId, actorType, actorId, `order_payment_${action}`, "order", order.id, { method, actor_role: actorRole });
       return json({ ok: true, payment_status: next }, 200, cors);
     }

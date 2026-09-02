@@ -29,4 +29,5 @@ design-qa.md
 .DS_Store
 data/payment-runtime*.json
 .openai/
+deployment-artifacts/
 AGENTS.md

@@ -11,6 +11,7 @@ import { handleGoogleMapsBookingAdmin, handleMerchantGoogleMapsBooking } from ".
 import { permissionForOrderingRequest } from "./merchant-permissions.js";
 import { handleMerchantAdmin } from "./merchant-admin.js";
 import { handleMerchantPlans, handleMerchantPlansPublic, merchantPlanEntitlements } from "./merchant-plan-catalog.js";
+import { handleDemoMerchantLogin, isStagingDemoMerchant, resetBeefNoodleDemo } from "./demo-merchant.js";
 import { handleMerchantStandardAddons, handleMerchantStandardAddonsAdmin } from "./merchant-standard-addons.js";
 import {
   handleMerchantContractAdmin,
@@ -236,6 +237,12 @@ export default {
       return (await handleMerchantAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
+    if (url.pathname === "/api/merchant-demo/login") {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleDemoMerchantLogin(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
     if (url.pathname.startsWith("/api/contract-verification/") && request.method === "GET") {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const publicId = decodeURIComponent(url.pathname.slice("/api/contract-verification/".length));
@@ -293,10 +300,11 @@ export default {
       const authorization = await authorizeMerchant(request, env, permission);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
       if (await merchantOverrideRequested(request, url, authorization.session.merchant_id)) return merchantCrossAccessDenied(cors);
-      const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
+      const demoMerchant = await isStagingDemoMerchant(env, authorization.session.merchant_id);
+      const operationGate = demoMerchant ? { ok: true } : await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
       if (!operationGate.ok) return json({ error: "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error, onboarding_state: operationGate.state }, operationGate.status, cors);
       if (permission === "ordering.menu.manage") {
-        const entitlements = await merchantPlanEntitlements(env.FINANCE_DB, authorization.session.merchant_id);
+        const entitlements = demoMerchant ? { merchant_product_edit: true } : await merchantPlanEntitlements(env.FINANCE_DB, authorization.session.merchant_id);
         if (!entitlements.merchant_product_edit) return json({ error: "此方案未啟用商城商品自行編輯權限。", code: "MERCHANT_PRODUCT_EDIT_PLAN_REQUIRED" }, 403, cors);
       }
       const scopedUrl = new URL(url);
@@ -315,6 +323,10 @@ export default {
       const authorization = await authorizeMerchant(request, env);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
       if (await merchantOverrideRequested(request, url, authorization.session.merchant_id)) return merchantCrossAccessDenied(cors);
+      if (url.pathname === "/api/merchant-admin/demo/reset") {
+        if (!await isStagingDemoMerchant(env, authorization.session.merchant_id)) return json({ code: "DEMO_RESET_FORBIDDEN", error: "此功能只限隔離的牛肉麵試用環境。" }, 403, cors);
+        return resetBeefNoodleDemo(env.FINANCE_DB, request, authorization.session);
+      }
       if (url.pathname.startsWith("/api/merchant-admin/addon") || url.pathname.startsWith("/api/merchant-admin/addenda") || url.pathname.startsWith("/api/merchant-admin/content-change-requests")) {
         return (await handleMerchantStandardAddons(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
       }
@@ -365,7 +377,10 @@ export default {
 
     if (url.pathname.startsWith("/api/ordering/") || url.pathname.startsWith("/api/member-benefits/") || url.pathname.startsWith("/api/financing/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
-      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      // LINE Pay redirects are top-level provider navigation, not CORS API
+      // calls. Only this exact server-confirmed callback can omit Origin.
+      const linePayCallback = /^\/api\/ordering\/payments\/line-pay\/(confirm|cancel)$/.test(url.pathname);
+      if (!origin && !linePayCallback) return json({ error: "Origin not allowed" }, 403);
       const integrationResponse = await handleMemberIntegrationsPublic(request, env, url, cors);
       if (integrationResponse) return integrationResponse;
       return handleOrderingRequest(request, env, url, cors);
