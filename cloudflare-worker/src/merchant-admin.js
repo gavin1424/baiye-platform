@@ -1,6 +1,7 @@
 import { paymentReadiness } from "./commerce-ai-contract.js";
 import { merchantPlanEntitlements } from "./merchant-plan-catalog.js";
 import { isStagingDemoMerchant } from "./demo-merchant.js";
+import { inventorySummary } from "./inventory.js";
 
 const PERMISSIONS = Object.freeze([
   "merchant.profile.read","merchant.content.read",
@@ -45,7 +46,7 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
   if (!db) return json({ error: "商家管理服務暫時無法使用。" }, 503, cors);
 
   if (url.pathname === "/api/merchant-admin/dashboard" && request.method === "GET") {
-    const [state, profile, terms, counts, entitlements, payment, membership] = await Promise.all([
+    const [state, profile, terms, counts, entitlements, payment, membership, inventory] = await Promise.all([
       lifecycle(db, merchantId, env),
       db.prepare("SELECT * FROM merchant_admin_profiles WHERE merchant_id=?").bind(merchantId).first(),
       db.prepare(`SELECT t.plan_code,t.plan_name,t.discount_price_minor,t.contract_term_months,t.payment_plan
@@ -59,10 +60,11 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
       paymentReadiness(db, merchantId),
       db.prepare(`SELECT p.id platform_member_id,m.id relationship_id,m.status relationship_status
         FROM platform_members p JOIN merchant_ordering_memberships m ON m.customer_id=p.customer_id AND m.merchant_id=?
-        WHERE p.id=?`).bind(merchantId, session.platform_member_id || "").first(),
+      WHERE p.id=?`).bind(merchantId, session.platform_member_id || "").first(),
+      inventorySummary(db, merchantId),
     ]);
     const plan = state.demoEnvironment ? { plan_code: "demo_beef_noodle_full_trial", plan_name: "百工牛肉麵完整商家試用", discount_price_minor: 0, contract_term_months: 0 } : terms || { plan_code: "baiye_standard_18000_addons", plan_name: "NT$18,000 標準方案", discount_price_minor: 1800000, contract_term_months: 24 };
-    return json({ merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name, status: session.merchant_status }, administrator: { display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), status: state.administrator_status }, membership: { platform_member: Boolean(session.platform_member_id), merchant_relationship: membership?.relationship_status === "active", platform_member_id: session.platform_member_id || null, relationship_id: membership?.relationship_id || null }, account_status: state.account_status, contract: { status: state.demoEnvironment ? "demo_exempt" : state.signature ? "signed" : "contract_required", signature: state.signature }, plan: { ...plan, code: plan.plan_code, merchant_content_editable: entitlements?.merchant_content_editable === true, base_product_limit: plan.plan_code === "baiye_standard_18000_addons" ? 20 : null }, entitlements, payment_readiness: payment, profile, counts, permissions: PERMISSIONS, operation_locked: !state.active, demo_environment: state.demoEnvironment, demo_badge: state.demoEnvironment ? "Demo 試用環境" : null }, 200, cors);
+    return json({ merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name, status: session.merchant_status }, administrator: { display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), status: state.administrator_status }, membership: { platform_member: Boolean(session.platform_member_id), merchant_relationship: membership?.relationship_status === "active", platform_member_id: session.platform_member_id || null, relationship_id: membership?.relationship_id || null }, account_status: state.account_status, contract: { status: state.demoEnvironment ? "demo_exempt" : state.signature ? "signed" : "contract_required", signature: state.signature }, plan: { ...plan, code: plan.plan_code, merchant_content_editable: entitlements?.merchant_content_editable === true, base_product_limit: plan.plan_code === "baiye_standard_18000_addons" ? 20 : null }, entitlements, payment_readiness: payment, profile, counts, inventory, permissions: PERMISSIONS, operation_locked: !state.active, demo_environment: state.demoEnvironment, demo_badge: state.demoEnvironment ? "Demo 試用環境" : null }, 200, cors);
   }
 
   if (url.pathname === "/api/merchant-admin/commerce" && request.method === "GET") {

@@ -13,6 +13,7 @@ import { handleMerchantAdmin } from "./merchant-admin.js";
 import { handleMerchantPlans, handleMerchantPlansPublic, merchantPlanEntitlements } from "./merchant-plan-catalog.js";
 import { handleDemoMerchantLogin, isStagingDemoMerchant, resetBeefNoodleDemo } from "./demo-merchant.js";
 import { handleMerchantProductAsset, serveMerchantProductAsset } from "./merchant-assets.js";
+import { handleMerchantInventory } from "./inventory.js";
 import { handleMerchantStandardAddons, handleMerchantStandardAddonsAdmin } from "./merchant-standard-addons.js";
 import {
   handleMerchantContractAdmin,
@@ -20,7 +21,7 @@ import {
   handleMerchantContractRequest,
   handlePublicContractVerification,
 } from "./merchant-contracts.js";
-import { handlePlatformMemberRequest } from "./platform-membership.js";
+import { authenticatePlatformMember, handlePlatformMemberRequest } from "./platform-membership.js";
 import { handleSharedQrMembershipCompatibility } from "./membership-compat.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
@@ -326,8 +327,14 @@ export default {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const authorization = await authorizeMerchant(request, env);
-      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      if (!authorization.ok) {
+        if (url.pathname.startsWith("/api/merchant-admin/inventory") && authorization.status === 401 && await authenticatePlatformMember(env.FINANCE_DB, request)) return json({ code: "INVENTORY_FORBIDDEN", error: "一般會員不可存取商家庫存。" }, 403, cors);
+        return json({ error: authorization.error }, authorization.status, cors);
+      }
       if (await merchantOverrideRequested(request, url, authorization.session.merchant_id)) return merchantCrossAccessDenied(cors);
+      if (url.pathname.startsWith("/api/merchant-admin/inventory")) {
+        return (await handleMerchantInventory(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
+      }
       if (/^\/api\/merchant-admin\/products\/[^/]+\/image$/.test(url.pathname)) {
         return (await handleMerchantProductAsset(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
       }

@@ -87,6 +87,9 @@ export type OrderingMenuItem = {
   status: "active" | "sold_out" | "hidden" | "archived";
   allow_customer_note: boolean;
   daily_limit?: number | null;
+  inventory_enabled?: boolean;
+  inventory_exists?: boolean;
+  stock_on_hand?: number | null;
 };
 
 export type OrderingOptionGroup = {

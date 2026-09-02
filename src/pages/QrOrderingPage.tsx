@@ -366,7 +366,7 @@ export function QrOrderingPage() {
       .filter((group): group is OrderingOptionGroup => Boolean(group?.active));
 
   const openItem = (item: OrderingMenuItem) => {
-    if (item.status === "sold_out" || item.available === false) return;
+    if (item.status === "sold_out" || item.available === false || (item.inventory_enabled && Number(item.stock_on_hand) === 0)) return;
     setDraftSelection(
       itemSelections[item.id] || { option_value_ids: [], note: "" },
     );
@@ -397,10 +397,12 @@ export function QrOrderingPage() {
   };
 
   const changeQuantity = (itemId: string, delta: number) => {
+    const item = items.find((candidate) => candidate.id === itemId);
+    const maximum = item?.inventory_enabled ? Math.min(20, Number(item.stock_on_hand || 0)) : 20;
     setCart((current) => {
       const next = Math.max(
         0,
-        Math.min(20, Number(current[itemId] || 0) + delta),
+        Math.min(maximum, Number(current[itemId] || 0) + delta),
       );
       if (next === 0) {
         const copy = { ...current };
@@ -537,6 +539,7 @@ export function QrOrderingPage() {
         setToken("");
         setMember(null);
       }
+      if (errorStatus(error) === 409 && (error as { code?: string })?.code === "INVENTORY_INSUFFICIENT") await loadMenu(context, token).catch(() => undefined);
       setMessage(errorMessage(error));
     } finally {
       setSubmitting(false);
@@ -913,8 +916,7 @@ export function QrOrderingPage() {
                   <div className="ordering-menu-grid">
                     {categoryItems.map((item) => {
                       const quantity = Number(cart[item.id] || 0);
-                      const soldOut =
-                        item.status === "sold_out" || item.available === false;
+                      const soldOut = item.status === "sold_out" || item.available === false || (item.inventory_enabled && Number(item.stock_on_hand) === 0);
                       return (
                         <article
                           className={`ordering-menu-item ${soldOut ? "is-sold-out" : ""}`}
@@ -934,7 +936,7 @@ export function QrOrderingPage() {
                               {money(item.price_minor, context.currency)}
                             </strong>
                             {soldOut && (
-                              <span className="ordering-soldout">今日售完</span>
+                              <span className="ordering-soldout">售完</span>
                             )}
                           </div>
                           <div
@@ -958,7 +960,7 @@ export function QrOrderingPage() {
                                   ? openItem(item)
                                   : changeQuantity(item.id, 1)
                               }
-                              disabled={soldOut || quantity >= 20}
+                              disabled={soldOut || quantity >= (item.inventory_enabled ? Math.min(20, Number(item.stock_on_hand || 0)) : 20)}
                               aria-label={`增加${item.name}`}
                             >
                               <Plus />
@@ -1077,6 +1079,7 @@ export function QrOrderingPage() {
                           ? openItem(item)
                           : changeQuantity(item.id, 1)
                       }
+                      disabled={item.inventory_enabled && item.quantity >= Number(item.stock_on_hand || 0)}
                     >
                       <Plus />
                     </button>

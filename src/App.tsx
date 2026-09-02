@@ -26,7 +26,7 @@ import { AdminAddonsPage } from "./pages/AdminAddonsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
 import { MemberLoginCompatibility, MerchantQrCodesCompatibility, QrMembershipJoinCompatibility } from "./pages/QrMembershipCompatibilityPages";
 import { AdminGoogleMapsBookingPage, GoogleMapsBookingLandingPage, GoogleMapsBookingPage, MerchantGoogleMapsBookingPage } from "./pages/GoogleMapsBookingPages";
-import { MerchantAccountPage, MerchantAddonsPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantContentChangePage, MerchantLinePage, MerchantMembersPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
+import { MerchantAccountPage, MerchantAddonsPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantContentChangePage, MerchantInventoryPage, MerchantLinePage, MerchantMembersPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 import { JoinPage, MerchantPlanSelectorPage } from "./pages/JoinPages";
 import { DemoMerchantLoginPage } from "./pages/DemoMerchantLoginPage";
 
@@ -232,7 +232,7 @@ export function App() {
           <Route path="/merchant/line" element={<MerchantLinePage />} />
           <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
           <Route path="/merchant/account" element={<MerchantAccountPage />} />
-          <Route path="/merchant/inventory" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-items" }} replace />} />
+          <Route path="/merchant/inventory" element={<MerchantInventoryPage />} />
           <Route path="/merchant/payments" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-payments" }} replace />} />
           <Route path="/merchant/invoice" element={<Navigate to={{ pathname: "/merchant-admin/ordering", hash: "#ordering-invoice" }} replace />} />
           <Route path="/merchant-admin/ordering/kitchen" element={<MerchantKitchenDisplayPage />} />

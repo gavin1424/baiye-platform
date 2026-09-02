@@ -78,6 +78,9 @@ export async function resetBeefNoodleDemo(env, request, session) {
     db.prepare("DROP TRIGGER IF EXISTS trg_food_order_items_no_delete"),
     db.prepare("DROP TRIGGER IF EXISTS trg_order_pricing_no_delete"),
     db.prepare("DROP TRIGGER IF EXISTS trg_invoices_document_immutable_delete"),
+    db.prepare("DROP TRIGGER IF EXISTS trg_inventory_movements_no_delete"),
+    db.prepare("DELETE FROM merchant_inventory_movements WHERE merchant_id=?").bind(DEMO_MERCHANT_ID),
+    db.prepare("DELETE FROM merchant_inventory_items WHERE merchant_id=?").bind(DEMO_MERCHANT_ID),
     db.prepare("DELETE FROM invoice_events WHERE merchant_id=?").bind(DEMO_MERCHANT_ID),
     db.prepare("DELETE FROM invoice_allowances WHERE merchant_id=?").bind(DEMO_MERCHANT_ID),
     db.prepare("DELETE FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE merchant_id=?)").bind(DEMO_MERCHANT_ID),
@@ -142,6 +145,7 @@ export async function resetBeefNoodleDemo(env, request, session) {
     db.prepare("CREATE TRIGGER trg_food_order_items_no_delete BEFORE DELETE ON merchant_food_order_items BEGIN SELECT RAISE(ABORT,'submitted order items are immutable'); END"),
     db.prepare("CREATE TRIGGER trg_order_pricing_no_delete BEFORE DELETE ON merchant_order_pricing BEGIN SELECT RAISE(ABORT,'order pricing is immutable'); END"),
     db.prepare("CREATE TRIGGER trg_invoices_document_immutable_delete BEFORE DELETE ON invoices FOR EACH ROW BEGIN SELECT RAISE(ABORT,'issued invoices cannot be deleted'); END"),
+    db.prepare("CREATE TRIGGER trg_inventory_movements_no_delete BEFORE DELETE ON merchant_inventory_movements BEGIN SELECT RAISE(ABORT,'INVENTORY_LEDGER_IMMUTABLE'); END"),
   ];
   if (session.platform_member_id) {
     statements.splice(statements.length - 4, 0, db.prepare(`INSERT INTO merchant_ordering_memberships(
@@ -153,5 +157,5 @@ export async function resetBeefNoodleDemo(env, request, session) {
   }
   await db.batch(statements);
   await db.prepare("INSERT INTO staging_demo_auth_events(id,merchant_id,username_hash,action,ip_hash,user_agent_hash,metadata_json) VALUES(?,?,?,?,?,?,?)").bind(uid("sdauth"), DEMO_MERCHANT_ID, await sha("username:baiye-beef-demo"), "demo_reset", await sha(`ip:${request.headers.get("cf-connecting-ip") || "unknown"}`), await sha(`ua:${request.headers.get("user-agent") || "unknown"}`), JSON.stringify({ actor_user_id: session.user_id, golden_restored: true })).run();
-  return json({ ok: true, merchant_id: DEMO_MERCHANT_ID, golden_restored: true, preserved: ["merchant", "credentials", "contract_evidence", "audit"] }, 200);
+  return json({ ok: true, merchant_id: DEMO_MERCHANT_ID, golden_restored: true, inventory_reset: "blank", preserved: ["merchant", "credentials", "contract_evidence", "audit"] }, 200);
 }

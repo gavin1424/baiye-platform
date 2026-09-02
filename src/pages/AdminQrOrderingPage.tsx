@@ -1318,6 +1318,7 @@ export function AdminQrOrderingPage({
                   </button>
                 </div>
                 <MerchantMenuItemEditor item={item} categories={categories} onSave={async (payload) => { await mutate(`/api/admin/ordering/items/${item.id}`, { method: "PATCH", body: JSON.stringify(payload) }, "商品資料已儲存並同步前台。"); }} />
+                <div className="ordering-item-inventory-status"><span>庫存狀態：{item.inventory_exists ? `目前 ${item.stock_on_hand} 份${item.inventory_enabled ? "" : "（未啟用控制）"}` : "未建立庫存"}</span><a className="btn btn-outline" href="#/merchant/inventory">管理庫存</a></div>
                 <button type="button" className="ordering-item-archive" onClick={() => window.confirm("確定將此商品下架並封存？歷史訂單不會被刪除。") && void mutate(`/api/admin/ordering/items/${item.id}`, { method: "PATCH", body: JSON.stringify({ status: "archived" }) }, "商品已安全封存。")}>
                   刪除／封存商品
                 </button>

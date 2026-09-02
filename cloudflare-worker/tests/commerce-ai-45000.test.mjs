@@ -30,6 +30,7 @@ class D1 {
     for (const name of readdirSync(new URL("../migrations", import.meta.url)).filter((value) => /^\d+.*\.sql$/.test(value)).sort()) {
       this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8").replace(/\r\n/g, "\n"));
     }
+    this.sqlite.exec(readFileSync(new URL("../migrations-ordering-demo/0034_merchant_inventory_v1.sql", import.meta.url), "utf8"));
   }
   prepare(sql) { return new Statement(this.sqlite.prepare(sql)); }
   async batch(statements) { return Promise.all(statements.map((statement) => statement.run())); }

@@ -21,6 +21,9 @@ DROP TRIGGER IF EXISTS trg_ordering_item_option_immutable_delete;
 DROP TRIGGER IF EXISTS trg_food_order_items_no_delete;
 DROP TRIGGER IF EXISTS trg_order_pricing_no_delete;
 DROP TRIGGER IF EXISTS trg_invoices_document_immutable_delete;
+DROP TRIGGER IF EXISTS trg_inventory_movements_no_delete;
+DELETE FROM merchant_inventory_movements WHERE merchant_id='demo_beef_noodle';
+DELETE FROM merchant_inventory_items WHERE merchant_id='demo_beef_noodle';
 DELETE FROM invoice_events WHERE merchant_id='demo_beef_noodle';
 DELETE FROM invoice_allowances WHERE merchant_id='demo_beef_noodle';
 DELETE FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE merchant_id='demo_beef_noodle');
@@ -63,6 +66,9 @@ CREATE TRIGGER trg_invoices_document_immutable_delete
 BEFORE DELETE ON invoices
 FOR EACH ROW
 BEGIN SELECT RAISE(ABORT, 'issued invoices cannot be deleted'); END;
+CREATE TRIGGER trg_inventory_movements_no_delete
+BEFORE DELETE ON merchant_inventory_movements
+BEGIN SELECT RAISE(ABORT,'INVENTORY_LEDGER_IMMUTABLE'); END;
 `;
 
 const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "baiye-beef-demo-reset-"));
@@ -76,4 +82,4 @@ rmSync(temporaryDirectory, { recursive: true, force: true });
 
 if (result.error) throw result.error;
 if (result.status !== 0) throw new Error(`Demo cleanup failed with exit code ${result.status}.`);
-console.log("Demo transactional data reset completed. Merchant, customer identity core, platform members, menu, options and QR codes were preserved.");
+console.log("Demo transactional data reset completed. Inventory was reset to blank; merchant, customer identity core, platform members, menu, options and QR codes were preserved.");
