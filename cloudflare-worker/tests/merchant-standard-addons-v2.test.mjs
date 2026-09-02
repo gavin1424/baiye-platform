@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { handleMerchantStandardAddons, handleMerchantStandardAddonsAdmin, priceAddon, STANDARD_ADDON_PLAN } from "../src/merchant-standard-addons.js";
+import { testContractFontAssets } from "./contract-font-fixture.mjs";
 
 class Statement { constructor(statement){this.statement=statement;this.values=[];} bind(...values){this.values=values;return this;} async run(){const r=this.statement.run(...this.values);return{meta:{changes:Number(r.changes||0)}};} async first(){return this.statement.get(...this.values)||null;} async all(){return{results:this.statement.all(...this.values)}} }
 class D1 { constructor(){this.sqlite=new DatabaseSync(":memory:");for(const name of readdirSync(new URL("../migrations",import.meta.url)).filter((x)=>/^\d+.*\.sql$/.test(x)).sort())this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));} prepare(sql){return new Statement(this.sqlite.prepare(sql));} async batch(items){return Promise.all(items.map((x)=>x.run()));} }
@@ -10,7 +11,7 @@ class R2 { objects=new Map(); async put(key,value){this.objects.set(key,value);}
 const auth={session:{merchant_id:"merchant-addon",user_id:"merchant-owner",roles:"owner"}};
 const admin={admin_user_id:"admin-1"};
 const req=(path,method="GET",body)=>new Request(`https://worker.test${path}`,{method,headers:{"user-agent":"addon-v2-test",...(body?{"content-type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{})});
-const merchantCall=(db,path,method="GET",body,bucket=new R2())=>{const request=req(path,method,body);return handleMerchantStandardAddons(request,{FINANCE_DB:db,CONTRACTS_BUCKET:bucket,CONTRACT_SIGNING_MODE:"staging"},new URL(request.url),{},auth);};
+const merchantCall=(db,path,method="GET",body,bucket=new R2())=>{const request=req(path,method,body);return handleMerchantStandardAddons(request,{FINANCE_DB:db,CONTRACTS_BUCKET:bucket,CONTRACT_SIGNING_MODE:"staging",CONTRACT_FONT_ASSETS_FOR_TESTS:testContractFontAssets},new URL(request.url),{},auth);};
 const adminCall=(db,path,method="GET",body)=>{const request=req(path,method,body);return handleMerchantStandardAddonsAdmin(request,{FINANCE_DB:db},new URL(request.url),{},admin);};
 
 function seed(db,{signed=true}={}) {
