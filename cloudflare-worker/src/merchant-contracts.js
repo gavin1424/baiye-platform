@@ -19,6 +19,7 @@ import { ensureStandardCommercialTerms, isStandardCommercialTerms } from "./merc
 import { MERCHANT_SERVICE_V11_ID, MERCHANT_SERVICE_V11_TITLE, merchantServiceV11AttachmentA } from "./merchant-contract-v11.js";
 import {
   SOFTPOS_CONTRACT_VERSION_ID,
+  declineSoftposRenewal,
   ensureSoftposCommercialTerms,
   getSoftposRenewal,
   isSoftposCommercialTerms,
@@ -270,6 +271,11 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
       const plan = await softposPlanSummary(db);
       await contractEvent(db, request, { merchantId: session.merchant_id, actorType: "merchant", actorId: session.user_id, action: "merchant_softpos_renewal_prepared", metadata: { cycle_id: cycle.id, cycle_number: cycle.cycle_number, balance_due_minor: cycle.balance_due_minor, payment_transaction_created: false } });
       return json({ cycle, plan, payment_provider: plan.payment_provider }, 201, cors);
+    }
+    if (url.pathname === "/api/merchant/contracts/renewal/decline" && request.method === "POST") {
+      const result = await declineSoftposRenewal(db, session.merchant_id);
+      await contractEvent(db, request, { merchantId: session.merchant_id, actorType: "merchant", actorId: session.user_id, action: "merchant_softpos_renewal_declined", metadata: { operation_locked: true, evidence_preserved: true } });
+      return json(result, 200, cors);
     }
     if (url.pathname === "/api/merchant/contracts" && request.method === "GET") {
       const rows = await db.prepare("SELECT s.id,s.public_id,s.signed_at,s.status,s.pdf_hash,v.version,v.title FROM merchant_contract_signatures s JOIN merchant_contract_versions v ON v.id=s.contract_version_id WHERE s.merchant_id=? ORDER BY s.signed_at DESC").bind(session.merchant_id).all();

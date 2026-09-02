@@ -195,3 +195,16 @@ export async function prepareSoftposRenewal(db, merchantId, now = new Date()) {
     .bind(id, current.subscription.id, cycleNumber, credit, balance).run();
   return db.prepare("SELECT * FROM merchant_service_cycles WHERE id=?").bind(id).first();
 }
+
+export async function declineSoftposRenewal(db, merchantId, now = new Date()) {
+  const current = await getSoftposRenewal(db, merchantId, now);
+  if (!current) throw new ContractError("SOFTPOS_SUBSCRIPTION_MISSING", "找不到 SoftPOS 試用與續約狀態。", 404);
+  if (!["RENEWAL_REQUIRED", "EXPIRED"].includes(current.subscription.renewal_state)) throw new ContractError("SOFTPOS_RENEWAL_NOT_DUE", "目前尚未進入續用確認階段。", 409);
+  const statements = [
+    db.prepare("UPDATE merchant_service_subscriptions SET renewal_state='EXPIRED',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(current.subscription.id),
+    db.prepare("UPDATE merchant_onboarding_states SET state='closed',operation_locked=1,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=?").bind(merchantId),
+  ];
+  if (current.cycle?.status === "PAYMENT_REQUIRED") statements.push(db.prepare("UPDATE merchant_service_cycles SET status='DECLINED' WHERE id=? AND renewal_contract_signature_id IS NULL").bind(current.cycle.id));
+  await db.batch(statements);
+  return { renewal_state: "EXPIRED", operation_locked: true, data_retention: "已簽契約、付款記錄、PDF、Evidence、Hash 及 Audit 依契約與法令保留。" };
+}

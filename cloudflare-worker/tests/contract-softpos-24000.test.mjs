@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { handleMerchantContractRequest } from "../src/merchant-contracts.js";
+import { merchantOperationsAllowed } from "../src/merchant-auth.js";
 import { sha256 } from "../src/contract-pdf.js";
 import {
   INSTALLMENT_DISCLOSURE,
   SOFTPOS_CONTRACT_VERSION_ID,
   SOFTPOS_PLAN_ID,
+  declineSoftposRenewal,
   deriveRenewalState,
   ensureSoftposCommercialTerms,
   prepareSoftposRenewal,
@@ -142,4 +144,13 @@ test("SP11 UI includes the legal commercial labels and never claims zero hardwar
   const page = readFileSync(new URL("../../src/pages/MerchantContractPages.tsx", import.meta.url), "utf8");
   for (const phrase of ["開通費","保證金","前三個月","正式方案","第一週期抵充後","後續週期","是否續用免 POS 機智慧點餐系統","不會產生假交易"]) assert.match(page, new RegExp(phrase));
   assert.doesNotMatch(page, />完全零硬體</);
+});
+
+test("SP12 Trial expiry locks operations and decline preserves evidence", async () => {
+  const db = await seed(), r2 = new R2(); await call(db, "/api/merchant/contracts/sign", "POST", signBody, { "idempotency-key": "softpos-sign-0004" }, { CONTRACTS_BUCKET: r2, ...testContractFontEnv });
+  db.sqlite.prepare("UPDATE merchant_service_subscriptions SET trial_ends_at='2026-01-01' WHERE merchant_id='merchant-softpos'").run();
+  const gate = await merchantOperationsAllowed(db, "merchant-softpos"); assert.equal(gate.ok, false); assert.equal(gate.error, "SOFTPOS_RENEWAL_REQUIRED");
+  const declined = await declineSoftposRenewal(db, "merchant-softpos", new Date("2026-09-02T00:00:00+08:00")); assert.equal(declined.operation_locked, true); assert.match(declined.data_retention, /PDF.*Evidence.*Hash.*Audit/);
+  assert.equal(db.sqlite.prepare("SELECT operation_locked FROM merchant_onboarding_states WHERE merchant_id='merchant-softpos'").get().operation_locked, 1);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_contract_artifacts").get().count, 2);
 });
