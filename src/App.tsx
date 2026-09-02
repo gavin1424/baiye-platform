@@ -19,6 +19,7 @@ import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
+import { MerchantLoginPage, MerchantRegisterPage } from "./pages/MerchantAccessPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
 
@@ -70,7 +71,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
   "/services/deposit-settlement": "訂金代收與月結對帳服務｜創百業智慧鏈",
   "/merchant/settlements": "商家月結對帳｜創百業智慧鏈",
-  "/partner": "承攬夥伴中心｜創百業智慧鏈",
+  "/partner": "加入創百業智慧鏈",
   "/partner/apply": "承攬夥伴合作申請｜創百業智慧鏈",
   "/partner/activate": "啟用承攬夥伴帳號｜創百業智慧鏈",
   "/partner/login": "承攬夥伴登入｜創百業智慧鏈",
@@ -79,6 +80,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/partners": "承攬夥伴管理｜創百業智慧鏈",
   "/admin/contracts": "契約管理｜創百業智慧鏈",
   "/merchant/activate": "啟用商家帳號｜創百業智慧鏈",
+  "/merchant/register": "商家註冊｜創百業智慧鏈",
+  "/merchant/login": "商家登入｜創百業智慧鏈",
   "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
   "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
   "/member/join": "手機一鍵加入會員｜創百業智慧鏈",
@@ -253,6 +256,8 @@ export function App() {
         <Route path="/partner/dashboard" element={<PartnerDashboard />} />
         <Route path="/partner/commissions" element={<PartnerDashboard />} />
         <Route path="/merchant/activate" element={<MerchantContractActivate />} />
+        <Route path="/merchant/register" element={<MerchantRegisterPage />} />
+        <Route path="/merchant/login" element={<MerchantLoginPage />} />
         <Route path="/merchant/contract" element={<MerchantContractPage />} />
         <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
         <Route path="/verify-contract/:publicId" element={<VerifyContractPage />} />

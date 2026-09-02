@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
+import { Handshake, SignIn, Storefront, X } from "@phosphor-icons/react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
 import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
@@ -111,6 +112,7 @@ function PartnerStatusLookup() {
   };
   return (
     <section
+      id="partner-status-lookup"
       className="partner-status-lookup"
       aria-labelledby="partner-status-title"
     >
@@ -150,26 +152,43 @@ function PartnerStatusLookup() {
 }
 
 export function PartnerLanding() {
+  const [loginOpen, setLoginOpen] = useState(false);
+  useEffect(() => {
+    if (!loginOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setLoginOpen(false); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [loginOpen]);
+
   return (
-    <main className="partner-shell">
-      <section className="partner-hero">
-        <p className="partner-eyebrow">創百業智慧鏈｜承攬夥伴中心</p>
-        <h1>以成果承攬合作，共創百業數位升級</h1>
-        <p className="partner-lead">
-          推薦新商家、累積有效成交，依承攬夥伴等級取得推廣獎勵。
-        </p>
-        <p>
-          本計畫採獨立承攬／居間合作性質，不設打卡、固定工時、排班或工作地點管理。
-        </p>
-        <div className="partner-hero-actions">
-          <Link className="btn btn-primary" to="/partner/apply">
-            申請成為承攬夥伴
-          </Link>
-          <Link className="btn btn-outline" to="/partner/login">
-            承攬夥伴登入
-          </Link>
-        </div>
+    <main className="partner-shell partner-join-hub">
+      <section className="partner-join-intro">
+        <p className="partner-eyebrow">創百業智慧鏈</p>
+        <h1>加入創百業智慧鏈</h1>
+        <p>選擇您的身分，開始使用平台服務。</p>
       </section>
+
+      <section className="partner-entry-list" aria-label="加入與登入入口">
+        <article className="partner-entry-card">
+          <span className="partner-entry-icon"><Handshake weight="duotone" /></span>
+          <div><h2>承攬夥伴註冊</h2><p>推薦商家加入平台，依有效成交累積承攬獎勵。</p></div>
+          <Link className="btn btn-primary" to="/partner/apply">註冊成為承攬夥伴</Link>
+          <button type="button" className="partner-entry-secondary" onClick={() => document.getElementById("partner-status-lookup")?.scrollIntoView({ behavior: "smooth", block: "start" })}>查詢申請狀態</button>
+        </article>
+
+        <article className="partner-entry-card">
+          <span className="partner-entry-icon"><Storefront weight="duotone" /></span>
+          <div><h2>商家註冊</h2><p>建立商家帳號，完成平台服務契約後即可開始設定服務。</p></div>
+          <Link className="btn btn-primary" to="/merchant/register">註冊商家</Link>
+        </article>
+
+        <article className="partner-entry-card">
+          <span className="partner-entry-icon"><SignIn weight="duotone" /></span>
+          <div><h2>登入</h2><p>已經有帳號？登入您的商家或承攬夥伴帳號。</p></div>
+          <button type="button" className="btn btn-primary" onClick={() => setLoginOpen(true)}>立即登入</button>
+        </article>
+      </section>
+
       <PartnerStatusLookup />
       <section
         className="partner-commission-summary"
@@ -223,6 +242,7 @@ export function PartnerLanding() {
           1,000 家門檻。
         </p>
       </section>
+      {loginOpen && <div className="partner-login-choice" role="dialog" aria-modal="true" aria-labelledby="partner-login-choice-title"><button type="button" className="partner-login-backdrop" aria-label="關閉登入選擇" onClick={() => setLoginOpen(false)} /><section className="partner-login-panel"><button type="button" className="partner-login-close" aria-label="關閉" onClick={() => setLoginOpen(false)}><X /></button><p className="partner-eyebrow">選擇登入身分</p><h2 id="partner-login-choice-title">登入創百業智慧鏈</h2><p>請選擇您要前往的帳號入口。</p><div><Link className="btn btn-primary" to="/partner/login">承攬夥伴登入</Link><Link className="btn btn-outline" to="/merchant/login">商家登入</Link></div></section></div>}
     </main>
   );
 }

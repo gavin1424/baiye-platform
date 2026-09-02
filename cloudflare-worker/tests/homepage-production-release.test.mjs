@@ -35,6 +35,16 @@ test("immersive homepage restores the historical five-item mobile navigation", (
   assert.doesNotMatch(styles, /body:has\(\.immersive-home\) \.ai-chat\{display:none\}/);
 });
 
+test("partner landing exposes three safe entry choices without coupon copy", () => {
+  const partner = read("src/pages/PartnerPages.tsx");
+  const app = read("src/App.tsx");
+  for (const label of ["加入創百業智慧鏈", "承攬夥伴註冊", "商家註冊", "登入", "查詢申請狀態"]) assert.match(partner, new RegExp(label));
+  for (const route of ["/partner/apply", "/merchant/register", "/partner/login", "/merchant/login"]) assert.match(partner, new RegExp(route.replaceAll("/", "\\/")));
+  assert.match(app, /path="\/merchant\/register"/);
+  assert.match(app, /path="\/merchant\/login"/);
+  for (const forbidden of ["NT$100", "迎新券", "優惠券", "折價券"]) assert.equal(partner.includes(forbidden), false);
+});
+
 test("public membership and contract UI no longer presents coupons", () => {
   const publicUi = [
     "src/pages/HomePage.tsx",
