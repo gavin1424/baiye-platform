@@ -1,5 +1,6 @@
 import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
 import { ensureStandardCommercialTerms } from "./merchant-standard-terms.js";
+import { getSoftposRenewal } from "./merchant-softpos-plan.js";
 
 const E = new TextEncoder(), COOKIE = "baiye_merchant_session", ITERATIONS = 600000, SEGMENT = 100000;
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=UTF-8", "cache-control": "no-store", ...headers } });
@@ -27,6 +28,10 @@ export async function authorizeMerchant(request, env, permission = "") {
 }
 
 export async function merchantOperationsAllowed(db, merchantId) {
+  const softpos = await getSoftposRenewal(db, merchantId);
+  if (softpos && ["RENEWAL_REQUIRED", "EXPIRED"].includes(softpos.subscription.renewal_state)) {
+    return { ok: false, status: 423, error: "SOFTPOS_RENEWAL_REQUIRED", state: softpos.subscription.renewal_state };
+  }
   const state = await db.prepare("SELECT operation_locked,state FROM merchant_onboarding_states WHERE merchant_id=?").bind(merchantId).first();
   if (state && Number(state.operation_locked) === 1) {
     return { ok: false, status: 423, error: "MERCHANT_CONTRACT_REQUIRED", state: state.state };
