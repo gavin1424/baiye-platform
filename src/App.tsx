@@ -23,6 +23,7 @@ import { MerchantLoginPage, MerchantPortalPage, MerchantRegisterPage } from "./p
 import { AdminContractsPage } from "./pages/AdminContractsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
 import { MemberLoginCompatibility, MerchantQrCodesCompatibility, QrMembershipJoinCompatibility } from "./pages/QrMembershipCompatibilityPages";
+import { AdminGoogleMapsBookingPage, GoogleMapsBookingLandingPage, GoogleMapsBookingPage, MerchantGoogleMapsBookingPage } from "./pages/GoogleMapsBookingPages";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -52,6 +53,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/notifications": "通知中心｜創百業智慧鏈",
   "/pricing": "AI 行銷推廣方案｜創百業智慧鏈",
   "/features": "全部功能總覽｜創百業智慧鏈",
+  "/google-maps-booking": "Google 地圖預約｜創百業智慧鏈",
   "/pos-comparison": "Web-POS 效益與成本比較｜創百業智慧鏈",
   "/demo-sites": "五大產業示範網站｜創百業智慧鏈",
   "/about": "關於平台｜創百業智慧鏈",
@@ -82,12 +84,14 @@ const PAGE_TITLES: Record<string, string> = {
   "/partner/contract": "線上承攬夥伴合作契約｜創百業智慧鏈",
   "/admin/partners": "承攬夥伴管理｜創百業智慧鏈",
   "/admin/contracts": "契約管理｜創百業智慧鏈",
+  "/admin/google-maps-booking": "Google 地圖預約開通管理｜創百業智慧鏈",
   "/merchant/register": "商家註冊｜創百業智慧鏈",
   "/merchant/login": "商家登入｜創百業智慧鏈",
   "/merchant/activate": "商家註冊｜創百業智慧鏈",
   "/merchant": "商家中心｜創百業智慧鏈",
   "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
   "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
+  "/merchant/google-maps-booking": "Google 地圖預約開通申請｜創百業智慧鏈",
   "/member/join": "手機一鍵加入會員｜創百業智慧鏈",
   "/member/welcome": "歡迎成為創百業會員｜創百業智慧鏈",
   "/member": "我的會員｜創百業智慧鏈",
@@ -103,6 +107,8 @@ function ScrollAndMetadata() {
       PAGE_TITLES[path] ||
       (path.startsWith("/partner/contracts/") && path.endsWith("/view")
         ? "查看已簽承攬夥伴契約｜創百業智慧鏈"
+        : path.startsWith("/booking/")
+        ? "商家線上預約｜創百業智慧鏈"
         : path.startsWith("/q/")
         ? "掃碼加入會員與手機點餐｜創百業智慧鏈"
         : path.startsWith("/verify-contract/")
@@ -246,6 +252,8 @@ export function App() {
         <Route path="/notifications" element={<MerchantAccessUnavailablePage />} />
         <Route path="/pricing" element={<PricingPageV13 />} />
         <Route path="/features" element={<FeaturesPage />} />
+        <Route path="/google-maps-booking" element={<GoogleMapsBookingLandingPage />} />
+        <Route path="/booking/:token" element={<GoogleMapsBookingPage />} />
         <Route path="/pos-comparison" element={<PosComparisonPage />} />
         <Route path="/services/deposit-settlement" element={<DepositSettlementPage />} />
         <Route path="/merchant/settlements" element={<MerchantSettlementsUnavailablePage />} />
@@ -271,6 +279,7 @@ export function App() {
         <Route path="/merchant" element={<MerchantPortalPage />} />
         <Route path="/merchant/contract" element={<MerchantContractPage />} />
         <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
+        <Route path="/merchant/google-maps-booking" element={<MerchantGoogleMapsBookingPage />} />
         <Route path="/verify-contract/:publicId" element={<VerifyContractPage />} />
         <Route path="/join" element={<PartnerReferralJoin />} />
         <Route path="/admin" element={<AdminRoute><ProductionAdminOverview /></AdminRoute>} />
@@ -280,6 +289,7 @@ export function App() {
         <Route path="/admin/financing" element={<AdminRoute><AdminFinancingPage /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
         <Route path="/admin/contracts" element={<AdminRoute><AdminContractsPage /></AdminRoute>} />
+        <Route path="/admin/google-maps-booking" element={<AdminRoute><AdminGoogleMapsBookingPage /></AdminRoute>} />
         <Route path="*" element={<ProductionNotFoundPage />} />
       </Routes>
       <ContextualAiChatWidget />

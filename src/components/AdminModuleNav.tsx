@@ -1,7 +1,7 @@
 import { ArrowLeft, CalendarBlank, Handshake, QrCode, Receipt, Signature } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 
-type AdminModule = "overview" | "finance" | "bookings" | "ordering" | "partners" | "contracts";
+type AdminModule = "overview" | "finance" | "bookings" | "ordering" | "partners" | "contracts" | "google-booking";
 
 export function AdminModuleNav({ current }: { current: AdminModule }) {
   return (
@@ -17,6 +17,7 @@ export function AdminModuleNav({ current }: { current: AdminModule }) {
           <CalendarBlank /> 預約管理
         </Link>
       )}
+      {current !== "google-booking" && <Link to="/admin/google-maps-booking">Google 地圖預約</Link>}
       {current !== "ordering" && (
         <Link to="/admin/ordering">
           <QrCode /> 掃碼會員與點餐

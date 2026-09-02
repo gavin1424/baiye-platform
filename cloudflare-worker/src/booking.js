@@ -1,3 +1,5 @@
+import { ensurePlatformMember } from "./platform-membership.js";
+
 const E = new TextEncoder();
 const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed"];
 const CUSTOMER_ERROR = "預約系統目前暫時忙碌，請稍後再試，或透過 LINE 聯絡我們。";
@@ -49,7 +51,7 @@ function publicBooking(row) {
 }
 
 async function routeContext(db, routeSlug) {
-  return db.prepare(`SELECT r.route_slug,r.merchant_id,r.booking_url,s.* FROM merchant_booking_routes r JOIN merchant_booking_settings s ON s.merchant_id=r.merchant_id WHERE r.route_slug=? AND r.active=1`).bind(routeSlug).first();
+  return db.prepare(`SELECT r.route_slug,r.merchant_id,r.booking_url,r.referral_source,m.name merchant_name,a.line_add_friend_url,s.* FROM merchant_booking_routes r JOIN merchant_booking_settings s ON s.merchant_id=r.merchant_id LEFT JOIN merchants m ON m.id=r.merchant_id LEFT JOIN google_maps_booking_applications a ON a.booking_route_slug=r.route_slug AND a.merchant_id=r.merchant_id WHERE r.route_slug=? AND r.active=1`).bind(routeSlug).first();
 }
 
 async function serviceContext(db, merchantId, serviceId, staffId) {
@@ -76,8 +78,8 @@ async function validateSlot(db, route, service, dateText, timeText, partySize, e
   return { ok: true, start, end, blockedStart, blockedEnd, weekday, startLocal, endLocal, capacity };
 }
 
-const ATOMIC_CREATE_SQL = `INSERT INTO merchant_bookings (id,merchant_id,booking_code,manage_token_hash,service_id,staff_id,customer_name,customer_phone,customer_email,line_user_id,start_at,end_at,blocked_start_at,blocked_end_at,timezone,party_size,status,source,note,rescheduled_from_booking_id)
-SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?
+const ATOMIC_CREATE_SQL = `INSERT INTO merchant_bookings (id,merchant_id,booking_code,manage_token_hash,service_id,staff_id,customer_name,customer_phone,customer_email,line_user_id,start_at,end_at,blocked_start_at,blocked_end_at,timezone,party_size,status,source,booking_source,platform_member_id,idempotency_key_hash,note,rescheduled_from_booking_id)
+SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',?,?,?,?,?,?
 WHERE EXISTS (SELECT 1 FROM merchant_booking_services s WHERE s.merchant_id=? AND s.id=? AND s.active=1 AND ?<=s.max_capacity)
 AND EXISTS (SELECT 1 FROM merchant_booking_staff st JOIN merchant_booking_service_staff ss ON ss.merchant_id=st.merchant_id AND ss.staff_id=st.id AND ss.service_id=? WHERE st.merchant_id=? AND st.id=? AND st.active=1 AND ?<=st.max_concurrent)
 AND EXISTS (SELECT 1 FROM merchant_booking_hours h WHERE h.merchant_id=? AND h.weekday=? AND h.active=1 AND (h.staff_id IS NULL OR h.staff_id=?) AND h.start_time<=? AND h.end_time>=?)
@@ -88,7 +90,7 @@ RETURNING id`;
 function createStatement(db, data, slot, excludeBookingId = "") {
   return db.prepare(ATOMIC_CREATE_SQL).bind(
     data.id, data.merchantId, data.code, data.tokenHash, data.service.id, data.service.staff_id, data.name, data.phone, data.email, data.lineUserId,
-    slot.start.toISOString(), slot.end.toISOString(), slot.blockedStart.toISOString(), slot.blockedEnd.toISOString(), data.timezone, data.partySize, data.source, data.note, data.rescheduledFrom,
+    slot.start.toISOString(), slot.end.toISOString(), slot.blockedStart.toISOString(), slot.blockedEnd.toISOString(), data.timezone, data.partySize, data.source, data.bookingSource || data.source, data.platformMemberId || null, data.idempotencyKeyHash || null, data.note, data.rescheduledFrom,
     data.merchantId, data.service.id, data.partySize,
     data.service.id, data.merchantId, data.service.staff_id, data.partySize,
     data.merchantId, slot.weekday, data.service.staff_id, slot.startLocal, slot.endLocal,
@@ -139,18 +141,47 @@ export async function availableSlots(db, route, serviceId, dateText, staffId = "
   return slots;
 }
 
-export async function createBooking(db, route, input, source = "website") {
+export async function createBooking(db, route, input, source = "website", options = {}) {
+  const idempotencyKeyHash = options.idempotencyKey ? await hash(`${route.merchant_id}:${options.idempotencyKey}`) : null;
+  if (idempotencyKeyHash) {
+    const replay = await db.prepare("SELECT booking_code FROM merchant_bookings WHERE merchant_id=? AND idempotency_key_hash=?").bind(route.merchant_id, idempotencyKeyHash).first();
+    if (replay) return { ok: true, booking: await detailedBooking(db, route.merchant_id, replay.booking_code), manage_token: null, replayed: true };
+  }
   const service = await serviceContext(db, route.merchant_id, clean(input.service_id, 100), clean(input.staff_id, 100));
   if (!service) return { ok: false, status: 400, error: "找不到可預約的服務或服務人員。" };
   const name = clean(input.customer_name, 80), phone = normalizePhone(input.customer_phone), partySize = Math.max(1, Number(input.party_size || 1));
   if (!name || phone.length < 8 || !Number.isInteger(partySize)) return { ok: false, status: 400, error: "請完整填寫姓名、手機與預約人數。" };
   const slot = await validateSlot(db, route, service, clean(input.date, 10), clean(input.time, 5), partySize);
   if (!slot.ok) return slot;
+  const bookingSource = ["website", "line", "google_maps", "manual"].includes(options.bookingSource) ? options.bookingSource : source === "admin" ? "manual" : source;
+  let membership = null;
+  if (bookingSource === "google_maps") {
+    if (input.privacy_consent !== true) return { ok: false, status: 422, error: "請閱讀並同意預約服務與隱私權說明。" };
+    // Platform membership keeps its existing phone-based identity provenance.
+    // The acquisition channel remains independently recorded on booking_source.
+    membership = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: clean(input.consent_version, 100) || "google-maps-booking-v1", issueSession: false, couponIssuanceEnabled: false });
+  }
   const rawToken = `${crypto.randomUUID()}${crypto.randomUUID()}`;
-  const data = { id: uid("booking"), merchantId: route.merchant_id, code: bookingCode(), tokenHash: await hash(rawToken), service, name, phone, email: clean(input.customer_email, 160) || null, lineUserId: clean(input.line_user_id, 100) || null, timezone: route.timezone, partySize, source, note: clean(input.note, 1000) || null, rescheduledFrom: null };
-  const created = await createStatement(db, data, slot).first();
+  const data = { id: uid("booking"), merchantId: route.merchant_id, code: bookingCode(), tokenHash: await hash(rawToken), service, name, phone, email: clean(input.customer_email, 160) || null, lineUserId: clean(input.line_user_id, 100) || null, timezone: route.timezone, partySize, source: ["website", "line", "admin", "ai"].includes(source) ? source : "website", bookingSource, platformMemberId: membership?.member?.id || null, idempotencyKeyHash, note: clean(input.note, 1000) || null, rescheduledFrom: null };
+  let created;
+  try { created = await createStatement(db, data, slot).first(); }
+  catch (error) {
+    if (idempotencyKeyHash) {
+      const replay = await db.prepare("SELECT booking_code FROM merchant_bookings WHERE merchant_id=? AND idempotency_key_hash=?").bind(route.merchant_id, idempotencyKeyHash).first();
+      if (replay) return { ok: true, booking: await detailedBooking(db, route.merchant_id, replay.booking_code), manage_token: null, replayed: true };
+    }
+    throw error;
+  }
   if (!created) return { ok: false, status: 409, error: CONFLICT_ERROR };
-  await audit(db, route.merchant_id, data.id, "customer", "booking_created", { source });
+  if (membership?.customer?.id) {
+    const ordering = await db.prepare("SELECT merchant_id FROM merchant_ordering_settings WHERE merchant_id=?").bind(route.merchant_id).first();
+    if (ordering) await db.prepare(`INSERT INTO merchant_ordering_memberships(id,merchant_id,customer_id,membership_no,joined_via_qr_id,consent_version,consented_at,last_seen_at)
+      VALUES(?,?,?,?,NULL,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+      ON CONFLICT(merchant_id,customer_id) DO UPDATE SET last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`).bind(
+      uid("membership"), route.merchant_id, membership.customer.id, `MBR-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`, clean(input.consent_version, 100) || "google-maps-booking-v1",
+    ).run();
+  }
+  await audit(db, route.merchant_id, data.id, "customer", "booking_created", { source: bookingSource, member_id: membership?.member?.id || null });
   const booking = await detailedBooking(db, route.merchant_id, data.code);
   return { ok: true, booking, manage_token: rawToken };
 }
@@ -185,7 +216,7 @@ export async function handleBookingRequest(request, env, url, cors = {}) {
   try {
     if (request.method === "GET" && resource === "services") {
       const rows = await db.prepare(`SELECT s.id,s.name,s.description,s.duration_minutes,s.price_text,s.max_capacity,st.id staff_id,st.display_name staff_name FROM merchant_booking_services s JOIN merchant_booking_service_staff ss ON ss.merchant_id=s.merchant_id AND ss.service_id=s.id JOIN merchant_booking_staff st ON st.merchant_id=ss.merchant_id AND st.id=ss.staff_id WHERE s.merchant_id=? AND s.active=1 AND st.active=1 ORDER BY s.sort_order,s.name`).bind(route.merchant_id).all();
-      return json({ merchant_id: route.merchant_id, enabled: Boolean(route.enabled), timezone: route.timezone, booking_url: route.booking_url, items: rows.results }, 200, cors);
+      return json({ merchant: { name: route.merchant_name || "商家" }, enabled: Boolean(route.enabled), timezone: route.timezone, booking_url: route.booking_url, source: route.referral_source || "website", line_add_friend_url: route.line_add_friend_url || null, items: rows.results }, 200, cors);
     }
     if (request.method === "GET" && resource === "availability") {
       const serviceId = clean(url.searchParams.get("service_id"), 100), date = clean(url.searchParams.get("date"), 10), staffId = clean(url.searchParams.get("staff_id"), 100);
@@ -197,11 +228,14 @@ export async function handleBookingRequest(request, env, url, cors = {}) {
     }
     if (request.method === "POST" && !resource) {
       const input = await request.json();
-      const result = await createBooking(db, route, input, "website");
+      const bookingSource = route.referral_source || "website";
+      const idempotencyKey = clean(request.headers.get("idempotency-key"), 200);
+      if (!idempotencyKey) return json({ error: "請重新整理頁面後再送出預約。", code: "IDEMPOTENCY_KEY_REQUIRED" }, 400, cors);
+      const result = await createBooking(db, route, input, "website", { bookingSource, idempotencyKey });
       if (!result.ok) return json({ error: result.error }, result.status, cors);
       const text = `您的預約已收到\n服務：${result.booking.service_name}\n時間：${result.booking.start_at}\n預約編號：${result.booking.booking_code}`;
       await sendLinePush(env, result.booking, "booking_created", text);
-      return json({ message: "預約已送出", booking: publicBooking(result.booking), manage_token: result.manage_token }, 201, cors);
+      return json({ message: "預約已送出", booking: publicBooking(result.booking), manage_token: result.manage_token, replayed: Boolean(result.replayed) }, result.replayed ? 200 : 201, cors);
     }
     if (request.method === "POST" && resource === "lookup") {
       const input = await request.json(), code = clean(input.booking_code, 40), phone = normalizePhone(input.customer_phone);
@@ -230,7 +264,7 @@ export async function handleBookingRequest(request, env, url, cors = {}) {
       const service = await serviceContext(db, route.merchant_id, old.service_id, clean(input.staff_id || old.staff_id, 100));
       const slot = service && await validateSlot(db, route, service, clean(input.date, 10), clean(input.time, 5), Number(old.party_size), old.id);
       if (!slot?.ok) return json({ error: slot?.error || CONFLICT_ERROR }, slot?.status || 409, cors);
-      const rawToken = `${crypto.randomUUID()}${crypto.randomUUID()}`, data = { id: uid("booking"), merchantId: route.merchant_id, code: bookingCode(), tokenHash: await hash(rawToken), service, name: old.customer_name, phone: old.customer_phone, email: old.customer_email, lineUserId: old.line_user_id, timezone: route.timezone, partySize: Number(old.party_size), source: "website", note: old.note, rescheduledFrom: old.id };
+      const rawToken = `${crypto.randomUUID()}${crypto.randomUUID()}`, data = { id: uid("booking"), merchantId: route.merchant_id, code: bookingCode(), tokenHash: await hash(rawToken), service, name: old.customer_name, phone: old.customer_phone, email: old.customer_email, lineUserId: old.line_user_id, timezone: route.timezone, partySize: Number(old.party_size), source: "website", bookingSource: old.booking_source || "website", platformMemberId: old.platform_member_id || null, idempotencyKeyHash: null, note: old.note, rescheduledFrom: old.id };
       const statements = [createStatement(db, data, slot, old.id), db.prepare(`UPDATE merchant_bookings SET status='cancelled',cancelled_at=CURRENT_TIMESTAMP,cancellation_reason='rescheduled',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','confirmed')`).bind(old.id)];
       const results = await db.batch(statements);
       if (!results?.[0]?.results?.length && !results?.[0]?.meta?.changes) return json({ error: "此時段剛被其他客人預約，請重新選擇。" }, 409, cors);
@@ -252,7 +286,7 @@ export async function handleBookingAdminRequest(request, env, url, cors = {}, ad
   if (!adminAuthorized && !(await financeAdmin(request, env))) return json({ error: "需要平台管理員授權。" }, 401, cors);
   const db = env.FINANCE_DB, merchantId = clean(url.searchParams.get("merchant_id") || "meiling_patchwork", 100);
   if (url.pathname === "/api/admin/bookings" && request.method === "GET") {
-    const rows = await db.prepare(`SELECT b.booking_code,b.start_at,b.end_at,b.status,b.source,b.customer_name,b.customer_phone,s.name service_name,st.display_name staff_name FROM merchant_bookings b JOIN merchant_booking_services s ON s.merchant_id=b.merchant_id AND s.id=b.service_id JOIN merchant_booking_staff st ON st.merchant_id=b.merchant_id AND st.id=b.staff_id WHERE b.merchant_id=? ORDER BY datetime(b.start_at) DESC LIMIT 500`).bind(merchantId).all();
+    const rows = await db.prepare(`SELECT b.booking_code,b.start_at,b.end_at,b.status,b.source,b.booking_source,b.customer_name,b.customer_phone,s.name service_name,st.display_name staff_name FROM merchant_bookings b JOIN merchant_booking_services s ON s.merchant_id=b.merchant_id AND s.id=b.service_id JOIN merchant_booking_staff st ON st.merchant_id=b.merchant_id AND st.id=b.staff_id WHERE b.merchant_id=? ORDER BY datetime(b.start_at) DESC LIMIT 500`).bind(merchantId).all();
     return json({ merchant_id: merchantId, items: rows.results }, 200, cors);
   }
   if (url.pathname === "/api/admin/booking/settings" && request.method === "GET") {
