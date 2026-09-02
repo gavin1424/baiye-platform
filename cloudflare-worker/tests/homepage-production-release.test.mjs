@@ -15,6 +15,26 @@ test("production homepage exposes all eight interactive features", () => {
   assert.match(source, /heroScene/);
 });
 
+test("immersive homepage restores the historical five-item mobile navigation", () => {
+  const home = read("src/pages/HomePage.tsx");
+  const components = read("src/components.tsx");
+  const styles = read("src/styles.css");
+  for (const item of [
+    ['首頁', '/'],
+    ['搜尋', '/businesses'],
+    ['發布需求', '/collaborations/new'],
+    ['私訊', '/messages'],
+  ]) {
+    assert.match(components, new RegExp(`label: "${item[0]}"[\\s\\S]{0,50}to: "${item[1].replaceAll('/', '\\/')}"`));
+  }
+  assert.match(components, /label: "我的"/);
+  assert.match(components, /className=\{\(\{ isActive \}\)/);
+  assert.match(home, /<MobileBottomNav \/>/);
+  assert.match(styles, /env\(safe-area-inset-bottom\)/);
+  assert.match(styles, /body\.home-detail-open \.mobile-bottom-nav/);
+  assert.doesNotMatch(styles, /body:has\(\.immersive-home\) \.ai-chat\{display:none\}/);
+});
+
 test("public membership and contract UI no longer presents coupons", () => {
   const publicUi = [
     "src/pages/HomePage.tsx",
