@@ -1,5 +1,7 @@
 import { couponOrderStateStatements, issueWelcomeCoupon, prepareCouponForOrder } from "./member-integrations.js";
 import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
+import { deductionStatements, restoreStatements } from "./inventory.js";
+import { attachMerchantProductAssetFromUrl } from "./merchant-assets.js";
 export { normalizeTaiwanMobile } from "./platform-membership.js";
 
 const E = new TextEncoder();
@@ -202,7 +204,7 @@ async function issueSession(db, merchantId, membershipId) {
 async function orderWithItems(db, merchantId, membershipId, orderCodeValue) {
   const row = await db.prepare(`
     SELECT * FROM merchant_food_orders
-    WHERE merchant_id=? AND membership_id=? AND order_code=?
+    WHERE merchant_id=? AND membership_id=? AND order_code=? AND demo_reset_at IS NULL
     LIMIT 1
   `).bind(merchantId, membershipId, clean(orderCodeValue, 40)).first();
   if (!row) return null;
@@ -406,7 +408,13 @@ async function handleMenu(request, db, context, cors) {
   if (context.require_member && !session) return json({ error: "請先加入會員或重新掃描 QR Code。", code: "MEMBER_REQUIRED" }, 401, cors);
   const [categories, items, groups, values, links] = await Promise.all([
     db.prepare(`SELECT id,name,description,sort_order FROM merchant_menu_categories WHERE merchant_id=? AND active=1 ORDER BY sort_order,name`).bind(context.merchant_id).all(),
-    db.prepare(`SELECT id,category_id,sku,name,description,price_minor,image_url,sort_order,status,allow_customer_note,daily_limit,daily_sold_count,daily_sold_date FROM merchant_menu_items WHERE merchant_id=? AND status IN('active','sold_out') AND (status='active' OR ?=1) ORDER BY sort_order,name`).bind(context.merchant_id, Number(context.show_sold_out_items ?? 1)).all(),
+    db.prepare(`SELECT m.id,m.category_id,m.sku,m.name,m.description,m.price_minor,m.image_url,m.sort_order,
+      CASE WHEN i.inventory_enabled=1 AND i.stock_on_hand=0 THEN 'sold_out' ELSE m.status END status,
+      m.allow_customer_note,m.daily_limit,m.daily_sold_count,m.daily_sold_date,
+      CASE WHEN i.inventory_enabled=1 THEN 1 ELSE 0 END inventory_enabled,
+      CASE WHEN i.inventory_enabled=1 THEN i.stock_on_hand ELSE NULL END stock_on_hand
+      FROM merchant_menu_items m LEFT JOIN merchant_inventory_items i ON i.merchant_id=m.merchant_id AND i.menu_item_id=m.id AND i.reset_at IS NULL
+      WHERE m.merchant_id=? AND m.status IN('active','sold_out') AND (m.status='active' OR ?=1) ORDER BY m.sort_order,m.name`).bind(context.merchant_id, Number(context.show_sold_out_items ?? 1)).all(),
     db.prepare(`SELECT id,name,selection_type,required,min_select,max_select,sort_order FROM merchant_menu_option_groups WHERE merchant_id=? AND active=1 AND archived_at IS NULL ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT id,group_id,name,price_delta_minor,sort_order FROM merchant_menu_option_values WHERE merchant_id=? AND active=1 AND archived_at IS NULL ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT menu_item_id,option_group_id,sort_order FROM merchant_menu_item_option_groups WHERE merchant_id=? ORDER BY sort_order`).bind(context.merchant_id).all(),
@@ -453,7 +461,7 @@ async function handleCreateOrder(request, db, context, cors) {
   const idempotencyKey = clean(request.headers.get("idempotency-key") || input?.idempotency_key, 80);
   if (!/^[A-Za-z0-9._:-]{8,80}$/.test(idempotencyKey)) return json({ error: "訂單識別碼格式不正確，請重新送出。" }, 400, cors);
 
-  const existing = await db.prepare(`SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id=? AND idempotency_key=? LIMIT 1`).bind(context.merchant_id, session.membership_id, idempotencyKey).first();
+  const existing = await db.prepare(`SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id=? AND idempotency_key=? AND demo_reset_at IS NULL LIMIT 1`).bind(context.merchant_id, session.membership_id, idempotencyKey).first();
   if (existing) {
     const order = await orderWithItems(db, context.merchant_id, session.membership_id, existing.order_code);
     return json({ message: "訂單已建立。", order, replayed: true }, 200, cors);
@@ -463,8 +471,11 @@ async function handleCreateOrder(request, db, context, cors) {
   if (!requestedIds.length || requestedIds.length > Math.min(MAX_ORDER_LINES, Number(context.max_items_per_order || MAX_ORDER_LINES))) return json({ error: "請選擇至少一項餐點，或減少單筆訂單品項。" }, 400, cors);
   const placeholders = requestedIds.map(() => "?").join(",");
   const catalog = await db.prepare(`
-    SELECT id,name,price_minor,status,allow_customer_note,daily_limit,daily_sold_count,daily_sold_date FROM merchant_menu_items
-    WHERE merchant_id=? AND status='active' AND id IN (${placeholders})
+    SELECT m.id,m.name,m.price_minor,m.status,m.allow_customer_note,m.daily_limit,m.daily_sold_count,m.daily_sold_date,
+      CASE WHEN i.inventory_enabled=1 THEN 1 ELSE 0 END inventory_enabled,
+      CASE WHEN i.inventory_enabled=1 THEN i.stock_on_hand ELSE NULL END stock_on_hand
+    FROM merchant_menu_items m LEFT JOIN merchant_inventory_items i ON i.merchant_id=m.merchant_id AND i.menu_item_id=m.id AND i.reset_at IS NULL
+    WHERE m.merchant_id=? AND m.status='active' AND m.id IN (${placeholders})
   `).bind(context.merchant_id, ...requestedIds).all();
   const [groupRows, valueRows, linkRows] = await Promise.all([
     db.prepare(`SELECT id,name,selection_type,required,min_select,max_select,active FROM merchant_menu_option_groups WHERE merchant_id=? AND active=1 AND archived_at IS NULL`).bind(context.merchant_id).all(),
@@ -473,6 +484,12 @@ async function handleCreateOrder(request, db, context, cors) {
   ]);
   const calculation = calculateOrderLines(input.items, catalog.results || [], groupRows.results || [], valueRows.results || [], linkRows.results || []);
   if (!calculation.ok) return json({ error: calculation.error }, 409, cors);
+  const requestedByItem = new Map();
+  for (const line of calculation.lines) requestedByItem.set(line.menu_item_id, Number(requestedByItem.get(line.menu_item_id) || 0) + line.quantity);
+  for (const item of catalog.results || []) {
+    const requested = Number(requestedByItem.get(item.id) || 0);
+    if (Number(item.inventory_enabled) === 1 && Number(item.stock_on_hand) < requested) return json({ code: "INVENTORY_INSUFFICIENT", error: Number(item.stock_on_hand) === 0 ? `${item.name}已售完。` : `${item.name}目前僅剩 ${item.stock_on_hand} 份。`, menu_item_id: item.id, available: Number(item.stock_on_hand) }, 409, cors);
+  }
 
   const orderId = uid("foodorder");
   const initialStatus = Number(context.auto_accept_orders) === 1 ? "accepted" : "submitted";
@@ -508,6 +525,7 @@ async function handleCreateOrder(request, db, context, cors) {
       VALUES (?,?,?,?,?,?,?,?,?,?,?)
     `).bind(line.order_item_id, orderId, line.menu_item_id, line.name_snapshot, line.unit_price_minor, line.quantity, line.line_total_minor, line.note, line.base_price_minor, line.option_delta_minor, line.unit_total_minor);
     }),
+    ...deductionStatements(db, context.merchant_id, orderId, calculation.lines, session.membership_id),
     ...calculation.lines.flatMap((line) => line.options.map((option) => db.prepare(`
       INSERT INTO merchant_food_order_item_options
         (id,merchant_id,order_id,order_item_id,option_group_id,option_value_id,group_name_snapshot,value_name_snapshot,price_delta_minor)
@@ -528,12 +546,14 @@ async function handleCreateOrder(request, db, context, cors) {
   try {
     await db.batch(statements);
   } catch (error) {
-    const replay = await db.prepare(`SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id=? AND idempotency_key=? LIMIT 1`).bind(context.merchant_id, session.membership_id, idempotencyKey).first();
+    const replay = await db.prepare(`SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id=? AND idempotency_key=? AND demo_reset_at IS NULL LIMIT 1`).bind(context.merchant_id, session.membership_id, idempotencyKey).first();
     if (replay) {
       const order = await orderWithItems(db, context.merchant_id, session.membership_id, replay.order_code);
       return json({ message: "訂單已建立。", order, replayed: true }, 200, cors);
     }
-    if (String(error instanceof Error ? error.message : error).includes("ORDERING_DAILY_LIMIT_REACHED")) return json({ error: "部分餐點今日限量已售完，請重新確認購物車。" }, 409, cors);
+    const detail = String(error instanceof Error ? error.message : error);
+    if (detail.includes("ORDERING_DAILY_LIMIT_REACHED")) return json({ error: "部分餐點今日限量已售完，請重新確認購物車。" }, 409, cors);
+    if (/merchant_inventory|stock_on_hand|quantity_after|CHECK constraint/i.test(detail)) return json({ code: "INVENTORY_INSUFFICIENT", error: "庫存已變動，目前數量不足，請重新確認購物車。" }, 409, cors);
     throw error;
   }
 
@@ -550,13 +570,15 @@ async function handleCustomerCancel(request, db, orderCodeValue, cors) {
   const input = await request.json().catch(() => ({}));
   const reason = clean(input.reason, 300);
   if (!reason) return json({ error: "請填寫取消原因。" }, 400, cors);
-  const order = await db.prepare(`SELECT o.*,s.customer_cancel_before_accept FROM merchant_food_orders o JOIN merchant_ordering_settings s ON s.merchant_id=o.merchant_id WHERE o.merchant_id=? AND o.membership_id=? AND o.order_code=?`).bind(session.merchant_id, session.membership_id, clean(orderCodeValue, 40)).first();
+  const order = await db.prepare(`SELECT o.*,s.customer_cancel_before_accept FROM merchant_food_orders o JOIN merchant_ordering_settings s ON s.merchant_id=o.merchant_id WHERE o.merchant_id=? AND o.membership_id=? AND o.order_code=? AND o.demo_reset_at IS NULL`).bind(session.merchant_id, session.membership_id, clean(orderCodeValue, 40)).first();
   if (!order) return json({ error: "找不到此訂單。" }, 404, cors);
   if (order.status !== "submitted" || Number(order.customer_cancel_before_accept) !== 1) return json({ error: "店家已接單，請直接聯絡店家協助取消。" }, 409, cors);
   const couponStatements = await couponOrderStateStatements(db, order, "cancelled", order.payment_status);
+  const orderLines = await db.prepare("SELECT id,menu_item_id,quantity FROM merchant_food_order_items WHERE order_id=?").bind(order.id).all();
   await db.batch([
     db.prepare("UPDATE merchant_food_orders SET status='cancelled',cancel_reason=?,cancelled_by_type='customer',cancelled_by_id=?,cancelled_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status='submitted'").bind(reason, session.membership_id, order.id, session.merchant_id),
     ...couponStatements,
+    ...restoreStatements(db, session.merchant_id, order.id, orderLines.results || [], "customer", session.membership_id, reason),
     db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?)").bind(uid("ordaudit"), session.merchant_id, "customer", session.membership_id, "order_cancelled", "order", order.id, JSON.stringify({ reason })),
   ]);
   return json({ ok: true, status: "cancelled" }, 200, cors);
@@ -608,7 +630,9 @@ async function adminOverview(db, merchantId) {
   const [qrs, categories, items, groups, values, links, sessions, orders, memberCount] = await Promise.all([
     db.prepare(`SELECT * FROM merchant_ordering_qr_codes WHERE merchant_id=? ORDER BY created_at DESC`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_menu_categories WHERE merchant_id=? ORDER BY sort_order,name`).bind(merchantId).all(),
-    db.prepare(`SELECT * FROM merchant_menu_items WHERE merchant_id=? ORDER BY sort_order,name`).bind(merchantId).all(),
+    db.prepare(`SELECT m.*,CASE WHEN i.id IS NULL THEN 0 ELSE 1 END inventory_exists,i.stock_on_hand,i.inventory_enabled
+      FROM merchant_menu_items m LEFT JOIN merchant_inventory_items i ON i.merchant_id=m.merchant_id AND i.menu_item_id=m.id AND i.reset_at IS NULL
+      WHERE m.merchant_id=? ORDER BY m.sort_order,m.name`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_menu_option_groups WHERE merchant_id=? ORDER BY sort_order,name`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_menu_option_values WHERE merchant_id=? ORDER BY group_id,sort_order,name`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_menu_item_option_groups WHERE merchant_id=? ORDER BY sort_order`).bind(merchantId).all(),
@@ -618,7 +642,7 @@ async function adminOverview(db, merchantId) {
       FROM merchant_food_orders o
       JOIN merchant_ordering_memberships m ON m.merchant_id=o.merchant_id AND m.id=o.membership_id
       JOIN ordering_customers c ON c.id=m.customer_id
-      WHERE o.merchant_id=? ORDER BY datetime(o.created_at) DESC LIMIT 200
+      WHERE o.merchant_id=? AND o.demo_reset_at IS NULL ORDER BY datetime(o.created_at) DESC LIMIT 200
     `).bind(merchantId).all(),
     db.prepare(`SELECT COUNT(*) total FROM merchant_ordering_memberships WHERE merchant_id=? AND status='active'`).bind(merchantId).first(),
   ]);
@@ -696,7 +720,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
   const db = env.FINANCE_DB;
   const merchantId = validMerchantId(url.searchParams.get("merchant_id"));
   if (!merchantId) return json({ error: "請提供正確的 merchant_id。" }, 400, cors);
-  const actorType = "admin";
+  const actorType = actor.actor_type === "merchant" ? "merchant" : "admin";
   const actorId = clean(actor.actor_id || "admin", 120);
   const actorRole = clean(actor.actor_role || (actor.actor_type === "merchant" ? "merchant" : "platform_admin"), 120);
 
@@ -938,7 +962,8 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         status,
         merchantId, current.id,
       ).run();
-      await audit(db, merchantId, "admin", "admin", "menu_item_updated", "menu_item", current.id);
+      await attachMerchantProductAssetFromUrl(db, merchantId, current.id, imageUrl);
+      await audit(db, merchantId, actorType, actorId, "menu_item_updated", "menu_item", current.id, { actor_role: actorRole });
       return json({ ok: true }, 200, cors);
     }
 
@@ -1013,7 +1038,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
 
     const paymentAction = url.pathname.match(/^\/api\/admin\/ordering\/orders\/([^/]+)\/payment$/);
     if (paymentAction && request.method === "POST") {
-      const order = await db.prepare("SELECT * FROM merchant_food_orders WHERE merchant_id=? AND order_code=?").bind(merchantId, paymentAction[1]).first();
+      const order = await db.prepare("SELECT * FROM merchant_food_orders WHERE merchant_id=? AND order_code=? AND demo_reset_at IS NULL").bind(merchantId, paymentAction[1]).first();
       if (!order) return json({ error: "找不到此訂單。" }, 404, cors);
       const input = await request.json(); const action = input.action === "refund" ? "refunded" : "confirmed";
       const method = ["counter", "cash", "card", "line_pay", "easycard_terminal", "other"].includes(input.payment_method) ? input.payment_method : "counter";
@@ -1032,7 +1057,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
 
     const orderStatusMatch = url.pathname.match(/^\/api\/admin\/ordering\/orders\/([^/]+)\/status$/);
     if (orderStatusMatch && request.method === "PATCH") {
-      const current = await db.prepare(`SELECT * FROM merchant_food_orders WHERE merchant_id=? AND order_code=?`).bind(merchantId, clean(orderStatusMatch[1], 40)).first();
+      const current = await db.prepare(`SELECT * FROM merchant_food_orders WHERE merchant_id=? AND order_code=? AND demo_reset_at IS NULL`).bind(merchantId, clean(orderStatusMatch[1], 40)).first();
       if (!current) return json({ error: "找不到此訂單。" }, 404, cors);
       const input = await request.json();
       const nextStatus = clean(input.status ?? current.status, 30);
@@ -1045,6 +1070,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       if (nextStatus === "cancelled" && !cancelReason) return json({ error: "取消訂單必須填寫原因。" }, 400, cors);
       if (!["unpaid", "paid", "refunded"].includes(paymentStatus)) return json({ error: "付款狀態不正確。" }, 400, cors);
       const couponStatements = await couponOrderStateStatements(db, current, nextStatus, paymentStatus);
+      const restoreLines = nextStatus === "cancelled" ? await db.prepare("SELECT id,menu_item_id,quantity FROM merchant_food_order_items WHERE order_id=?").bind(current.id).all() : { results: [] };
       await db.batch([db.prepare(`
         UPDATE merchant_food_orders SET
           status=?,payment_status=?,
@@ -1060,7 +1086,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
           admin_override=CASE WHEN ?=1 THEN 1 ELSE admin_override END,
           updated_at=CURRENT_TIMESTAMP
         WHERE merchant_id=? AND id=?
-      `).bind(nextStatus, paymentStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, cancelReason || null, nextStatus, actor.actor_type === "merchant" ? "merchant" : "admin", nextStatus, actorId, override ? 1 : 0, merchantId, current.id), ...couponStatements, db.prepare(`INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?,?)`).bind(uid("ordaudit"), merchantId, actorType, actorId, actorRole, "order_status_updated", "order", current.id, JSON.stringify({ from: current.status, to: nextStatus, payment_status: paymentStatus, cancel_reason: cancelReason || null, admin_override: override }))]);
+      `).bind(nextStatus, paymentStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, cancelReason || null, nextStatus, actor.actor_type === "merchant" ? "merchant" : "admin", nextStatus, actorId, override ? 1 : 0, merchantId, current.id), ...couponStatements, ...restoreStatements(db, merchantId, current.id, restoreLines.results || [], actorType, actorId, cancelReason), db.prepare(`INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?,?)`).bind(uid("ordaudit"), merchantId, actorType, actorId, actorRole, "order_status_updated", "order", current.id, JSON.stringify({ from: current.status, to: nextStatus, payment_status: paymentStatus, cancel_reason: cancelReason || null, admin_override: override }))]);
       return json({ ok: true, status: nextStatus, payment_status: paymentStatus }, 200, cors);
     }
 
