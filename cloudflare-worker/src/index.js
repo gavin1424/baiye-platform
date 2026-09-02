@@ -50,6 +50,19 @@ function corsHeaders(origin) {
     : {};
 }
 
+export async function merchantOverrideRequested(request, url, merchantId) {
+  const queryMerchantId = url.searchParams.get("merchant_id");
+  if (queryMerchantId && queryMerchantId !== merchantId) return true;
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return false;
+  if (!String(request.headers.get("content-type") || "").toLowerCase().includes("application/json")) return false;
+  const input = await request.clone().json().catch(() => null);
+  return Boolean(input && Object.hasOwn(input, "merchant_id") && String(input.merchant_id) !== merchantId);
+}
+
+function merchantCrossAccessDenied(cors) {
+  return json({ code: "MERCHANT_CROSS_ACCESS_DENIED", error: "無法存取其他商家資料。" }, 403, cors);
+}
+
 function sanitizeHistory(history) {
   if (!Array.isArray(history)) return [];
   return history
@@ -244,6 +257,7 @@ export default {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const authorization = await authorizeMerchant(request, env);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      if (await merchantOverrideRequested(request, url, authorization.session.merchant_id)) return merchantCrossAccessDenied(cors);
       return (await handleMerchantContractRequest(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
 
@@ -252,6 +266,7 @@ export default {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const authorization = await authorizeMerchant(request, env);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      if (await merchantOverrideRequested(request, url, authorization.session.merchant_id)) return merchantCrossAccessDenied(cors);
       return (await handleMerchantGoogleMapsBooking(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
 
@@ -261,6 +276,7 @@ export default {
       const permission = permissionForOrderingRequest(url.pathname, request.method);
       const authorization = await authorizeMerchant(request, env, permission);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      if (await merchantOverrideRequested(request, url, authorization.session.merchant_id)) return merchantCrossAccessDenied(cors);
       const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
       if (!operationGate.ok) return json({ error: "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error, onboarding_state: operationGate.state }, operationGate.status, cors);
       const scopedUrl = new URL(url);
@@ -278,6 +294,7 @@ export default {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const authorization = await authorizeMerchant(request, env);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      if (await merchantOverrideRequested(request, url, authorization.session.merchant_id)) return merchantCrossAccessDenied(cors);
       return (await handleMerchantAdmin(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
 

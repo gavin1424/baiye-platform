@@ -157,7 +157,11 @@ function commercialTermsSnapshot(terms) {
   };
 }
 
-async function currentMerchantContract(db, env) {
+async function currentMerchantContract(db, env, terms) {
+  if (isStandardCommercialTerms(terms)) {
+    const availability = env.CONTRACT_SIGNING_MODE === "staging" ? "staging_signing_enabled=1" : "is_active=1";
+    return db.prepare(`SELECT * FROM merchant_contract_versions WHERE id=? AND ${availability}`).bind(MERCHANT_SERVICE_V11_ID).first();
+  }
   if (env.CONTRACT_SIGNING_MODE === "staging") {
     return db.prepare("SELECT * FROM merchant_contract_versions WHERE is_active=1 OR staging_signing_enabled=1 ORDER BY staging_signing_enabled DESC,effective_date DESC,created_at DESC LIMIT 1").first();
   }
@@ -170,13 +174,6 @@ async function currentTerms(db, merchantId) {
 
 async function merchantContractContext(db, session, env) {
   if (!String(session.roles || "").split(",").includes("owner")) throw new ContractError("MERCHANT_OWNER_REQUIRED", "僅商家管理者帳號可進行契約簽署。", 403);
-  const contract = await currentMerchantContract(db, env);
-  if (!contract) {
-    const latest = await db.prepare("SELECT * FROM merchant_contract_versions ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
-    if (latest?.legal_review_status !== "approved") throw new ContractError("LEGAL_REVIEW_REQUIRED", "此契約版本尚未完成正式法律審閱，目前不可簽署。", 423);
-    throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的商家服務契約。", 409);
-  }
-  assertContractSignable(contract, env);
   const onboarding = await db.prepare("SELECT registration_mode,commercial_terms_approval_required FROM merchant_onboarding_states WHERE merchant_id=?").bind(session.merchant_id).first();
   let terms = await currentTerms(db, session.merchant_id);
   if (!terms && onboarding?.registration_mode === "standard_self_service") terms = (await ensureStandardCommercialTerms(db, session.merchant_id)).terms;
@@ -185,6 +182,13 @@ async function merchantContractContext(db, session, env) {
     throw new ContractError(custom ? "ADMIN_COMMERCIAL_TERMS_APPROVAL" : "COMMERCIAL_TERMS_REQUIRED", custom ? "此自訂商業方案須先經平台核准商業條件。" : "商業條件尚未完成設定。", 409);
   }
   if (onboarding?.registration_mode === "standard_self_service" && !isStandardCommercialTerms(terms)) throw new ContractError("STANDARD_TERMS_MISMATCH", "標準方案商業條件不一致，已停止簽署。", 409);
+  const contract = await currentMerchantContract(db, env, terms);
+  if (!contract) {
+    const latest = await db.prepare("SELECT * FROM merchant_contract_versions ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
+    if (latest?.legal_review_status !== "approved") throw new ContractError("LEGAL_REVIEW_REQUIRED", "此契約版本尚未完成正式法律審閱，目前不可簽署。", 423);
+    throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的商家服務契約。", 409);
+  }
+  assertContractSignable(contract, env);
   const merchant = await db.prepare("SELECT id,name,merchant_code,contact_name,phone,email,status FROM merchants WHERE id=?").bind(session.merchant_id).first();
   const invite = await db.prepare("SELECT * FROM merchant_contract_invites WHERE merchant_id=? AND commercial_terms_id=? AND used_at IS NOT NULL AND revoked_at IS NULL ORDER BY used_at DESC LIMIT 1")
     .bind(session.merchant_id, terms.id).first();
@@ -310,6 +314,8 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
       } catch (error) { await stored.cleanup(); throw error; }
       await contractEvent(db, request, { merchantId: session.merchant_id, signatureId, inviteId: context.invite.id, actorType: "merchant", actorId: session.user_id, action: "merchant_contract_signed", metadata: { version: context.contract.version, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE } });
       await audit(db, request, "merchant", session.user_id, "merchant_contract_signed", "merchant_contract_signature", signatureId, { merchant_id: session.merchant_id, version: context.contract.version, document_hash: agreement.documentHash });
+      await db.prepare("INSERT INTO merchant_admin_audit_logs(id,actor_member_id,merchant_id,role,action,resource_type,resource_id,before_json,after_json) VALUES(?,?,?,?,?,?,?,?,?)")
+        .bind(makeId("maudit"), session.platform_member_id || null, session.merchant_id, "merchant_owner", "merchant.activation.completed", "merchant_onboarding", session.merchant_id, JSON.stringify({ state: "contract_required", operation_locked: true }), JSON.stringify({ state: "active", operation_locked: false, signature_id: signatureId })).run();
       const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
       const result = { ok: true, signature_id: signatureId, public_id: publicId, signed_at: agreement.signedAt, document_hash: agreement.documentHash, pdf_hash: agreement.pdfHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: membership.coupon };
       await completeContractOperation(db, operation.operation.id, result);

@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { handleMerchantAdmin } from "../src/merchant-admin.js";
 import { ensureStandardCommercialTerms } from "../src/merchant-standard-terms.js";
+import { merchantOverrideRequested } from "../src/index.js";
 
 class Statement { constructor(statement){this.statement=statement;this.values=[];} bind(...values){this.values=values;return this;} async run(){const r=this.statement.run(...this.values);return{meta:{changes:Number(r.changes||0)}};} async first(){return this.statement.get(...this.values)||null;} async all(){return{results:this.statement.all(...this.values)}} }
 class D1 { constructor(){this.sqlite=new DatabaseSync(":memory:");for(const name of readdirSync(new URL("../migrations",import.meta.url)).filter((x)=>/^\d+.*\.sql$/.test(x)).sort())this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));} prepare(sql){return new Statement(this.sqlite.prepare(sql));} async batch(items){return Promise.all(items.map((x)=>x.run()));} }
@@ -36,3 +37,6 @@ test("MA09 LINE endpoint never exposes provider secrets",async()=>{const db=new 
 test("MA10 account exposes safe sessions only",async()=>{const db=new D1();await seed(db,"merchant-a",true);const data=await(await call(db,"merchant-a","/api/merchant-admin/account")).json();assert.equal(data.display_role,"管理者");assert.match(data.phone_masked,/\*/);assert.equal(JSON.stringify(data).includes("token_hash"),false);});
 test("MA11 UI uses administrator display copy and mobile breakpoints",()=>{const page=readFileSync(new URL("../../src/pages/MerchantAdminPages.tsx",import.meta.url),"utf8"),styles=readFileSync(new URL("../../src/styles.css",import.meta.url),"utf8");assert.match(page,/商家管理中心/);assert.match(page,/管理者權限/);assert.doesNotMatch(page,/Merchant Owner|商家 Owner|商家擁有者/);assert.match(styles,/@media\(max-width:560px\).*merchant-admin-shell/s);});
 test("MA12 coupon remains absent from administrator UI",()=>{const page=readFileSync(new URL("../../src/pages/MerchantAdminPages.tsx",import.meta.url),"utf8");assert.doesNotMatch(page,/優惠券|折價券|NT\$100|迎新券/);});
+test("MA13 forged merchant query is rejected before tenant handler",async()=>{const request=req("/api/merchant-admin/profile?merchant_id=merchant-b");assert.equal(await merchantOverrideRequested(request,new URL(request.url),"merchant-a"),true);});
+test("MA14 forged merchant mutation body is rejected before tenant handler",async()=>{const request=req("/api/merchant-admin/ordering/items/item-b","PATCH",{merchant_id:"merchant-b",price_minor:1});assert.equal(await merchantOverrideRequested(request,new URL(request.url),"merchant-a"),true);});
+test("MA15 own merchant id remains accepted",async()=>{const request=req("/api/merchant-admin/profile","PATCH",{merchant_id:"merchant-a",brand_name:"A"});assert.equal(await merchantOverrideRequested(request,new URL(request.url),"merchant-a"),false);});

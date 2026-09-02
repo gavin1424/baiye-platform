@@ -66,6 +66,14 @@ test("MCV11-03 Staging current returns a complete v1.1 body, terms and attachmen
   const fixture = await seed(); const response = await call(fixture, "/api/merchant/contracts/current"); const data = await response.json();
   assert.equal(response.status, 200); assert.equal(data.contract.id, MERCHANT_SERVICE_V11_ID); assert.ok(data.contract.content_html); assert.equal(data.terms.discount_price_minor, 1800000); assert.equal(data.terms.contract_term_months, 24); assert.equal(data.attachments[0].title, "附件 A｜商業條件"); assert.equal(data.signed, false);
 });
+test("MCV11-03A standard 18000 terms cannot be hijacked by a newer unrelated Staging contract", async () => {
+  const fixture = await seed();
+  fixture.db.sqlite.prepare("INSERT INTO merchant_contract_versions(id,version,title,content_html,content_hash,effective_date,legal_review_status,legal_review_required,is_active,staging_signing_enabled) VALUES('unrelated-newer','v9','其他方案','<p>其他</p>','other','2099-01-01','pending_review',1,0,1)").run();
+  const response = await call(fixture, "/api/merchant/contracts/current");
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.contract.id, MERCHANT_SERVICE_V11_ID);
+});
 test("MCV11-04 Production keeps pending-review version locked", async () => {
   const fixture = await seed(); const req = request("/api/merchant/contracts/current"); const response = await handleMerchantContractRequest(req, { FINANCE_DB: fixture.db, CONTRACT_SIGNING_MODE: "production" }, new URL(req.url), cors, fixture.auth); const data = await response.json();
   assert.equal(response.status, 423); assert.equal(data.code, "LEGAL_REVIEW_REQUIRED");
