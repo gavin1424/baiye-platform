@@ -9,6 +9,7 @@ import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from ".
 import { authorizeMerchant, handleMerchantAuth, merchantOperationsAllowed } from "./merchant-auth.js";
 import { handleGoogleMapsBookingAdmin, handleMerchantGoogleMapsBooking } from "./google-maps-booking.js";
 import { permissionForOrderingRequest } from "./merchant-permissions.js";
+import { handleMerchantAdmin } from "./merchant-admin.js";
 import {
   handleMerchantContractAdmin,
   handleMerchantContractPublic,
@@ -263,6 +264,14 @@ export default {
         actor_id: authorization.session.user_id,
         actor_role: authorization.session.roles || "merchant",
       });
+    }
+
+    if (url.pathname.startsWith("/api/merchant-admin/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const authorization = await authorizeMerchant(request, env);
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      return (await handleMerchantAdmin(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname === "/widgets/meiling-chat-widget.js" && request.method === "GET") {

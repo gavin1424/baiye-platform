@@ -169,7 +169,7 @@ async function currentTerms(db, merchantId) {
 }
 
 async function merchantContractContext(db, session, env) {
-  if (!String(session.roles || "").split(",").includes("owner")) throw new ContractError("MERCHANT_OWNER_REQUIRED", "僅商家擁有者帳號可進行契約簽署。", 403);
+  if (!String(session.roles || "").split(",").includes("owner")) throw new ContractError("MERCHANT_OWNER_REQUIRED", "僅商家管理者帳號可進行契約簽署。", 403);
   const contract = await currentMerchantContract(db, env);
   if (!contract) {
     const latest = await db.prepare("SELECT * FROM merchant_contract_versions ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
@@ -213,7 +213,7 @@ export async function handleMerchantContractPublic(request, env, url, cors = {})
       if (invite.used_at) throw new ContractError("INVITE_ALREADY_USED", "此啟用連結已使用，請直接登入商家後台。", 409);
       const membership = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version), originVerified: true, deviceId: request.headers.get("x-device-id") || "merchant-invite", issueSession: true });
       const owner = await createPasswordlessMerchantOwner(db, { request, merchantId: invite.merchant_id, platformMember: membership.member, phone, email: invite.email });
-      if (!owner.created) throw new ContractError("MERCHANT_ALREADY_REGISTERED", "此商家 Owner 已完成註冊，請直接登入。", 409);
+      if (!owner.created) throw new ContractError("MERCHANT_ALREADY_REGISTERED", "此商家管理者已完成註冊，請直接登入。", 409);
       const merchantSession = await issueMerchantSession(db, { merchantId: invite.merchant_id, userId: owner.userId, platformMemberId: membership.member.id, assuranceLevel: "activation_invite", issuedVia: "merchant_contract_invite" });
       await db.batch([
         db.prepare("UPDATE merchant_contract_invites SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(invite.id),

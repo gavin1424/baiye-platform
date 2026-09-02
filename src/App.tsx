@@ -24,6 +24,7 @@ import { AdminContractsPage } from "./pages/AdminContractsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
 import { MemberLoginCompatibility, MerchantQrCodesCompatibility, QrMembershipJoinCompatibility } from "./pages/QrMembershipCompatibilityPages";
 import { AdminGoogleMapsBookingPage, GoogleMapsBookingLandingPage, GoogleMapsBookingPage, MerchantGoogleMapsBookingPage } from "./pages/GoogleMapsBookingPages";
+import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantLinePage, MerchantMembersPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -87,6 +88,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/merchant/login": "商家登入｜創百業智慧鏈",
   "/merchant/activate": "商家註冊｜創百業智慧鏈",
   "/merchant": "商家中心｜創百業智慧鏈",
+  "/merchant/dashboard": "商家管理中心｜創百業智慧鏈",
+  "/merchant/account": "管理者帳戶｜創百業智慧鏈",
   "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
   "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
   "/merchant/google-maps-booking": "Google 地圖預約開通申請｜創百業智慧鏈",
@@ -271,6 +274,12 @@ export function App() {
         <Route path="/merchant/register" element={<MerchantRegisterPage />} />
         <Route path="/merchant/login" element={<MerchantLoginPage />} />
         <Route path="/merchant" element={<MerchantPortalPage />} />
+        <Route path="/merchant/dashboard" element={<MerchantAdminDashboardPage />} />
+        <Route path="/merchant/account" element={<MerchantAccountPage />} />
+        <Route path="/merchant/profile" element={<MerchantProfilePage />} />
+        <Route path="/merchant/bookings" element={<MerchantBookingsPage />} />
+        <Route path="/merchant/members" element={<MerchantMembersPage />} />
+        <Route path="/merchant/line" element={<MerchantLinePage />} />
         <Route path="/merchant/contract" element={<MerchantContractPage />} />
         <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
         <Route path="/merchant/google-maps-booking" element={<MerchantGoogleMapsBookingPage />} />
