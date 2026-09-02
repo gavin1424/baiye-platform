@@ -187,6 +187,16 @@ async function audit(db, merchantId, actorType, actorId, action, resourceType, r
   ).run();
 }
 
+async function merchantAdministratorAudit(db, merchantId, actor, action, resourceType, resourceId, before, after) {
+  if (actor?.actor_type !== "merchant") return;
+  await db.prepare(`INSERT INTO merchant_admin_audit_logs
+    (id,actor_member_id,merchant_id,role,action,resource_type,resource_id,before_json,after_json)
+    VALUES(?,NULL,?,'merchant_owner',?,?,?,?,?)`).bind(
+    uid("maudit"), merchantId, action, resourceType, resourceId || null,
+    JSON.stringify(before ?? null), JSON.stringify(after ?? null),
+  ).run();
+}
+
 async function issueSession(db, merchantId, membershipId) {
   const rawToken = randomToken(32);
   const tokenHash = await hash(rawToken);
@@ -893,6 +903,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         input.daily_limit == null || input.daily_limit === "" ? null : Math.max(1, Math.min(100000, Number(input.daily_limit))),
       ).run();
       await audit(db, merchantId, "admin", "admin", "menu_item_created", "menu_item", id);
+      await merchantAdministratorAudit(db, merchantId, actor, "merchant.product.created", "menu_item", id, null, { name, price_minor: priceMinor, status: input.status === "hidden" ? "hidden" : "active" });
       return json({ ok: true, id }, 201, cors);
     }
 
@@ -906,6 +917,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         db.prepare("INSERT INTO merchant_menu_item_option_groups(merchant_id,menu_item_id,option_group_id,sort_order) SELECT merchant_id,?,option_group_id,sort_order FROM merchant_menu_item_option_groups WHERE merchant_id=? AND menu_item_id=?").bind(id, merchantId, current.id),
       ]);
       await audit(db, merchantId, actorType, actorId, "menu_item_duplicated", "menu_item", id, { source_id: current.id, actor_role: actorRole });
+      await merchantAdministratorAudit(db, merchantId, actor, "merchant.product.duplicated", "menu_item", id, current, { source_id: current.id, status: "hidden" });
       return json({ ok: true, id }, 201, cors);
     }
 
@@ -939,6 +951,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         merchantId, current.id,
       ).run();
       await audit(db, merchantId, "admin", "admin", "menu_item_updated", "menu_item", current.id);
+      await merchantAdministratorAudit(db, merchantId, actor, status === "archived" ? "merchant.product.archived" : "merchant.product.updated", "menu_item", current.id, current, { category_id: categoryId, name, price_minor: priceMinor, image_url: imageUrl || null, status, daily_limit: dailyLimit });
       return json({ ok: true }, 200, cors);
     }
 

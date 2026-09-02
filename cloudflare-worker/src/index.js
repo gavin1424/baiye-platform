@@ -9,6 +9,8 @@ import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from ".
 import { authorizeMerchant, handleMerchantAuth, merchantOperationsAllowed } from "./merchant-auth.js";
 import { handleGoogleMapsBookingAdmin, handleMerchantGoogleMapsBooking } from "./google-maps-booking.js";
 import { permissionForOrderingRequest } from "./merchant-permissions.js";
+import { handleMerchantAdmin } from "./merchant-admin.js";
+import { commerceEntitlements } from "./commerce-ai-contract.js";
 import {
   handleMerchantContractAdmin,
   handleMerchantContractPublic,
@@ -262,6 +264,10 @@ export default {
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
       const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
       if (!operationGate.ok) return json({ error: "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error, onboarding_state: operationGate.state }, operationGate.status, cors);
+      if (permission === "ordering.menu.manage") {
+        const entitlements = await commerceEntitlements(env.FINANCE_DB, authorization.session.merchant_id);
+        if (!entitlements.merchant_product_edit) return json({ error: "此方案未啟用商城商品自行編輯權限。", code: "MERCHANT_PRODUCT_EDIT_PLAN_REQUIRED" }, 403, cors);
+      }
       const scopedUrl = new URL(url);
       scopedUrl.pathname = scopedUrl.pathname.replace(/^\/api\/merchant-admin\/ordering/, "/api/admin/ordering");
       scopedUrl.searchParams.set("merchant_id", authorization.session.merchant_id);
@@ -270,6 +276,14 @@ export default {
         actor_id: authorization.session.user_id,
         actor_role: authorization.session.roles || "merchant",
       });
+    }
+
+    if (url.pathname.startsWith("/api/merchant-admin/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const authorization = await authorizeMerchant(request, env);
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      return (await handleMerchantAdmin(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname === "/widgets/meiling-chat-widget.js" && request.method === "GET") {
@@ -299,7 +313,7 @@ export default {
       if (url.pathname.startsWith("/api/admin/") && !adminSession) return json({ error: "需要正式管理員授權。" }, 401, cors);
       if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors, true);
       if (url.pathname.startsWith("/api/admin/google-maps-booking")) return (await handleGoogleMapsBookingAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
-      if (url.pathname.startsWith("/api/admin/merchant-contract") || /^\/api\/admin\/merchants\/[^/]+\/commercial-terms$/.test(url.pathname)) {
+      if (url.pathname.startsWith("/api/admin/merchant-contract") || /^\/api\/admin\/merchants\/[^/]+\/(?:commercial-terms|commerce-ai-45000-plan)$/.test(url.pathname)) {
         return (await handleMerchantContractAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
       }
       if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors, true);
