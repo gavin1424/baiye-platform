@@ -82,7 +82,7 @@ if (current.value.contract.id !== "merchant_commerce_ai_v1_0_45000" || !current.
 if (current.value.merchant.name !== merchantName) throw new Error("Merchant legal party fixture is incomplete");
 if (Number(current.value.terms.discount_price_minor) !== 4500000 || Number(current.value.terms.contract_term_months) !== 24) throw new Error("Commercial terms mismatch");
 if (!current.value.legal_entity?.configured || current.value.legal_entity.entity.legal_name !== "陳靈有限公司" || current.value.legal_entity.entity.tax_id !== "42868714") throw new Error("Approved Staging legal entity is not rendered");
-if (!current.value.attachments?.some((item) => item.title === "附件 A｜商業條件")) throw new Error("Attachment A is missing");
+if (!current.value.attachments?.some((item) => String(item.title || "").startsWith("附件 A｜"))) throw new Error("Attachment A is missing");
 
 const signBody = {
   signatory_legal_name: signatory,

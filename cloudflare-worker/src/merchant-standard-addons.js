@@ -13,7 +13,7 @@ const ADDON_FONT_KEYS = Object.freeze({
 const ADDON_FONT_HASHES = Object.freeze({
   regular: "862584925bb6ff916a1efa76d88b293182d6893c74b57f7f69424a570b4e9172",
   bold: "1dcb7de1dbfffc0f85a0ba16f5567a9f8cf36a1f3afa0ab2ba0e70fd136e12af",
-  mono: "b4563af6f013732c8f40d206a05ff2ffc4eaeac0020d39393e59d0cf8a3ffeed",
+  mono: "44cc404d8cea929c02a92900a646598bafc9ef726b7d881e7525296adc9fb8ac",
 });
 
 async function addonFontAssets(bucket) {
