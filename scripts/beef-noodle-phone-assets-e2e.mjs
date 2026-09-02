@@ -66,13 +66,36 @@ const uniqueTokens = [
 pass("Existing menu and opaque QR set reused");
 
 let orderingMemberToken = "";
+let a1OrderingToken = "";
 for (const token of uniqueTokens) {
   const joined = await jsonRequest(`/api/ordering/qr/${token}/join`, { method: "POST", headers: { authorization: `Bearer ${memberToken}`, "x-device-id": "beef-phone-v2" }, body: JSON.stringify({ phone, privacy_consent: true, consent_version: "DEMO-2026-08-28", device_id: "beef-phone-v2" }) });
   assert.equal(joined.response.status, 201, JSON.stringify(joined.body));
   assert.equal(joined.body.platform_membership.id, platformMemberId);
   orderingMemberToken = joined.body.session.token;
+  if (token === uniqueTokens[0]) a1OrderingToken = joined.body.session.token;
 }
 pass("A1/A2/takeaway QR reuse one Platform Member and relationship");
+
+const editedName = `${product.name} V2`;
+const edited = await merchantJson("/api/merchant-admin/ordering/items/bn_item_01", { method: "PATCH", body: JSON.stringify({ name: editedName, price_minor: product.price_minor + 100 }) });
+assert.equal(edited.response.status, 200, JSON.stringify(edited.body));
+let changedMenu = await request(`/api/ordering/qr/${uniqueTokens[0]}/menu`, { headers: { authorization: `Bearer ${a1OrderingToken}` } });
+assert.equal(changedMenu.body.items.find((item) => item.id === "bn_item_01").name, editedName);
+assert.equal(changedMenu.body.items.find((item) => item.id === "bn_item_01").price_minor, product.price_minor + 100);
+const unpublished = await merchantJson("/api/merchant-admin/ordering/items/bn_item_01", { method: "PATCH", body: JSON.stringify({ status: "hidden" }) });
+assert.equal(unpublished.response.status, 200);
+changedMenu = await request(`/api/ordering/qr/${uniqueTokens[0]}/menu`, { headers: { authorization: `Bearer ${a1OrderingToken}` } });
+assert.ok(!changedMenu.body.items.some((item) => item.id === "bn_item_01"));
+const republished = await merchantJson("/api/merchant-admin/ordering/items/bn_item_01", { method: "PATCH", body: JSON.stringify({ status: "active" }) });
+assert.equal(republished.response.status, 200);
+pass("Product name, price and publish state synchronize to Storefront");
+
+const order = await jsonRequest(`/api/ordering/qr/${uniqueTokens[0]}/orders`, { method: "POST", headers: { authorization: `Bearer ${a1OrderingToken}`, "idempotency-key": `phone-assets-${Date.now()}` }, body: JSON.stringify({ order_type: "dine_in", items: [{ item_id: "bn_item_10", quantity: 1, option_value_ids: [], note: "Phone identity V2 E2E" }] }) });
+assert.equal(order.response.status, 201, JSON.stringify(order.body));
+assert.equal(order.body.order.table_label, "A1");
+const orderOverview = await merchantRequest("/api/merchant-admin/ordering/overview");
+assert.ok(orderOverview.body.orders.some((item) => item.order_code === order.body.order.order_code));
+pass("QR order appears in the same Merchant order administration");
 
 const bytesByType = {
   "image/jpeg": Uint8Array.from([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43, 0x00]),
