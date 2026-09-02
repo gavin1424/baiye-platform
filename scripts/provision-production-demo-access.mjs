@@ -44,7 +44,7 @@ writeFileSync(sqlFile, sql, { encoding: "utf8", mode: 0o600 });
 const cwd = fileURLToPath(new URL("../cloudflare-worker/", import.meta.url));
 const executable = process.platform === "win32" ? "cmd.exe" : "npx";
 const args = process.platform === "win32"
-  ? ["/d", "/s", "/c", `npx wrangler d1 execute FINANCE_DB --remote --file "${sqlFile}"`]
+  ? ["/d", "/s", "/c", `npx wrangler d1 execute FINANCE_DB --remote --file=${sqlFile}`]
   : ["wrangler", "d1", "execute", "FINANCE_DB", "--remote", "--file", sqlFile];
 const result = spawnSync(executable, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 rmSync(directory, { recursive: true, force: true });
