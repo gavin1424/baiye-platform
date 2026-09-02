@@ -19,8 +19,8 @@ export function validateDeliveryUrl(provider,value){try{const u=new URL(String(v
 export const isAllowedInstitutionType=(v)=>["bank","finance_leasing","licensed_financial_service"].includes(v);
 export const blocksP2P=(v)=>[v?.institution_type,v?.business_model].some(x=>["private_lender","unknown","p2p","peer_to_peer"].includes(clean(x,40)));
 
-export async function issueWelcomeCoupon(db,{merchantId,membershipId,phoneVerified,newlyCreated}){
- if(!newlyCreated)return null;
+export async function issueWelcomeCoupon(db,{merchantId,membershipId,phoneVerified,newlyCreated,issuanceEnabled=false}){
+ if(!issuanceEnabled||!newlyCreated)return null;
  const c=await db.prepare("SELECT * FROM merchant_coupon_campaigns WHERE merchant_id=? AND campaign_type='welcome_member' AND enabled=1 AND production_ready=1 AND (starts_at IS NULL OR datetime(starts_at)<=datetime('now')) AND (ends_at IS NULL OR datetime(ends_at)>datetime('now')) LIMIT 1").bind(merchantId).first();if(!c)return null;
  const id=uid("coupon"),status=c.phone_verification_required&&!phoneVerified?"pending_verification":"active",expires=new Date(Date.now()+Number(c.valid_days)*86400000).toISOString();
  await db.batch([
@@ -57,11 +57,11 @@ async function decrypt(v,k){const [iv,data]=String(v).split(".");return new Text
 
 export async function handleMemberIntegrationsPublic(request,env,url,cors={}){
  const db=env.FINANCE_DB;if(!db)return json({error:"Service unavailable"},503,cors);
- if(url.pathname==="/api/member-benefits/merchants"&&request.method==="GET"){const r=await db.prepare("SELECT s.merchant_id,s.display_name,q.code FROM merchant_ordering_settings s JOIN merchant_coupon_campaigns c ON c.merchant_id=s.merchant_id JOIN merchant_ordering_qr_codes q ON q.merchant_id=s.merchant_id AND q.purpose='member_only' AND q.active=1 WHERE s.enabled=1 AND c.enabled=1 AND c.production_ready=1 AND (q.expires_at IS NULL OR datetime(q.expires_at)>datetime('now')) ORDER BY s.display_name").all();return json({items:r.results||[]},200,cors)}
+ if(url.pathname==="/api/member-benefits/merchants"&&request.method==="GET")return json({items:[],disabled:true},200,cors);
  const qm=url.pathname.match(/^\/api\/ordering\/qr\/([\w-]{8,64})\/(coupons|payment-options|delivery-links)$/);
  if(qm&&request.method==="GET"){
   const q=await db.prepare("SELECT q.id,q.merchant_id FROM merchant_ordering_qr_codes q JOIN merchant_ordering_settings s ON s.merchant_id=q.merchant_id WHERE q.code=? AND q.active=1 AND s.enabled=1 AND (q.expires_at IS NULL OR datetime(q.expires_at)>datetime('now'))").bind(qm[1]).first();if(!q)return json({error:"QR Code 無效。"},404,cors);
-  if(qm[2]==="coupons"){const m=await member(db,request,q.merchant_id);if(!m)return json({error:"會員登入已失效。"},401,cors);await db.prepare("UPDATE merchant_member_coupons SET status='expired',updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND membership_id=? AND status IN('active','pending_verification') AND datetime(expires_at)<=datetime('now')").bind(q.merchant_id,m.membership_id).run();const r=await db.prepare("SELECT m.id,m.status,m.expires_at,c.name,c.discount_value_minor,c.minimum_spend_minor,c.terms_version FROM merchant_member_coupons m JOIN merchant_coupon_campaigns c ON c.id=m.campaign_id WHERE m.merchant_id=? AND m.membership_id=? ORDER BY m.issued_at DESC").bind(q.merchant_id,m.membership_id).all();return json({items:r.results||[]},200,cors)}
+  if(qm[2]==="coupons"){return json({items:[],disabled:true},200,cors)}
   if(qm[2]==="payment-options"){const r=await db.prepare("SELECT id,provider,mode,display_name,official_qr_asset_key,official_payment_url FROM merchant_payment_integrations WHERE merchant_id=? AND enabled=1 AND production_ready=1 AND provider_status='active' AND legal_review_status='approved' AND technical_review_status='approved'").bind(q.merchant_id).all();return json({items:r.results||[]},200,cors)}
   const r=await db.prepare("SELECT id,provider,display_name,order_url FROM merchant_delivery_links WHERE merchant_id=? AND enabled=1 AND production_ready=1 AND verified_status='verified' ORDER BY sort_order,display_name").bind(q.merchant_id).all();return json({items:r.results||[],notice:"外送平台之商品、價格、優惠、付款及退款，依該外送平台頁面與商家設定為準。創百業會員禮券預設不適用外部平台訂單。"},200,cors);
  }
@@ -79,6 +79,7 @@ export async function handleMemberIntegrationsPublic(request,env,url,cors={}){
 
 export async function handleMemberIntegrationsAdmin(request,env,url,cors={},authorized=false){
  if(!authorized)return json({error:"需要平台管理員授權。"},401,cors);const db=env.FINANCE_DB,b=["GET","HEAD"].includes(request.method)?{}:await request.json().catch(()=>({})),m=clean(url.searchParams.get("merchant_id")||b.merchant_id,100);
+ if(env.MEMBERSHIP_COUPON_ISSUANCE_ENABLED!=="1"&&request.method!=="GET"&&(url.pathname.includes("/ordering/campaigns")||url.pathname.includes("/ordering/coupons/")))return json({error:"會員優惠券功能已停用。",code:"COUPON_FEATURE_DISABLED"},409,cors);
  if(url.pathname.startsWith("/api/admin/ordering/")&&!m)return json({error:"merchant_id required"},400,cors);
  if(url.pathname==="/api/admin/ordering/campaigns"&&request.method==="GET"){const r=await db.prepare("SELECT * FROM merchant_coupon_campaigns WHERE merchant_id=? ORDER BY created_at DESC").bind(m).all();return json({items:r.results||[]},200,cors)}
  if(url.pathname==="/api/admin/ordering/coupon-stats"&&request.method==="GET"){const r=await db.prepare("SELECT x.status,COUNT(*) count,COALESCE(SUM(c.discount_value_minor),0) amount_minor FROM merchant_member_coupons x JOIN merchant_coupon_campaigns c ON c.id=x.campaign_id WHERE x.merchant_id=? GROUP BY x.status").bind(m).all();return json({items:r.results||[]},200,cors)}

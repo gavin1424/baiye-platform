@@ -60,13 +60,13 @@ test("L03 Login Start 自動 Modernize 並回安全啟用入口", async () => {
   assert.equal(result.response.status, 202); assert.equal(result.data.code, "PARTNER_LEGACY_MODERNIZED"); assert.ok(result.data.activation_url);
 });
 
-test("L04 重複入口仍維持一 Partner、一 Member、一 Coupon", async () => {
+test("L04 重複入口仍維持一 Partner、一 Member 且不發 Coupon", async () => {
   const db = new D1(); insertLegacy(db);
   await call(db, "/api/partner/status", { phone: "0912345678" });
   await call(db, "/api/partner/login/start", { phone: "0912345678" });
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM partners").get().n, 1);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_members").get().n, 1);
-  assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_member_coupons").get().n, 1);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_member_coupons").get().n, 0);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM partner_invites WHERE used_at IS NULL").get().n, 1);
 });
 
