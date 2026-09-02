@@ -14,7 +14,7 @@ class D1Statement {
 class TestD1 {
   constructor() {
     this.sqlite = new DatabaseSync(":memory:");
-    for (const file of ["0007_merchant_ai_quota.sql", "0008_merchant_booking_engine.sql"]) this.sqlite.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), "utf8"));
+    for (const file of ["0001_finance_core.sql", "0007_merchant_ai_quota.sql", "0008_merchant_booking_engine.sql", "0022_google_maps_booking_referral.sql"]) this.sqlite.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), "utf8").replace(/\r\n/g, "\n"));
   }
   prepare(sql) { return new D1Statement(this.sqlite.prepare(sql), sql); }
   async batch(statements) {
