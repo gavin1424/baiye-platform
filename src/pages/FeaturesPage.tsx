@@ -99,7 +99,7 @@ const groups: FeatureGroup[] = [
     description: "從手機點餐延伸到多商家商品、購物車、結帳與訂單管理。",
     items: [
       { name: "QR 手機點餐", description: "掃碼辨識商家／桌號、菜單、購物車、送單與訂單狀態。", status: "development" },
-      { name: "百工牛肉麵互動示範", description: "功能示範：掃碼加入會員、選餐加料、送單與查看狀態；非正式合作案例。", status: "ready", href: "https://baiye-beef-noodle-demo.pages.dev/" },
+      { name: "百工牛肉麵｜完整功能試用店", description: "百工官方示範：掃碼加入會員、選餐加料、送單與查看狀態；示範資料不進行真實交易。", status: "ready", href: "/#/demo/beef-noodle" },
       { name: "商品／規格／SKU", description: "多規格商品、SKU、圖片、上下架與商品狀態管理。", status: "development" },
       { name: "庫存與 Reservation", description: "庫存流水、保留、消耗、釋放及並發防超賣。", status: "development" },
       { name: "訪客／會員購物車", description: "後端重新計價、Token 保護、冪等結帳與價格快照。", status: "development" },

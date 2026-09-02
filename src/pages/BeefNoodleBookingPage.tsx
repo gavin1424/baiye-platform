@@ -1,0 +1,18 @@
+import { CalendarCheck } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { merchantOrderingApi } from "../qr-ordering-client";
+
+const route = "/api/merchant/beef-noodle-demo/booking";
+const tomorrow = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+export function BeefNoodleBookingPage() {
+  const [services, setServices] = useState<any[]>([]), [serviceId, setServiceId] = useState(""), [staffId, setStaffId] = useState("");
+  const [date, setDate] = useState(tomorrow()), [slots, setSlots] = useState<any[]>([]), [time, setTime] = useState("");
+  const [name, setName] = useState(""), [phone, setPhone] = useState(""), [notice, setNotice] = useState(""), [booking, setBooking] = useState<any>();
+  useEffect(() => { void merchantOrderingApi<any>(`${route}/services`).then((data) => { setServices(data.items || []); const first = data.items?.[0]; if (first) { setServiceId(first.id); setStaffId(first.staff_id); } }).catch((error) => setNotice(error.message)); }, []);
+  const loadSlots = async () => { try { const data = await merchantOrderingApi<any>(`${route}/availability?service_id=${encodeURIComponent(serviceId)}&staff_id=${encodeURIComponent(staffId)}&date=${date}`); setSlots(data.items || []); setTime(data.items?.[0]?.time || ""); setNotice(data.message || ""); } catch (error) { setNotice(error instanceof Error ? error.message : "無法讀取時段。"); } };
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); try { const data = await merchantOrderingApi<any>(route, { method: "POST", body: JSON.stringify({ service_id: serviceId, staff_id: staffId, date, time, customer_name: name, customer_phone: phone, party_size: 1, note: "百工官方示範預約" }) }); setBooking(data); setNotice("預約已建立；此為示範資料，不進行真實交易。"); } catch (error) { setNotice(error instanceof Error ? error.message : "無法建立預約。"); } };
+  const selected = services.find((item) => item.id === serviceId && item.staff_id === staffId);
+  return <main className="partner-shell"><section className="merchant-access-card"><div className="demo-environment-pill">百工官方示範</div><CalendarCheck size={48} weight="duotone" /><h1>百工牛肉麵預約體驗</h1><p>沿用正式 Booking Core。示範資料／不進行真實交易。</p><form onSubmit={submit}><label>服務<select value={`${serviceId}|${staffId}`} onChange={(event) => { const [service, staff] = event.target.value.split("|"); setServiceId(service); setStaffId(staff); setSlots([]); }}><option value="">請選擇</option>{services.map((item) => <option key={`${item.id}-${item.staff_id}`} value={`${item.id}|${item.staff_id}`}>{item.name}｜{item.staff_name}</option>)}</select></label><label>日期<input required type="date" value={date} onChange={(event) => { setDate(event.target.value); setSlots([]); }} /></label><button type="button" className="btn btn-outline" disabled={!selected} onClick={() => void loadSlots()}>查看可預約時段</button>{slots.length > 0 && <label>時段<select required value={time} onChange={(event) => setTime(event.target.value)}>{slots.map((slot) => <option key={`${slot.staff_id}-${slot.time}`} value={slot.time}>{slot.time}</option>)}</select></label>}<label>姓名<input required value={name} onChange={(event) => setName(event.target.value)} /></label><label>手機號碼<input required type="tel" inputMode="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></label><button className="btn btn-primary" disabled={!time}>建立預約</button></form>{booking?.booking && <div className="partner-message"><strong>{booking.booking.booking_code}</strong><br />{new Date(booking.booking.start_at).toLocaleString("zh-TW")}</div>}{notice && <p>{notice}</p>}<Link to="/demo/beef-noodle">返回試用店</Link></section></main>;
+}

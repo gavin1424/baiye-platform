@@ -5,6 +5,8 @@ const ORDERING_PERMISSION_MAP = Object.freeze([
   [/^\/api\/merchant-admin\/ordering\/overview$/, READ, "ordering.read"],
   [/^\/api\/merchant-admin\/ordering\/settings$/, READ, "ordering.read"],
   [/^\/api\/merchant-admin\/ordering\/settings$/, MUTATION, "ordering.settings"],
+  [/^\/api\/merchant-admin\/ordering\/line-integration$/, READ, "ordering.read"],
+  [/^\/api\/merchant-admin\/ordering\/line-integration$/, MUTATION, "ordering.settings"],
   [/^\/api\/merchant-admin\/ordering\/qrs(?:\/|$)/, READ, "ordering.read"],
   [/^\/api\/merchant-admin\/ordering\/qrs(?:\/|$)/, MUTATION, "ordering.qr.manage"],
   [/^\/api\/merchant-admin\/ordering\/(?:categories|items|option-groups)(?:\/|$)/, READ, "ordering.read"],

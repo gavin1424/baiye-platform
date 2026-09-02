@@ -27,8 +27,8 @@ async function getSession(request, env) {
   const token = cookie(request, COOKIE);
   if (!token || !env.FINANCE_DB) return null;
   return env.FINANCE_DB.prepare(`
-    SELECT s.id session_id,s.merchant_id,s.user_id,s.csrf_hash,s.expires_at,
-           u.email,u.display_name,u.status,m.name merchant_name,
+    SELECT s.id session_id,s.merchant_id,s.user_id,s.platform_member_id,s.assurance_level,s.issued_via,s.csrf_hash,s.expires_at,
+           u.email,u.display_name,u.phone_normalized,u.status,m.name merchant_name,m.status merchant_status,m.demo_environment,m.official_demo,m.demo_contract_exemption,
            GROUP_CONCAT(DISTINCT p.permission_code) permissions,
            GROUP_CONCAT(DISTINCT r.code) roles
     FROM merchant_user_sessions s
@@ -40,6 +40,15 @@ async function getSession(request, env) {
     WHERE s.token_hash=? AND s.revoked_at IS NULL AND datetime(s.expires_at)>datetime('now') AND u.status='active'
     GROUP BY s.id
   `).bind(await sha(token)).first();
+}
+
+export async function merchantOperationsAllowed(db, merchantId) {
+  if (merchantId === "demo_beef_noodle") {
+    const demo = await db.prepare("SELECT enabled,official_demo,demo_contract_exemption FROM production_demo_merchants WHERE merchant_id='demo_beef_noodle'").first().catch(() => null);
+    return Number(demo?.enabled) === 1 && Number(demo?.official_demo) === 1 && Number(demo?.demo_contract_exemption) === 1;
+  }
+  const signed = await db.prepare("SELECT id FROM merchant_contract_signatures WHERE merchant_id=? AND status='VALID' LIMIT 1").bind(merchantId).first();
+  return Boolean(signed);
 }
 
 export async function authorizeMerchant(request, env, permission = "") {
@@ -86,7 +95,7 @@ export async function handleMerchantAuth(request, env, url, cors = {}) {
     if (!session) return json({ error: "未登入。" }, 401, cors);
     const csrf = random();
     await db.prepare("UPDATE merchant_user_sessions SET csrf_hash=?,last_seen_at=CURRENT_TIMESTAMP WHERE id=?").bind(await sha(csrf), session.session_id).run();
-    return json({ user: { id: session.user_id, merchant_id: session.merchant_id, email: session.email, name: session.display_name }, merchant: { id: session.merchant_id, name: session.merchant_name }, permissions: String(session.permissions || "").split(",").filter(Boolean), roles: String(session.roles || "").split(",").filter(Boolean), csrf_token: csrf, expires_at: session.expires_at }, 200, cors);
+    return json({ user: { id: session.user_id, merchant_id: session.merchant_id, email: session.email, name: session.display_name, phone_masked: session.phone_normalized ? `${session.phone_normalized.slice(0,2)}** *** ${session.phone_normalized.slice(-3)}` : null, display_role: "管理者", internal_role: "merchant_owner" }, merchant: { id: session.merchant_id, name: session.merchant_name, official_demo: Number(session.official_demo) === 1 }, platform_member_id: session.platform_member_id || null, permissions: String(session.permissions || "").split(",").filter(Boolean), roles: String(session.roles || "").split(",").filter(Boolean), csrf_token: csrf, expires_at: session.expires_at, next_url: "/merchant/dashboard" }, 200, cors);
   }
   if (url.pathname === "/api/merchant-auth/logout" && request.method === "POST") {
     const result = await authorizeMerchant(request, env);
