@@ -228,8 +228,8 @@ export function GoogleMapsBookingLandingPage() {
                   </Link>
                 </>
               ) : (
-                <Link className="btn btn-primary" to="/merchant/contract">
-                  前往商家簽約
+                <Link className="btn btn-primary" to="/merchant/select-plan">
+                  前往商家方案中心
                 </Link>
               )}
             </div>
@@ -349,8 +349,8 @@ export function MerchantGoogleMapsBookingPage() {
         <p className="google-kicker">Contract Gate</p>
         <h1>請先完成商家平台服務契約</h1>
         <p>完成 NT$18,000 商家平台服務契約後，即可申請 Google 地圖預約導流。</p>
-        <Link className="btn btn-primary" to="/merchant/contract">
-          前往商家簽約
+        <Link className="btn btn-primary" to="/merchant/select-plan">
+          前往商家方案中心
         </Link>
       </main>
     );

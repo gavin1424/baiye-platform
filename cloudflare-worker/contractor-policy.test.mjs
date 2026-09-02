@@ -28,12 +28,13 @@ test("five-level reward uses the completed historical count and is non-retroacti
 
 test("partner application UX maps every lifecycle state without exposing account data", () => {
   const at = new Date("2026-08-24T10:00:00Z");
-  assert.equal(partnerWorkflowStatus({ status: "pending_contract", approved_at: null }, null, at).state, "pending_review");
+  assert.equal(partnerWorkflowStatus({ status: "pending_contract", approved_at: null }, null, at).state, "pending_activation");
   assert.deepEqual(partnerWorkflowStatus({ status: "pending_contract", approved_at: "2026-08-20" }, { expires_at: "2026-08-25T10:00:00Z", used_at: null }, at), {
     code: "PARTNER_PENDING_ACTIVATION", state: "pending_activation", has_valid_invite: true, message: "您的承攬夥伴申請已通過，但帳號尚未完成啟用。請使用已收到的安全啟用通知。",
   });
   assert.equal(partnerWorkflowStatus({ status: "pending_contract", approved_at: "2026-08-20" }, { expires_at: "2026-08-23T10:00:00Z", used_at: null }, at).state, "invite_expired");
-  assert.equal(partnerWorkflowStatus({ status: "active" }, null, at).state, "active");
+  assert.equal(partnerWorkflowStatus({ status: "active" }, null, at).state, "contract_required");
+  assert.equal(partnerWorkflowStatus({ status: "active", contract_status: "signed" }, null, at).state, "active");
   assert.equal(partnerWorkflowStatus({ status: "rejected" }, null, at).state, "rejected");
   assert.equal(partnerWorkflowStatus({ status: "suspended" }, null, at).state, "suspended");
   assert.equal(partnerWorkflowStatus({ status: "terminated" }, null, at).state, "terminated");

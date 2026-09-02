@@ -1,6 +1,6 @@
 import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
-import { ensureStandardCommercialTerms } from "./merchant-standard-terms.js";
 import { getSoftposRenewal } from "./merchant-softpos-plan.js";
+import { findMerchantPlan, saveMerchantPlanIntent } from "./merchant-plan-catalog.js";
 
 const E = new TextEncoder(), COOKIE = "baiye_merchant_session", ITERATIONS = 600000, SEGMENT = 100000;
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=UTF-8", "cache-control": "no-store", ...headers } });
@@ -70,6 +70,8 @@ async function register(request, env, cors) {
   if (input.privacy_consent !== true || !String(input.consent_version || "").trim()) return json({ error: "請閱讀並同意會員服務、隱私權說明及商家平台相關條款。", code: "PRIVACY_CONSENT_REQUIRED" }, 422, cors);
   if (!await rateLimit(db, request, phone, "merchant_register")) return json({ error: "操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
   if ((await ownersByPhone(db, phone)).length) return json({ code: "MERCHANT_ALREADY_REGISTERED", message: "此手機已有商家帳號，請前往商家登入。", next_url: "/merchant/login" }, 409, cors);
+  const intendedPlanId = String(input.intended_plan || "").trim();
+  if (intendedPlanId && !await findMerchantPlan(db, intendedPlanId)) return json({ error: "所選方案不存在或目前不可選擇。", code: "PLAN_NOT_SELECTABLE" }, 422, cors);
   const existingMember = await db.prepare("SELECT p.id FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE c.phone_normalized=?").bind(phone).first();
   if (existingMember) { const authenticated = await authenticatePlatformMember(db, request); if (!authenticated || authenticated.id !== existingMember.id) return json({ error: "此手機已是平台會員，請先完成帳戶驗證。", code: "MEMBER_VERIFICATION_REQUIRED" }, 401, cors); }
   const membership = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version), deviceId: request.headers.get("x-device-id") || "merchant-register", issueSession: true });
@@ -77,30 +79,22 @@ async function register(request, env, cors) {
   await db.batch([
     db.prepare("INSERT INTO merchants(id,merchant_code,name,phone,status) VALUES(?,?, '待完成商家資料',?,'registration_started')").bind(merchantId, merchantCode, phone),
     db.prepare("INSERT INTO merchant_applications(id,merchant_id,platform_member_id,phone_hash,consent_version) VALUES(?,?,?,?,?)").bind(uid("mapp"), merchantId, membership.member.id, await sha(`phone:${phone}`), String(input.consent_version)),
-    db.prepare("INSERT INTO merchant_onboarding_states(merchant_id,registration_mode,state,operation_locked,commercial_terms_approval_required) VALUES(?,'standard_self_service','registration_started',1,0)").bind(merchantId),
+    db.prepare("INSERT INTO merchant_onboarding_states(merchant_id,registration_mode,state,operation_locked,commercial_terms_approval_required) VALUES(?,'standard_self_service','registered',1,0)").bind(merchantId),
   ]);
-  const standardTerms = await ensureStandardCommercialTerms(db, merchantId);
   const owner = await createPasswordlessMerchantOwner(db, { request, merchantId, platformMember: membership.member, phone });
-  const directInviteId = uid("mcinvite_direct");
-  await db.batch([
-    db.prepare("INSERT INTO merchant_contract_invites(id,merchant_id,commercial_terms_id,email,token_hash,expires_at,used_at,created_by) VALUES(?,?,?,?,?,'2099-12-31T23:59:59.000Z',CURRENT_TIMESTAMP,'system_standard_registration')")
-      .bind(directInviteId, merchantId, standardTerms.terms.id, owner.email, await sha(`direct-merchant-contract-source:${random()}`)),
-    db.prepare("UPDATE merchants SET status='contract_required',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(merchantId),
-    db.prepare("UPDATE merchant_applications SET status='activated',updated_at=CURRENT_TIMESTAMP WHERE merchant_id=?").bind(merchantId),
-    db.prepare("UPDATE merchant_onboarding_states SET state='contract_required',commercial_terms_id=?,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=?").bind(standardTerms.terms.id, merchantId),
-  ]);
-  const session = await issueMerchantSession(db, { merchantId, userId: owner.userId, platformMemberId: membership.member.id, assuranceLevel: "activation_invite", issuedVia: "phone_registration" });
+  if (intendedPlanId) await saveMerchantPlanIntent(db, merchantId, intendedPlanId, "join");
+  await db.prepare("UPDATE merchant_applications SET status='activated',updated_at=CURRENT_TIMESTAMP WHERE merchant_id=?").bind(merchantId).run();
+  const session = await issueMerchantSession(db, { merchantId, userId: owner.userId, platformMemberId: membership.member.id, assuranceLevel: "verified_phone", issuedVia: "phone_registration" });
   await event(db, request, "merchant.registration_started", merchantId, owner.userId, { member_id: membership.member.id });
-  await event(db, request, "merchant.standard_terms_assigned", merchantId, owner.userId, { plan_code: standardTerms.terms.plan_code, terms_id: standardTerms.terms.id });
-  await event(db, request, "merchant.contract_required", merchantId, owner.userId, { terms_id: standardTerms.terms.id });
-  return json({ code: "MERCHANT_REGISTERED", merchant: { id: merchantId, name: "待完成商家資料", status: "contract_required", operation_locked: true }, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: membership.coupon, commercial_terms: { id: standardTerms.terms.id, plan_code: standardTerms.terms.plan_code, approval_required: false, immutable: true }, csrf_token: session.csrf, next_url: "/merchant/contract" }, 201, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
+  await event(db, request, "merchant.plan_selection_required", merchantId, owner.userId, { intended_plan: intendedPlanId || null, registration_price_minor: 0 });
+  return json({ code: "MERCHANT_REGISTERED", merchant: { id: merchantId, name: "待完成商家資料", status: "registration_started", operation_locked: true }, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: null, registration_price_minor: 0, intended_plan: intendedPlanId || null, csrf_token: session.csrf, next_url: "/merchant/select-plan" }, 201, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
 }
 
 async function loginStart(request, env, cors) {
   const db = env.FINANCE_DB, input = await request.json().catch(() => ({})), phone = normalizeTaiwanMobile(input.phone);
   if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
   if (!await rateLimit(db, request, phone, "merchant_login_start")) return json({ error: "操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
-  const current = await getSession(request, env); if (current?.phone_normalized === phone) return json({ code: "SESSION_RESTORED", next_url: "/merchant/dashboard" }, 200, cors);
+  const current = await getSession(request, env); if (current?.phone_normalized === phone) { const state = await db.prepare("SELECT state,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(current.merchant_id).first(); return json({ code: "SESSION_RESTORED", next_url: !state?.commercial_terms_id ? "/merchant/select-plan" : state.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard" }, 200, cors); }
   const owners = await ownersByPhone(db, phone); if (!owners.length) return json({ code: "MERCHANT_NOT_FOUND", message: "若此手機已登記為商家管理者，系統將提供安全登入方式。" }, 202, cors);
   if (owners.every((row) => ownerState(row) !== "ACTIVE")) { const state = ownerState(owners[0]); return json({ code: state, error: state === "MERCHANT_SUSPENDED" ? "商家帳號目前暫停使用，請聯絡平台。" : "商家帳號目前無法使用。" }, 403, cors); }
   const mode = String(env.MERCHANT_OTP_MODE || "disabled"); if (!["staging", "sms_otp", "line_login"].includes(mode)) return json({ code: "VERIFICATION_SERVICE_UNAVAILABLE", error: "手機驗證服務目前尚未開放，請使用原裝置或安全啟用連結。" }, 503, cors);
@@ -120,8 +114,8 @@ async function loginVerify(request, env, cors) {
   const selected = rows.find((row) => row.merchant_id === (input.merchant_id || rows[0].merchant_id)); if (!selected) return json({ error: "無法存取所選商家。", code: "MERCHANT_ISOLATION_DENIED" }, 403, cors);
   const changed = await db.prepare("UPDATE merchant_login_challenges SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(challenge.id).run(); if (!changed.meta?.changes) return json({ error: "驗證碼已使用。", code: "OTP_REPLAY" }, 409, cors);
   const session = await issueMerchantSession(db, { merchantId: selected.merchant_id, userId: selected.merchant_user_id, platformMemberId: selected.platform_member_id, assuranceLevel: "verified_phone", issuedVia: challenge.mode }); await event(db, request, "merchant.session_created", selected.merchant_id, selected.merchant_user_id, { assurance_level: "verified_phone" });
-  const onboarding = await db.prepare("SELECT state,operation_locked FROM merchant_onboarding_states WHERE merchant_id=?").bind(selected.merchant_id).first();
-  const nextUrl = !onboarding || onboarding.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard";
+  const onboarding = await db.prepare("SELECT state,operation_locked,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(selected.merchant_id).first();
+  const nextUrl = !onboarding?.commercial_terms_id ? "/merchant/select-plan" : onboarding.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard";
   return json({ code: "LOGIN_SUCCESS", merchant: { id: selected.merchant_id, name: selected.merchant_name }, administrator: { display_role: "管理者", internal_role: "merchant_owner", status: Number(onboarding?.operation_locked ?? 1) === 0 ? "ACTIVE" : "PENDING_ACTIVATION" }, csrf_token: session.csrf, expires_at: session.expiresAt, next_url: nextUrl }, 200, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
 }
 
@@ -133,7 +127,7 @@ export async function handleMerchantAuth(request, env, url, cors = {}) {
   if (url.pathname === "/api/merchant-auth/login/start" && request.method === "POST") return loginStart(request, env, cors);
   if (url.pathname === "/api/merchant-auth/login/verify" && request.method === "POST") return loginVerify(request, env, cors);
   if (url.pathname === "/api/merchant-auth/login" && request.method === "POST") return legacyLogin(request, env, cors);
-  if (url.pathname === "/api/merchant-auth/session" && request.method === "GET") { const s = await getSession(request, env); if (!s) return json({ error: "未登入。" }, 401, cors); const csrf = random(); await db.prepare("UPDATE merchant_user_sessions SET csrf_hash=?,last_seen_at=CURRENT_TIMESTAMP WHERE id=?").bind(await sha(csrf), s.session_id).run(); const signed = await db.prepare("SELECT id,public_id,signed_at FROM merchant_contract_signatures WHERE merchant_id=? AND status='VALID' ORDER BY signed_at DESC LIMIT 1").bind(s.merchant_id).first(); const onboarding = await db.prepare("SELECT state,operation_locked,commercial_terms_approval_required FROM merchant_onboarding_states WHERE merchant_id=?").bind(s.merchant_id).first(); const active = Boolean(signed) && onboarding?.state === "active" && Number(onboarding.operation_locked) === 0; return json({ user: { id: s.user_id, merchant_id: s.merchant_id, name: s.display_name, phone_masked: s.phone_normalized ? `${s.phone_normalized.slice(0,2)}** *** ${s.phone_normalized.slice(-3)}` : null, display_role: "管理者", internal_role: "merchant_owner", administrator_status: active ? "ACTIVE" : "PENDING_ACTIVATION" }, merchant: { id: s.merchant_id, name: s.merchant_name, status: s.merchant_status, operation_locked: onboarding ? Number(onboarding.operation_locked) === 1 : true, onboarding_state: onboarding?.state || null }, contract_status: signed ? "signed" : "contract_required", contract_signature: signed || null, permissions: String(s.permissions || "").split(",").filter(Boolean), roles: String(s.roles || "").split(",").filter(Boolean), assurance_level: s.assurance_level, csrf_token: csrf, expires_at: s.expires_at, next_url: signed ? "/merchant/dashboard" : "/merchant/contract" }, 200, cors); }
+  if (url.pathname === "/api/merchant-auth/session" && request.method === "GET") { const s = await getSession(request, env); if (!s) return json({ error: "未登入。" }, 401, cors); const csrf = random(); await db.prepare("UPDATE merchant_user_sessions SET csrf_hash=?,last_seen_at=CURRENT_TIMESTAMP WHERE id=?").bind(await sha(csrf), s.session_id).run(); const signed = await db.prepare("SELECT id,public_id,signed_at FROM merchant_contract_signatures WHERE merchant_id=? AND status='VALID' ORDER BY signed_at DESC LIMIT 1").bind(s.merchant_id).first(); const onboarding = await db.prepare("SELECT state,operation_locked,commercial_terms_approval_required,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(s.merchant_id).first(); const active = Boolean(signed) && onboarding?.state === "active" && Number(onboarding.operation_locked) === 0; const nextUrl = signed ? "/merchant/dashboard" : !onboarding?.commercial_terms_id ? "/merchant/select-plan" : "/merchant/contract"; return json({ user: { id: s.user_id, merchant_id: s.merchant_id, name: s.display_name, phone_masked: s.phone_normalized ? `${s.phone_normalized.slice(0,2)}** *** ${s.phone_normalized.slice(-3)}` : null, display_role: "管理者", internal_role: "merchant_owner", administrator_status: active ? "ACTIVE" : "PENDING_ACTIVATION" }, merchant: { id: s.merchant_id, name: s.merchant_name, status: s.merchant_status, operation_locked: onboarding ? Number(onboarding.operation_locked) === 1 : true, onboarding_state: onboarding?.state || null }, contract_status: signed ? "signed" : onboarding?.commercial_terms_id ? "contract_required" : "plan_selection_required", contract_signature: signed || null, permissions: String(s.permissions || "").split(",").filter(Boolean), roles: String(s.roles || "").split(",").filter(Boolean), assurance_level: s.assurance_level, csrf_token: csrf, expires_at: s.expires_at, next_url: nextUrl }, 200, cors); }
   if (url.pathname === "/api/merchant-auth/logout" && request.method === "POST") { const result = await authorizeMerchant(request, env); if (!result.ok) return json({ error: result.error }, result.status, cors); await db.prepare("UPDATE merchant_user_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE id=?").bind(result.session.session_id).run(); return json({ ok: true }, 200, { ...cors, "set-cookie": merchantSessionCookie("", 0) }); }
   return null;
 }

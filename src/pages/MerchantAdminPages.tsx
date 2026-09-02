@@ -36,10 +36,12 @@ export function MerchantAdminDashboardPage() {
 }
 
 export function MerchantProfilePage() {
-  const [data, setData] = useState<any>(), [notice, setNotice] = useState("");
-  useEffect(() => { void merchantOrderingApi<any>("/api/merchant-admin/profile").then(setData).catch((error) => setNotice(message(error))); }, []);
-  const p = data?.profile;
-  return <Shell title="商家基本營運資料"><section className="merchant-admin-account"><p className="merchant-admin-lock-note">本方案 merchant_content_editable = false。網站主要內容、商品主要建檔與網站版型由百工協助修改，不提供完整 CMS Editor。</p>{p && <dl><dt>品牌名稱</dt><dd>{p.brand_name || p.name || "未設定"}</dd><dt>客服電話</dt><dd>{p.support_phone || p.phone || "未設定"}</dd><dt>客服 Email</dt><dd>{p.support_email || p.email || "未設定"}</dd><dt>營業地址</dt><dd>{p.business_address || "未設定"}</dd><dt>營業時間</dt><dd>{p.business_hours || "未設定"}</dd></dl>}<Link className="btn btn-primary" to="/merchant/content-change">申請內容修改</Link>{notice && <p>{notice}</p>}</section></Shell>;
+  const [data, setData] = useState<any>(), [form, setForm] = useState<any>({}), [notice, setNotice] = useState("");
+  useEffect(() => { void merchantOrderingApi<any>("/api/merchant-admin/profile").then((value) => { setData(value); setForm(value.profile || {}); }).catch((error) => setNotice(message(error))); }, []);
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); setNotice(""); try { await merchantOrderingApi("/api/merchant-admin/profile", { method: "PATCH", body: JSON.stringify(form) }); setNotice("商家基本資料已儲存。"); } catch (error) { setNotice(message(error)); } };
+  const field = (key: string, label: string, type = "text") => <label>{label}{type === "textarea" ? <textarea value={form[key] || ""} onChange={(event) => setForm({ ...form, [key]: event.target.value })} /> : <input type={type} value={form[key] || ""} onChange={(event) => setForm({ ...form, [key]: event.target.value })} />}</label>;
+  if (!data?.entitlements?.merchant_content_editable) { const p = data?.profile; return <Shell title="商家基本營運資料"><section className="merchant-admin-account"><p className="merchant-admin-lock-note">本方案 merchant_content_editable = false。網站主要內容、商品主要建檔與網站版型由百工協助修改，不提供完整 CMS Editor。</p>{p && <dl><dt>品牌名稱</dt><dd>{p.brand_name || p.name || "未設定"}</dd><dt>客服電話</dt><dd>{p.support_phone || p.phone || "未設定"}</dd><dt>客服 Email</dt><dd>{p.support_email || p.email || "未設定"}</dd><dt>營業地址</dt><dd>{p.business_address || "未設定"}</dd><dt>營業時間</dt><dd>{p.business_hours || "未設定"}</dd></dl>}<Link className="btn btn-primary" to="/merchant/content-change">申請內容修改</Link>{notice && <p>{notice}</p>}</section></Shell>; }
+  return <Shell title="商家基本資料"><form className="merchant-admin-form" onSubmit={submit}><p className="merchant-admin-lock-note">此方案已啟用 merchant_content_editable；法定名稱、統一編號與契約簽署人仍須走正式變更流程。</p>{field("brand_name","品牌名稱")}{field("business_description","商家介紹","textarea")}{field("support_phone","客服電話","tel")}{field("support_email","客服 Email","email")}{field("business_address","營業地址")}{field("business_hours","營業時間","textarea")}{field("transportation_info","交通資訊","textarea")}{field("homepage_notice","首頁公告","textarea")}<button className="btn btn-primary">儲存資料</button>{notice && <p className="partner-message">{notice}</p>}</form></Shell>;
 }
 
 export function MerchantContentChangePage() {

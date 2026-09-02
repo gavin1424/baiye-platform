@@ -64,13 +64,18 @@ async function seed() {
   return db;
 }
 
-test("SP01 migration reserves exactly 0024 and seeds immutable integer plan data", async () => {
+test("SP01 migration keeps the unique 0023-0026 integration sequence and immutable integer plan data", async () => {
   const db = new D1();
   const plan = db.sqlite.prepare("SELECT * FROM merchant_service_plan_versions WHERE plan_id=?").get(SOFTPOS_PLAN_ID);
   assert.deepEqual([plan.activation_fee,plan.deposit,plan.trial_months,plan.cycle_months,plan.cycle_fee,plan.first_cycle_credit,plan.first_cycle_balance], [300000,600000,3,24,2400000,600000,1800000]);
   assert.equal(plan.legal_status, "pending_review"); assert.equal(plan.environment, "staging");
   assert.throws(() => db.sqlite.prepare("UPDATE merchant_service_plan_versions SET cycle_fee=1 WHERE plan_id=?").run(SOFTPOS_PLAN_ID), /IMMUTABLE/);
-  const migrations = readdirSync(new URL("../migrations", import.meta.url)); assert.ok(migrations.includes("0024_contract_softpos_24000.sql")); assert.equal(migrations.some((name) => name.startsWith("0025")), false);
+  const migrations = readdirSync(new URL("../migrations", import.meta.url));
+  assert.ok(migrations.includes("0023_contract_commerce_ai_45000.sql"));
+  assert.ok(migrations.includes("0024_contract_softpos_24000.sql"));
+  assert.ok(migrations.includes("0025_contract_standard_addons.sql"));
+  assert.ok(migrations.includes("0026_unified_registration_contract_center.sql"));
+  for (const number of ["0023", "0024", "0025", "0026"]) assert.equal(migrations.filter((name) => name.startsWith(number)).length, 1);
 });
 
 test("SP02 contract body hash, legal gate and precise deposit clauses are present", async () => {

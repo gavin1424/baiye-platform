@@ -10,7 +10,7 @@ import { authorizeMerchant, handleMerchantAuth, merchantOperationsAllowed } from
 import { handleGoogleMapsBookingAdmin, handleMerchantGoogleMapsBooking } from "./google-maps-booking.js";
 import { permissionForOrderingRequest } from "./merchant-permissions.js";
 import { handleMerchantAdmin } from "./merchant-admin.js";
-import { commerceEntitlements } from "./commerce-ai-contract.js";
+import { handleMerchantPlans, handleMerchantPlansPublic, merchantPlanEntitlements } from "./merchant-plan-catalog.js";
 import { handleMerchantStandardAddons, handleMerchantStandardAddonsAdmin } from "./merchant-standard-addons.js";
 import {
   handleMerchantContractAdmin,
@@ -211,6 +211,12 @@ export default {
       return (await handleAdminAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
+    if (url.pathname === "/api/public/merchant-plans") {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleMerchantPlansPublic(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
     if (url.pathname.startsWith("/api/merchant-auth/") || url.pathname === "/api/merchant/register") {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
@@ -249,6 +255,14 @@ export default {
       return (await handleMerchantContractRequest(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
 
+    if (url.pathname.startsWith("/api/merchant/plans")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const authorization = await authorizeMerchant(request, env);
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      return (await handleMerchantPlans(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
+    }
+
     if (url.pathname.startsWith("/api/merchant/google-maps-booking")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
@@ -267,7 +281,7 @@ export default {
       const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
       if (!operationGate.ok) return json({ error: "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error, onboarding_state: operationGate.state }, operationGate.status, cors);
       if (permission === "ordering.menu.manage") {
-        const entitlements = await commerceEntitlements(env.FINANCE_DB, authorization.session.merchant_id);
+        const entitlements = await merchantPlanEntitlements(env.FINANCE_DB, authorization.session.merchant_id);
         if (!entitlements.merchant_product_edit) return json({ error: "此方案未啟用商城商品自行編輯權限。", code: "MERCHANT_PRODUCT_EDIT_PLAN_REQUIRED" }, 403, cors);
       }
       const scopedUrl = new URL(url);

@@ -88,8 +88,8 @@ function WorkflowActions({
           {workflow.activation_url ? "立即繼續" : "取得新的啟用通知"}
         </a>
       )}
-      <Link className="btn btn-outline btn-sm" to="/partner">
-        承攬夥伴中心
+      <Link className="btn btn-outline btn-sm" to="/join">
+        統一加入中心
       </Link>
     </div>
   );
@@ -194,8 +194,8 @@ export function PartnerLanding() {
 
         <article className="partner-entry-card">
           <span className="partner-entry-icon"><Signature weight="duotone" /></span>
-          <div><h2>商家簽約</h2><p>已完成商家註冊？完成 NT$18,000 商家平台服務契約後，即可繼續商家啟用流程。</p></div>
-          <Link className="btn btn-primary" to="/merchant/contract">前往商家簽約</Link>
+          <div><h2>商家方案</h2><p>從統一加入中心選擇正式方案，再由伺服器建立對應商業條件與待簽契約。</p></div>
+          <Link className="btn btn-primary" to="/join">前往統一加入中心</Link>
         </article>
 
         <article className="partner-entry-card">

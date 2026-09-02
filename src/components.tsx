@@ -125,7 +125,7 @@ export function Header() {
           ))}
         </nav>
         <div className="header-actions">
-          <Link to="/partner" className="btn btn-outline btn-sm header-partner-link">
+          <Link to="/join" className="btn btn-outline btn-sm header-partner-link">
             承攬夥伴
           </Link>
           {isBusiness && (
@@ -194,7 +194,7 @@ export function Header() {
             方案與價格
             <CaretRight />
           </NavLink>
-          <NavLink to="/partner">
+          <NavLink to="/join">
             承攬夥伴
             <CaretRight />
           </NavLink>
@@ -248,9 +248,9 @@ export function Footer() {
           </div>
           <div>
             <strong>承攬夥伴</strong>
-            <Link to="/partner/apply">申請成為承攬夥伴</Link>
+            <Link to="/join">加入／方案中心</Link>
             <Link to="/partner/login">承攬夥伴登入</Link>
-            <Link to="/partner">承攬夥伴中心</Link>
+            <Link to="/join">承攬／商家加入</Link>
           </div>
           <div>
             <strong>關於我們</strong>
