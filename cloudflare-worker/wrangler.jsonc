@@ -24,6 +24,7 @@
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://baiyeconnect.com,https://www.baiyeconnect.com,https://meilingpatchwork.com,https://www.meilingpatchwork.com",
-    "PARTNER_OTP_MODE": "disabled"
+    "PARTNER_OTP_MODE": "disabled",
+    "MEMBERSHIP_COUPON_ISSUANCE_ENABLED": "0"
   }
 }
