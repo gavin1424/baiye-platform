@@ -20,8 +20,8 @@ import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
 import { MerchantLoginPage, MerchantPortalPage, MerchantRegisterPage } from "./pages/MerchantAccessPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
+import { AdminAddonsPage } from "./pages/AdminAddonsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
-import { MemberLoginCompatibility, MerchantQrCodesCompatibility, QrMembershipJoinCompatibility } from "./pages/QrMembershipCompatibilityPages";
 import { AdminGoogleMapsBookingPage, GoogleMapsBookingLandingPage, GoogleMapsBookingPage, MerchantGoogleMapsBookingPage } from "./pages/GoogleMapsBookingPages";
 import { MerchantAccountPage, MerchantAddonsPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantContentChangePage, MerchantLinePage, MerchantMembersPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 
@@ -83,6 +83,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/partner/contract": "線上承攬夥伴合作契約｜創百業智慧鏈",
   "/admin/partners": "承攬夥伴管理｜創百業智慧鏈",
   "/admin/contracts": "契約管理｜創百業智慧鏈",
+  "/admin/addons": "內容修改與加購管理｜創百業智慧鏈",
   "/admin/google-maps-booking": "Google 地圖預約開通管理｜創百業智慧鏈",
   "/merchant/register": "商家註冊｜創百業智慧鏈",
   "/merchant/login": "商家登入｜創百業智慧鏈",
@@ -298,6 +299,7 @@ export function App() {
         <Route path="/admin/financing" element={<AdminRoute><AdminFinancingPage /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
         <Route path="/admin/contracts" element={<AdminRoute><AdminContractsPage /></AdminRoute>} />
+        <Route path="/admin/addons" element={<AdminRoute><AdminAddonsPage /></AdminRoute>} />
         <Route path="/admin/google-maps-booking" element={<AdminRoute><AdminGoogleMapsBookingPage /></AdminRoute>} />
         <Route path="*" element={<ProductionNotFoundPage />} />
       </Routes>
