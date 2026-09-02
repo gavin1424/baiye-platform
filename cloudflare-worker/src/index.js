@@ -274,7 +274,6 @@ export default {
     if (url.pathname.startsWith("/api/merchant-admin/ordering")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
-      if (/\/ordering\/(categories|items|option-groups)(?:\/|$)/.test(url.pathname)) return json({ code: "MERCHANT_CONTENT_EDIT_DISABLED", error: "NT$18,000 標準方案不提供完整商品 CMS，請使用申請內容修改。" }, 403, cors);
       const permission = permissionForOrderingRequest(url.pathname, request.method);
       const authorization = await authorizeMerchant(request, env, permission);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);

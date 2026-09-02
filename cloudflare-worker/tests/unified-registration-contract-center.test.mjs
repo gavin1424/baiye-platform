@@ -77,3 +77,9 @@ test("UNIFIED-08 UI has one join center, selector and no split merchant contract
   for(const phrase of ["加入創百業智慧鏈","商家免費註冊","承攬夥伴簽約","前 3 個月免費","選擇 NT\\$18,000 方案","選擇 NT\\$45,000 商城","申請免 POS 機方案"])assert.match(join,new RegExp(phrase));
   assert.match(app,/path="\/join" element={<JoinPage/);assert.match(app,/path="\/merchant\/contract"/);assert.doesNotMatch(app,/contract-(?:18|45|pos)/);
 });
+
+test("UNIFIED-09 ordering writes are entitlement-gated instead of globally blocked", () => {
+  const source = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
+  assert.match(source, /if \(!entitlements\.merchant_product_edit\)/);
+  assert.doesNotMatch(source, /\/ordering\\\/\(categories\|items\|option-groups\).*MERCHANT_CONTENT_EDIT_DISABLED/);
+});
