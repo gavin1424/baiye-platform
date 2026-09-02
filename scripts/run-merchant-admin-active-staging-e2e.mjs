@@ -56,7 +56,18 @@ const registration = await api("/api/merchant/register", {
 csrf = registration.value.csrf_token;
 const merchantId = registration.value.merchant.id;
 if (!cookie || !csrf || !merchantId) throw new Error("Registration did not create a secure Merchant Session");
-d1(`UPDATE merchants SET name=${quote(merchantName)},contact_name=${quote(signatory)} WHERE id=${quote(merchantId)} AND status='contract_required';`);
+const selectedPlan = await api("/api/merchant/plans/select", {
+  method: "POST",
+  body: {
+    plan_id: "baiye_commerce_ai_45000",
+    installment_plan_requested: 24,
+    price_minor: 1,
+    contract_version: "forged-client-value",
+  },
+  expected: [201],
+});
+if (selectedPlan.value.plan.price_minor !== 4500000 || selectedPlan.value.plan.contract_version !== "merchant_commerce_ai_v1_0_45000") throw new Error("Server-side plan selection failed");
+d1(`UPDATE merchants SET name=${quote(merchantName)},contact_name=${quote(signatory)} WHERE id=${quote(merchantId)};`);
 const registrationCookie = registration.response.headers.get("set-cookie") || "";
 if (!/HttpOnly/i.test(registrationCookie) || !/Secure/i.test(registrationCookie) || !/SameSite=None/i.test(registrationCookie)) throw new Error("Merchant Session cookie flags are incomplete");
 if (registration.value.coupon) throw new Error("Welcome coupon issuance unexpectedly enabled");
@@ -67,9 +78,9 @@ const lockedWrite = await api("/api/merchant-admin/profile", { method: "PATCH", 
 if (lockedWrite.value.code !== "MERCHANT_ACTIVATION_REQUIRED") throw new Error("Operational API did not return activation gate");
 
 const current = await api("/api/merchant/contracts/current");
-if (current.value.contract.id !== "merchant_service_v1_1_18000" || !current.value.contract.content_html) throw new Error("Merchant v1.1 contract is unavailable");
+if (current.value.contract.id !== "merchant_commerce_ai_v1_0_45000" || !current.value.contract.content_html) throw new Error("Merchant commerce contract is unavailable");
 if (current.value.merchant.name !== merchantName) throw new Error("Merchant legal party fixture is incomplete");
-if (Number(current.value.terms.discount_price_minor) !== 1800000 || Number(current.value.terms.contract_term_months) !== 24) throw new Error("Commercial terms mismatch");
+if (Number(current.value.terms.discount_price_minor) !== 4500000 || Number(current.value.terms.contract_term_months) !== 24) throw new Error("Commercial terms mismatch");
 if (!current.value.legal_entity?.configured || current.value.legal_entity.entity.legal_name !== "陳靈有限公司" || current.value.legal_entity.entity.tax_id !== "42868714") throw new Error("Approved Staging legal entity is not rendered");
 if (!current.value.attachments?.some((item) => item.title === "附件 A｜商業條件")) throw new Error("Attachment A is missing");
 
@@ -85,7 +96,7 @@ const signBody = {
   signature,
 };
 const preview = await api("/api/merchant/contracts/sign-preview", { method: "POST", body: signBody });
-if (preview.value.version !== "v1.1" || preview.value.signatory !== signatory || Number(preview.value.total_minor) !== 1800000 || Number(preview.value.term_months) !== 24) throw new Error("Contract preview mismatch");
+if (preview.value.version !== "merchant_commerce_ai_v1_0_45000" || preview.value.signatory !== signatory || Number(preview.value.total_minor) !== 4500000 || Number(preview.value.term_months) !== 24) throw new Error("Contract preview mismatch");
 const idempotencyKey = `merchant-admin-active-sign-${runId}`;
 const signed = await api("/api/merchant/contracts/sign", { method: "POST", body: signBody, headers: { "idempotency-key": idempotencyKey }, expected: [201] });
 const replay = await api("/api/merchant/contracts/sign", { method: "POST", body: signBody, headers: { "idempotency-key": idempotencyKey }, expected: [200] });
@@ -101,7 +112,7 @@ for (let pageNo = 1; pageNo <= pdfDocument.numPages; pageNo += 1) {
   pdfText += ` ${(text.items || []).map((item) => item.str || "").join(" ")}`;
 }
 const normalizedPdfText = pdfText.replace(/\s+/g, "");
-for (const expected of ["創百業智慧鏈", "商家平台服務契約", "附件A", "NT$18,000", "24個月", "陳靈有限公司", "42868714", "陳美玲", "民生東路三段57號", merchantName, signatory]) {
+for (const expected of ["創百業智慧鏈", "AI智慧商城完整版", "附件A", "NT$45,000", "24個月", "陳靈有限公司", "42868714", "陳美玲", "民生東路三段57號", merchantName, signatory]) {
   if (!normalizedPdfText.includes(expected.replace(/\s+/g, ""))) throw new Error(`PDF text missing: ${expected}`);
 }
 const pdfBinary = new TextDecoder("latin1").decode(pdf.value);

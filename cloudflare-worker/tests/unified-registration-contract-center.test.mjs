@@ -89,3 +89,9 @@ test("UNIFIED-10 runtime Noto Sans TC assets use per-document glyph subsetting",
   assert.match(source, /subsetSafe: true/);
   assert.match(source, /44cc404d8cea929c02a92900a646598bafc9ef726b7d881e7525296adc9fb8ac/);
 });
+
+test("UNIFIED-11 merchant dashboard reports the server-assigned plan code", () => {
+  const source = readFileSync(new URL("../src/merchant-admin.js", import.meta.url), "utf8");
+  assert.match(source, /SELECT t\.plan_code,t\.plan_name,t\.discount_price_minor/);
+  assert.match(source, /code: plan\.plan_code/);
+});

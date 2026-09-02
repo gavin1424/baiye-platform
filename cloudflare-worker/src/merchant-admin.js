@@ -46,7 +46,7 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
     const [state, profile, terms, counts, entitlements, payment] = await Promise.all([
       lifecycle(db, merchantId),
       db.prepare("SELECT * FROM merchant_admin_profiles WHERE merchant_id=?").bind(merchantId).first(),
-      db.prepare(`SELECT t.plan_name,t.discount_price_minor,t.contract_term_months,t.payment_plan
+      db.prepare(`SELECT t.plan_code,t.plan_name,t.discount_price_minor,t.contract_term_months,t.payment_plan
         FROM merchant_contract_commercial_terms t JOIN merchant_onboarding_states o ON o.commercial_terms_id=t.id WHERE o.merchant_id=?`).bind(merchantId).first(),
       db.prepare(`SELECT
         (SELECT COUNT(*) FROM merchant_menu_items WHERE merchant_id=? AND status<>'archived') products,
