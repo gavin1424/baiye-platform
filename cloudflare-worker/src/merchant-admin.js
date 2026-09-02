@@ -45,7 +45,7 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
   if (!db) return json({ error: "商家管理服務暫時無法使用。" }, 503, cors);
 
   if (url.pathname === "/api/merchant-admin/dashboard" && request.method === "GET") {
-    const [state, profile, terms, counts, entitlements, payment] = await Promise.all([
+    const [state, profile, terms, counts, entitlements, payment, membership] = await Promise.all([
       lifecycle(db, merchantId, env),
       db.prepare("SELECT * FROM merchant_admin_profiles WHERE merchant_id=?").bind(merchantId).first(),
       db.prepare(`SELECT t.plan_code,t.plan_name,t.discount_price_minor,t.contract_term_months,t.payment_plan
@@ -57,9 +57,12 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
         (SELECT COUNT(*) FROM merchant_food_orders WHERE merchant_id=?) orders`).bind(merchantId, merchantId, merchantId, merchantId).first(),
       isStagingDemoMerchant(env, merchantId).then((demo) => demo ? { plan_id: "demo_beef_noodle_full_trial", merchant_content_editable: true, merchant_product_editable: true, merchant_product_edit: true, commerce_full: true, cart: true, cart_enabled: true, softpos_enabled: true, ordering_enabled: true, kds_enabled: true, base_product_limit: 0 } : merchantPlanEntitlements(db, merchantId)),
       paymentReadiness(db, merchantId),
+      db.prepare(`SELECT p.id platform_member_id,m.id relationship_id,m.status relationship_status
+        FROM platform_members p JOIN merchant_ordering_memberships m ON m.customer_id=p.customer_id AND m.merchant_id=?
+        WHERE p.id=?`).bind(merchantId, session.platform_member_id || "").first(),
     ]);
     const plan = state.demoEnvironment ? { plan_code: "demo_beef_noodle_full_trial", plan_name: "百工牛肉麵完整商家試用", discount_price_minor: 0, contract_term_months: 0 } : terms || { plan_code: "baiye_standard_18000_addons", plan_name: "NT$18,000 標準方案", discount_price_minor: 1800000, contract_term_months: 24 };
-    return json({ merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name, status: session.merchant_status }, administrator: { display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), status: state.administrator_status }, account_status: state.account_status, contract: { status: state.demoEnvironment ? "demo_exempt" : state.signature ? "signed" : "contract_required", signature: state.signature }, plan: { ...plan, code: plan.plan_code, merchant_content_editable: entitlements?.merchant_content_editable === true, base_product_limit: plan.plan_code === "baiye_standard_18000_addons" ? 20 : null }, entitlements, payment_readiness: payment, profile, counts, permissions: PERMISSIONS, operation_locked: !state.active, demo_environment: state.demoEnvironment, demo_badge: state.demoEnvironment ? "Demo 試用環境" : null }, 200, cors);
+    return json({ merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name, status: session.merchant_status }, administrator: { display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), status: state.administrator_status }, membership: { platform_member: Boolean(session.platform_member_id), merchant_relationship: membership?.relationship_status === "active", platform_member_id: session.platform_member_id || null, relationship_id: membership?.relationship_id || null }, account_status: state.account_status, contract: { status: state.demoEnvironment ? "demo_exempt" : state.signature ? "signed" : "contract_required", signature: state.signature }, plan: { ...plan, code: plan.plan_code, merchant_content_editable: entitlements?.merchant_content_editable === true, base_product_limit: plan.plan_code === "baiye_standard_18000_addons" ? 20 : null }, entitlements, payment_readiness: payment, profile, counts, permissions: PERMISSIONS, operation_locked: !state.active, demo_environment: state.demoEnvironment, demo_badge: state.demoEnvironment ? "Demo 試用環境" : null }, 200, cors);
   }
 
   if (url.pathname === "/api/merchant-admin/commerce" && request.method === "GET") {
@@ -69,17 +72,18 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
 
   if (url.pathname === "/api/merchant-admin/account" && request.method === "GET") {
     const state = await lifecycle(db, merchantId, env);
-    const [sessions, profile] = await Promise.all([
+    const [sessions, profile, relationship] = await Promise.all([
       db.prepare("SELECT id,issued_via,assurance_level,last_seen_at,created_at,expires_at FROM merchant_user_sessions WHERE merchant_id=? AND user_id=? AND revoked_at IS NULL AND datetime(expires_at)>datetime('now') ORDER BY datetime(last_seen_at) DESC").bind(merchantId, session.user_id).all(),
       db.prepare("SELECT brand_name FROM merchant_admin_profiles WHERE merchant_id=?").bind(merchantId).first(),
+      db.prepare("SELECT m.id,m.status FROM merchant_ordering_memberships m JOIN platform_members p ON p.customer_id=m.customer_id WHERE m.merchant_id=? AND p.id=?").bind(merchantId, session.platform_member_id || "").first(),
     ]);
-    return json({ display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name }, status: state.administrator_status, sessions: sessions.results || [], demo_environment: state.demoEnvironment }, 200, cors);
+    return json({ display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), platform_member: { established: Boolean(session.platform_member_id), id: session.platform_member_id || null }, merchant_membership: { joined: relationship?.status === "active", id: relationship?.id || null }, merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name }, status: state.administrator_status, sessions: sessions.results || [], demo_environment: state.demoEnvironment }, 200, cors);
   }
 
   if (url.pathname === "/api/merchant-admin/logout-all" && request.method === "POST") {
     await db.prepare("UPDATE merchant_user_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND user_id=? AND revoked_at IS NULL").bind(merchantId, session.user_id).run();
     await audit(db, session, "merchant.sessions_revoked", "session", null, null, { all_devices: true });
-    return json({ ok: true }, 200, { ...cors, "set-cookie": "merchant_session=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0" });
+    return json({ ok: true }, 200, { ...cors, "set-cookie": "baiye_merchant_session=; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=0" });
   }
 
   if (url.pathname === "/api/merchant-admin/profile" && request.method === "GET") {

@@ -12,6 +12,7 @@ import { permissionForOrderingRequest } from "./merchant-permissions.js";
 import { handleMerchantAdmin } from "./merchant-admin.js";
 import { handleMerchantPlans, handleMerchantPlansPublic, merchantPlanEntitlements } from "./merchant-plan-catalog.js";
 import { handleDemoMerchantLogin, isStagingDemoMerchant, resetBeefNoodleDemo } from "./demo-merchant.js";
+import { handleMerchantProductAsset, serveMerchantProductAsset } from "./merchant-assets.js";
 import { handleMerchantStandardAddons, handleMerchantStandardAddonsAdmin } from "./merchant-standard-addons.js";
 import {
   handleMerchantContractAdmin,
@@ -215,6 +216,10 @@ export default {
     const origin = allowedOrigin(request, env);
     const cors = corsHeaders(origin);
 
+    if (request.method === "GET" && url.pathname.startsWith("/api/merchant-assets/")) {
+      return (await serveMerchantProductAsset(env, url)) || new Response("Not found", { status: 404 });
+    }
+
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, service: "創百業智慧鏈", checks: { worker: "ok", d1: Boolean(env.FINANCE_DB), r2: Boolean(env.CONTRACTS_BUCKET), ai: Boolean(env.OPENAI_API_KEY), line: Boolean(env.LINE_MEILING_CHANNEL_SECRET), ordering: Boolean(env.FINANCE_DB) } });
     }
@@ -323,9 +328,12 @@ export default {
       const authorization = await authorizeMerchant(request, env);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
       if (await merchantOverrideRequested(request, url, authorization.session.merchant_id)) return merchantCrossAccessDenied(cors);
+      if (/^\/api\/merchant-admin\/products\/[^/]+\/image$/.test(url.pathname)) {
+        return (await handleMerchantProductAsset(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
+      }
       if (url.pathname === "/api/merchant-admin/demo/reset") {
         if (!await isStagingDemoMerchant(env, authorization.session.merchant_id)) return json({ code: "DEMO_RESET_FORBIDDEN", error: "此功能只限隔離的牛肉麵試用環境。" }, 403, cors);
-        return resetBeefNoodleDemo(env.FINANCE_DB, request, authorization.session);
+        return resetBeefNoodleDemo(env, request, authorization.session);
       }
       if (url.pathname.startsWith("/api/merchant-admin/addon") || url.pathname.startsWith("/api/merchant-admin/addenda") || url.pathname.startsWith("/api/merchant-admin/content-change-requests")) {
         return (await handleMerchantStandardAddons(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);

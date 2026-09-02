@@ -223,6 +223,7 @@ export function App() {
           <Route path="/" element={<BeefNoodleDemoPage />} />
           <Route path="/q/:code" element={<QrOrderingPage />} />
           <Route path="/merchant/demo-login" element={<DemoMerchantLoginPage />} />
+          <Route path="/merchant/login" element={<MerchantLoginPage />} />
           <Route path="/merchant/dashboard" element={<MerchantAdminDashboardPage />} />
           <Route path="/merchant/profile" element={<MerchantProfilePage />} />
           <Route path="/merchant/bookings" element={<MerchantBookingsPage />} />

@@ -1,4 +1,5 @@
 import { deriveMerchantPassword, issueMerchantSession, merchantSessionCookie } from "./merchant-auth.js";
+import { resetMerchantProductAssets } from "./merchant-assets.js";
 
 const DEMO_MERCHANT_ID = "demo_beef_noodle";
 const E = new TextEncoder();
@@ -9,7 +10,7 @@ const same = (a, b) => { if (!a || !b || a.length !== b.length) return false; le
 const uid = (prefix) => `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
 
 export async function isStagingDemoMerchant(env, merchantId) {
-  if (String(env.DEMO_PASSWORD_LOGIN_ENABLED || "").toLowerCase() !== "true" || merchantId !== DEMO_MERCHANT_ID || !env.FINANCE_DB) return false;
+  if (String(env.DEMO_ENVIRONMENT_ENABLED || "").toLowerCase() !== "true" || merchantId !== DEMO_MERCHANT_ID || !env.FINANCE_DB) return false;
   try {
     const row = await env.FINANCE_DB.prepare("SELECT enabled FROM staging_demo_merchants WHERE merchant_id=?").bind(merchantId).first();
     return Number(row?.enabled) === 1;
@@ -68,7 +69,8 @@ export async function handleDemoMerchantLogin(request, env, url, cors = {}) {
   return json({ code: "DEMO_LOGIN_SUCCESS", merchant: { id: credential.merchant_id, name: "百工牛肉麵" }, administrator: { name: "百工牛肉麵｜試用管理者", display_role: "管理者", internal_role: "merchant_owner" }, demo_environment: true, badge: "Demo 試用環境", csrf_token: session.csrf, expires_at: session.expiresAt, next_url: "/merchant/dashboard" }, 200, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
 }
 
-export async function resetBeefNoodleDemo(db, request, session) {
+export async function resetBeefNoodleDemo(env, request, session) {
+  const db = env.FINANCE_DB;
   if (session.merchant_id !== DEMO_MERCHANT_ID) return json({ code: "DEMO_RESET_FORBIDDEN", error: "此功能只限百工牛肉麵試用環境。" }, 403);
   const statements = [
     db.prepare("DROP TRIGGER IF EXISTS trg_ordering_item_option_immutable_delete"),
@@ -140,7 +142,16 @@ export async function resetBeefNoodleDemo(db, request, session) {
     db.prepare("CREATE TRIGGER trg_order_pricing_no_delete BEFORE DELETE ON merchant_order_pricing BEGIN SELECT RAISE(ABORT,'order pricing is immutable'); END"),
     db.prepare("CREATE TRIGGER trg_invoices_document_immutable_delete BEFORE DELETE ON invoices FOR EACH ROW BEGIN SELECT RAISE(ABORT,'issued invoices cannot be deleted'); END"),
   ];
+  if (session.platform_member_id) {
+    statements.splice(statements.length - 4, 0, db.prepare(`INSERT INTO merchant_ordering_memberships(
+      id,merchant_id,customer_id,membership_no,status,consent_version,consented_at,visit_count,last_seen_at
+    ) SELECT ?,?,p.customer_id,?,'active','demo-phone-admin-v2',CURRENT_TIMESTAMP,1,CURRENT_TIMESTAMP
+      FROM platform_members p WHERE p.id=?
+      ON CONFLICT(merchant_id,customer_id) DO UPDATE SET status='active',last_seen_at=CURRENT_TIMESTAMP`)
+      .bind(uid("membership"), DEMO_MERCHANT_ID, `MBR-DEMO-${String(session.platform_member_id).slice(-8).toUpperCase()}`, session.platform_member_id));
+  }
   await db.batch(statements);
+  await resetMerchantProductAssets(env, DEMO_MERCHANT_ID);
   await db.prepare("INSERT INTO staging_demo_auth_events(id,merchant_id,username_hash,action,ip_hash,user_agent_hash,metadata_json) VALUES(?,?,?,?,?,?,?)").bind(uid("sdauth"), DEMO_MERCHANT_ID, await sha("username:baiye-beef-demo"), "demo_reset", await sha(`ip:${request.headers.get("cf-connecting-ip") || "unknown"}`), await sha(`ua:${request.headers.get("user-agent") || "unknown"}`), JSON.stringify({ actor_user_id: session.user_id, golden_restored: true })).run();
   return json({ ok: true, merchant_id: DEMO_MERCHANT_ID, golden_restored: true, preserved: ["merchant", "credentials", "contract_evidence", "audit"] }, 200);
 }

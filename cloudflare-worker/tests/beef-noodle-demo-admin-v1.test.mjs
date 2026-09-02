@@ -14,7 +14,8 @@ test("BDADMIN-01 demo auth is exact-merchant and feature-flag isolated", () => {
   assert.match(worker, /DEMO_MERCHANT_ID = "demo_beef_noodle"/);
   assert.match(worker, /DEMO_PASSWORD_LOGIN_ENABLED/);
   assert.match(index, /\/api\/merchant-demo\/login/);
-  assert.match(config, /"DEMO_PASSWORD_LOGIN_ENABLED": "true"/);
+  assert.match(config, /"DEMO_PASSWORD_LOGIN_ENABLED": "false"/);
+  assert.match(config, /"DEMO_PHONE_ADMIN_ENABLED": "true"/);
 });
 test("BDADMIN-02 credentials are hashed, rate limited and rotate the normal merchant session", () => {
   assert.match(worker, /deriveMerchantPassword/);

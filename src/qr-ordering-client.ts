@@ -277,8 +277,9 @@ export async function merchantOrderingApi<T>(
   init: RequestInit = {},
 ): Promise<T> {
   const method = String(init.method || "GET").toUpperCase();
+  const multipart = typeof FormData !== "undefined" && init.body instanceof FormData;
   const headers: Record<string, string> = {
-    ...(init.body ? { "content-type": "application/json" } : {}),
+    ...(init.body && !multipart ? { "content-type": "application/json" } : {}),
     ...(merchantCsrfToken && !["GET", "HEAD", "OPTIONS"].includes(method)
       ? { "x-csrf-token": merchantCsrfToken }
       : {}),

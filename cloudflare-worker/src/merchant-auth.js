@@ -1,4 +1,4 @@
-import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
+import { authenticatePlatformMember, ensurePlatformMember, issuePlatformMemberSession, normalizeTaiwanMobile } from "./platform-membership.js";
 import { getSoftposRenewal } from "./merchant-softpos-plan.js";
 import { findMerchantPlan, saveMerchantPlanIntent } from "./merchant-plan-catalog.js";
 
@@ -11,6 +11,11 @@ const sha = async (value) => b64(new Uint8Array(await crypto.subtle.digest("SHA-
 const same = (a, b) => { if (!a || !b || a.length !== b.length) return false; let value = 0; for (let i = 0; i < a.length; i += 1) value |= a.charCodeAt(i) ^ b.charCodeAt(i); return value === 0; };
 const cookieValue = (request, name) => String(request.headers.get("cookie") || "").split(";").map((x) => x.trim()).find((x) => x.startsWith(`${name}=`))?.slice(name.length + 1) || "";
 export const merchantSessionCookie = (value, age = 2592000) => `${COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${age}`;
+async function isDemoMerchant(env, merchantId) {
+  if (merchantId !== "demo_beef_noodle" || String(env.DEMO_ENVIRONMENT_ENABLED || "").toLowerCase() !== "true") return false;
+  const row = await env.FINANCE_DB.prepare("SELECT enabled FROM staging_demo_merchants WHERE merchant_id=?").bind(merchantId).first().catch(() => null);
+  return Number(row?.enabled) === 1;
+}
 
 async function pbkdf2(input, salt, iterations) { const key = await crypto.subtle.importKey("raw", input, "PBKDF2", false, ["deriveBits"]); return new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: E.encode(salt), iterations }, key, 256)); }
 export async function deriveMerchantPassword(password, salt, iterations = ITERATIONS) { let material = E.encode(String(password)); for (let i = 0; i < Math.ceil(iterations / SEGMENT); i += 1) material = await pbkdf2(material, `${salt}:${i}`, Math.min(SEGMENT, iterations - i * SEGMENT)); return b64(material); }
@@ -47,7 +52,18 @@ async function rateLimit(db, request, phone, action) {
 async function event(db, request, action, merchantId = null, userId = null, metadata = {}) { await db.prepare("INSERT INTO merchant_security_events(id,merchant_id,user_id,action,metadata,ip_hash,user_agent_hash) VALUES(?,?,?,?,?,?,?)").bind(uid("mse"), merchantId, userId, action, JSON.stringify(metadata), await sha(`ip:${request.headers.get("cf-connecting-ip") || "unknown"}`), await sha(`ua:${request.headers.get("user-agent") || "unknown"}`)).run(); }
 export async function issueMerchantSession(db, { merchantId, userId, platformMemberId, assuranceLevel, issuedVia }) { const raw = random(), csrf = random(), expiresAt = new Date(Date.now() + 30 * 864e5).toISOString(), sessionId = uid("mus"); await db.prepare("INSERT INTO merchant_user_sessions(id,merchant_id,user_id,token_hash,csrf_hash,platform_member_id,assurance_level,issued_via,expires_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(sessionId, merchantId, userId, await sha(raw), await sha(csrf), platformMemberId, assuranceLevel, issuedVia, expiresAt).run(); return { raw, csrf, expiresAt, sessionId }; }
 
-async function ownersByPhone(db, phone) { return (await db.prepare(`SELECT l.merchant_id,l.merchant_user_id,l.platform_member_id,l.status link_status,u.status user_status,m.name merchant_name,m.status merchant_status FROM merchant_owner_links l JOIN merchant_users u ON u.id=l.merchant_user_id AND u.merchant_id=l.merchant_id JOIN merchants m ON m.id=l.merchant_id WHERE l.phone_normalized=? ORDER BY l.created_at`).bind(phone).all()).results || []; }
+async function ownersByPhone(db, phone) { return (await db.prepare(`SELECT l.merchant_id,l.merchant_user_id,l.platform_member_id,l.status link_status,u.status user_status,m.name merchant_name,m.status merchant_status
+  FROM merchant_owner_links l JOIN merchant_users u ON u.id=l.merchant_user_id AND u.merchant_id=l.merchant_id JOIN merchants m ON m.id=l.merchant_id WHERE l.phone_normalized=? ORDER BY l.created_at`).bind(phone).all()).results || []; }
+async function allowedDemoOwners(db, env, rows) {
+  if (String(env.DEMO_PHONE_ADMIN_ENABLED || "").toLowerCase() !== "true") return rows;
+  const output = [];
+  for (const row of rows) {
+    if (row.merchant_id !== "demo_beef_noodle") { output.push(row); continue; }
+    const allowed = await db.prepare("SELECT enabled FROM staging_demo_merchant_admin_allowlist WHERE merchant_id=? AND platform_member_id=?").bind(row.merchant_id, row.platform_member_id).first().catch(() => null);
+    if (Number(allowed?.enabled) === 1) output.push(row);
+  }
+  return output;
+}
 function ownerState(row) { if (row.link_status === "suspended" || row.user_status === "suspended") return "MERCHANT_SUSPENDED"; if (row.link_status === "disabled" || row.user_status === "disabled" || row.merchant_status === "disabled") return "MERCHANT_DISABLED"; return "ACTIVE"; }
 
 export async function createPasswordlessMerchantOwner(db, { request, merchantId, platformMember, phone, email = null }) {
@@ -94,8 +110,9 @@ async function loginStart(request, env, cors) {
   const db = env.FINANCE_DB, input = await request.json().catch(() => ({})), phone = normalizeTaiwanMobile(input.phone);
   if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
   if (!await rateLimit(db, request, phone, "merchant_login_start")) return json({ error: "操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
-  const current = await getSession(request, env); if (current?.phone_normalized === phone) { const state = await db.prepare("SELECT state,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(current.merchant_id).first(); return json({ code: "SESSION_RESTORED", next_url: !state?.commercial_terms_id ? "/merchant/select-plan" : state.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard" }, 200, cors); }
-  const owners = await ownersByPhone(db, phone); if (!owners.length) return json({ code: "MERCHANT_NOT_FOUND", message: "若此手機已登記為商家管理者，系統將提供安全登入方式。" }, 202, cors);
+  const current = await getSession(request, env); if (current?.phone_normalized === phone) { const state = await db.prepare("SELECT state,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(current.merchant_id).first(); return json({ code: "SESSION_RESTORED", next_url: await isDemoMerchant(env, current.merchant_id) ? "/merchant/dashboard" : !state?.commercial_terms_id ? "/merchant/select-plan" : state.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard" }, 200, cors); }
+  let owners = await allowedDemoOwners(db, env, await ownersByPhone(db, phone));
+  if (!owners.length) return json({ code: "MERCHANT_NOT_FOUND", message: "若此手機已登記為商家管理者，系統將提供安全登入方式。" }, 202, cors);
   if (owners.every((row) => ownerState(row) !== "ACTIVE")) { const state = ownerState(owners[0]); return json({ code: state, error: state === "MERCHANT_SUSPENDED" ? "商家帳號目前暫停使用，請聯絡平台。" : "商家帳號目前無法使用。" }, 403, cors); }
   const mode = String(env.MERCHANT_OTP_MODE || "disabled"); if (!["staging", "sms_otp", "line_login"].includes(mode)) return json({ code: "VERIFICATION_SERVICE_UNAVAILABLE", error: "手機驗證服務目前尚未開放，請使用原裝置或安全啟用連結。" }, 503, cors);
   const challengeId = uid("mchallenge"), code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0"), expiresAt = new Date(Date.now() + 10 * 60e3).toISOString();
@@ -108,15 +125,33 @@ async function loginVerify(request, env, cors) {
   if (!challenge) return json({ error: "驗證碼無效或已過期。", code: "CHALLENGE_INVALID" }, 401, cors);
   if (!await rateLimit(db, request, challenge.phone_hash, "merchant_login_verify")) return json({ error: "操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
   if (!same(await sha(`merchant-otp:${challenge.id}:${String(input.code || "")}`), challenge.code_hash)) { await db.prepare("UPDATE merchant_login_challenges SET attempts=attempts+1 WHERE id=? AND attempts<8").bind(challenge.id).run(); return json({ error: "驗證碼錯誤。", code: "OTP_INVALID" }, 401, cors); }
-  const rows = (await db.prepare(`SELECT l.merchant_id,l.merchant_user_id,l.platform_member_id,l.status link_status,u.status user_status,m.name merchant_name,m.status merchant_status FROM merchant_owner_links l JOIN merchant_users u ON u.id=l.merchant_user_id AND u.merchant_id=l.merchant_id JOIN merchants m ON m.id=l.merchant_id WHERE l.platform_member_id=? ORDER BY l.created_at`).bind(challenge.platform_member_id).all()).results.filter((row) => ownerState(row) === "ACTIVE");
+  let rows = (await db.prepare(`SELECT l.merchant_id,l.merchant_user_id,l.platform_member_id,l.status link_status,u.status user_status,m.name merchant_name,m.status merchant_status
+    FROM merchant_owner_links l JOIN merchant_users u ON u.id=l.merchant_user_id AND u.merchant_id=l.merchant_id JOIN merchants m ON m.id=l.merchant_id WHERE l.platform_member_id=? ORDER BY l.created_at`).bind(challenge.platform_member_id).all()).results.filter((row) => ownerState(row) === "ACTIVE");
+  rows = await allowedDemoOwners(db, env, rows);
   if (!rows.length) return json({ error: "商家帳號目前無法使用。", code: "MERCHANT_DISABLED" }, 403, cors);
   if (rows.length > 1 && !input.merchant_id) return json({ code: "MERCHANT_SELECTION_REQUIRED", merchants: rows.map((row) => ({ id: row.merchant_id, name: row.merchant_name })) }, 200, cors);
   const selected = rows.find((row) => row.merchant_id === (input.merchant_id || rows[0].merchant_id)); if (!selected) return json({ error: "無法存取所選商家。", code: "MERCHANT_ISOLATION_DENIED" }, 403, cors);
   const changed = await db.prepare("UPDATE merchant_login_challenges SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(challenge.id).run(); if (!changed.meta?.changes) return json({ error: "驗證碼已使用。", code: "OTP_REPLAY" }, 409, cors);
-  const session = await issueMerchantSession(db, { merchantId: selected.merchant_id, userId: selected.merchant_user_id, platformMemberId: selected.platform_member_id, assuranceLevel: "verified_phone", issuedVia: challenge.mode }); await event(db, request, "merchant.session_created", selected.merchant_id, selected.merchant_user_id, { assurance_level: "verified_phone" });
+  const member = await db.prepare("SELECT p.id,c.id customer_id,c.phone_normalized FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE p.id=?").bind(selected.platform_member_id).first();
+  if (!member) return json({ error: "平台會員身份不存在。", code: "PLATFORM_MEMBER_REQUIRED" }, 409, cors);
+  const identityUpdates = [
+    db.prepare("UPDATE ordering_customers SET phone_verified=1,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(member.customer_id),
+    db.prepare("UPDATE platform_members SET phone_verified=1,membership_origin_verified=1,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(member.id),
+  ];
+  if (await db.prepare("SELECT merchant_id FROM merchant_ordering_settings WHERE merchant_id=?").bind(selected.merchant_id).first()) identityUpdates.push(
+    db.prepare(`INSERT INTO merchant_ordering_memberships(id,merchant_id,customer_id,membership_no,status,joined_via_qr_id,consent_version,consented_at,visit_count,last_seen_at)
+      VALUES(?,?,?,?,'active',NULL,'merchant-phone-login-v2',CURRENT_TIMESTAMP,1,CURRENT_TIMESTAMP)
+      ON CONFLICT(merchant_id,customer_id) DO UPDATE SET status=CASE WHEN status='blocked' THEN 'blocked' ELSE 'active' END,last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`)
+      .bind(uid("membership"), selected.merchant_id, member.customer_id, `MBR-${new Date().toISOString().slice(0,10).replaceAll("-","")}-${crypto.randomUUID().replaceAll("-","").slice(0,8).toUpperCase()}`),
+  );
+  await db.batch(identityUpdates);
+  const session = await issueMerchantSession(db, { merchantId: selected.merchant_id, userId: selected.merchant_user_id, platformMemberId: selected.platform_member_id, assuranceLevel: "verified_phone", issuedVia: challenge.mode });
+  const platformSession = await issuePlatformMemberSession(db, selected.platform_member_id, request.headers.get("x-device-id") || "merchant-phone-login");
+  await event(db, request, "merchant.session_created", selected.merchant_id, selected.merchant_user_id, { assurance_level: "verified_phone", platform_member_session: true });
   const onboarding = await db.prepare("SELECT state,operation_locked,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(selected.merchant_id).first();
-  const nextUrl = !onboarding?.commercial_terms_id ? "/merchant/select-plan" : onboarding.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard";
-  return json({ code: "LOGIN_SUCCESS", merchant: { id: selected.merchant_id, name: selected.merchant_name }, administrator: { display_role: "管理者", internal_role: "merchant_owner", status: Number(onboarding?.operation_locked ?? 1) === 0 ? "ACTIVE" : "PENDING_ACTIVATION" }, csrf_token: session.csrf, expires_at: session.expiresAt, next_url: nextUrl }, 200, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
+  const demo = await isDemoMerchant(env, selected.merchant_id);
+  const nextUrl = demo ? "/merchant/dashboard" : !onboarding?.commercial_terms_id ? "/merchant/select-plan" : onboarding.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard";
+  return json({ code: "LOGIN_SUCCESS", merchant: { id: selected.merchant_id, name: selected.merchant_name }, administrator: { display_role: "管理者", internal_role: "merchant_owner", status: demo || Number(onboarding?.operation_locked ?? 1) === 0 ? "ACTIVE" : "PENDING_ACTIVATION" }, platform_member: { id: selected.platform_member_id, relationship: "active" }, platform_session: platformSession, csrf_token: session.csrf, expires_at: session.expiresAt, next_url: nextUrl }, 200, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
 }
 
 async function legacyLogin(request, env, cors) { const db = env.FINANCE_DB, body = await request.json().catch(() => ({})), merchantId = String(body.merchant_id || "").trim(), email = String(body.email || "").trim().toLowerCase(); if (!await rateLimit(db, request, email, "legacy_login")) return json({ error: "登入嘗試過多，請稍後再試。" }, 429, cors); const user = await db.prepare("SELECT * FROM merchant_users WHERE merchant_id=? AND email=? AND auth_mode='password'").bind(merchantId, email).first(); const supplied = user ? await deriveMerchantPassword(String(body.password || ""), user.password_salt, Number(user.password_iterations || ITERATIONS)) : random(); if (!user || user.status !== "active" || !same(supplied, user.password_hash)) return json({ error: "帳號或密碼錯誤。" }, 401, cors); const session = await issueMerchantSession(db, { merchantId, userId: user.id, platformMemberId: user.platform_member_id || null, assuranceLevel: "trusted_existing_session", issuedVia: "legacy_password" }); return json({ deprecated: true, user: { id: user.id, merchant_id: merchantId, email: user.email, name: user.display_name }, csrf_token: session.csrf, expires_at: session.expiresAt }, 200, { ...cors, "set-cookie": merchantSessionCookie(session.raw) }); }

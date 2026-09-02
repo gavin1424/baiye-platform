@@ -1389,6 +1389,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         status,
         merchantId, current.id,
       ).run();
+      await attachMerchantProductAssetFromUrl(db, merchantId, current.id, imageUrl);
       await audit(db, merchantId, "admin", "admin", "menu_item_updated", "menu_item", current.id);
       await merchantAdministratorAudit(db, merchantId, actor, status === "archived" ? "merchant.product.archived" : "merchant.product.updated", "menu_item", current.id, current, { category_id: categoryId, name, price_minor: priceMinor, image_url: imageUrl || null, status, daily_limit: dailyLimit });
       return json({ ok: true }, 200, cors);
@@ -1551,3 +1552,4 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
     return json({ error: "掃碼會員與點餐管理服務暫時無法使用。" }, 500, cors);
   }
 }
+import { attachMerchantProductAssetFromUrl } from "./merchant-assets.js";

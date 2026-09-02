@@ -36,7 +36,7 @@ async function claimWelcomeCoupon(db, memberId) {
   return { coupon: { id: couponId, status: "claimed", name: active.name, discount_value_minor: active.discount_value_minor, currency: active.currency, expires_at: expiresAt, redemption_enabled: 0 }, created: true };
 }
 
-async function issueMemberSession(db, memberId, deviceId = "contract-session") {
+export async function issuePlatformMemberSession(db, memberId, deviceId = "contract-session") {
   const token = randomToken();
   const tokenHash = await sha256(token);
   const deviceHash = await sha256(String(deviceId || "unknown-device").slice(0, 300));
@@ -141,7 +141,7 @@ export async function ensurePlatformMember(db, { phone, source, privacyConsentVe
     throw Object.assign(new Error("此會員帳戶目前無法使用。"), { code: "MEMBER_ACCOUNT_UNAVAILABLE", status: 403 });
   }
   const claimed = couponIssuanceEnabled ? await claimWelcomeCoupon(db, member.id) : { coupon: null, created: false };
-  const session = issueSession ? await issueMemberSession(db, member.id, deviceId) : null;
+  const session = issueSession ? await issuePlatformMemberSession(db, member.id, deviceId) : null;
   const welcome = welcomeCopy(source);
   return {
     member: { id: member.id, member_no: member.member_no, status: member.status, phone_masked: maskMemberPhone(normalized), joined_at: member.joined_at },

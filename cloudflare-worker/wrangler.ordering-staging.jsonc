@@ -11,9 +11,18 @@
       "migrations_dir": "migrations-ordering-demo"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "MERCHANT_ASSETS",
+      "bucket_name": "baiye-merchant-assets-staging"
+    }
+  ],
   "vars": {
     "MEMBERSHIP_COUPON_ISSUANCE_ENABLED": "0",
-    "DEMO_PASSWORD_LOGIN_ENABLED": "true",
+    "DEMO_ENVIRONMENT_ENABLED": "true",
+    "DEMO_PHONE_ADMIN_ENABLED": "true",
+    "DEMO_PASSWORD_LOGIN_ENABLED": "false",
+    "MERCHANT_OTP_MODE": "staging",
     "ALLOWED_ORIGINS": "https://baiye-platform-ordering-staging.pages.dev,https://baiye-beef-noodle-demo.pages.dev"
   }
 }
