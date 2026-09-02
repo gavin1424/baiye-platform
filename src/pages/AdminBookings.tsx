@@ -55,10 +55,17 @@ type Booking = {
   end_at: string;
   status: string;
   source: string;
+  booking_source?: "website" | "line" | "google_maps" | "manual";
   customer_name: string;
   customer_phone: string;
   service_name: string;
   staff_name: string;
+};
+const bookingSources: Record<string, string> = {
+  website: "官網",
+  line: "LINE",
+  google_maps: "Google 地圖",
+  manual: "人工",
 };
 type Settings = {
   enabled: number;
@@ -669,6 +676,7 @@ export function AdminBookings() {
                 <th>日期時間</th>
                 <th>顧客</th>
                 <th>服務／人員</th>
+                <th>來源</th>
                 <th>狀態</th>
                 <th>操作</th>
               </tr>
@@ -690,6 +698,11 @@ export function AdminBookings() {
                     {item.service_name}
                     <br />
                     <small>{item.staff_name}</small>
+                  </td>
+                  <td data-label="來源">
+                    <span className={`booking-source booking-source-${item.booking_source || "website"}`}>
+                      {bookingSources[item.booking_source || "website"] || item.booking_source}
+                    </span>
                   </td>
                   <td data-label="狀態">
                     {statuses[item.status] || item.status}
