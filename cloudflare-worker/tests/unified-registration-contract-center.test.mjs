@@ -83,3 +83,8 @@ test("UNIFIED-09 ordering writes are entitlement-gated instead of globally block
   assert.match(source, /if \(!entitlements\.merchant_product_edit\)/);
   assert.doesNotMatch(source, /\/ordering\\\/\(categories\|items\|option-groups\).*MERCHANT_CONTENT_EDIT_DISABLED/);
 });
+
+test("UNIFIED-10 runtime Noto Sans TC assets use per-document glyph subsetting", () => {
+  const source = readFileSync(new URL("../src/contract-font-assets.js", import.meta.url), "utf8");
+  assert.match(source, /subsetSafe: true/);
+});

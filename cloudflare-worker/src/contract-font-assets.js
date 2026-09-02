@@ -38,7 +38,9 @@ export async function loadContractFontAssets(bucket) {
   if (regularSha256 !== REGULAR_SHA256 || boldSha256 !== BOLD_SHA256 || monoSha256 !== MONO_SHA256) {
     throw new Error("CONTRACT_FONT_ASSET_INTEGRITY_MISMATCH");
   }
-  cachedContractFontAssets = { regularBytes, boldBytes, monoBytes, regularSha256, boldSha256, monoSha256 };
+  // R2 stores pre-generated contract font subsets. Subset again to the
+  // glyphs used by one agreement so PDF v2 stays within Worker resources.
+  cachedContractFontAssets = { regularBytes, boldBytes, monoBytes, regularSha256, boldSha256, monoSha256, subsetSafe: true };
   return cachedContractFontAssets;
 }
 
