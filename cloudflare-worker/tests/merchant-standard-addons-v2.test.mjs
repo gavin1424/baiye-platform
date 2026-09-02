@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { handleMerchantStandardAddons, handleMerchantStandardAddonsAdmin, priceAddon, STANDARD_ADDON_PLAN } from "../src/merchant-standard-addons.js";
+import { assertContractSignable } from "../src/contract-engine.js";
 import { testContractFontAssets } from "./contract-font-fixture.mjs";
 
 class Statement { constructor(statement){this.statement=statement;this.values=[];} bind(...values){this.values=values;return this;} async run(){const r=this.statement.run(...this.values);return{meta:{changes:Number(r.changes||0)}};} async first(){return this.statement.get(...this.values)||null;} async all(){return{results:this.statement.all(...this.values)}} }
@@ -26,6 +27,7 @@ function seed(db,{signed=true}={}) {
 
 test("ADDON-V2-01 immutable plan preserves Meiling mode",()=>{const db=new D1();const plan=db.sqlite.prepare("SELECT * FROM platform_service_plans WHERE code='baiye_standard_18000_addons'").get();assert.equal(plan.base_price_minor,1800000);assert.equal(plan.service_months,24);assert.equal(plan.base_product_limit,20);assert.equal(plan.merchant_content_editable,0);assert.equal(plan.contract_version_id,"merchant_service_v1_2_18000_addons");});
 test("ADDON-V2-02 existing v1.1 remains and v1.2 is a new immutable version",()=>{const db=new D1();assert.ok(db.sqlite.prepare("SELECT id FROM merchant_contract_versions WHERE id='merchant_service_v1_1_18000'").get());const v2=db.sqlite.prepare("SELECT * FROM merchant_contract_versions WHERE id='merchant_service_v1_2_18000_addons'").get();assert.ok(v2);assert.equal(v2.content_hash,createHash("sha256").update(v2.content_html).digest("base64url"));});
+test("ADDON-V2-02B pending V2 can sign only through the isolated staging flag",()=>{const db=new D1();const v2=db.sqlite.prepare("SELECT * FROM merchant_contract_versions WHERE id='merchant_service_v1_2_18000_addons'").get();assert.equal(assertContractSignable(v2,{CONTRACT_SIGNING_MODE:"staging"}).staging,true);assert.throws(()=>assertContractSignable(v2,{}),(error)=>error.code==="CONTRACT_NOT_ACTIVE");});
 test("ADDON-V2-03 18k only renders no Annex B",()=>{const migration=readFileSync(new URL("../migrations/0025_contract_standard_addons.sql",import.meta.url),"utf8");assert.match(migration,/本次主契約沒有加購時，不產生附件 B|附件 B／補充協議/);assert.equal(STANDARD_ADDON_PLAN.baseAmountMinor,1800000);});
 test("ADDON-V2-04 cart total is server-calculated NT$26,000",async()=>{const db=new D1();seed(db,{signed:false});const response=await adminCall(db,"/api/admin/addon-quotes","POST",{merchant_id:"merchant-addon",contract_total_minor:1,items:[{code:"simple_cart",quantity:1}]});const data=await response.json();assert.equal(response.status,201);assert.equal(data.addon_amount_minor,800000);assert.equal(data.contract_total_minor,2600000);});
 test("ADDON-V2-05 checkout total is NT$32,000",()=>{const db=new D1();const c=db.sqlite.prepare("SELECT * FROM platform_addon_pricing_config WHERE code='external_checkout_cart'").get();assert.equal(1800000+priceAddon(c,1).amountMinor,3200000);});
