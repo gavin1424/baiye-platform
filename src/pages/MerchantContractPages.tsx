@@ -58,6 +58,7 @@ const requiredConsents = [
 export function MerchantContractPage() {
   const [context, setContext] = useState<any>();
   const [notice, setNotice] = useState("");
+  const [authRequired, setAuthRequired] = useState(false);
   const [preview, setPreview] = useState<any>();
   const [memberWelcome, setMemberWelcome] = useState<any>();
   const [isSigning, setIsSigning] = useState(false);
@@ -69,7 +70,14 @@ export function MerchantContractPage() {
     catch (error) { setNotice(message(error)); }
   };
 
-  useEffect(() => { void merchantOrderingApi<any>("/api/merchant-auth/session").then(() => load()).catch(() => setNotice("請先登入商家後台，再進行契約簽署。")); }, []);
+  useEffect(() => {
+    void merchantOrderingApi<any>("/api/merchant-auth/session")
+      .then(() => load())
+      .catch(() => {
+        setAuthRequired(true);
+        setNotice("請先登入商家帳號後進行簽約。");
+      });
+  }, []);
   const validateBeforePreview = () => {
     if (!form.signatory_legal_name.trim()) return "請填寫簽署人法定姓名。";
     if (!form.legal_representative_name.trim()) return "請填寫法定代表人姓名。";
@@ -110,7 +118,7 @@ export function MerchantContractPage() {
     } finally { setIsSigning(false); }
   };
 
-  if (!context) return <main className="partner-shell contract-shell"><h1>商家平台服務契約</h1><p>{notice || "正在驗證商家帳號與契約狀態…"}</p></main>;
+  if (!context) return <main className="partner-shell contract-shell"><h1>商家平台服務契約</h1><p>{notice || "正在驗證商家帳號與契約狀態…"}</p>{authRequired && <div className="partner-workflow-actions"><Link className="btn btn-primary" to="/merchant/login">商家登入</Link><Link className="btn btn-outline" to="/merchant/register">尚未註冊</Link></div>}</main>;
   const legalEntityMissing = !context.legal_entity?.configured;
   if (context.signed) return <main className="partner-shell contract-shell"><h1>商家平台服務契約已完成簽署</h1><p>版本 {context.contract.version} · {context.signature.signed_at}</p><div className="partner-workflow-actions"><button className="btn btn-primary" onClick={() => void downloadMerchantContractPdf(context.signature.id, context.signature.public_id).catch((error) => setNotice(message(error)))}>下載契約檔案</button><Link className="btn btn-outline" to="/merchant">返回商家中心</Link></div>{notice && <div className="partner-message">{notice}</div>}{memberWelcome && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>{memberWelcome.title}</h2><p>您的創百業會員資格也已建立。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">前往會員中心</Link><Link className="btn btn-outline" to="/merchant">返回商家中心</Link></div></div></div>}</main>;
 

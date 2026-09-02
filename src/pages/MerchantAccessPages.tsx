@@ -3,7 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { getPlatformDeviceId, getPlatformMemberToken, merchantOrderingApi, savePlatformMemberToken } from "../qr-ordering-client";
 import { downloadMerchantContractPdf } from "../merchant-contract-pdf";
 
-const errorText = (error: unknown) => error instanceof Error ? error.message : "商家服務暫時無法使用，請稍後再試。";
+const errorText = (error: unknown) => {
+  if (error instanceof TypeError || (error instanceof Error && error.message === "Failed to fetch")) {
+    return "目前無法連線至商家註冊服務，請稍後再試。";
+  }
+  return error instanceof Error ? error.message : "商家服務暫時無法使用，請稍後再試。";
+};
 const authHeaders = () => ({ "x-device-id": getPlatformDeviceId(), ...(getPlatformMemberToken() ? { authorization: `Bearer ${getPlatformMemberToken()}` } : {}) });
 
 export function MerchantRegisterPage() {
@@ -46,5 +51,5 @@ export function MerchantPortalPage() {
   if (!session) return <main className="partner-shell merchant-access-shell"><section className="merchant-access-card"><h1>商家中心</h1><p>{notice || "正在載入商家資料…"}</p>{notice && <Link className="btn btn-primary" to="/merchant/login">前往商家登入</Link>}</section></main>;
   const operationLocked = Boolean(session.merchant.operation_locked);
   const signed = session.contract_status === "signed" && session.contract_signature?.id;
-  return <main className="partner-shell merchant-portal"><header><p className="partner-eyebrow">商家中心</p><h1>{session.merchant.name}</h1><p>{session.user.phone_masked || "商家 Owner"} · {session.assurance_level}</p></header><section className="merchant-portal-grid"><article><span>契約狀態</span><strong>{signed ? "商家平台服務契約已完成簽署" : "需完成商家平台服務契約"}</strong><p>{signed ? "商家平台服務契約已完成簽署" : "完成契約簽署後，即可啟用商家正式營運功能。"}</p>{signed ? <button className="btn btn-outline" onClick={() => void downloadMerchantContractPdf(session.contract_signature.id, session.contract_signature.public_id).catch((error) => setNotice(errorText(error)))}>下載契約檔案</button> : <Link className="btn btn-outline" to="/merchant/contract">立即前往簽約</Link>}</article><article><span>QR 手機點餐</span><strong>{operationLocked ? "完成契約後開放" : "依商家需求開通"}</strong><p>{operationLocked ? "接單、付款與其他正式營運功能目前鎖定。" : "已開通點餐權限的商家可進入營運看板。"}</p>{operationLocked ? <Link className="btn btn-outline" to="/merchant/contract">完成商家契約</Link> : <Link className="btn btn-outline" to="/merchant-admin/ordering">前往點餐管理</Link>}</article><article><span>平台會員</span><strong>已連結</strong><p>商家 Owner 與平台會員使用同一手機身份核心。</p><Link className="btn btn-outline" to="/member">查看會員與優惠券</Link></article></section><button className="btn btn-outline" onClick={() => void logout()}>登出商家中心</button>{notice && <div className="partner-message">{notice}</div>}</main>;
+  return <main className="partner-shell merchant-portal"><header><p className="partner-eyebrow">商家中心</p><h1>{session.merchant.name}</h1><p>{session.user.phone_masked || "商家 Owner"} · {session.assurance_level}</p></header><section className="merchant-portal-grid"><article><span>契約狀態</span><strong>{signed ? "商家平台服務契約已完成簽署" : "需完成商家平台服務契約"}</strong><p>{signed ? "商家平台服務契約已完成簽署" : "完成契約簽署後，即可啟用商家正式營運功能。"}</p>{signed ? <button className="btn btn-outline" onClick={() => void downloadMerchantContractPdf(session.contract_signature.id, session.contract_signature.public_id).catch((error) => setNotice(errorText(error)))}>下載契約檔案</button> : <Link className="btn btn-outline" to="/merchant/contract">立即前往簽約</Link>}</article><article><span>QR 手機點餐</span><strong>{operationLocked ? "完成契約後開放" : "依商家需求開通"}</strong><p>{operationLocked ? "接單、付款與其他正式營運功能目前鎖定。" : "已開通點餐權限的商家可進入營運看板。"}</p>{operationLocked ? <Link className="btn btn-outline" to="/merchant/contract">完成商家契約</Link> : <Link className="btn btn-outline" to="/merchant-admin/ordering">前往點餐管理</Link>}</article><article><span>平台會員</span><strong>已連結</strong><p>商家 Owner 與平台會員使用同一手機身份核心。</p><Link className="btn btn-outline" to="/member">查看會員資料</Link></article></section><button className="btn btn-outline" onClick={() => void logout()}>登出商家中心</button>{notice && <div className="partner-message">{notice}</div>}</main>;
 }

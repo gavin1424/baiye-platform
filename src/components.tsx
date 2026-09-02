@@ -274,32 +274,27 @@ export function Footer() {
 
 export function MobileBottomNav() {
   const { session } = useAppStore();
-  const items =
-    session.role === "business"
-      ? [
-          { label: "首頁", to: "/", icon: House },
-          { label: "搜尋", to: "/businesses", icon: MagnifyingGlass },
-          { label: "發布需求", to: "/collaborations/new", icon: Plus, primary: true },
-          { label: "私訊", to: "/messages", icon: ChatCircleDots },
-          { label: "我的", to: "/dashboard", icon: UserCircle },
-        ]
-      : [
-          { label: "首頁", to: "/", icon: House },
-          { label: "找商家", to: "/businesses", icon: Storefront },
-          { label: "商家加入", to: "/pricing", icon: Briefcase, primary: true },
-          { label: "承攬夥伴", to: "/partner", icon: Handshake },
-          {
-            label: "我的",
-            to: session.role === "admin" ? "/admin" : "/login",
-            icon: UserCircle,
-          },
-        ];
+  const items = [
+    { label: "首頁", to: "/", icon: House },
+    { label: "搜尋", to: "/businesses", icon: MagnifyingGlass },
+    { label: "發布需求", to: "/collaborations/new", icon: Plus, primary: true },
+    { label: "私訊", to: "/messages", icon: ChatCircleDots },
+    {
+      label: "我的",
+      to: session.role === "admin" ? "/admin" : session.role === "business" ? "/dashboard" : "/login",
+      icon: UserCircle,
+    },
+  ];
   return (
     <nav className="mobile-bottom-nav" aria-label="手機版主要導覽">
       {items.map((item) => {
         const Icon = item.icon;
         return (
-          <NavLink key={item.label} to={item.to} className={item.primary ? "bottom-primary" : ""}>
+          <NavLink
+            key={item.label}
+            to={item.to}
+            className={({ isActive }) => [item.primary ? "bottom-primary" : "", isActive ? "active" : ""].filter(Boolean).join(" ")}
+          >
             <span>
               <Icon weight={item.primary ? "bold" : "regular"} />
             </span>

@@ -74,7 +74,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
   "/services/deposit-settlement": "訂金代收與月結對帳服務｜創百業智慧鏈",
   "/merchant/settlements": "商家月結對帳｜創百業智慧鏈",
-  "/partner": "承攬夥伴中心｜創百業智慧鏈",
+  "/partner": "加入創百業智慧鏈",
   "/partner/apply": "承攬夥伴合作申請｜創百業智慧鏈",
   "/partner/activate": "啟用承攬夥伴帳號｜創百業智慧鏈",
   "/partner/login": "承攬夥伴登入｜創百業智慧鏈",

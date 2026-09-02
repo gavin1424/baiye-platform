@@ -18,7 +18,7 @@ class Statement {
   async all() { return { results: this.statement.all(...this.values) }; }
 }
 class D1 {
-  constructor() { this.sqlite = new DatabaseSync(":memory:"); for (const name of readdirSync(new URL("../migrations", import.meta.url)).filter((x) => /^\d+.*\.sql$/.test(x)).sort()) this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8")); }
+  constructor() { this.sqlite = new DatabaseSync(":memory:"); for (const name of readdirSync(new URL("../migrations", import.meta.url)).filter((x) => /^\d+.*\.sql$/.test(x)).sort()) this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8").replace(/\r\n/g, "\n")); }
   prepare(sql) { return new Statement(this.sqlite.prepare(sql)); }
   async batch(statements) { return Promise.all(statements.map((statement) => statement.run())); }
 }

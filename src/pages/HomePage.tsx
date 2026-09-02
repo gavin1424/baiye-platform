@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarCheck, ChartLineUp, CheckCircle, GlobeHemisphereWest, GoogleLogo, Handshake, LinkSimpleHorizontal, List, LineSegments, QrCode, Robot, ShieldCheck, User, X } from "@phosphor-icons/react";
 import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
+import { MobileBottomNav } from "../components";
 
 type Feature = { name: string; summary: string; audience: string; value: string; items: string[]; cta: string; to: string; icon: ComponentType<{ weight?: "duotone" | "fill" }> };
 
@@ -26,7 +27,8 @@ export function HomePage() {
     document.body.classList.add("home-detail-open"); window.addEventListener("keydown", close);
     return () => { document.body.classList.remove("home-detail-open"); window.removeEventListener("keydown", close); };
   }, [selected]);
-  return <main className="immersive-home">
+  return <>
+    <main className="immersive-home">
     <section className="immersive-home-hero">
       <header className="immersive-home-header">
         <Link className="immersive-home-brand" to="/" aria-label="創百業智慧鏈首頁"><span><LinkSimpleHorizontal weight="duotone" /></span><div><strong>創百業智慧鏈</strong><small>baiyeconnect</small></div></Link>
@@ -47,7 +49,9 @@ export function HomePage() {
     </section>
 
     {selected && <div className="home-feature-detail" role="dialog" aria-modal="true" aria-labelledby="home-feature-title"><button type="button" className="home-feature-backdrop" aria-label="關閉功能介紹" onClick={() => setSelected(null)} /><article className="home-feature-panel"><button type="button" className="home-feature-close" aria-label="關閉" onClick={() => setSelected(null)}><X /></button><span className="home-feature-panel-icon"><selected.icon weight="duotone" /></span><p className="home-feature-label">百工數位服務</p><h2 id="home-feature-title">{selected.name}</h2><p className="home-feature-summary">{selected.summary}</p><dl><dt>適用對象</dt><dd>{selected.audience}</dd><dt>核心價值</dt><dd>{selected.value}</dd></dl><h3>主要功能</h3><ul>{selected.items.map((item) => <li key={item}><CheckCircle weight="fill" />{item}</li>)}</ul><Link className="btn btn-primary btn-lg" to={selected.to}>{selected.cta} <ArrowRight /></Link></article></div>}
-  </main>;
+    </main>
+    <MobileBottomNav />
+  </>;
 }
 
 function FeatureButton({ feature, index, onClick }: { feature: Feature; index: number; onClick: () => void }) { const Icon = feature.icon; return <button className={`immersive-feature feature-${index}`} type="button" onClick={onClick} aria-haspopup="dialog"><span><Icon weight="duotone" /></span><strong>{feature.name}</strong></button>; }
