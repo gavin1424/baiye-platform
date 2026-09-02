@@ -21,6 +21,7 @@
     "PUBLIC_SITE_URL": "https://baiye-platform-contract-signing-staging.pages.dev",
     "CONTRACT_SIGNING_MODE": "staging",
     "PARTNER_OTP_MODE": "staging",
+    "MERCHANT_OTP_MODE": "staging",
     "SMS_OTP_MODE": "staging",
     "PLATFORM_WELCOME_COUPON_REDEMPTION_ENABLED": "0"
   }

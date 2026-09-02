@@ -1,4 +1,4 @@
-import { deriveMerchantPassword, authorizeMerchant } from "./merchant-auth.js";
+import { authorizeMerchant, createPasswordlessMerchantOwner, issueMerchantSession, merchantSessionCookie } from "./merchant-auth.js";
 import {
   ContractError,
   STANDARD_ASSURANCE,
@@ -146,25 +146,21 @@ export async function handleMerchantContractPublic(request, env, url, cors = {})
     }
     if (url.pathname === "/api/merchant/contracts/accept-invite" && request.method === "POST") {
       const input = await body(request); const hashed = await tokenHash(String(input.token || ""));
-      if (String(input.password || "").length < 12 || input.password !== input.password_confirm) throw new ContractError("PASSWORD_INVALID", "密碼至少 12 字元，且兩次輸入必須相同。", 422);
+      const phone = normalizeTaiwanMobile(input.phone);
+      if (!phone) throw new ContractError("INVALID_PHONE", "請輸入正確的台灣手機號碼。", 422);
+      if (input.privacy_consent !== true || !String(input.consent_version || "").trim()) throw new ContractError("PRIVACY_CONSENT_REQUIRED", "請閱讀並同意會員服務、隱私權說明及商家平台相關條款。", 422);
       const invite = await db.prepare("SELECT * FROM merchant_contract_invites WHERE token_hash=? AND revoked_at IS NULL AND datetime(expires_at)>datetime('now')").bind(hashed).first();
       if (!invite) throw new ContractError("INVITE_INVALID", "商家啟用連結無效、已使用或已過期。", 401);
       const operation = await beginContractOperation(db, { partyType: "merchant", partyId: invite.merchant_id, operationType: "invite_accept", idempotencyKey: request.headers.get("idempotency-key") || "" });
       if (operation.replay) return json(operation.result, 200, cors);
       if (invite.used_at) throw new ContractError("INVITE_ALREADY_USED", "此啟用連結已使用，請直接登入商家後台。", 409);
-      const exists = await db.prepare("SELECT id FROM merchant_users WHERE merchant_id=? AND email=?").bind(invite.merchant_id, invite.email).first();
-      if (exists) throw new ContractError("MERCHANT_USER_EXISTS", "此商家帳號已完成啟用，請直接登入。", 409);
-      const userId = makeId("merchantuser"), roleId = `merchant_owner_${invite.merchant_id}`, salt = randomToken();
-      const passwordHash = await deriveMerchantPassword(String(input.password), salt);
-      await db.batch([
-        db.prepare("INSERT INTO merchant_users(id,merchant_id,email,password_hash,password_salt,status,display_name) VALUES(?,?,?,?,?,'active',?)").bind(userId, invite.merchant_id, invite.email, passwordHash, salt, String(input.display_name || input.legal_name || invite.email).slice(0, 100)),
-        db.prepare("INSERT OR IGNORE INTO merchant_roles(id,merchant_id,code,name,is_system) VALUES(?,?,'owner','商家擁有者',1)").bind(roleId, invite.merchant_id),
-        db.prepare("INSERT INTO merchant_user_roles(merchant_id,user_id,role_id) VALUES(?,?,?)").bind(invite.merchant_id, userId, roleId),
-        db.prepare("UPDATE merchant_contract_invites SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(invite.id),
-        db.prepare("UPDATE merchants SET status='pending_contract',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(invite.merchant_id),
-      ]);
-      await contractEvent(db, request, { merchantId: invite.merchant_id, inviteId: invite.id, actorType: "merchant", actorId: userId, action: "merchant_invite_accepted" });
-      const result = { ok: true, merchant_id: invite.merchant_id }; await completeContractOperation(db, operation.operation.id, result); return json(result, 201, cors);
+      const membership = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version), originVerified: true, deviceId: request.headers.get("x-device-id") || "merchant-invite", issueSession: true });
+      const owner = await createPasswordlessMerchantOwner(db, { request, merchantId: invite.merchant_id, platformMember: membership.member, phone, email: invite.email });
+      if (!owner.created) throw new ContractError("MERCHANT_ALREADY_REGISTERED", "此商家 Owner 已完成註冊，請直接登入。", 409);
+      const merchantSession = await issueMerchantSession(db, { merchantId: invite.merchant_id, userId: owner.userId, platformMemberId: membership.member.id, assuranceLevel: "activation_invite", issuedVia: "merchant_contract_invite" });
+      await db.batch([db.prepare("UPDATE merchant_contract_invites SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(invite.id), db.prepare("UPDATE merchants SET phone=COALESCE(phone,?),status='pending_contract',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(phone, invite.merchant_id)]);
+      await contractEvent(db, request, { merchantId: invite.merchant_id, inviteId: invite.id, actorType: "merchant", actorId: owner.userId, action: "merchant.activation_invite_used", metadata: { member_id: membership.member.id } });
+      const result = { ok: true, merchant_id: invite.merchant_id, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: membership.coupon, csrf_token: merchantSession.csrf, next_url: "/merchant/contract" }; await completeContractOperation(db, operation.operation.id, result); return json(result, 201, { ...cors, "set-cookie": merchantSessionCookie(merchantSession.raw) });
     }
     return null;
   } catch (error) { return errorResponse(error, cors); }
