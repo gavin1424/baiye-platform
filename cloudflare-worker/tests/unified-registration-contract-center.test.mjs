@@ -87,4 +87,5 @@ test("UNIFIED-09 ordering writes are entitlement-gated instead of globally block
 test("UNIFIED-10 runtime Noto Sans TC assets use per-document glyph subsetting", () => {
   const source = readFileSync(new URL("../src/contract-font-assets.js", import.meta.url), "utf8");
   assert.match(source, /subsetSafe: true/);
+  assert.match(source, /44cc404d8cea929c02a92900a646598bafc9ef726b7d881e7525296adc9fb8ac/);
 });

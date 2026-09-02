@@ -34,8 +34,6 @@ const terms = commerceAiTermsSnapshot(new Date("2026-09-02T12:00:00+08:00"));
 const termsHash = await hashCanonical(terms);
 
 const sql = `PRAGMA foreign_keys=ON;
-INSERT OR IGNORE INTO platform_contract_legal_entity_configs(id,legal_name,tax_id,responsible_person,registered_address,support_contact,updated_by)
-VALUES('default','STAGING 測試法律主體（非真實公司）','00000000','STAGING 測試負責人','STAGING 測試地址','staging-contract@example.invalid','staging-e2e');
 INSERT INTO merchants(id,merchant_code,name,contact_name,phone,email,status)
 VALUES(${quote(merchantId)},${quote(`STAGE-CA45-${runId}`)},'STAGING｜AI 智慧商城完整版測試商家','STAGING 測試代表','0930450000',${quote(`${merchantId}@example.invalid`)},'contract_required');
 INSERT INTO merchant_users(id,merchant_id,email,password_hash,password_salt,status,display_name,phone_normalized,auth_mode)
