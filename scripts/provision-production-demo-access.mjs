@@ -42,8 +42,11 @@ const directory = mkdtempSync(join(tmpdir(), "baiye-production-demo-access-"));
 const sqlFile = join(directory, "provision-hash-only.sql");
 writeFileSync(sqlFile, sql, { encoding: "utf8", mode: 0o600 });
 const cwd = fileURLToPath(new URL("../cloudflare-worker/", import.meta.url));
-const executable = process.platform === "win32" ? "npx.cmd" : "npx";
-const result = spawnSync(executable, ["wrangler", "d1", "execute", "FINANCE_DB", "--remote", "--file", sqlFile], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+const executable = process.platform === "win32" ? "cmd.exe" : "npx";
+const args = process.platform === "win32"
+  ? ["/d", "/s", "/c", `npx wrangler d1 execute FINANCE_DB --remote --file "${sqlFile}"`]
+  : ["wrangler", "d1", "execute", "FINANCE_DB", "--remote", "--file", sqlFile];
+const result = spawnSync(executable, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 rmSync(directory, { recursive: true, force: true });
-if (result.status !== 0) throw new Error(result.stderr || result.stdout || "Production demo credential provisioning failed.");
+if (result.status !== 0) throw new Error(result.error?.message || result.stderr || result.stdout || "Production demo credential provisioning failed.");
 console.log(JSON.stringify({ merchant_id: "demo_beef_noodle", phone, access_code: code, stored: "PBKDF2 hash and salt only", display_once: true }));
