@@ -5,6 +5,35 @@ const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(d
 const uid = (prefix) => `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
 const clientIp = (request) => request.headers.get("CF-Connecting-IP") || null;
 const clean = (value, max = 2000) => String(value ?? "").trim().slice(0, max);
+const ADDON_FONT_KEYS = Object.freeze({
+  regular: "contract-assets/fonts/NotoSansTC-Regular-AddonV2.ttf",
+  bold: "contract-assets/fonts/NotoSansTC-Bold-AddonV2.ttf",
+  mono: "contract-assets/fonts/NotoSansMono-Regular.ttf",
+});
+const ADDON_FONT_HASHES = Object.freeze({
+  regular: "862584925bb6ff916a1efa76d88b293182d6893c74b57f7f69424a570b4e9172",
+  bold: "1dcb7de1dbfffc0f85a0ba16f5567a9f8cf36a1f3afa0ab2ba0e70fd136e12af",
+  mono: "b4563af6f013732c8f40d206a05ff2ffc4eaeac0020d39393e59d0cf8a3ffeed",
+});
+
+async function addonFontAssets(bucket) {
+  const bytes = async (key) => {
+    const object = await bucket?.get(key);
+    if (!object) throw new Error(`ADDON_FONT_MISSING:${key}`);
+    if (typeof object.arrayBuffer === "function") return new Uint8Array(await object.arrayBuffer());
+    if (object.body instanceof Uint8Array) return object.body;
+    return new Uint8Array(await new Response(object.body).arrayBuffer());
+  };
+  const [regularBytes, boldBytes, monoBytes] = await Promise.all([
+    bytes(ADDON_FONT_KEYS.regular),
+    bytes(ADDON_FONT_KEYS.bold),
+    bytes(ADDON_FONT_KEYS.mono),
+  ]);
+  const digest = async (value) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",value)),(part)=>part.toString(16).padStart(2,"0")).join("");
+  const [regularSha256, boldSha256, monoSha256] = await Promise.all([digest(regularBytes), digest(boldBytes), digest(monoBytes)]);
+  if (regularSha256 !== ADDON_FONT_HASHES.regular || boldSha256 !== ADDON_FONT_HASHES.bold || monoSha256 !== ADDON_FONT_HASHES.mono) throw new Error("ADDON_FONT_INTEGRITY_MISMATCH");
+  return { regularBytes, boldBytes, monoBytes, regularSha256, boldSha256, monoSha256, subsetSafe: true };
+}
 
 export function priceAddon(config, quantity, adminQuotedAmountMinor) {
   const qty = Number(quantity ?? 1);
@@ -87,7 +116,7 @@ export async function handleMerchantStandardAddons(request, env, url, cors, auth
       const contract = { version: row.addendum_version, content_hash: row.content_hash, content_html: `<h1>創百業智慧鏈｜加購服務補充協議</h1><p>本補充協議不修改原已簽署 PDF，並與原主契約共同構成契約文件。</p><h2>附件 B｜加購服務</h2><p>主方案 NT$18,000；加購 NT$${Math.round(row.addon_amount_minor / 100).toLocaleString("en-US")}；契約總額 NT$${Math.round(row.contract_total_minor / 100).toLocaleString("en-US")}。</p>` };
       const signatory = clean(input.signatory_legal_name, 160); if (!signatory) throw new ContractError("SIGNATORY_REQUIRED", "請填寫簽署人法定姓名。", 422);
       const annexLines = annex.items.map((item) => `${item.label}｜NT$${Math.round(item.amount_minor / 100).toLocaleString("en-US")}`).join("\n");
-      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜加購服務補充協議", documentId: row.id, publicId: row.public_id, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${row.public_id}`, contract, partyType: "merchant", partyId: merchantId, partyLabel: `商家：${row.merchant_name}`, signatory, signatoryRole: input.signatory_role || "legal_representative", signature: input.signature, consents: { read: input.read, electronic: input.electronic, commercial_terms: input.commercial_terms, authority: input.authority, signature_evidence: input.signature_evidence }, consentVersion: "merchant-addendum-consent-v1", commercialTermsHash: row.content_hash, attachments: [{ title: "附件 B｜加購服務", content: `${annexLines}\n主方案：NT$18,000\n加購：NT$${Math.round(row.addon_amount_minor / 100).toLocaleString("en-US")}\n契約總金額：NT$${Math.round(row.contract_total_minor / 100).toLocaleString("en-US")}` }], ip: clientIp(request), userAgent: request.headers.get("user-agent"), staging: env.CONTRACT_SIGNING_MODE === "staging", contractAssetsBucket: env.CONTRACTS_BUCKET, fontAssets: env.CONTRACT_FONT_ASSETS_FOR_TESTS });
+      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜加購服務補充協議", documentId: row.id, publicId: row.public_id, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${row.public_id}`, contract, partyType: "merchant", partyId: merchantId, partyLabel: `商家：${row.merchant_name}`, signatory, signatoryRole: input.signatory_role || "legal_representative", signature: input.signature, consents: { read: input.read, electronic: input.electronic, commercial_terms: input.commercial_terms, authority: input.authority, signature_evidence: input.signature_evidence }, consentVersion: "merchant-addendum-consent-v1", commercialTermsHash: row.content_hash, attachments: [{ title: "附件 B｜加購服務", content: `${annexLines}\n主方案：NT$18,000\n加購：NT$${Math.round(row.addon_amount_minor / 100).toLocaleString("en-US")}\n契約總金額：NT$${Math.round(row.contract_total_minor / 100).toLocaleString("en-US")}` }], ip: clientIp(request), userAgent: request.headers.get("user-agent"), staging: env.CONTRACT_SIGNING_MODE === "staging", contractAssetsBucket: env.CONTRACTS_BUCKET, fontAssets: env.CONTRACT_FONT_ASSETS_FOR_TESTS || await addonFontAssets(env.CONTRACTS_BUCKET) });
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, `contracts/merchants/${merchantId}/addenda/${row.id}`, agreement);
       await db.prepare("UPDATE merchant_contract_addenda SET status='SIGNED',signed_at=?,signatory_legal_name=?,signature_hash=?,signature_data=?,document_hash=?,pdf_hash=?,r2_key=?,evidence_object_key=? WHERE id=? AND status='AWAITING_SIGNATURE'")
         .bind(agreement.signedAt, signatory, agreement.signatureHash, agreement.signatureData, agreement.documentHash, agreement.pdfHash, stored.pdfKey, stored.evidenceKey, row.id).run();
