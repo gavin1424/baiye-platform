@@ -15,7 +15,6 @@ import { PosComparisonPage } from "./pages/PosComparisonPage";
 import { FeaturesPage } from "./pages/FeaturesPage";
 import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
-import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
 import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
 import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
@@ -24,7 +23,7 @@ import { AdminContractsPage } from "./pages/AdminContractsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
 import { MemberLoginCompatibility, MerchantQrCodesCompatibility, QrMembershipJoinCompatibility } from "./pages/QrMembershipCompatibilityPages";
 import { AdminGoogleMapsBookingPage, GoogleMapsBookingLandingPage, GoogleMapsBookingPage, MerchantGoogleMapsBookingPage } from "./pages/GoogleMapsBookingPages";
-import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantLinePage, MerchantMembersPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
+import { MerchantAccountPage, MerchantAddonsPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantContentChangePage, MerchantLinePage, MerchantMembersPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -69,7 +68,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/finance": "財務管理｜創百業智慧鏈",
   "/admin/bookings": "預約管理｜創百業智慧鏈",
   "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
-  "/merchant-admin/ordering": "商家 QR 點餐管理｜創百業智慧鏈",
   "/member-benefits": "會員回購｜創百業智慧鏈",
   "/member/login": "手機會員登入｜創百業智慧鏈",
   "/dashboard/qr-codes": "商家 QR 管理｜創百業智慧鏈",
@@ -92,6 +90,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/merchant": "商家中心｜創百業智慧鏈",
   "/merchant/dashboard": "商家管理中心｜創百業智慧鏈",
   "/merchant/account": "管理者帳戶｜創百業智慧鏈",
+  "/merchant/content-change": "申請內容修改｜創百業智慧鏈",
+  "/merchant/addons": "加購與補充協議｜創百業智慧鏈",
   "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
   "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
   "/merchant/google-maps-booking": "Google 地圖預約開通申請｜創百業智慧鏈",
@@ -199,7 +199,6 @@ export function App() {
         <Routes>
           <Route path="/" element={<BeefNoodleDemoPage />} />
           <Route path="/q/:code" element={<QrOrderingPage />} />
-          <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
           <Route path="/privacy" element={<ProductionPrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -213,7 +212,6 @@ export function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
-        <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
         <Route path="/member-benefits" element={<MemberBenefitsPage />} />
         <Route path="/member/join" element={<PlatformMemberJoinPage />} />
         <Route path="/member/welcome" element={<PlatformMemberWelcomePage />} />
@@ -283,6 +281,8 @@ export function App() {
         <Route path="/merchant/dashboard" element={<MerchantAdminDashboardPage />} />
         <Route path="/merchant/account" element={<MerchantAccountPage />} />
         <Route path="/merchant/profile" element={<MerchantProfilePage />} />
+        <Route path="/merchant/content-change" element={<MerchantContentChangePage />} />
+        <Route path="/merchant/addons" element={<MerchantAddonsPage />} />
         <Route path="/merchant/bookings" element={<MerchantBookingsPage />} />
         <Route path="/merchant/members" element={<MerchantMembersPage />} />
         <Route path="/merchant/line" element={<MerchantLinePage />} />
