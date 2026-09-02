@@ -51,13 +51,16 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
         (SELECT COUNT(*) FROM merchant_ordering_memberships WHERE merchant_id=? AND status='active') members,
         (SELECT COUNT(*) FROM merchant_food_orders WHERE merchant_id=?) orders`).bind(merchantId, merchantId, merchantId, merchantId).first(),
     ]);
-    return json({ merchant: { id: merchantId, name: session.merchant_name, status: session.merchant_status }, administrator: { display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), status: state.administrator_status }, account_status: state.account_status, contract: { status: state.signature ? "signed" : "contract_required", signature: state.signature }, plan: terms || { plan_name: "NT$18,000 標準方案", discount_price_minor: 1800000, contract_term_months: 24 }, profile, counts, permissions: PERMISSIONS, operation_locked: !state.active }, 200, cors);
+    return json({ merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name, status: session.merchant_status }, administrator: { display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), status: state.administrator_status }, account_status: state.account_status, contract: { status: state.signature ? "signed" : "contract_required", signature: state.signature }, plan: terms || { plan_name: "NT$18,000 標準方案", discount_price_minor: 1800000, contract_term_months: 24 }, profile, counts, permissions: PERMISSIONS, operation_locked: !state.active }, 200, cors);
   }
 
   if (url.pathname === "/api/merchant-admin/account" && request.method === "GET") {
     const state = await lifecycle(db, merchantId);
-    const sessions = await db.prepare("SELECT id,issued_via,assurance_level,last_seen_at,created_at,expires_at FROM merchant_user_sessions WHERE merchant_id=? AND user_id=? AND revoked_at IS NULL AND datetime(expires_at)>datetime('now') ORDER BY datetime(last_seen_at) DESC").bind(merchantId, session.user_id).all();
-    return json({ display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), merchant: { id: merchantId, name: session.merchant_name }, status: state.administrator_status, sessions: sessions.results || [] }, 200, cors);
+    const [sessions, profile] = await Promise.all([
+      db.prepare("SELECT id,issued_via,assurance_level,last_seen_at,created_at,expires_at FROM merchant_user_sessions WHERE merchant_id=? AND user_id=? AND revoked_at IS NULL AND datetime(expires_at)>datetime('now') ORDER BY datetime(last_seen_at) DESC").bind(merchantId, session.user_id).all(),
+      db.prepare("SELECT brand_name FROM merchant_admin_profiles WHERE merchant_id=?").bind(merchantId).first(),
+    ]);
+    return json({ display_role: "管理者", internal_role: "merchant_owner", phone_masked: maskedPhone(session.phone_normalized), merchant: { id: merchantId, name: profile?.brand_name || session.merchant_name }, status: state.administrator_status, sessions: sessions.results || [] }, 200, cors);
   }
 
   if (url.pathname === "/api/merchant-admin/logout-all" && request.method === "POST") {
