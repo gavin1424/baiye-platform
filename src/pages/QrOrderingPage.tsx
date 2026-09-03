@@ -881,12 +881,13 @@ export function QrOrderingPage() {
               {categories
                 .filter((category) => category.active !== false)
                 .map((category) => (
-                  <a
+                  <button
+                    type="button"
                     key={category.id}
-                    href={`#ordering-category-${category.id}`}
+                    onClick={() => document.getElementById(`ordering-category-${category.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
                   >
                     {category.name}
-                  </a>
+                  </button>
                 ))}
             </nav>
             {groupedItems.length === 0 ? (
