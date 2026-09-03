@@ -13,6 +13,7 @@ test("production homepage exposes all eight interactive features", () => {
   assert.match(source, /role="dialog"/);
   assert.match(source, /event\.key === "Escape"/);
   assert.match(source, /heroScene/);
+  assert.doesNotMatch(source, /立即試用完整商家系統|\/demo\/beef-noodle/);
 });
 
 test("immersive homepage restores the historical five-item mobile navigation", () => {

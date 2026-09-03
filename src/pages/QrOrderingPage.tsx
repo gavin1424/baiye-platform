@@ -632,7 +632,7 @@ export function QrOrderingPage() {
         {IS_BEEF_NOODLE_DEMO && demoAdministrator && <Link className="btn btn-outline ordering-admin-return" to="/merchant/dashboard">返回管理中心</Link>}
       </section>
 
-      {officialProductionDemo && <div className="ordering-demo-privacy-note"><strong>百工官方示範店</strong>｜示範資料／不進行真實交易。正式付款 Provider 尚未啟用。</div>}
+      {officialProductionDemo && <div className="ordering-demo-privacy-note"><strong>付款服務尚未啟用</strong>｜目前不進行真實交易。正式付款 Provider 尚未啟用。</div>}
 
       {IS_BEEF_NOODLE_DEMO && (
         context.line?.configured ? (
@@ -1161,7 +1161,7 @@ export function QrOrderingPage() {
                 {demoInvoiceMethod === "mobile_barcode" && <label>手機條碼載具<input value={invoiceCarrier} placeholder="/ABC1234" maxLength={8} onChange={(event) => setInvoiceCarrier(event.target.value.toUpperCase())} /><small>僅檢查格式；尚未向財政部驗證。</small></label>}
                 {demoInvoiceMethod === "business_tax_id" && <><label>統一編號<input inputMode="numeric" value={invoiceTaxId} placeholder="12345678" maxLength={8} onChange={(event) => setInvoiceTaxId(event.target.value.replace(/\D/g, ""))} /></label><label>公司抬頭（選填）<input value={invoiceBuyerName} maxLength={160} onChange={(event) => setInvoiceBuyerName(event.target.value)} /></label></>}
                 {demoInvoiceMethod === "donation" && <label>捐贈碼<input value={invoiceDonationCode} maxLength={40} onChange={(event) => setInvoiceDonationCode(event.target.value)} /><small>正式驗證待電子發票服務啟用。</small></label>}
-                <p>電子發票服務尚未啟用（INVOICE_PROVIDER_DISABLED）。Demo 訂單不會產生正式發票。</p>
+                <p>電子發票服務尚未啟用（INVOICE_PROVIDER_DISABLED）。目前的訂單不會產生正式發票。</p>
                 {context.line?.configured && !lineClicked && !lineCheckoutSkipped && (
                   <div className="ordering-line-checkout-reminder">
                     <strong>加入{context.line.display_name || "店家 LINE"}</strong>
@@ -1172,7 +1172,7 @@ export function QrOrderingPage() {
                     </div>
                   </div>
                 )}
-                {!context.line?.configured && <p>LINE 官方帳號尚未設定；本 Demo 不會偽造加入好友結果。</p>}
+                {!context.line?.configured && <p>LINE 官方帳號尚未設定；系統不會偽造加入好友結果。</p>}
               </section>
             )}
             <button

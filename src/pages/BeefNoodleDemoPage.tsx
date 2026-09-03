@@ -9,7 +9,7 @@ const A1_URL = `${SITE_URL}/#/q/${A1_CODE}`;
 
 const highlights = [
   { icon: CookingPot, title: "慢燉牛骨湯", text: "用溫暖層次呈現招牌紅燒風味。" },
-  { icon: BowlFood, title: "厚切牛腱", text: "示範品項規格、加料與價格快照。" },
+  { icon: BowlFood, title: "厚切牛腱", text: "提供品項規格、加料與價格快照。" },
   { icon: Sparkle, title: "每日現煮", text: "菜單可即時停售、售完與恢復供應。" },
   { icon: DeviceMobile, title: "手機桌邊點餐", text: "不用下載 App，掃碼即可開始。" },
 ];
@@ -27,11 +27,11 @@ export function BeefNoodleDemoPage() {
   return (
     <div className="beef-demo-site">
       <header className="beef-demo-header">
-        <a className="beef-demo-brand" href="#top" aria-label="百工牛肉麵示範店首頁">
+        <a className="beef-demo-brand" href="#top" aria-label="百工牛肉麵首頁">
           <span className="beef-demo-brand-mark"><BowlFood weight="fill" /></span>
-          <span><strong>百工牛肉麵</strong><small>百工官方示範</small></span>
+          <span><strong>百工牛肉麵</strong><small>手機點餐</small></span>
         </a>
-        <nav aria-label="示範店導覽">
+        <nav aria-label="商家導覽">
           <a href="#signature">招牌菜單</a><a href="#experience">點餐體驗</a><a href="#faq">FAQ</a>
         </nav>
         <Link className="beef-demo-btn beef-demo-btn-small" to={`/q/${A1_CODE}`}>立即點餐</Link>
@@ -40,8 +40,8 @@ export function BeefNoodleDemoPage() {
       <main id="top">
         <section className="beef-demo-hero">
           <div className="beef-demo-hero-copy">
-            <span className="beef-demo-kicker">百工官方示範</span>
-            <h1>百工牛肉麵｜完整功能試用店</h1>
+            <span className="beef-demo-kicker">百工牛肉麵</span>
+            <h1>一碗好麵，暖心上桌</h1>
             <p className="beef-demo-tagline">一碗慢熬的好味道，一支手機就能點餐</p>
             <p>紅燒慢燉、牛肉厚切。掃碼加入會員，直接用手機完成桌邊點餐。</p>
             <div className="beef-demo-actions">
@@ -72,9 +72,9 @@ export function BeefNoodleDemoPage() {
         <section id="experience" className="beef-demo-section beef-demo-experience">
           <div className="beef-demo-section-heading"><span>QR 點餐體驗</span><h2>五個步驟，完成桌邊點餐</h2></div>
           <ol>{steps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol>
-          <div className="beef-demo-qr-card">
-            <div><span className="beef-demo-kicker">A1 桌示範 QR</span><h2>拿手機掃描，或直接開啟</h2><p>訂單會標記為百工示範訂單；僅供功能體驗，不進行真實交易。</p><Link className="beef-demo-btn" to={`/q/${A1_CODE}`}>直接開啟 A1 桌手機點餐 <ArrowRight /></Link></div>
-            <div className="beef-demo-qr"><QRCodeSVG value={A1_URL} size={220} level="H" marginSize={2} title="百工牛肉麵 A1 桌示範 QR"/><strong>A1 桌</strong></div>
+            <div className="beef-demo-qr-card">
+            <div><span className="beef-demo-kicker">A1 桌 QR</span><h2>拿手機掃描，或直接開啟</h2><p>目前僅供功能操作，不進行真實交易。</p><Link className="beef-demo-btn" to={`/q/${A1_CODE}`}>直接開啟 A1 桌手機點餐 <ArrowRight /></Link></div>
+            <div className="beef-demo-qr"><QRCodeSVG value={A1_URL} size={220} level="H" marginSize={2} title="百工牛肉麵 A1 桌 QR"/><strong>A1 桌</strong></div>
           </div>
         </section>
 
@@ -87,8 +87,8 @@ export function BeefNoodleDemoPage() {
             <article><Clock weight="duotone"/><h3>即時進度</h3><p>送出後可查看訂單編號與製作狀態，無需下載 App。</p></article>
           </div>
           <div className="beef-demo-center beef-demo-operations-links" style={{ gap: 12, flexWrap: "wrap" }}>
-            <Link className="beef-demo-btn beef-demo-btn-outline" to="/demo/beef-noodle/login">登入完整商家系統</Link>
-            <Link className="beef-demo-btn beef-demo-btn-outline" to="/demo/beef-noodle/login">商家接單與廚房 KDS</Link>
+            <Link className="beef-demo-btn beef-demo-btn-outline" to="/merchant/login">商家管理者登入</Link>
+            <Link className="beef-demo-btn beef-demo-btn-outline" to="/merchant/login">訂單管理與出餐看板</Link>
           </div>
         </section>
 
@@ -96,12 +96,12 @@ export function BeefNoodleDemoPage() {
           <div className="beef-demo-section-heading"><span>FAQ</span><h2>體驗前先知道</h2></div>
           <details open><summary>要下載 App 嗎？</summary><p>不用，使用手機瀏覽器即可完成。</p></details>
           <details><summary>可以再加點嗎？</summary><p>可以，第一筆送出後購物車會清空，桌號與會員 Session 保留。</p></details>
-          <details><summary>店家會收到訂單嗎？</summary><p>會，示範後台可以接單並更新製作與出餐狀態。</p></details>
-          <details><summary>付款是真的嗎？</summary><p>不是。本 Demo 只測試現場付款確認流程，不會實際扣款。</p></details>
+          <details><summary>店家會收到訂單嗎？</summary><p>會，商家後台可以接單並更新製作與出餐狀態。</p></details>
+          <details><summary>付款是真的嗎？</summary><p>不是。目前只開放現場付款操作流程，不會實際扣款。</p></details>
         </section>
       </main>
 
-      <footer className="beef-demo-footer"><div><strong>百工牛肉麵｜完整功能試用店</strong><p>百工官方示範</p></div><div><CheckCircle weight="fill"/> 創百業智慧鏈 QR 手機點餐<br/><small>示範資料／不進行真實交易</small></div></footer>
+      <footer className="beef-demo-footer"><div><strong>百工牛肉麵</strong><p>手機點餐</p></div><div><CheckCircle weight="fill"/> 創百業智慧鏈 QR 手機點餐<br/><small>目前不進行真實交易</small></div></footer>
     </div>
   );
 }
