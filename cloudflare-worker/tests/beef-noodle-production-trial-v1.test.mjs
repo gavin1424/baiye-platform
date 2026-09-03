@@ -74,3 +74,9 @@ test("merchant ordering audit maps to the existing production actor enum", () =>
   const db = database();
   assert.doesNotThrow(() => db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type) VALUES('merchant-audit','demo_beef_noodle','admin','demo_beef_owner','merchant_owner','product_update','menu_item')").run());
 });
+
+test("production demo login issues a platform-compatible hex token hash", () => {
+  const source = readFileSync(new URL("../src/demo-merchant.js", import.meta.url), "utf8");
+  assert.match(source, /platform_member_sessions[\s\S]*await shaHex\(memberToken\)/);
+  assert.doesNotMatch(source, /platform_member_sessions[\s\S]{0,300}await sha\(memberToken\)/);
+});

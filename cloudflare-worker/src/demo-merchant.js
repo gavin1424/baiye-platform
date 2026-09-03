@@ -7,6 +7,8 @@ const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(d
 const b64 = (bytes) => btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 const random = () => b64(crypto.getRandomValues(new Uint8Array(32)));
 const sha = async (value) => b64(new Uint8Array(await crypto.subtle.digest("SHA-256", E.encode(String(value)))));
+const shaHex = async (value) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", E.encode(String(value))))]
+  .map((byte) => byte.toString(16).padStart(2, "0")).join("");
 const same = (a, b) => { if (!a || !b || a.length !== b.length) return false; let result = 0; for (let index = 0; index < a.length; index += 1) result |= a.charCodeAt(index) ^ b.charCodeAt(index); return result === 0; };
 const uid = (prefix) => `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
 
@@ -62,7 +64,7 @@ export async function handleProductionDemoLogin(request, env, url, cors = {}) {
     db.prepare("UPDATE merchant_user_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE merchant_id='demo_beef_noodle' AND user_id=? AND issued_via='production_demo_access' AND revoked_at IS NULL").bind(row.merchant_user_id),
     db.prepare(`INSERT INTO merchant_user_sessions(id,merchant_id,user_id,token_hash,csrf_hash,expires_at,platform_member_id,assurance_level,issued_via)
       VALUES(?,'demo_beef_noodle',?,?,?,?,?,'verified_phone','production_demo_access')`).bind(uid("mus"), row.merchant_user_id, await sha(raw), await sha(csrf), expiresAt, row.platform_member_id),
-    db.prepare("INSERT INTO platform_member_sessions(id,member_id,token_hash,device_hash,expires_at) VALUES(?,?,?,?,?)").bind(uid("pmsess"), row.platform_member_id, await sha(memberToken), await sha(request.headers.get("x-device-id") || "production-demo"), memberExpiresAt),
+    db.prepare("INSERT INTO platform_member_sessions(id,member_id,token_hash,device_hash,expires_at) VALUES(?,?,?,?,?)").bind(uid("pmsess"), row.platform_member_id, await shaHex(memberToken), await shaHex(request.headers.get("x-device-id") || "production-demo"), memberExpiresAt),
   ]);
   await audit(db, request, "session_rotated", row, { merchant_user_id: row.merchant_user_id });
   await audit(db, request, "login_success", row, { display_role: "管理者" });
