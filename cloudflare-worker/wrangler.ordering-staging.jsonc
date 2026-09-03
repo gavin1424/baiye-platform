@@ -12,6 +12,8 @@
     }
   ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://baiye-platform-ordering-staging.pages.dev"
+    "ALLOWED_ORIGINS": "https://baiye-platform-ordering-staging.pages.dev",
+    "APP_MODE": "staging",
+    "PRODUCTION_DEMO_ENABLED": "true"
   }
 }

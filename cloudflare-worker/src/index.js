@@ -250,7 +250,7 @@ export default {
       const permission = permissionForOrderingRequest(url.pathname, request.method);
       const authorization = await authorizeMerchant(request, env, permission);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
-      if (!await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id)) return json({ code: "MERCHANT_ACTIVATION_REQUIRED" }, 423, cors);
+      if (!await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id, env.APP_MODE === "staging")) return json({ code: "MERCHANT_ACTIVATION_REQUIRED" }, 423, cors);
       const scopedUrl = new URL(url);
       scopedUrl.pathname = scopedUrl.pathname.replace(/^\/api\/merchant-admin\/ordering/, "/api/admin/ordering");
       scopedUrl.searchParams.set("merchant_id", authorization.session.merchant_id);
@@ -266,7 +266,7 @@ export default {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const authorization = await authorizeMerchant(request, env);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
-      if (!await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id)) return json({ code: "MERCHANT_ACTIVATION_REQUIRED" }, 423, cors);
+      if (!await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id, env.APP_MODE === "staging")) return json({ code: "MERCHANT_ACTIVATION_REQUIRED" }, 423, cors);
       if (/^\/api\/merchant-admin\/products\/[^/]+\/image$/.test(url.pathname)) return (await handleMerchantProductAsset(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
       if (url.pathname.startsWith("/api/merchant-admin/inventory")) return (await handleMerchantInventory(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
       if (url.pathname === "/api/merchant-admin/demo/reset") {

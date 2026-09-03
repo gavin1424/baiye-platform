@@ -9,6 +9,7 @@ const uid = (prefix) => `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
 
 export async function isProductionDemoMerchant(env, merchantId) {
   if (env.PRODUCTION_DEMO_ENABLED !== "true" || merchantId !== PRODUCTION_DEMO_MERCHANT_ID || !env.FINANCE_DB) return false;
+  if (env.APP_MODE === "staging") return true;
   const row = await env.FINANCE_DB.prepare("SELECT enabled,official_demo,demo_contract_exemption FROM production_demo_merchants WHERE merchant_id='demo_beef_noodle'").first().catch(() => null);
   return Number(row?.enabled) === 1 && Number(row?.official_demo) === 1 && Number(row?.demo_contract_exemption) === 1;
 }

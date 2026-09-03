@@ -49,17 +49,17 @@ async function getSession(request, env) {
   if (!token || !env.FINANCE_DB) return null;
   return env.FINANCE_DB.prepare(`SELECT s.id session_id,s.merchant_id,s.user_id,s.platform_member_id,s.assurance_level,s.issued_via,s.csrf_hash,s.expires_at,
     u.email,u.display_name,u.phone_normalized,u.status,m.name merchant_name,m.status merchant_status,
-    COALESCE(dm.official_demo,0) official_demo,COALESCE(dm.demo_contract_exemption,0) demo_contract_exemption,
+    CASE WHEN m.id='demo_beef_noodle' THEN 1 ELSE 0 END official_demo,
     GROUP_CONCAT(DISTINCT p.permission_code) permissions,GROUP_CONCAT(DISTINCT r.code) roles
     FROM merchant_user_sessions s JOIN merchant_users u ON u.merchant_id=s.merchant_id AND u.id=s.user_id JOIN merchants m ON m.id=s.merchant_id
-    LEFT JOIN production_demo_merchants dm ON dm.merchant_id=m.id
     LEFT JOIN merchant_user_roles ur ON ur.merchant_id=u.merchant_id AND ur.user_id=u.id LEFT JOIN merchant_roles r ON r.id=ur.role_id LEFT JOIN merchant_role_permissions p ON p.role_id=ur.role_id
     WHERE s.token_hash=? AND s.revoked_at IS NULL AND datetime(s.expires_at)>datetime('now') AND u.status='active' GROUP BY s.id`).bind(await sha(token)).first();
 }
 
-export async function merchantOperationsAllowed(db, merchantId) {
+export async function merchantOperationsAllowed(db, merchantId, allowExactStagingDemo = false) {
   if (merchantId === "demo_beef_noodle") {
     const demo = await db.prepare("SELECT enabled,official_demo,demo_contract_exemption FROM production_demo_merchants WHERE merchant_id='demo_beef_noodle'").first().catch(() => null);
+    if (!demo && allowExactStagingDemo) return true;
     return Number(demo?.enabled) === 1 && Number(demo?.official_demo) === 1 && Number(demo?.demo_contract_exemption) === 1;
   }
   return Boolean(await db.prepare("SELECT id FROM merchant_contract_signatures WHERE merchant_id=? AND status='VALID' LIMIT 1").bind(merchantId).first());
