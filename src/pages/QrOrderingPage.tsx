@@ -218,7 +218,23 @@ export function QrOrderingPage() {
   const initialize = useCallback(async () => {
     setLoading(true);
     setMessage("");
+    setContext(null);
+    setMember(null);
+    setMemberPasswordSet(null);
+    setToken("");
     setOrder(null);
+    setCategories([]);
+    setItems([]);
+    setOptionGroups([]);
+    setOptionValues([]);
+    setItemOptionGroups([]);
+    setPaymentOptions([]);
+    setDeliveryLinks([]);
+    setCheckoutPaymentOptions([]);
+    setCart({});
+    setItemSelections({});
+    setCustomerNote("");
+    setTableLabel("");
     try {
       const data = await orderingPublicApi<QrContextResponse>(
         `/api/ordering/qr/${encodeURIComponent(code)}`,
