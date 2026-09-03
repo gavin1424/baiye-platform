@@ -18,22 +18,20 @@ test("normal merchant login is the only maintained login UI", () => {
   const components = read("src/components.tsx");
   assert.match(app, /path="\/merchant\/login" element=\{<MerchantLoginPage \/>\}/);
   assert.match(app, /path="\/demo\/beef-noodle\/login" element=\{<Navigate to="\/merchant\/login" replace \/>\}/);
-  assert.match(page, /\/api\/merchant-auth\/phone-login/);
-  assert.match(page, /JSON\.stringify\(\{ phone, verification_code: verificationCode \}\)/);
-  assert.doesNotMatch(page, /merchant_id|簡訊已寄出|帳號密碼/);
+  assert.match(page, /\/api\/merchant-auth\/login/);
+  assert.match(page, /JSON\.stringify\(\{ phone, password \}\)/);
+  assert.doesNotMatch(page, /簡訊已寄出|verification_code|phone-login/);
   assert.match(components, /to="\/merchant\/login"[\s\S]{0,100}商家登入/);
 });
 
 test("phone auth stays server-scoped and auto-resolves the sole merchant", () => {
-  const login = read("cloudflare-worker/src/demo-merchant.js");
+  const login = read("cloudflare-worker/src/merchant-auth.js");
   const worker = read("cloudflare-worker/src/index.js");
-  assert.match(login, /"\/api\/merchant-auth\/phone-login"/);
-  assert.match(login, /phone === "0900000026"/);
-  assert.match(login, /WHERE c\.merchant_id='demo_beef_noodle'/);
+  assert.match(login, /"\/api\/merchant-auth\/login"/);
+  assert.match(login, /merchant_login_credentials/);
   assert.match(login, /merchant_resolution: \{ automatic: true, count: 1, requires_selection: false \}/);
-  assert.match(login, /platform_member_sessions/);
   assert.match(login, /merchant_owner_links/);
-  assert.match(worker, /handleMerchantAuth\(request, env, url, cors\)\)[\s\S]{0,100}handleProductionDemoLogin\(request, env, url, cors\)/);
+  assert.doesNotMatch(worker, /handleProductionDemoLogin/);
 });
 
 test("merchant dashboard presents normal merchant language and 出餐看板", () => {
@@ -62,9 +60,9 @@ test("all merchant-visible frontend source excludes legacy meal-board names", ()
   assert.doesNotMatch(frontend, /KDS|Kitchen Display System|廚房 KDS|KDS 廚房看板|廚房看板/);
 });
 
-test("release adds no D1 migration and preserves internal safety flags", () => {
+test("release adds one additive D1 migration and preserves internal safety flags", () => {
   const migrations = readdirSync(new URL("../migrations/", import.meta.url)).filter((name) => /^\d+.*\.sql$/.test(name));
-  assert.equal(migrations.at(-1), "0023_beef_noodle_production_golden_options_v1.sql");
+  assert.equal(migrations.at(-1), "0024_merchant_numeric_password_auth_v1.sql");
   const login = read("cloudflare-worker/src/demo-merchant.js");
   const admin = read("cloudflare-worker/src/merchant-admin.js");
   assert.match(login, /official_demo/);

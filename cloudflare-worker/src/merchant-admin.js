@@ -75,13 +75,14 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
     return json({ integration: row && Number(row.enabled) === 1 ? row : null, status_text: "尚未設定 LINE 官方帳號", secrets_exposed: false }, 200, cors);
   }
   if (url.pathname === "/api/merchant-admin/account" && request.method === "GET") {
-    const [member, relationship, sessions, merchant] = await Promise.all([
+    const [member, relationship, sessions, merchant, credential] = await Promise.all([
       db.prepare("SELECT id,status FROM platform_members WHERE id=?").bind(session.platform_member_id || "").first(),
       db.prepare("SELECT id,status FROM merchant_ordering_memberships WHERE merchant_id=? AND customer_id=(SELECT customer_id FROM platform_members WHERE id=?)").bind(merchantId, session.platform_member_id || "").first(),
       db.prepare("SELECT id,issued_via,assurance_level,created_at,last_seen_at,expires_at FROM merchant_user_sessions WHERE merchant_id=? AND user_id=? AND revoked_at IS NULL AND datetime(expires_at)>datetime('now') ORDER BY datetime(created_at) DESC").bind(merchantId, session.user_id).all(),
-      db.prepare("SELECT id,name,status,official_demo FROM merchants WHERE id=?").bind(merchantId).first(),
+      db.prepare("SELECT id,name,status,CASE WHEN id='demo_beef_noodle' THEN 1 ELSE 0 END official_demo FROM merchants WHERE id=?").bind(merchantId).first(),
+      db.prepare("SELECT id,password_updated_at FROM merchant_login_credentials WHERE merchant_id=? AND merchant_user_id=? AND credential_type='numeric_password_8' AND status='active'").bind(merchantId, session.user_id).first(),
     ]);
-    return json({ status: "ACTIVE", phone_masked: mask(session.phone_normalized), platform_member: { established: Boolean(member), id: member?.id || null, status: member?.status || null }, merchant_membership: { joined: relationship?.status === "active", id: relationship?.id || null }, merchant, sessions: sessions.results || [], role: { display: "管理者", internal: "merchant_owner" } }, 200, cors);
+    return json({ status: "ACTIVE", phone_masked: mask(session.phone_normalized), platform_member: { established: Boolean(member), id: member?.id || null, status: member?.status || null }, merchant_membership: { joined: relationship?.status === "active", id: relationship?.id || null }, merchant, credential: { established: Boolean(credential), password_updated_at: credential?.password_updated_at || null }, sessions: sessions.results || [], role: { display: "管理者", internal: "merchant_owner" } }, 200, cors);
   }
   if (url.pathname === "/api/merchant-admin/logout-all" && request.method === "POST") {
     await db.prepare("UPDATE merchant_user_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND user_id=? AND revoked_at IS NULL").bind(merchantId, session.user_id).run();
