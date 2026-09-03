@@ -156,6 +156,35 @@ async function qrContext(db, code) {
   `).bind(clean(code, 64)).first();
 }
 
+async function lineIntegrationForMerchant(db, merchantId) {
+  try {
+    return await db.prepare("SELECT enabled,basic_id,display_name,add_friend_url,integration_mode FROM merchant_line_integrations WHERE merchant_id=? LIMIT 1").bind(merchantId).first();
+  } catch {
+    // Older isolated QR fixtures and pre-feature databases remain safely
+    // unconfigured instead of breaking the public ordering experience.
+    return null;
+  }
+}
+
+function publicLineIntegration(row) {
+  let addFriendUrl = "";
+  try {
+    const parsed = new URL(clean(row?.add_friend_url, 600));
+    if (parsed.protocol === "https:" && ["lin.ee", "line.me", "www.line.me", "page.line.me"].includes(parsed.hostname.toLowerCase())) addFriendUrl = parsed.toString();
+  } catch { /* An absent or invalid URL is an unconfigured integration. */ }
+  const integrationMode = clean(row?.integration_mode || "add_friend_link", 60) || "add_friend_link";
+  const configured = Boolean(row?.enabled) && integrationMode === "add_friend_link" && Boolean(addFriendUrl);
+  return {
+    configured,
+    display_name: clean(row?.display_name, 120),
+    basic_id: clean(row?.basic_id, 120),
+    add_friend_url: configured ? addFriendUrl : "",
+    integration_mode: integrationMode,
+    capabilities: { addFriendLink: configured, login: false, friendshipStatus: false, messaging: false },
+    status: configured ? "configured" : "LINE_DEMO_NOT_CONFIGURED",
+  };
+}
+
 async function memberSession(db, request, merchantId) {
   const token = bearer(request);
   if (!token) return null;
@@ -332,7 +361,8 @@ function resolveOrderType(context, input) {
 
 async function handleContext(request, db, context, cors) {
   const session = await memberSession(db, request, context.merchant_id);
-  return json({ context: publicContext(context), member: session ? publicMember(session) : null }, 200, cors);
+  const line = await lineIntegrationForMerchant(db, context.merchant_id);
+  return json({ context: { ...publicContext(context), line: publicLineIntegration(line) }, member: session ? publicMember(session) : null }, 200, cors);
 }
 
 async function handleJoin(request, db, context, cors) {
@@ -406,7 +436,7 @@ async function handleMenu(request, db, context, cors) {
   if (!context.enabled) return json({ error: "此商家的掃碼點餐尚未開放。" }, 409, cors);
   const session = await memberSession(db, request, context.merchant_id);
   if (context.require_member && !session) return json({ error: "請先加入會員或重新掃描 QR Code。", code: "MEMBER_REQUIRED" }, 401, cors);
-  const [categories, items, groups, values, links] = await Promise.all([
+  const [categories, items, groups, values, links, line] = await Promise.all([
     db.prepare(`SELECT id,name,description,sort_order FROM merchant_menu_categories WHERE merchant_id=? AND active=1 ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT m.id,m.category_id,m.sku,m.name,m.description,m.price_minor,m.image_url,m.sort_order,
       CASE WHEN i.inventory_enabled=1 AND i.stock_on_hand=0 THEN 'sold_out' ELSE m.status END status,
@@ -418,9 +448,10 @@ async function handleMenu(request, db, context, cors) {
     db.prepare(`SELECT id,name,selection_type,required,min_select,max_select,sort_order FROM merchant_menu_option_groups WHERE merchant_id=? AND active=1 AND archived_at IS NULL ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT id,group_id,name,price_delta_minor,sort_order FROM merchant_menu_option_values WHERE merchant_id=? AND active=1 AND archived_at IS NULL ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT menu_item_id,option_group_id,sort_order FROM merchant_menu_item_option_groups WHERE merchant_id=? ORDER BY sort_order`).bind(context.merchant_id).all(),
+    lineIntegrationForMerchant(db, context.merchant_id),
   ]);
   return json({
-    context: publicContext(context),
+    context: { ...publicContext(context), line: publicLineIntegration(line) },
     member: session ? publicMember(session) : null,
     categories: categories.results || [],
     items: (items.results || []).map((item) => ({ ...item, price_minor: Number(item.price_minor) })),
