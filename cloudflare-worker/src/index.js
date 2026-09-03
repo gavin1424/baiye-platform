@@ -6,9 +6,9 @@ import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } 
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
 import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
 import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from "./member-integrations.js";
-import { authorizeMerchant, handleMerchantAuth, merchantOperationsAllowed } from "./merchant-auth.js";
+import { authorizeMerchant, handleMerchantAuth, handleMerchantCredentialAdmin, merchantOperationsAllowed } from "./merchant-auth.js";
 import { permissionForOrderingRequest } from "./merchant-permissions.js";
-import { handleProductionDemoLogin, isProductionDemoMerchant, resetBeefNoodleDemo } from "./demo-merchant.js";
+import { isProductionDemoMerchant, resetBeefNoodleDemo } from "./demo-merchant.js";
 import { handleMerchantProductAsset, serveMerchantProductAsset } from "./merchant-assets.js";
 import { handleMerchantAdmin } from "./merchant-admin.js";
 import { handleMerchantInventory } from "./inventory.js";
@@ -215,13 +215,7 @@ export default {
     if (url.pathname.startsWith("/api/merchant-auth/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
-      return (await handleMerchantAuth(request, env, url, cors)) || (await handleProductionDemoLogin(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
-    }
-
-    if (url.pathname === "/api/production-demo/login") {
-      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
-      if (!origin) return json({ error: "Origin not allowed" }, 403);
-      return (await handleProductionDemoLogin(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+      return (await handleMerchantAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname.startsWith("/api/contract-verification/") && request.method === "GET") {
@@ -307,6 +301,7 @@ export default {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const adminSession = url.pathname.startsWith("/api/admin/") ? await requireAdmin(request, env) : null;
       if (url.pathname.startsWith("/api/admin/") && !adminSession) return json({ error: "需要正式管理員授權。" }, 401, cors);
+      if (url.pathname.startsWith("/api/admin/merchant-credentials/")) return (await handleMerchantCredentialAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
       if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors, true);
       if (url.pathname.startsWith("/api/admin/merchant-contract") || /^\/api\/admin\/merchants\/[^/]+\/commercial-terms$/.test(url.pathname)) {
         return (await handleMerchantContractAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);

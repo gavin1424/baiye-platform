@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { detectProductImageMime } from "../src/merchant-assets.js";
 import { deductionStatements, restoreStatements } from "../src/inventory.js";
 
-const migrationNames = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql"];
+const migrationNames = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql"];
 function database() { const db = new DatabaseSync(":memory:"); db.exec("PRAGMA foreign_keys=ON"); for (const name of migrationNames) db.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8")); return db; }
 class Statement { constructor(statement) { this.statement = statement; this.values = []; } bind(...values) { this.values = values; return this; } async run() { const result = this.statement.run(...this.values); return { meta: { changes: Number(result.changes || 0) } }; } async first() { return this.statement.get(...this.values) || null; } async all() { return { results: this.statement.all(...this.values) }; } }
 class D1 { constructor(sqlite) { this.sqlite = sqlite; } prepare(sql) { return new Statement(this.sqlite.prepare(sql)); } async batch(statements) { this.sqlite.exec("BEGIN IMMEDIATE"); try { for (const statement of statements) await statement.run(); this.sqlite.exec("COMMIT"); } catch (error) { this.sqlite.exec("ROLLBACK"); throw error; } } }
@@ -75,10 +75,11 @@ test("merchant ordering audit maps to the existing production actor enum", () =>
   assert.doesNotThrow(() => db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type) VALUES('merchant-audit','demo_beef_noodle','admin','demo_beef_owner','merchant_owner','product_update','menu_item')").run());
 });
 
-test("production demo login issues a platform-compatible hex token hash", () => {
-  const source = readFileSync(new URL("../src/demo-merchant.js", import.meta.url), "utf8");
-  assert.match(source, /platform_member_sessions[\s\S]*await shaHex\(memberToken\)/);
-  assert.doesNotMatch(source, /platform_member_sessions[\s\S]{0,300}await sha\(memberToken\)/);
+test("legacy production demo credential remains historical and is not routed", () => {
+  const demo = readFileSync(new URL("../src/demo-merchant.js", import.meta.url), "utf8");
+  const index = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
+  assert.doesNotMatch(demo, /handleProductionDemoLogin|phone-login|production-demo\/login/);
+  assert.doesNotMatch(index, /handleProductionDemoLogin|production-demo\/login/);
 });
 
 test("QR context always returns a safe LINE integration contract", () => {

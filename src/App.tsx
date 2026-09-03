@@ -21,7 +21,7 @@ import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
-import { MerchantLoginPage } from "./pages/MerchantLoginPage";
+import { MerchantLoginPage, MerchantPasswordSetupPage, MerchantRegisterPage } from "./pages/MerchantLoginPage";
 import { MerchantKitchenDisplayPage } from "./pages/MerchantKitchenDisplayPage";
 import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantGoogleBookingPage, MerchantInventoryPage, MerchantInvoicePage, MerchantLinePage, MerchantMembersPage, MerchantPaymentsPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 import { BeefNoodleBookingPage } from "./pages/BeefNoodleBookingPage";
@@ -90,6 +90,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/member": "我的會員｜創百業智慧鏈",
   "/demo/beef-noodle": "百工牛肉麵｜手機點餐",
   "/merchant/login": "商家管理者登入｜創百業智慧鏈",
+  "/merchant/register": "商家免費註冊｜創百業智慧鏈",
+  "/merchant/password-setup": "設定商家登入密碼｜創百業智慧鏈",
   "/merchant/dashboard": "百工牛肉麵商家管理中心",
   "/merchant/inventory": "百工牛肉麵庫存管理",
   "/merchant-admin/ordering/kitchen": "百工牛肉麵出餐看板",
@@ -205,6 +207,8 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/demo/beef-noodle" element={<BeefNoodleDemoPage />} />
         <Route path="/merchant/login" element={<MerchantLoginPage />} />
+        <Route path="/merchant/register" element={<MerchantRegisterPage />} />
+        <Route path="/merchant/password-setup" element={<MerchantPasswordSetupPage />} />
         <Route path="/demo/beef-noodle/login" element={<Navigate to="/merchant/login" replace />} />
         <Route path="/booking/beef-noodle-demo" element={<BeefNoodleBookingPage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
