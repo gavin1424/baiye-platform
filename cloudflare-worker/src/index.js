@@ -261,9 +261,9 @@ export default {
       scopedUrl.pathname = scopedUrl.pathname.replace(/^\/api\/merchant-admin\/ordering/, "/api/admin/ordering");
       scopedUrl.searchParams.set("merchant_id", authorization.session.merchant_id);
       return handleOrderingAdminRequest(request, env, scopedUrl, cors, true, {
-        actor_type: "merchant",
+        actor_type: "admin",
         actor_id: authorization.session.user_id,
-        actor_role: authorization.session.roles || "merchant",
+        actor_role: "merchant_owner",
       });
     }
 
