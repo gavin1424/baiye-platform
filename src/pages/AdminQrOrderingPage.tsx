@@ -18,6 +18,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import { adminApi } from "../admin-auth-client";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import {
@@ -27,6 +28,7 @@ import {
   type OrderingOrderStatus,
   type OrderingPurpose,
 } from "../qr-ordering-client";
+import { normalizeOrderingSection, ORDERING_SECTION_TABS, scrollToOrderingSection, type OrderingSection } from "../ordering-sections";
 
 const orderStatusLabels: Record<OrderingOrderStatus, string> = {
   submitted: "已送出",
@@ -152,6 +154,8 @@ export function AdminQrOrderingPage({
   merchantMode?: boolean;
   fixedMerchantId?: string;
 }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeSection = normalizeOrderingSection(searchParams.get("section"));
   const [merchantId, setMerchantId] = useState(
     fixedMerchantId || "meiling_patchwork",
   );
@@ -286,6 +290,18 @@ export function AdminQrOrderingPage({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const overviewReady = overview !== null;
+  useEffect(() => {
+    if (!overviewReady) return;
+    const frame = window.requestAnimationFrame(() => scrollToOrderingSection(activeSection));
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeSection, overviewReady]);
+
+  const selectSection = (section: OrderingSection) => {
+    setSearchParams({ section });
+    window.requestAnimationFrame(() => scrollToOrderingSection(section));
+  };
 
   useEffect(() => {
     const refresh = () => {
@@ -592,7 +608,7 @@ export function AdminQrOrderingPage({
       </header>
 
       <nav className="container ordering-admin-tabs" aria-label="QR 點餐管理分頁">
-        <a href="#ordering-overview">總覽</a><a href="#ordering-orders">即時訂單</a><a href="#ordering-qrs">桌號 QR</a><a href="#ordering-menu">菜單</a><a href="#ordering-options">加料選項</a><a href="#ordering-members">會員</a><a href="#ordering-orders">付款</a><a href="#ordering-settings">設定</a><a href="#ordering-invoice">電子發票</a>
+        {ORDERING_SECTION_TABS.map((tab) => <button key={tab.label} type="button" onClick={() => selectSection(tab.section)}>{tab.label}</button>)}
       </nav>
 
       {message && (
@@ -608,7 +624,7 @@ export function AdminQrOrderingPage({
       )}
 
       <section id="ordering-overview" className="container ordering-admin-summary">
-        <article>
+        <article id="ordering-members">
           <Users />
           <span>有效會員</span>
           <strong>{overview?.summary.active_members || 0}</strong>

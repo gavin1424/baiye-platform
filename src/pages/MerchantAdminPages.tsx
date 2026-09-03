@@ -4,13 +4,14 @@ import { CalendarCheck, CookingPot, DotsThree, FileText, Gear, Globe, House, Lin
 import { merchantOrderingApi } from "../qr-ordering-client";
 import { downloadMerchantContractPdf } from "../merchant-contract-pdf";
 import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
+import { orderingSectionPath } from "../ordering-sections";
 
 type Dashboard = any;
 const money = (minor = 0) => `NT$${Math.round(Number(minor) / 100).toLocaleString("zh-TW")}`;
 const message = (error: unknown) => error instanceof Error ? error.message : "商家管理服務暫時無法使用。";
 
 function Shell({ children, title = "商家管理中心" }: { children: React.ReactNode; title?: string }) {
-  return <main className="merchant-admin-shell is-demo-merchant"><header className="merchant-admin-top"><div><p>百工牛肉麵</p><h1>{title}</h1></div><Link className="merchant-admin-account-link" to="/merchant/account"><UserCircle size={24} />管理者帳戶</Link></header>{children}<nav className="merchant-demo-bottom-nav" aria-label="商家管理導覽"><Link to="/merchant/dashboard"><House size={24} weight="duotone" />首頁</Link><Link to="/merchant-admin/ordering#ordering-menu"><Package size={24} weight="duotone" />商品</Link><Link to="/merchant-admin/ordering#ordering-orders"><Receipt size={24} weight="duotone" />訂單</Link><Link to="/merchant/members"><UsersThree size={24} weight="duotone" />會員</Link><Link to="/merchant/account"><DotsThree size={24} weight="duotone" />更多</Link></nav></main>;
+  return <main className="merchant-admin-shell is-demo-merchant"><header className="merchant-admin-top"><div><p>百工牛肉麵</p><h1>{title}</h1></div><Link className="merchant-admin-account-link" to="/merchant/account"><UserCircle size={24} />管理者帳戶</Link></header>{children}<nav className="merchant-demo-bottom-nav" aria-label="商家管理導覽"><Link to="/merchant/dashboard"><House size={24} weight="duotone" />首頁</Link><Link to={orderingSectionPath("menu")}><Package size={24} weight="duotone" />商品</Link><Link to={orderingSectionPath("orders")}><Receipt size={24} weight="duotone" />訂單</Link><Link to="/merchant/members"><UsersThree size={24} weight="duotone" />會員</Link><Link to="/merchant/account"><DotsThree size={24} weight="duotone" />更多</Link></nav></main>;
 }
 
 export function MerchantAdminDashboardPage() {
@@ -22,8 +23,8 @@ export function MerchantAdminDashboardPage() {
   const standardModules = [
     { icon: Storefront, name: "商家基本資料", text: "品牌、介紹、聯絡與營業資訊", to: "/merchant/profile", ready: true },
     { icon: Globe, name: "網站內容", text: "管理公告與一般網站內容資料", to: "/merchant/profile", ready: true },
-    { icon: Package, name: "商城商品", text: "商品、分類、價格、圖片、規格與上下架", to: "/merchant-admin/ordering", ready: data.entitlements?.merchant_product_editable === true },
-    { icon: FileText, name: "訂單與購物車", text: "查看購物車建立的訂單並處理履約狀態", to: "/merchant-admin/ordering", ready: data.entitlements?.cart === true },
+    { icon: Package, name: "商城商品", text: "商品、分類、價格、圖片、規格與上下架", to: orderingSectionPath("menu"), ready: data.entitlements?.merchant_product_editable === true },
+    { icon: FileText, name: "訂單與購物車", text: "查看購物車建立的訂單並處理履約狀態", to: orderingSectionPath("orders"), ready: data.entitlements?.cart === true },
     { icon: NotePencil, name: "申請內容修改", text: "提交網站文字、圖片、商品建檔與版型需求，由百工協助處理", to: "/merchant/content-change", ready: true },
     { icon: FileText, name: "加購與補充協議", text: "查看報價、附件 B、接受加購並簽署補充協議", to: "/merchant/addons", ready: true },
     { icon: CalendarCheck, name: "預約管理", text: "查看、確認與取消預約", to: "/merchant/bookings", ready: true },
@@ -34,9 +35,9 @@ export function MerchantAdminDashboardPage() {
     { icon: Gear, name: "商家設定", text: "帳戶與管理者 Session", to: "/merchant/account", ready: true },
   ];
   const demoModules = [
-    { icon: Package, name: "商品／菜單", text: "商品、分類、價格、圖片、規格、加料與售完", to: "/merchant-admin/ordering#ordering-menu", ready: true },
+    { icon: Package, name: "商品／菜單", text: "商品、分類、價格、圖片、規格、加料與售完", to: orderingSectionPath("menu"), ready: true },
     { icon: Package, name: "庫存管理", text: "日庫存、低庫存提醒、售完與補貨", to: "/merchant/inventory", ready: true },
-    { icon: Receipt, name: "訂單管理", text: "接單、製作、Ready、送桌與完成", to: "/merchant-admin/ordering#ordering-orders", ready: true },
+    { icon: Receipt, name: "訂單管理", text: "接單、製作、Ready、送桌與完成", to: orderingSectionPath("orders"), ready: true },
     { icon: CookingPot, name: "出餐看板", text: "手機與平板全螢幕出餐作業", to: "/merchant-admin/ordering/kitchen", ready: true },
     { icon: CalendarCheck, name: "預約管理", text: "管理顧客預約、確認、改期與取消", to: "/merchant/bookings", ready: true },
     { icon: UsersThree, name: "會員管理", text: "只顯示百工牛肉麵的遮罩會員資料", to: "/merchant/members", ready: true },
@@ -52,7 +53,7 @@ export function MerchantAdminDashboardPage() {
     try { await merchantOrderingApi("/api/merchant-admin/demo/reset", { method: "POST", body: "{}" }); setNotice("百工牛肉麵已恢復初始資料。"); }
     catch (error) { setNotice(message(error)); }
   };
-  return <Shell><section className="merchant-admin-summary"><div><span>店家名稱</span><strong>{data.merchant.name}</strong></div><div><span>身份</span><strong>管理者</strong></div><div><span>商家狀態</span><strong>正常</strong></div><div><span>會員身份</span><strong>{data.membership?.merchant_relationship ? "已加入百工牛肉麵" : "待建立"}</strong></div><div><span>庫存管理</span><strong>{data.inventory?.total ? `正常 ${data.inventory.normal}｜低庫存 ${data.inventory.low_stock}｜售完 ${data.inventory.sold_out}` : "尚未建立庫存資料"}</strong></div><div><span>交易狀態</span><strong>目前不進行真實交易</strong></div></section>{demo && <section className="merchant-demo-quick"><div><h2>百工牛肉麵商家管理中心</h2><span>菜單修改會立即同步；正式付款尚未啟用。</span></div><div className="merchant-demo-quick-actions"><Link className="btn btn-primary" to="/merchant-admin/ordering#ordering-menu"><Package size={20} />商品／菜單</Link><Link className="btn btn-outline" to="/merchant/inventory"><Package size={20} />庫存管理</Link><Link className="btn btn-outline" to="/merchant-admin/ordering#ordering-orders"><Receipt size={20} />訂單管理</Link><Link className="btn btn-outline" to="/merchant-admin/ordering/kitchen"><CookingPot size={20} />出餐看板</Link><Link className="btn btn-outline" to="/merchant/bookings"><CalendarCheck size={20} />預約管理</Link><Link className="btn btn-outline" to="/merchant/members"><UsersThree size={20} />會員管理</Link><Link className="btn btn-outline" to="/merchant/google-maps-booking"><Globe size={20} />Google 地圖預約</Link><Link className="btn btn-outline" to="/merchant/line"><LineSegments size={20} />LINE 官方帳號</Link><Link className="btn btn-outline" to="/merchant/profile"><Gear size={20} />商家設定</Link><Link className="btn btn-outline" to="/merchant/account"><UserCircle size={20} />帳戶</Link><button className="btn btn-ghost danger" onClick={() => void resetDemo()}>恢復初始資料</button></div></section>}<section className="merchant-admin-modules">{modules.map(({ icon: Icon, ...item }) => <article key={item.name}><Icon size={30} weight="duotone" /><h2>{item.name}</h2><p>{item.text}</p>{item.ready ? <Link className="btn btn-outline" to={item.to}>進入管理</Link> : <span>此功能尚未開放</span>}</article>)}</section>{notice && <p className="partner-message">{notice}</p>}</Shell>;
+  return <Shell><section className="merchant-admin-summary"><div><span>店家名稱</span><strong>{data.merchant.name}</strong></div><div><span>身份</span><strong>管理者</strong></div><div><span>商家狀態</span><strong>正常</strong></div><div><span>會員身份</span><strong>{data.membership?.merchant_relationship ? "已加入百工牛肉麵" : "待建立"}</strong></div><div><span>庫存管理</span><strong>{data.inventory?.total ? `正常 ${data.inventory.normal}｜低庫存 ${data.inventory.low_stock}｜售完 ${data.inventory.sold_out}` : "尚未建立庫存資料"}</strong></div><div><span>交易狀態</span><strong>目前不進行真實交易</strong></div></section>{demo && <section className="merchant-demo-quick"><div><h2>百工牛肉麵商家管理中心</h2><span>菜單修改會立即同步；正式付款尚未啟用。</span></div><div className="merchant-demo-quick-actions"><Link className="btn btn-primary" to={orderingSectionPath("menu")}><Package size={20} />商品／菜單</Link><Link className="btn btn-outline" to="/merchant/inventory"><Package size={20} />庫存管理</Link><Link className="btn btn-outline" to={orderingSectionPath("orders")}><Receipt size={20} />訂單管理</Link><Link className="btn btn-outline" to="/merchant-admin/ordering/kitchen"><CookingPot size={20} />出餐看板</Link><Link className="btn btn-outline" to="/merchant/bookings"><CalendarCheck size={20} />預約管理</Link><Link className="btn btn-outline" to="/merchant/members"><UsersThree size={20} />會員管理</Link><Link className="btn btn-outline" to="/merchant/google-maps-booking"><Globe size={20} />Google 地圖預約</Link><Link className="btn btn-outline" to="/merchant/line"><LineSegments size={20} />LINE 官方帳號</Link><Link className="btn btn-outline" to="/merchant/profile"><Gear size={20} />商家設定</Link><Link className="btn btn-outline" to="/merchant/account"><UserCircle size={20} />帳戶</Link><button className="btn btn-ghost danger" onClick={() => void resetDemo()}>恢復初始資料</button></div></section>}<section className="merchant-admin-modules">{modules.map(({ icon: Icon, ...item }) => <article key={item.name}><Icon size={30} weight="duotone" /><h2>{item.name}</h2><p>{item.text}</p>{item.ready ? <Link className="btn btn-outline" to={item.to}>進入管理</Link> : <span>此功能尚未開放</span>}</article>)}</section>{notice && <p className="partner-message">{notice}</p>}</Shell>;
 }
 
 export function MerchantInventoryPage() {
