@@ -113,6 +113,10 @@ function OrderingTopbar() {
 
 export function QrOrderingPage() {
   const { code = "" } = useParams();
+  return <QrOrderingView key={code} code={code} />;
+}
+
+function QrOrderingView({ code }: { code: string }) {
   const [context, setContext] = useState<OrderingContext | null>(null);
   const [member, setMember] = useState<OrderingMember | null>(null);
   const [token, setToken] = useState("");
