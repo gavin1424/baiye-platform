@@ -4,8 +4,9 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { detectProductImageMime } from "../src/merchant-assets.js";
 import { deductionStatements, restoreStatements } from "../src/inventory.js";
+import { handleOrderingRequest } from "../src/qr-ordering.js";
 
-const migrationNames = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql"];
+const migrationNames = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql","0025_platform_member_numeric_password_auth_v1.sql","0026_beef_noodle_general_ordering_entry_v1.sql"];
 function database() { const db = new DatabaseSync(":memory:"); db.exec("PRAGMA foreign_keys=ON"); for (const name of migrationNames) db.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8")); return db; }
 class Statement { constructor(statement) { this.statement = statement; this.values = []; } bind(...values) { this.values = values; return this; } async run() { const result = this.statement.run(...this.values); return { meta: { changes: Number(result.changes || 0) } }; } async first() { return this.statement.get(...this.values) || null; } async all() { return { results: this.statement.all(...this.values) }; } }
 class D1 { constructor(sqlite) { this.sqlite = sqlite; } prepare(sql) { return new Statement(this.sqlite.prepare(sql)); } async batch(statements) { this.sqlite.exec("BEGIN IMMEDIATE"); try { for (const statement of statements) await statement.run(); this.sqlite.exec("COMMIT"); } catch (error) { this.sqlite.exec("ROLLBACK"); throw error; } } }
@@ -16,7 +17,29 @@ test("production release migration seeds one exact official demo and twenty prod
   assert.equal(merchant.id, "demo_beef_noodle"); assert.equal(merchant.demo_environment, 1); assert.equal(merchant.official_demo, 1); assert.equal(merchant.demo_contract_exemption, 1);
   assert.equal(db.prepare("SELECT COUNT(*) count FROM merchant_menu_items WHERE merchant_id='demo_beef_noodle' AND status<>'archived'").get().count, 20);
   assert.equal(db.prepare("SELECT COUNT(*) count FROM merchant_inventory_items WHERE merchant_id='demo_beef_noodle' AND reset_at IS NULL").get().count, 0);
-  assert.equal(db.prepare("SELECT COUNT(*) count FROM merchant_ordering_qr_codes WHERE merchant_id='demo_beef_noodle' AND active=1").get().count, 3);
+  assert.equal(db.prepare("SELECT COUNT(*) count FROM merchant_ordering_qr_codes WHERE merchant_id='demo_beef_noodle' AND active=1").get().count, 4);
+  const general = db.prepare("SELECT code,label,purpose,table_label FROM merchant_ordering_qr_codes WHERE id='bn_qr_general' AND merchant_id='demo_beef_noodle'").get();
+  assert.equal(general.label, "線上點餐"); assert.equal(general.purpose, "member_order"); assert.equal(general.table_label, null); assert.ok(general.code.length >= 24); assert.doesNotMatch(general.code, /demo_beef_noodle/);
+  for (const [id, code, table] of [["bn_qr_a1","y6KGFA0pQkEKLjf41zNBS6Nb1u1hCHUR","A1"],["bn_qr_a2","BglF2FaHBWxFDZxCgWXQm0rAsXAIAndg","A2"],["bn_qr_takeaway","g5DM12ohl0qpEMN-hqkqQbZLPqZEOeyP",null]]) {
+    const preserved = db.prepare("SELECT code,table_label FROM merchant_ordering_qr_codes WHERE id=?").get(id);
+    assert.equal(preserved.code, code); assert.equal(preserved.table_label, table);
+  }
+});
+
+test("general ordering entry migration is idempotent", () => {
+  const db = database();
+  const migration = readFileSync(new URL("../migrations/0026_beef_noodle_general_ordering_entry_v1.sql", import.meta.url), "utf8");
+  assert.doesNotThrow(() => db.exec(migration));
+  assert.equal(db.prepare("SELECT COUNT(*) count FROM merchant_ordering_qr_codes WHERE id='bn_qr_general' AND merchant_id='demo_beef_noodle'").get().count, 1);
+});
+
+test("general ordering entry opens the complete twenty-item menu without a preset table", async () => {
+  const sqlite = database();
+  const code = sqlite.prepare("SELECT code FROM merchant_ordering_qr_codes WHERE id='bn_qr_general'").get().code;
+  const request = new Request(`https://worker.test/api/ordering/qr/${code}/menu`);
+  const response = await handleOrderingRequest(request, { FINANCE_DB: new D1(sqlite) }, new URL(request.url), {});
+  const body = await response.json();
+  assert.equal(response.status, 200); assert.equal(body.context.qr.purpose, "member_order"); assert.equal(body.context.qr.table_label, ""); assert.equal(body.items.length, 20);
 });
 
 test("production identity provisioning is separate from migration seed", () => {

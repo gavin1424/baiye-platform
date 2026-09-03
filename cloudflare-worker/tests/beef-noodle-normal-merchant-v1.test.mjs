@@ -60,9 +60,9 @@ test("all merchant-visible frontend source excludes legacy meal-board names", ()
   assert.doesNotMatch(frontend, /KDS|Kitchen Display System|廚房 KDS|KDS 廚房看板|廚房看板/);
 });
 
-test("release adds one additive D1 migration and preserves internal safety flags", () => {
+test("latest additive D1 migration preserves internal safety flags", () => {
   const migrations = readdirSync(new URL("../migrations/", import.meta.url)).filter((name) => /^\d+.*\.sql$/.test(name));
-  assert.equal(migrations.at(-1), "0025_platform_member_numeric_password_auth_v1.sql");
+  assert.equal(migrations.at(-1), "0026_beef_noodle_general_ordering_entry_v1.sql");
   const login = read("cloudflare-worker/src/demo-merchant.js");
   const admin = read("cloudflare-worker/src/merchant-admin.js");
   assert.match(login, /official_demo/);
