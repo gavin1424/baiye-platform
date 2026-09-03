@@ -3,8 +3,9 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { handleMerchantAuth, handleMerchantCredentialAdmin, validateMerchantNumericPassword } from "../src/merchant-auth.js";
+import { handleOrderingRequest } from "../src/qr-ordering.js";
 
-const migrations = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql"];
+const migrations = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql","0025_platform_member_numeric_password_auth_v1.sql"];
 class Statement { constructor(statement) { this.statement = statement; this.values = []; } bind(...values) { this.values = values; return this; } async run() { const result = this.statement.run(...this.values); return { meta: { changes: Number(result.changes || 0) } }; } async first() { return this.statement.get(...this.values) || null; } async all() { return { results: this.statement.all(...this.values) }; } }
 class D1 { constructor() { this.sqlite = new DatabaseSync(":memory:"); this.sqlite.exec("PRAGMA foreign_keys=ON"); for (const migration of migrations) this.sqlite.exec(readFileSync(new URL(`../migrations/${migration}`, import.meta.url), "utf8")); this.seed(); } prepare(sql) { return new Statement(this.sqlite.prepare(sql)); } async batch(statements) { this.sqlite.exec("BEGIN IMMEDIATE"); try { for (const statement of statements) await statement.run(); this.sqlite.exec("COMMIT"); } catch (error) { this.sqlite.exec("ROLLBACK"); throw error; } } seed() { this.sqlite.exec(`
     INSERT INTO ordering_customers(id,display_name,phone_normalized,phone_display,phone_verified) VALUES('owner_customer','管理者','0900000026','0900000026',0);
@@ -69,4 +70,21 @@ test("merchant registration reuses canonical member without claiming phone verif
 test("merchant login frontend contains no OTP or SMS dependency", () => {
   const page = readFileSync(new URL("../../src/pages/MerchantLoginPage.tsx", import.meta.url), "utf8");
   assert.match(page, /\/api\/merchant-auth\/login/); assert.match(page, /8 位數字密碼/); assert.doesNotMatch(page, /OTP|取得驗證碼|輸入驗證碼|簡訊驗證|驗證碼已寄出|重新傳送驗證碼|phone-login|verification_code/);
+});
+
+test("merchant owner session reuses the same platform member for customer ordering", async () => {
+  const db = new D1(), adminRequest = request("/api/admin/merchant-credentials/demo_beef_noodle/setup", {});
+  db.sqlite.prepare(`INSERT OR IGNORE INTO merchant_ordering_memberships
+    (id,merchant_id,customer_id,membership_no,status,joined_via_qr_id,consent_version,consented_at)
+    VALUES('owner_membership','demo_beef_noodle','owner_customer','MBR-OWNER','active','bn_qr_a1','demo-beef-noodle-privacy-v1',CURRENT_TIMESTAMP)`).run();
+  const setup = await (await handleMerchantCredentialAdmin(adminRequest, { FINANCE_DB: db }, new URL(adminRequest.url), {}, { admin_user_id: "admin" })).json();
+  await call(db, "/api/merchant-auth/password/setup", { token: setup.setup_token, password: "48270615", password_confirm: "48270615" });
+  const login = await call(db, "/api/merchant-auth/login", { phone: "0900000026", password: "48270615" });
+  const sessionCookie = login.response.headers.get("set-cookie").split(";")[0];
+  const qr = db.sqlite.prepare("SELECT code FROM merchant_ordering_qr_codes WHERE id='bn_qr_a1'").get();
+  const memberRequest = new Request(`https://worker.test/api/ordering/qr/${qr.code}/member-session`, { method: "POST", headers: { cookie: sessionCookie, "x-device-id": "owner-device" } });
+  const response = await handleOrderingRequest(memberRequest, { FINANCE_DB: db }, new URL(memberRequest.url), {}), data = await response.json();
+  assert.equal(response.status, 200); assert.equal(data.member.membership_id, "owner_membership"); assert.equal(data.member_password_set, false);
+  assert.ok(data.platform_session.token); assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM platform_members WHERE id='owner_member'").get().count, 1);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_ordering_memberships WHERE merchant_id='demo_beef_noodle' AND customer_id='owner_customer'").get().count, 1);
 });

@@ -36,7 +36,7 @@ async function claimWelcomeCoupon(db, memberId) {
   return { coupon: { id: couponId, status: "claimed", name: active.name, discount_value_minor: active.discount_value_minor, currency: active.currency, expires_at: expiresAt, redemption_enabled: 0 }, created: true };
 }
 
-async function issueMemberSession(db, memberId, deviceId = "contract-session") {
+export async function issuePlatformMemberSession(db, memberId, deviceId = "contract-session") {
   const token = randomToken();
   const tokenHash = await sha256(token);
   const deviceHash = await sha256(String(deviceId || "unknown-device").slice(0, 300));
@@ -48,7 +48,7 @@ async function issueMemberSession(db, memberId, deviceId = "contract-session") {
 export async function preparePlatformMembershipBatch(db, { phone, source, originVerified = false, deviceId = "trusted-contract-session", privacyConsentVersion = null, issueSession = true, couponIssuanceEnabled = false }) {
   const normalized = normalizeTaiwanMobile(phone);
   if (!normalized) throw Object.assign(new Error("手機號碼格式不正確。"), { code: "INVALID_PHONE", status: 422 });
-  const existing = await memberByPhone(db, normalized);
+  const existing = await findPlatformMemberByPhone(db, normalized);
   if (existing && existing.status !== "active") throw Object.assign(new Error("此會員帳戶目前無法使用。"), { code: "MEMBER_ACCOUNT_UNAVAILABLE", status: 403 });
   const existingCoupon = couponIssuanceEnabled && existing ? await db.prepare("SELECT id FROM platform_member_coupons WHERE member_id=? AND campaign_id=?").bind(existing.id, WELCOME_CAMPAIGN_ID).first() : null;
   const customerId = uid("customer");
@@ -78,19 +78,19 @@ export async function preparePlatformMembershipBatch(db, { phone, source, origin
 }
 
 export async function finalizePlatformMembershipBatch(db, prepared) {
-  const member = await memberByPhone(db, prepared.normalized);
+  const member = await findPlatformMemberByPhone(db, prepared.normalized);
   if (!member) throw Object.assign(new Error("會員資格建立失敗。"), { code: "MEMBERSHIP_COMMIT_FAILED", status: 503 });
   const coupon = prepared.couponIssuanceEnabled ? (await claimWelcomeCoupon(db, member.id)).coupon : null;
   const welcome = welcomeCopy(member.joined_source);
   return { member: { id: member.id, member_no: member.member_no, status: member.status, phone_masked: maskMemberPhone(prepared.normalized), joined_at: member.joined_at }, created: !prepared.existing, session: prepared.token ? { token: prepared.token, expires_at: prepared.sessionExpiresAt } : null, coupon, welcome: { ...welcome, show: !prepared.existing }, customer: member };
 }
 
-async function memberByPhone(db, phone) {
+export async function findPlatformMemberByPhone(db, phone) {
   return db.prepare("SELECT p.*,c.phone_normalized,c.display_name,c.email,c.phone_verified customer_phone_verified FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE c.phone_normalized=?").bind(phone).first();
 }
 
 export async function authenticatePlatformMember(db, request) {
-  const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] || request.headers.get("x-platform-member-token") || "";
+  const bearer = request.headers.get("x-platform-member-token") || request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] || "";
   if (!bearer) return null;
   const tokenHash = await sha256(bearer);
   const row = await db.prepare("SELECT p.*,c.phone_normalized,c.display_name,c.email,s.id session_id,s.expires_at FROM platform_member_sessions s JOIN platform_members p ON p.id=s.member_id JOIN ordering_customers c ON c.id=p.customer_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>CURRENT_TIMESTAMP AND p.status='active'").bind(tokenHash).first();
@@ -141,7 +141,7 @@ export async function ensurePlatformMember(db, { phone, source, privacyConsentVe
     throw Object.assign(new Error("此會員帳戶目前無法使用。"), { code: "MEMBER_ACCOUNT_UNAVAILABLE", status: 403 });
   }
   const claimed = couponIssuanceEnabled ? await claimWelcomeCoupon(db, member.id) : { coupon: null, created: false };
-  const session = issueSession ? await issueMemberSession(db, member.id, deviceId) : null;
+  const session = issueSession ? await issuePlatformMemberSession(db, member.id, deviceId) : null;
   const welcome = welcomeCopy(source);
   return {
     member: { id: member.id, member_no: member.member_no, status: member.status, phone_masked: maskMemberPhone(normalized), joined_at: member.joined_at },
@@ -163,10 +163,10 @@ export async function handlePlatformMemberRequest(request, env, url, cors = {}) 
       if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
       const deviceId = String(input.device_id || request.headers.get("x-device-id") || "").slice(0, 300);
       if (!await checkRateLimit(db, request, phone, deviceId)) return json({ error: "操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
-      const existing = await memberByPhone(db, phone);
+      const existing = await findPlatformMemberByPhone(db, phone);
       if (existing) {
         const current = await authenticatePlatformMember(db, request);
-        if (!current || current.id !== existing.id) return json({ error: "此手機已建立會員，請先完成手機或 LINE 身分驗證。", code: "MEMBER_VERIFICATION_REQUIRED", verification_methods: env.SMS_OTP_MODE === "staging" ? ["staging_otp"] : ["sms_otp", "line_login"], verification_available: env.SMS_OTP_MODE === "staging" }, 409, cors);
+        if (!current || current.id !== existing.id) return json({ error: "此手機已建立會員，請使用會員登入，或在原登入裝置管理會員。", code: "MEMBER_LOGIN_REQUIRED" }, 409, cors);
         return json({ member: { id: current.id, member_no: current.member_no, status: current.status, phone_masked: maskMemberPhone(current.phone_normalized), joined_at: current.joined_at }, new_member: false, welcome: { show: false }, session: null }, 200, cors);
       }
       const result = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version).slice(0, 100), deviceId, couponIssuanceEnabled: env.MEMBERSHIP_COUPON_ISSUANCE_ENABLED === "1" });
