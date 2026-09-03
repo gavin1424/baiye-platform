@@ -42,8 +42,24 @@ test("merchant dashboard presents normal merchant language and 出餐看板", ()
   for (const label of ["商品／菜單", "庫存管理", "訂單管理", "出餐看板", "預約管理", "會員管理", "Google 地圖預約", "LINE 官方帳號", "商家設定", "帳戶", "商家狀態", "正常"]) assert.match(dashboard, new RegExp(label));
   for (const forbidden of ["百工官方示範", "試用商家", "開始試用", "廚房 KDS", "KDS 廚房看板", "重置試用資料"]) assert.doesNotMatch(`${dashboard}\n${kds}`, new RegExp(forbidden));
   assert.match(kds, /<h1>出餐看板<\/h1>/);
+  assert.match(kds, /即時查看接單、製作與出餐進度/);
   assert.match(dashboard, />恢復初始資料<\/button>/);
   assert.doesNotMatch(`${read("src/pages/HomePage.tsx")}\n${read("src/pages/PosComparisonPage.tsx")}`, /KDS|Kitchen Display System/);
+});
+
+test("all merchant-visible frontend source excludes legacy meal-board names", () => {
+  const sourceRoot = new URL("../../src/", import.meta.url);
+  const sourceFiles = [];
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = new URL(entry.name + (entry.isDirectory() ? "/" : ""), directory);
+      if (entry.isDirectory()) visit(path);
+      else if (/\.(?:ts|tsx)$/.test(entry.name)) sourceFiles.push(path);
+    }
+  };
+  visit(sourceRoot);
+  const frontend = sourceFiles.map((path) => readFileSync(path, "utf8")).join("\n");
+  assert.doesNotMatch(frontend, /KDS|Kitchen Display System|廚房 KDS|KDS 廚房看板|廚房看板/);
 });
 
 test("release adds no D1 migration and preserves internal safety flags", () => {
