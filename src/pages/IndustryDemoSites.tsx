@@ -469,7 +469,7 @@ export function IndustryDemoSitePage() {
         <section id="contact" className="demo-contact">
           <small>READY TO START</small>
         <h2>如果你的商家也想長成這樣，創百業智慧鏈可以直接從行業需求開始。</h2>
-          <p>這是一個可實際點開的商家示範網站。完成商家 AI 行銷推廣方案後，可再替換品牌名稱、圖片、商品、聯絡方式與內容。</p>
+          <p>這是一個可實際點開的商家示範網站。完成適用商家方案後，可依方案權限替換品牌名稱、圖片、商品、聯絡方式與內容。</p>
           <Link to="/pricing" className="demo-primary-btn">AI 推廣優惠 NT$18,000 <ArrowRight /></Link>
         </section>
       </main>

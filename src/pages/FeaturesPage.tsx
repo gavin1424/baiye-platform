@@ -17,7 +17,7 @@ import {
   UserCircle,
 } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
-import { PublicLayout, SectionHeading } from "../components";
+import { CTASection, MarketingHero, MarketingSection, PublicLayout, SectionHeading } from "../components";
 import "../features-page.css";
 
 type FeatureStatus = "live" | "ready" | "development" | "provider";
@@ -203,33 +203,15 @@ const statusCounts = (Object.keys(statusMeta) as FeatureStatus[]).map((status) =
 export function FeaturesPage() {
   return (
     <PublicLayout>
-      <section className="features-hero">
-        <div className="container features-hero-grid">
-          <div>
-            <span className="eyebrow">創百業智慧鏈｜功能總覽</span>
-            <h1>從網站、AI、LINE 到預約、財務與電商，一頁看懂全部功能</h1>
-            <p>
-              我們把功能依「正式上線、個別開通、開發驗證、第三方核准」清楚分開。你看到的每一項，都標示目前真實狀態，不用 Demo 或假功能撐畫面。
-            </p>
-            <div className="features-hero-actions">
-              <Link to="/pricing" className="btn btn-primary btn-lg">
-                查看 NT$18,000 方案 <ArrowRight />
-              </Link>
-              <Link to="/contact" className="btn btn-outline btn-lg">
-                詢問適合我的功能
-              </Link>
-            </div>
-          </div>
-          <aside className="features-summary-card">
+      <MarketingHero eyebrow="創百業智慧鏈｜功能總覽" title="從網站、AI、LINE 到商城與智慧點餐" description="依正式上線、個別開通、開發驗證與第三方核准清楚分級；不把尚未啟用的能力包裝成已可交易。" primary={{ label: "比較三種商家方案", to: "/pricing" }} secondary={{ label: "詢問適合功能", to: "/contact" }}>
+          <aside className="features-summary-card premium-card">
             <CheckCircle size={44} weight="duotone" />
             <strong>{allItems.length} 項功能與能力</strong>
             <p>依目前正式站與開發狀態整理，未正式啟用的功能不會包裝成已可交易。</p>
           </aside>
-        </div>
-      </section>
+      </MarketingHero>
 
-      <section className="section features-status-section">
-        <div className="container">
+      <MarketingSection className="features-status-section">
           <SectionHeading
             eyebrow="狀態怎麼看"
             title="先看功能，再看現在能不能正式用"
@@ -237,18 +219,16 @@ export function FeaturesPage() {
           />
           <div className="features-status-grid">
             {statusCounts.map(({ status, count, label, hint }) => (
-              <article className={`features-status-card status-${status}`} key={status}>
+              <article className={`features-status-card premium-card card-stagger status-${status}`} key={status}>
                 <span>{label}</span>
                 <strong>{count}</strong>
                 <p>{hint}</p>
               </article>
             ))}
           </div>
-        </div>
-      </section>
+      </MarketingSection>
 
-      <section className="section features-groups-section">
-        <div className="container">
+      <MarketingSection className="features-groups-section">
           <SectionHeading
             eyebrow="全部功能"
             title="依商家營運流程整理"
@@ -256,7 +236,7 @@ export function FeaturesPage() {
           />
           <div className="features-groups-grid">
             {groups.map(({ icon: Icon, title, description, items }) => (
-              <article className="features-group-card" key={title}>
+              <article className="features-group-card premium-card card-stagger" key={title}>
                 <div className="features-group-heading">
                   <span className="features-group-icon"><Icon weight="duotone" /></span>
                   <div>
@@ -281,52 +261,33 @@ export function FeaturesPage() {
               </article>
             ))}
           </div>
-        </div>
-      </section>
+      </MarketingSection>
 
-      <section className="section features-principles-section">
-        <div className="container">
+      <MarketingSection className="features-principles-section">
           <SectionHeading
             eyebrow="正式站原則"
             title="使用者看得到的功能，就必須真的能使用"
           />
           <div className="features-principles-grid">
-            <article>
+            <article className="premium-card">
               <ShieldCheck size={34} weight="duotone" />
               <h3>沒有正式資格就不開</h3>
               <p>金流、物流、電子發票、簡訊、融資等第三方服務，在正式核准與 E2E 完成前保持 Disabled。</p>
             </article>
-            <article>
+            <article className="premium-card">
               <Code size={34} weight="duotone" />
               <h3>先 Staging，再 Production</h3>
               <p>大型新功能先在隔離 Staging 完成測試，再依 Backup、Migration、Deploy、QA 流程進正式環境。</p>
             </article>
-            <article>
+            <article className="premium-card">
               <Bell size={34} weight="duotone" />
               <h3>不使用假資料製造成績</h3>
               <p>正式網站不展示假商家、假成交、假會員或未確認的合作數字。</p>
             </article>
           </div>
-        </div>
-      </section>
+      </MarketingSection>
 
-      <section className="home-cta features-cta">
-        <div className="container">
-          <div>
-            <span>不需要一次把所有功能都裝上。</span>
-            <h2>依你的行業，選真正會用到的功能</h2>
-            <p>我們會先看既有網站、LINE、預約、會員、銷售與營運流程，再決定哪些模組適合優先導入。</p>
-          </div>
-          <div className="home-cta-actions">
-            <Link to="/pricing" className="btn btn-accent btn-lg">
-              查看方案 <ArrowRight />
-            </Link>
-            <Link to="/pos-comparison" className="btn btn-light btn-lg">
-              比較 Web 與 POS
-            </Link>
-          </div>
-        </div>
-      </section>
+      <CTASection eyebrow="依需求導入" title="選真正會用到的功能" description="先看既有網站、LINE、預約、會員、銷售與營運流程，再決定優先導入哪些模組。" primary={{ label: "查看方案", to: "/pricing" }} secondary={{ label: "比較 Web 與 POS", to: "/pos-comparison" }} />
     </PublicLayout>
   );
 }

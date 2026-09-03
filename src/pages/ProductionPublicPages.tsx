@@ -1,9 +1,9 @@
 import { ArrowRight, Buildings, Handshake, LockKey, Storefront } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
-import { PublicLayout } from "../components";
+import { MarketingHero, MarketingSection, PremiumCard, PublicLayout } from "../components";
 
 export function VerifiedBusinessesPage() {
-  return <PublicLayout><section className="section"><div className="container"><div className="section-heading"><div><span className="eyebrow">正式商家</span><h1>尋找商家與服務</h1><p>平台只公開經確認的真實合作商家；資料完成驗證後才會上架。</p></div></div><div className="website-cases-grid"><article className="website-case-card"><img src="https://meilingpatchwork.com/wp-content/themes/meiling-patchwork/assets/images/home/patchwork-hero-poster.webp" alt="美玲拼布正式網站" loading="lazy"/><div className="website-case-content"><p className="website-case-category">手作・拼布・文創</p><h2>美玲拼布</h2><p>拼布作品、課程教學、AI 客服與線上預約整合的正式合作案例。</p><span className="status-badge status-success">已確認正式案例</span><a className="text-link" href="https://meilingpatchwork.com/" target="_blank" rel="noreferrer">查看正式網站 <ArrowRight/></a></div></article></div></div></section></PublicLayout>;
+  return <PublicLayout><MarketingHero eyebrow="正式商家" title="讓專業商家被看見，也更容易被選擇" description="平台只公開經確認的合作商家；品牌內容、服務與聯絡資訊完成驗證後才會上架。" primary={{label:"查看商家方案",to:"/pricing"}} secondary={{label:"聯絡平台",to:"/contact"}} /><MarketingSection><div className="website-cases-grid"><PremiumCard className="website-case-card"><img src="https://meilingpatchwork.com/wp-content/themes/meiling-patchwork/assets/images/home/patchwork-hero-poster.webp" alt="美玲拼布正式網站" loading="lazy"/><div className="website-case-content"><p className="website-case-category">手作・拼布・文創</p><h2>美玲拼布</h2><p>拼布作品、課程教學、AI 客服與線上預約整合的正式合作案例。</p><span className="status-badge status-success">已確認正式案例</span><a className="text-link" href="https://meilingpatchwork.com/" target="_blank" rel="noreferrer">查看正式網站 <ArrowRight/></a></div></PremiumCard></div></MarketingSection></PublicLayout>;
 }
 
 export function EmptyCollaborationPage() {
@@ -23,7 +23,7 @@ export function MerchantAccessUnavailablePage() {
 }
 
 export function ProductionContactPage() {
-  return <PublicLayout><section className="section"><div className="container"><div className="section-heading"><div><span className="eyebrow">聯絡平台</span><h1>商家導入與平台服務諮詢</h1><p>請透過創百業智慧鏈官方聯絡管道提出需求；平台不會在此頁進行測試送出或蒐集未必要的個資。</p></div></div><div className="partner-card"><h2>諮詢內容</h2><p>商家 AI 數位升級、品牌網站、LINE、AI 客服、預約與承攬夥伴合作。</p><Link className="btn btn-primary" to="/pricing">先了解商家方案</Link></div></div></section></PublicLayout>;
+  return <PublicLayout><MarketingHero eyebrow="聯絡平台" title="一起規劃適合你的數位升級路徑" description="從品牌網站、AI 智慧商城到免 POS 機點餐，先釐清營運需求，再確認方案與導入範圍。" primary={{label:"先比較商家方案",to:"/pricing"}} secondary={{label:"查看導入流程",to:"/how-it-works"}} /><MarketingSection className="contact-v2"><PremiumCard><h2>可諮詢內容</h2><p>品牌網站、AI 客服、LINE、會員、預約、完整商城、智慧點餐與承攬夥伴合作。</p><p>平台不會在本頁蒐集非必要個資；請透過創百業正式聯絡管道提出需求。</p><Link className="btn btn-primary" to="/pricing">了解三種商家方案</Link></PremiumCard></MarketingSection></PublicLayout>;
 }
 
 export function ProductionPrivacyPage() {
