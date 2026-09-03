@@ -188,6 +188,7 @@ export type OrderingDeliveryLink = {
 export type QrContextResponse = {
   context: OrderingContext;
   member: OrderingMember | null;
+  member_password_set?: boolean;
 };
 
 export type QrMenuResponse = QrContextResponse & {
@@ -359,6 +360,10 @@ export function savePlatformMemberToken(token: string) {
   try { window.localStorage.setItem(PLATFORM_MEMBER_TOKEN_KEY, token); } catch { /* Current page still holds the token. */ }
 }
 
+export function clearPlatformMemberToken() {
+  try { window.localStorage.removeItem(PLATFORM_MEMBER_TOKEN_KEY); } catch { /* Ignore storage failures. */ }
+}
+
 export function getPlatformDeviceId() {
   try {
     let id = window.localStorage.getItem(PLATFORM_DEVICE_KEY) || "";
@@ -409,6 +414,7 @@ export async function orderingPublicApi<T>(
   try {
     const response = await fetch(`${API}${path}`, {
       ...init,
+      credentials: "include",
       headers,
       signal: init.signal || controller.signal,
     });

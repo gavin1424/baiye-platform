@@ -44,7 +44,7 @@ async function audit(db, request, action, subject = {}, metadata = {}) {
     .bind(uid("mse"), subject.merchant_id || null, subject.merchant_user_id || subject.user_id || null, action, JSON.stringify(metadata), await sha(`ip:${clientIp(request)}`), await sha(`ua:${request.headers.get("user-agent") || "unknown"}`)).run();
 }
 
-async function getSession(request, env) {
+export async function authenticateMerchantSession(request, env) {
   const token = cookie(request, COOKIE);
   if (!token || !env.FINANCE_DB) return null;
   return env.FINANCE_DB.prepare(`SELECT s.id session_id,s.merchant_id,s.user_id,s.platform_member_id,s.assurance_level,s.issued_via,s.csrf_hash,s.expires_at,
@@ -66,7 +66,7 @@ export async function merchantOperationsAllowed(db, merchantId, allowExactStagin
 }
 
 export async function authorizeMerchant(request, env, permission = "") {
-  const session = await getSession(request, env);
+  const session = await authenticateMerchantSession(request, env);
   if (!session) return { ok: false, status: 401, error: "UNAUTHENTICATED" };
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
     const csrf = request.headers.get("x-csrf-token") || "";
