@@ -60,7 +60,7 @@ function AuthShell({ children, kind = "login" }: { children: ReactNode; kind?: "
   );
 }
 
-export function LoginPage() {
+export function AdminLoginPage() {
   const { login, session } = useAppStore();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");

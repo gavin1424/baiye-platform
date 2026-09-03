@@ -281,7 +281,7 @@ export function MobileBottomNav() {
     { label: "私訊", to: "/messages", icon: ChatCircleDots },
     {
       label: "我的",
-      to: session.role === "admin" ? "/admin" : session.role === "business" ? "/dashboard" : "/login",
+      to: session.role === "admin" ? "/admin" : "/merchant/login",
       icon: UserCircle,
     },
   ];

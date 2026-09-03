@@ -1,5 +1,5 @@
 import { ShieldCheck, Storefront } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { merchantOrderingApi } from "../qr-ordering-client";
 
@@ -9,9 +9,17 @@ const errorText = (error: unknown) => error instanceof Error ? error.message : "
 
 export function MerchantLoginPage() {
   const navigate = useNavigate();
+  const [checkingSession, setCheckingSession] = useState(true);
   const [phone, setPhone] = useState(""), [password, setPassword] = useState("");
   const [choices, setChoices] = useState<MerchantChoice[]>([]), [selectionToken, setSelectionToken] = useState("");
   const [notice, setNotice] = useState(""), [loading, setLoading] = useState(false), [forgot, setForgot] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void merchantOrderingApi<LoginResponse>("/api/merchant-auth/session")
+      .then((data) => { if (active) navigate(data.next_url || "/merchant/dashboard", { replace: true }); })
+      .catch(() => { if (active) setCheckingSession(false); });
+    return () => { active = false; };
+  }, [navigate]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); if (loading) return; setLoading(true); setNotice("");
     try {
@@ -25,7 +33,8 @@ export function MerchantLoginPage() {
     try { const data = await merchantOrderingApi<LoginResponse>("/api/merchant-auth/select", { method: "POST", body: JSON.stringify({ selection_token: selectionToken, merchant_id: merchantId }) }); navigate(data.next_url || "/merchant/dashboard", { replace: true }); }
     catch (error) { setNotice(errorText(error)); } finally { setLoading(false); }
   };
-  return <main className="demo-merchant-login"><section className="demo-merchant-login-card"><Storefront size={48} weight="duotone" /><p>創百業智慧鏈</p><h1>商家管理者登入</h1><p>使用管理者手機號碼與商家登入密碼。系統會依管理者權限安全連結可管理的商家。</p><form onSubmit={submit}><label>手機號碼<input required type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></label><label>8 位數字密碼<input required type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={password} onChange={(event) => setPassword(event.target.value.replace(/\D/g, "").slice(0, 8))} /></label><button className="btn btn-primary btn-lg" disabled={loading}>{loading ? "安全登入中…" : "登入商家管理中心"}</button></form><p className="partner-guidance-note"><ShieldCheck weight="fill" /> 密碼只用於商家管理中心，並由伺服器以安全雜湊驗證。</p><button className="btn btn-ghost" type="button" onClick={() => setForgot(true)}>忘記密碼</button>{forgot && <p className="partner-message">請聯絡創百業客服協助完成身分確認後重設密碼。</p>}{choices.length > 0 && <section aria-label="選擇管理商家"><h2>選擇管理商家</h2>{choices.map((merchant) => <button className="btn btn-outline" disabled={loading} key={merchant.id} type="button" onClick={() => void choose(merchant.id)}>{merchant.name}</button>)}</section>}{notice && <div className="partner-message">{notice}</div>}<Link className="btn btn-outline" to="/merchant/register">商家免費註冊</Link><Link className="btn btn-ghost" to="/">返回首頁</Link></section></main>;
+  if (checkingSession) return <main className="demo-merchant-login"><section className="demo-merchant-login-card" aria-live="polite"><Storefront size={48} weight="duotone" /><h1>商家管理者登入</h1><p>正在確認商家登入狀態…</p></section></main>;
+  return <main className="demo-merchant-login"><section className="demo-merchant-login-card"><Storefront size={48} weight="duotone" /><p>創百業智慧鏈</p><h1>商家管理者登入</h1><p>使用管理者手機號碼與商家登入密碼。系統會依管理者權限安全連結可管理的商家。</p><form onSubmit={submit}><label>手機號碼<input required type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></label><label>8 位數字密碼<input required type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={password} onChange={(event) => setPassword(event.target.value.replace(/\D/g, "").slice(0, 8))} /></label><button className="btn btn-primary btn-lg" disabled={loading}>{loading ? "安全登入中…" : "登入商家管理中心"}</button></form><p className="partner-guidance-note"><ShieldCheck weight="fill" /> 密碼只用於商家管理中心，並由伺服器以安全雜湊驗證。</p><button className="btn btn-ghost" type="button" onClick={() => setForgot(true)}>忘記密碼</button>{forgot && <p className="partner-message">請聯絡創百業客服協助完成身分確認後重設密碼。</p>}{choices.length > 0 && <section aria-label="選擇管理商家"><h2>選擇管理商家</h2>{choices.map((merchant) => <button className="btn btn-outline" disabled={loading} key={merchant.id} type="button" onClick={() => void choose(merchant.id)}>{merchant.name}</button>)}</section>}{notice && <div className="partner-message">{notice}</div>}<p>還沒有商家帳號？</p><Link className="btn btn-outline" to="/merchant/register">商家免費註冊</Link><Link className="btn btn-ghost" to="/">返回首頁</Link></section></main>;
 }
 
 export function MerchantRegisterPage() {

@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAppStore } from "./store";
 import { HomePage } from "./pages/HomePage";
-import { LoginPage } from "./pages/AuthPages";
+import { AdminLoginPage } from "./pages/AuthPages";
 import { AdminFinancePage } from "./pages/AdminFinance";
 import { AdminBookings } from "./pages/AdminBookings";
 import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
@@ -42,8 +42,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/shop": "百業商城｜創百業智慧鏈",
   "/cart": "購物車｜創百業智慧鏈",
   "/checkout": "測試結帳｜創百業智慧鏈",
-  "/login": "會員登入｜創百業智慧鏈",
-  "/register": "會員註冊｜創百業智慧鏈",
+  "/login": "商家管理者登入｜創百業智慧鏈",
+  "/register": "商家免費註冊｜創百業智慧鏈",
   "/forgot-password": "忘記密碼｜創百業智慧鏈",
   "/account": "免費會員帳號｜創百業智慧鏈",
   "/dashboard": "商家後台總覽｜創百業智慧鏈",
@@ -65,6 +65,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/terms": "使用條款｜創百業智慧鏈",
   "/report": "檢舉內容｜創百業智慧鏈",
   "/admin": "平台管理員後台｜創百業智慧鏈",
+  "/admin/login": "平台管理員登入｜創百業智慧鏈",
   "/admin/finance": "財務管理｜創百業智慧鏈",
   "/admin/bookings": "預約管理｜創百業智慧鏈",
   "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
@@ -153,14 +154,14 @@ function MerchantRoute({ children }: { children: ReactNode }) {
     }
   }, [location.pathname, notify, session.role]);
 
-  if (session.role === "guest") return <Navigate to="/login" replace />;
+  if (session.role === "guest") return <Navigate to="/merchant/login" replace />;
   if (session.role === "member") return <Navigate to="/pricing" replace />;
   return children;
 }
 
 function MemberRoute({ children }: { children: ReactNode }) {
   const { session } = useAppStore();
-  if (session.role === "guest") return <Navigate to="/login" replace />;
+  if (session.role === "guest") return <Navigate to="/merchant/login" replace />;
   if (session.role === "business") return <Navigate to="/dashboard" replace />;
   if (session.role === "admin") return <Navigate to="/admin" replace />;
   return children;
@@ -168,8 +169,8 @@ function MemberRoute({ children }: { children: ReactNode }) {
 
 function AdminRoute({ children }: { children: ReactNode }) {
   const { session, authReady } = useAppStore();
-  if (!authReady) return <Navigate to="/login" replace />;
-  if (session.role === "guest") return <Navigate to="/login" replace />;
+  if (!authReady) return <Navigate to="/admin/login" replace />;
+  if (session.role === "guest") return <Navigate to="/admin/login" replace />;
   if (session.role === "member") return <Navigate to="/pricing" replace />;
   if (session.role === "business") return <Navigate to="/dashboard" replace />;
   return children;
@@ -247,8 +248,8 @@ export function App() {
         <Route path="/cart" element={<CatalogUnavailablePage />} />
         <Route path="/checkout" element={<CatalogUnavailablePage />} />
         <Route path="/payment/:result" element={<CatalogUnavailablePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<AccountUnavailablePage />} />
+        <Route path="/login" element={<Navigate to="/merchant/login" replace />} />
+        <Route path="/register" element={<Navigate to="/merchant/register" replace />} />
         <Route path="/forgot-password" element={<AccountUnavailablePage />} />
         <Route path="/account" element={<AccountUnavailablePage />} />
         <Route path="/dashboard" element={<MerchantAccessUnavailablePage />} />
@@ -285,6 +286,7 @@ export function App() {
         <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
         <Route path="/verify-contract/:publicId" element={<VerifyContractPage />} />
         <Route path="/join" element={<PartnerReferralJoin />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin" element={<AdminRoute><ProductionAdminOverview /></AdminRoute>} />
         <Route path="/admin/finance" element={<AdminRoute><AdminFinancePage /></AdminRoute>} />
         <Route path="/admin/bookings" element={<AdminRoute><AdminBookings /></AdminRoute>} />
