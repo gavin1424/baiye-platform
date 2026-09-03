@@ -171,10 +171,10 @@ export function RegisterPage() {
     {
       id: "merchant" as const,
       icon: Storefront,
-      title: "商家 AI 行銷推廣方案",
-      price: "NT$18,000",
-      billing: "推廣優惠價（原價 NT$30,000）",
-      text: "行銷推廣、平台上架與數位服務費；標準網站免費附贈",
+      title: "選擇商家方案",
+      price: "依正式方案",
+      billing: "可選標準、完整商城或智慧點餐",
+      text: "免費建立商家帳號後，再選擇適合的正式方案與契約",
       features: ["商家正式上架", "專屬商家頁", "商品／服務與作品", "合作媒合與商家後台"],
       cta: "申請商家推廣上架",
     },
@@ -317,7 +317,7 @@ export function MemberAccountPage() {
             </span>
             <span className="eyebrow">免費會員</span>
             <h1>{session.name || "購物會員"}</h1>
-            <p>你的帳號可使用商城購物、購物車與結帳；商家功能需另外完成商家 AI 行銷推廣方案。</p>
+            <p>你的帳號可使用商城購物、購物車與結帳；商家功能需另行選擇並完成適用方案。</p>
             <div className="member-account-stats">
               <div>
                 <span>會員費用</span>

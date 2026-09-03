@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
+import { MarketingHero, PublicLayout } from "../components";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
 import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
 import { savePlatformMemberToken } from "../qr-ordering-client";
@@ -151,25 +152,7 @@ function PartnerStatusLookup() {
 
 export function PartnerLanding() {
   return (
-    <main className="partner-shell">
-      <section className="partner-hero">
-        <p className="partner-eyebrow">創百業智慧鏈｜承攬夥伴中心</p>
-        <h1>以成果承攬合作，共創百業數位升級</h1>
-        <p className="partner-lead">
-          推薦新商家、累積有效成交，依承攬夥伴等級取得推廣獎勵。
-        </p>
-        <p>
-          本計畫採獨立承攬／居間合作性質，不設打卡、固定工時、排班或工作地點管理。
-        </p>
-        <div className="partner-hero-actions">
-          <Link className="btn btn-primary" to="/partner/apply">
-            申請成為承攬夥伴
-          </Link>
-          <Link className="btn btn-outline" to="/partner/login">
-            承攬夥伴登入
-          </Link>
-        </div>
-      </section>
+    <PublicLayout><MarketingHero eyebrow="創百業智慧鏈｜承攬夥伴" title="以成果承攬合作，共創百業數位升級" description="推薦合適商家、累積有效成交，依承攬夥伴等級取得推廣獎勵。本計畫為獨立承攬／居間合作，不設打卡、固定工時或排班。" primary={{label:"申請成為承攬夥伴",to:"/partner/apply"}} secondary={{label:"承攬夥伴登入",to:"/partner/login"}} /><main className="partner-shell partner-public-page public-route-transition">
       <PartnerStatusLookup />
       <section
         className="partner-commission-summary"
@@ -223,7 +206,7 @@ export function PartnerLanding() {
           1,000 家門檻。
         </p>
       </section>
-    </main>
+    </main></PublicLayout>
   );
 }
 

@@ -86,10 +86,11 @@ export function PlatformLogo({ compact = false }: { compact?: boolean }) {
 }
 
 const navItems = [
-  ["找商家", "/businesses"],
+  ["平台功能", "/features"],
   ["商家方案", "/pricing"],
-  ["正式案例", "/businesses"],
-  ["如何運作", "/how-it-works"],
+  ["商家加入", "/merchant/register"],
+  ["承攬夥伴", "/partner"],
+  ["聯絡我們", "/contact"],
 ];
 
 export function Header() {
@@ -114,7 +115,7 @@ export function Header() {
   }, []);
 
   return (
-    <header className={`site-header ${scrolled ? "is-scrolled" : ""}`}>
+    <header className={`site-header ${location.pathname === "/" ? "site-header-home" : ""} ${scrolled ? "is-scrolled" : ""}`}>
       <div className="header-inner">
         <PlatformLogo />
         <nav className="desktop-nav" aria-label="主要導覽">
@@ -125,9 +126,6 @@ export function Header() {
           ))}
         </nav>
         <div className="header-actions">
-          <Link to="/partner" className="btn btn-outline btn-sm header-partner-link">
-            承攬夥伴
-          </Link>
           {isBusiness && (
             <>
               <Link to="/inquiry-cart" className="header-icon" aria-label={`詢價單，${inquiryCart.length} 個項目`}>
@@ -190,14 +188,6 @@ export function Header() {
               <CaretRight />
             </NavLink>
           ))}
-          <NavLink to="/pricing">
-            方案與價格
-            <CaretRight />
-          </NavLink>
-          <NavLink to="/partner">
-            承攬夥伴
-            <CaretRight />
-          </NavLink>
           {session.role === "guest" ? (
             <div className="mobile-menu-actions">
               <Link to="/merchant/login" className="btn btn-outline">
@@ -307,17 +297,75 @@ export function MobileBottomNav() {
 }
 
 export function PublicLayout({ children, hideFooter = false }: { children: ReactNode; hideFooter?: boolean }) {
+  const location = useLocation();
+  useEffect(() => {
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>(".baiye-reveal"));
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      nodes.forEach((node) => node.classList.add("is-visible"));
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          (entry.target as HTMLElement).classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -6%" });
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [location.pathname]);
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
         跳到主要內容
       </a>
       <Header />
-      <main id="main-content">{children}</main>
+      <main id="main-content" className="public-route-transition" key={location.pathname}>{children}</main>
       {!hideFooter && <Footer />}
       <MobileBottomNav />
     </div>
   );
+}
+
+export function MarketingHero({ eyebrow, title, description, primary, secondary, children, className = "" }: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  primary?: { label: string; to: string };
+  secondary?: { label: string; to: string };
+  children?: ReactNode;
+  className?: string;
+}) {
+  return <section className={`marketing-hero ${className}`}>
+    <div className="marketing-ambient" aria-hidden="true" />
+    <div className="container marketing-hero-grid">
+      <div className="marketing-hero-copy">
+        <span className="eyebrow hero-enter hero-enter-1">{eyebrow}</span>
+        <h1 className="hero-enter hero-enter-2">{title}</h1>
+        <p className="hero-enter hero-enter-3">{description}</p>
+        {(primary || secondary) && <div className="marketing-hero-actions hero-enter hero-enter-4">
+          {primary && <Link className="btn btn-primary btn-lg" to={primary.to}>{primary.label}<ArrowRight /></Link>}
+          {secondary && <Link className="btn btn-outline btn-lg" to={secondary.to}>{secondary.label}</Link>}
+        </div>}
+      </div>
+      {children && <div className="marketing-hero-visual hero-enter hero-enter-5">{children}</div>}
+    </div>
+  </section>;
+}
+
+export function MarketingSection({ children, className = "", id }: { children: ReactNode; className?: string; id?: string }) {
+  return <section id={id} className={`marketing-section baiye-reveal ${className}`}><div className="container">{children}</div></section>;
+}
+
+export function PremiumCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <article className={`premium-card ${className}`}>{children}</article>;
+}
+
+export function CTASection({ eyebrow, title, description, primary, secondary }: {
+  eyebrow?: string; title: string; description: string; primary: { label: string; to: string }; secondary?: { label: string; to: string };
+}) {
+  return <MarketingSection className="marketing-cta"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2><p>{description}</p></div><div><Link className="btn btn-primary btn-lg" to={primary.to}>{primary.label}<ArrowRight /></Link>{secondary && <Link className="btn btn-outline btn-lg" to={secondary.to}>{secondary.label}</Link>}</div></MarketingSection>;
 }
 
 export function SectionHeading({

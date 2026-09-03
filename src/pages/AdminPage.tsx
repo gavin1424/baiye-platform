@@ -632,7 +632,7 @@ function AdminDataSection({
     if (tab === "plans")
       return [
         ["免費會員", "32,680 位會員・NT$0・一般購物會員", "公開中"],
-        ["商家 AI 行銷推廣方案", "17,606 位會員・原價 NT$30,000・推廣優惠價 NT$18,000", "公開中"],
+        ["正式商家方案目錄", "百工標準・AI 智慧商城・免 POS 機智慧點餐", "由伺服器方案目錄管理"],
       ].map((item, index) => ({ id: index + 1, title: item[0], subtitle: item[1], meta: "資格正常", status: item[2] }));
     if (tab === "ads")
       return [
