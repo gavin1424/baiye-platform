@@ -34,7 +34,20 @@ test("admin setup token stores only a hash, then phone/password login reuses own
   const login = await call(db, "/api/merchant-auth/login", { phone: "0900000026", password: "48270615" });
   assert.equal(login.response.status, 200); assert.equal(login.data.platform_member_id, "owner_member"); assert.equal(login.data.merchant.id, "demo_beef_noodle");
   assert.match(login.response.headers.get("set-cookie"), /HttpOnly; Secure; SameSite=None/);
+  const sessionCookie = login.response.headers.get("set-cookie").split(";")[0];
+  const sessionRequest = new Request("https://worker.test/api/merchant-auth/session", { headers: { cookie: sessionCookie } });
+  const sessionResponse = await handleMerchantAuth(sessionRequest, { FINANCE_DB: db }, new URL(sessionRequest.url), {});
+  const sessionData = await sessionResponse.json();
+  assert.equal(sessionResponse.status, 200); assert.equal(sessionData.user.merchant_id, "demo_beef_noodle"); assert.equal(sessionData.user.internal_role, "merchant_owner");
   assert.equal(db.sqlite.prepare("SELECT credential_assurance FROM merchant_user_sessions ORDER BY created_at DESC LIMIT 1").get().credential_assurance, "password_authenticated");
+});
+
+test("merchant session endpoint returns a classified 401 instead of throwing", async () => {
+  const db = new D1();
+  const sessionRequest = new Request("https://worker.test/api/merchant-auth/session");
+  const response = await handleMerchantAuth(sessionRequest, { FINANCE_DB: db }, new URL(sessionRequest.url), {});
+  const data = await response.json();
+  assert.equal(response.status, 401); assert.equal(data.code, "UNAUTHENTICATED");
 });
 
 test("generic errors, five-failure lockout, locked correct rejection and expiry", async () => {

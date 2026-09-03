@@ -1,10 +1,10 @@
 import { ArrowClockwise, CookingPot } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
-import { merchantOrderingApi, type OrderingAdminOverview, type OrderingOrder, type OrderingOrderStatus } from "../qr-ordering-client";
+import { merchantOrderingApi, merchantProtectedResourceState, type MerchantProtectedResourceState, type OrderingAdminOverview, type OrderingOrder, type OrderingOrderStatus } from "../qr-ordering-client";
 
-type MerchantSession = { user: { merchant_id: string }; permissions: string[] };
 type KdsTab = "new" | "preparing" | "ready";
+type BoardState = "loading" | "ready" | MerchantProtectedResourceState;
 
 const tabs: Array<{ id: KdsTab; label: string; statuses: OrderingOrderStatus[] }> = [
   { id: "new", label: "新單", statuses: ["submitted"] },
@@ -21,22 +21,21 @@ function actionFor(order: OrderingOrder) {
 }
 
 export function MerchantKitchenDisplayPage() {
-  const [session, setSession] = useState<MerchantSession | null>(null);
   const [overview, setOverview] = useState<OrderingAdminOverview | null>(null);
+  const [boardState, setBoardState] = useState<BoardState>("loading");
   const [tab, setTab] = useState<KdsTab>("new");
   const [message, setMessage] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const active = session || await merchantOrderingApi<MerchantSession>("/api/merchant-auth/session");
-      setSession(active);
-      if (!active.permissions.includes("ordering.read")) return;
       const data = await merchantOrderingApi<OrderingAdminOverview>("/api/merchant-admin/ordering/overview");
       setOverview(data);
-    } catch {
-      setSession(null);
+      setBoardState("ready");
+    } catch (error) {
+      setOverview(null);
+      setBoardState(merchantProtectedResourceState(error));
     }
-  }, [session]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -44,8 +43,18 @@ export function MerchantKitchenDisplayPage() {
     return () => window.clearInterval(timer);
   }, [load]);
 
-  if (!session) return <main className="ordering-kds-page"><section className="ordering-center-card"><CookingPot size={48} /><h1>出餐看板需要商家登入</h1><p>請先從商家管理入口登入，再開啟出餐看板。</p><Link className="btn btn-primary" to="/merchant/login">前往商家登入</Link></section></main>;
-  if (!session.permissions.includes("ordering.read")) return <main className="ordering-kds-page"><section className="ordering-center-card"><h1>權限不足</h1><p>此帳號沒有點餐看板權限。</p></section></main>;
+  if (boardState === "loading") return <main className="ordering-kds-page"><section className="ordering-center-card"><span className="ordering-spinner" /><h1>正在載入出餐看板</h1><p>正在取得最新訂單資料…</p></section></main>;
+  if (boardState === "unauthenticated") return <main className="ordering-kds-page"><section className="ordering-center-card"><CookingPot size={48} /><h1>出餐看板需要商家登入</h1><p>請先從商家管理入口登入，再開啟出餐看板。</p><Link className="btn btn-primary" to="/merchant/login">前往商家登入</Link></section></main>;
+  if (boardState !== "ready" || !overview) {
+    const copy = boardState === "permission_denied"
+      ? { title: "權限不足", detail: "此帳號沒有出餐看板權限。" }
+      : boardState === "activation_required"
+        ? { title: "商家尚未啟用", detail: "請先完成商家契約與啟用流程。" }
+        : boardState === "rate_limited"
+          ? { title: "請稍後再試", detail: "操作較為頻繁，請稍候再重新整理。" }
+          : { title: "出餐看板暫時無法載入", detail: "出餐看板目前暫時無法載入，請重新整理。" };
+    return <main className="ordering-kds-page"><section className="ordering-center-card"><CookingPot size={48} /><h1>{copy.title}</h1><p>{copy.detail}</p><button className="btn btn-primary" type="button" onClick={() => void load()}><ArrowClockwise />重新整理</button></section></main>;
+  }
 
   const current = tabs.find((item) => item.id === tab)!;
   const orders = (overview?.orders || []).filter((order) => current.statuses.includes(order.status));

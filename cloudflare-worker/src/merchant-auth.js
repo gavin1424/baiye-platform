@@ -210,7 +210,7 @@ export async function handleMerchantAuth(request, env, url, cors = {}) {
   if (url.pathname === "/api/merchant-auth/password/setup" && request.method === "POST") return setPasswordWithToken(request, db, await request.json().catch(() => ({})), cors);
   if (url.pathname === "/api/merchant-auth/password" && request.method === "PATCH") return changePassword(request, env, await request.json().catch(() => ({})), cors);
   if (url.pathname === "/api/merchant-auth/session" && request.method === "GET") {
-    const session = await getSession(request, env); if (!session) return json({ error: "未登入。" }, 401, cors);
+    const session = await authenticateMerchantSession(request, env); if (!session) return json({ error: "未登入。", code: "UNAUTHENTICATED" }, 401, cors);
     const csrf = random(); await db.prepare("UPDATE merchant_user_sessions SET csrf_hash=?,last_seen_at=CURRENT_TIMESTAMP WHERE id=?").bind(await sha(csrf), session.session_id).run();
     return json({ user: { id: session.user_id, merchant_id: session.merchant_id, email: session.email, name: session.display_name, phone_masked: session.phone_normalized ? `${session.phone_normalized.slice(0,2)}** *** ${session.phone_normalized.slice(-3)}` : null, display_role: "管理者", internal_role: "merchant_owner" }, merchant: { id: session.merchant_id, name: session.merchant_name, official_demo: Number(session.official_demo) === 1 }, platform_member_id: session.platform_member_id || null, permissions: String(session.permissions || "").split(",").filter(Boolean), roles: String(session.roles || "").split(",").filter(Boolean), csrf_token: csrf, expires_at: session.expires_at, next_url: "/merchant/dashboard" }, 200, cors);
   }
