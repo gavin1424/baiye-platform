@@ -36,6 +36,7 @@ test("customer UI exposes scan, join and login without provider engineering copy
 
 test("changing or rejecting a QR clears the previous merchant and menu state", () => {
   const source = readFileSync(new URL("../src/pages/QrOrderingPage.tsx", import.meta.url), "utf8");
+  assert.match(source, /<QrOrderingView key=\{code\} code=\{code\} \/>/);
   const initialize = source.slice(source.indexOf("const initialize = useCallback"), source.indexOf("useEffect(() => {\n    void initialize()"));
   for (const reset of ["setContext(null)", "setMember(null)", "setToken(\"\")", "setItems([])", "setCart({})"]) assert.match(initialize, new RegExp(reset.replace(/[()[\]{}]/g, "\\$&")));
 });
