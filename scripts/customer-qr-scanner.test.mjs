@@ -33,3 +33,9 @@ test("customer UI exposes scan, join and login without provider engineering copy
   assert.match(scanner, /@zxing\/browser/);
   assert.doesNotMatch(`${qr}\n${scanner}`, /Provider 尚未啟用|手機或 LINE 身分驗證|Platform Member canonical identity/);
 });
+
+test("changing or rejecting a QR clears the previous merchant and menu state", () => {
+  const source = readFileSync(new URL("../src/pages/QrOrderingPage.tsx", import.meta.url), "utf8");
+  const initialize = source.slice(source.indexOf("const initialize = useCallback"), source.indexOf("useEffect(() => {\n    void initialize()"));
+  for (const reset of ["setContext(null)", "setMember(null)", "setToken(\"\")", "setItems([])", "setCart({})"]) assert.match(initialize, new RegExp(reset.replace(/[()[\]{}]/g, "\\$&")));
+});
