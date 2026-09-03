@@ -67,3 +67,10 @@ test("atomic inventory deduction permits one winner and cancellation restores on
   assert.equal(sqlite.prepare("SELECT stock_on_hand FROM merchant_inventory_items WHERE id='atomic'").get().stock_on_hand, 1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM merchant_inventory_movements WHERE order_item_id='line-one' AND movement_type='ORDER_RESTORE'").get().count, 1);
 });
+
+test("merchant ordering audit maps to the existing production actor enum", () => {
+  const source = readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
+  assert.match(source, /actor_type: "admin",\s*actor_id: authorization\.session\.user_id,\s*actor_role: "merchant_owner"/);
+  const db = database();
+  assert.doesNotThrow(() => db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type) VALUES('merchant-audit','demo_beef_noodle','admin','demo_beef_owner','merchant_owner','product_update','menu_item')").run());
+});
