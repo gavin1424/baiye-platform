@@ -720,12 +720,15 @@ function QrOrderingView({ code }: { code: string }) {
   const showJoin = !member || !token;
   const showTableInput = orderType === "dine_in" && !context.qr.table_label;
   const directMenu = context.qr.purpose !== "member_only";
+  const generalOrderingEntry = context.qr.purpose === "member_order" && !context.qr.table_label;
   const officialProductionDemo = context.merchant_id === "demo_beef_noodle";
   const storefrontName = (IS_BEEF_NOODLE_DEMO || officialProductionDemo)
     ? context.display_name.split("｜")[0]
     : context.display_name;
   const serviceLabel =
-    context.qr.purpose === "takeaway"
+    generalOrderingEntry
+      ? "線上點餐｜手機點餐"
+      : context.qr.purpose === "takeaway"
       ? "外帶｜手機點餐"
       : `${(context.qr.table_label || context.qr.label).endsWith("桌") ? (context.qr.table_label || context.qr.label) : `${context.qr.table_label || context.qr.label} 桌`}｜手機點餐`;
 
@@ -767,8 +770,8 @@ function QrOrderingView({ code }: { code: string }) {
             )}
             <h1>{storefrontName}</h1>
             <p className="ordering-storefront-meta"><span>營業中</span>{serviceLabel}</p>
-            <p className="ordering-qr-confirmed"><Check weight="bold" /> 已掃描此桌 QR Code</p>
-            <Link className="btn btn-outline ordering-rescan" to="/scan"><QrCode />掃描其他桌號 QR</Link>
+            <p className="ordering-qr-confirmed"><Check weight="bold" /> {generalOrderingEntry ? "已進入線上點餐" : "已掃描此桌 QR Code"}</p>
+            <Link className="btn btn-outline ordering-rescan" to="/scan"><QrCode />{generalOrderingEntry ? "返回點餐入口" : "改用線上點餐"}</Link>
           </div>
         </div>
         {member && <div className="ordering-member-tools">

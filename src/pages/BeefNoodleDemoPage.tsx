@@ -34,7 +34,7 @@ export function BeefNoodleDemoPage() {
         <nav aria-label="商家導覽">
           <a href="#signature">招牌菜單</a><a href="#experience">點餐體驗</a><a href="#faq">FAQ</a>
         </nav>
-        <Link className="beef-demo-btn beef-demo-btn-small" to={`/q/${A1_CODE}`}>立即點餐</Link>
+        <Link className="beef-demo-btn beef-demo-btn-small" to="/scan">立即點餐</Link>
       </header>
 
       <main id="top">
@@ -45,7 +45,7 @@ export function BeefNoodleDemoPage() {
             <p className="beef-demo-tagline">一碗慢熬的好味道，一支手機就能點餐</p>
             <p>紅燒慢燉、牛肉厚切。掃碼加入會員，直接用手機完成桌邊點餐。</p>
             <div className="beef-demo-actions">
-              <Link className="beef-demo-btn" to={`/q/${A1_CODE}`}>立即手機點餐 <ArrowRight /></Link>
+              <Link className="beef-demo-btn" to="/scan">立即手機點餐 <ArrowRight /></Link>
               <a className="beef-demo-btn beef-demo-btn-outline" href="#signature">看看完整菜單 <ArrowDown /></a>
             </div>
             <div className="beef-demo-notice"><ShieldCheck weight="fill" /><span><strong>示範資料／不進行真實交易。</strong> 正式付款服務尚未啟用，不會發生真實扣款或出貨。</span></div>
@@ -66,14 +66,14 @@ export function BeefNoodleDemoPage() {
           <div className="beef-demo-menu-grid">
             {menu.map((item) => <article key={item.name}><img src={`${SITE_URL}/${item.image}`} alt={`${item.name}示意插畫`} loading="lazy"/><div><h3>{item.name}</h3><strong>NT${item.price}</strong></div></article>)}
           </div>
-          <div className="beef-demo-center"><Link className="beef-demo-btn" to={`/q/${A1_CODE}`}><MagnifyingGlass /> 查看 20 項完整菜單</Link></div>
+          <div className="beef-demo-center"><Link className="beef-demo-btn" to="/scan"><MagnifyingGlass /> 查看 20 項完整菜單</Link></div>
         </section>
 
         <section id="experience" className="beef-demo-section beef-demo-experience">
           <div className="beef-demo-section-heading"><span>QR 點餐體驗</span><h2>五個步驟，完成桌邊點餐</h2></div>
           <ol>{steps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol>
             <div className="beef-demo-qr-card">
-            <div><span className="beef-demo-kicker">A1 桌 QR</span><h2>拿手機掃描，或直接開啟</h2><p>目前僅供功能操作，不進行真實交易。</p><Link className="beef-demo-btn" to={`/q/${A1_CODE}`}>直接開啟 A1 桌手機點餐 <ArrowRight /></Link></div>
+            <div><span className="beef-demo-kicker">A1 桌 QR</span><h2>拿手機掃描桌上 QR</h2><p>桌上 QR 會自動帶入桌號；一般網路點餐請使用線上入口。</p><Link className="beef-demo-btn" to="/scan">開啟線上點餐 <ArrowRight /></Link></div>
             <div className="beef-demo-qr"><QRCodeSVG value={A1_URL} size={220} level="H" marginSize={2} title="百工牛肉麵 A1 桌 QR"/><strong>A1 桌</strong></div>
           </div>
         </section>

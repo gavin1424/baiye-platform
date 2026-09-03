@@ -25,7 +25,7 @@ import { MerchantLoginPage, MerchantPasswordSetupPage, MerchantRegisterPage } fr
 import { MerchantKitchenDisplayPage } from "./pages/MerchantKitchenDisplayPage";
 import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantGoogleBookingPage, MerchantInventoryPage, MerchantInvoicePage, MerchantLinePage, MerchantMembersPage, MerchantPaymentsPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 import { BeefNoodleBookingPage } from "./pages/BeefNoodleBookingPage";
-import { QrScannerPage } from "./pages/QrScannerPage";
+import { GeneralOrderingEntryPage } from "./pages/GeneralOrderingEntryPage";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -97,7 +97,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/merchant/dashboard": "百工牛肉麵商家管理中心",
   "/merchant/inventory": "百工牛肉麵庫存管理",
   "/merchant-admin/ordering/kitchen": "百工牛肉麵出餐看板",
-  "/scan": "掃碼點餐｜創百業智慧鏈",
+  "/scan": "百工牛肉麵｜手機點餐入口",
 };
 
 function ScrollAndMetadata() {
@@ -195,7 +195,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<BeefNoodleDemoPage />} />
           <Route path="/q/:code" element={<QrOrderingPage />} />
-          <Route path="/scan" element={<QrScannerPage />} />
+          <Route path="/scan" element={<GeneralOrderingEntryPage />} />
           <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
           <Route path="/privacy" element={<ProductionPrivacyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -216,7 +216,7 @@ export function App() {
         <Route path="/demo/beef-noodle/login" element={<Navigate to="/merchant/login" replace />} />
         <Route path="/booking/beef-noodle-demo" element={<BeefNoodleBookingPage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
-        <Route path="/scan" element={<QrScannerPage />} />
+        <Route path="/scan" element={<GeneralOrderingEntryPage />} />
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
         <Route path="/merchant-admin/ordering/kitchen" element={<MerchantKitchenDisplayPage />} />
         <Route path="/merchant/dashboard" element={<MerchantAdminDashboardPage />} />
