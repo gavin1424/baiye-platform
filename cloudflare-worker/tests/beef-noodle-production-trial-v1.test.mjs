@@ -80,3 +80,11 @@ test("production demo login issues a platform-compatible hex token hash", () => 
   assert.match(source, /platform_member_sessions[\s\S]*await shaHex\(memberToken\)/);
   assert.doesNotMatch(source, /platform_member_sessions[\s\S]{0,300}await sha\(memberToken\)/);
 });
+
+test("QR context always returns a safe LINE integration contract", () => {
+  const worker = readFileSync(new URL("../src/qr-ordering.js", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../../src/pages/QrOrderingPage.tsx", import.meta.url), "utf8");
+  assert.match(worker, /context: \{ \.\.\.publicContext\(context\), line: publicLineIntegration\(line\) \}/);
+  assert.match(worker, /LINE_DEMO_NOT_CONFIGURED/);
+  assert.match(page, /context\?\.line\?\.configured/);
+});

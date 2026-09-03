@@ -284,12 +284,12 @@ export function QrOrderingPage() {
   }, [cart, code, context, customerNote, itemSelections, loading, order, orderType, tableLabel]);
 
   useEffect(() => {
-    if (!context?.line.configured) return;
+    if (!context?.line?.configured) return;
     const key = `baiye:ordering-line-impression:${code}:menu_banner`;
     if (window.sessionStorage.getItem(key)) return;
     window.sessionStorage.setItem(key, "1");
     void orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/line-events`, { method: "POST", body: JSON.stringify({ event_type: "impression", source: "menu_banner" }) }).catch(() => undefined);
-  }, [code, context?.line.configured]);
+  }, [code, context?.line?.configured]);
 
   useEffect(() => {
     if (!order || !token || ["completed", "cancelled"].includes(order.status))
@@ -454,7 +454,7 @@ export function QrOrderingPage() {
   };
 
   const recordLineClick = (source: "menu_banner" | "checkout_reminder" | "order_success") => {
-    if (!context?.line.configured) return;
+    if (!context?.line?.configured) return;
     saveOrderingLineClicked(code);
     setLineClicked(true);
     void orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/line-events`, {
@@ -635,7 +635,7 @@ export function QrOrderingPage() {
       {officialProductionDemo && <div className="ordering-demo-privacy-note"><strong>百工官方示範店</strong>｜示範資料／不進行真實交易。正式付款 Provider 尚未啟用。</div>}
 
       {IS_BEEF_NOODLE_DEMO && (
-        context.line.configured ? (
+        context.line?.configured ? (
           <section className="ordering-line-banner" aria-label="店家 LINE 官方帳號">
             <div><strong>加入{context.line.display_name || "百工牛肉麵 LINE"}</strong><span>加入後方便接收優惠與店家消息</span></div>
             <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("menu_banner")}>加入 LINE</a>
@@ -678,7 +678,7 @@ export function QrOrderingPage() {
               >
                 再加點
               </button>
-              {IS_BEEF_NOODLE_DEMO && context.line.configured && !lineClicked && (
+              {IS_BEEF_NOODLE_DEMO && context.line?.configured && !lineClicked && (
                 <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("order_success")}>加入店家 LINE</a>
               )}
               {order.status === "submitted" &&
@@ -1162,7 +1162,7 @@ export function QrOrderingPage() {
                 {demoInvoiceMethod === "business_tax_id" && <><label>統一編號<input inputMode="numeric" value={invoiceTaxId} placeholder="12345678" maxLength={8} onChange={(event) => setInvoiceTaxId(event.target.value.replace(/\D/g, ""))} /></label><label>公司抬頭（選填）<input value={invoiceBuyerName} maxLength={160} onChange={(event) => setInvoiceBuyerName(event.target.value)} /></label></>}
                 {demoInvoiceMethod === "donation" && <label>捐贈碼<input value={invoiceDonationCode} maxLength={40} onChange={(event) => setInvoiceDonationCode(event.target.value)} /><small>正式驗證待電子發票服務啟用。</small></label>}
                 <p>電子發票服務尚未啟用（INVOICE_PROVIDER_DISABLED）。Demo 訂單不會產生正式發票。</p>
-                {context.line.configured && !lineClicked && !lineCheckoutSkipped && (
+                {context.line?.configured && !lineClicked && !lineCheckoutSkipped && (
                   <div className="ordering-line-checkout-reminder">
                     <strong>加入{context.line.display_name || "店家 LINE"}</strong>
                     <span>加入後可接收店家優惠與最新消息，不加入也能繼續結帳。</span>
@@ -1172,7 +1172,7 @@ export function QrOrderingPage() {
                     </div>
                   </div>
                 )}
-                {!context.line.configured && <p>LINE 官方帳號尚未設定；本 Demo 不會偽造加入好友結果。</p>}
+                {!context.line?.configured && <p>LINE 官方帳號尚未設定；本 Demo 不會偽造加入好友結果。</p>}
               </section>
             )}
             <button
