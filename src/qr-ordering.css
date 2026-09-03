@@ -652,6 +652,9 @@
 .ordering-demo-checkout > label input:not([type="radio"]) { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid #cbd4df; border-radius: 10px; background: #fff; color: var(--ordering-ink); font: inherit; box-sizing: border-box; }
 .ordering-invoice-status { display: grid; gap: 3px; margin-top: 10px; color: var(--ordering-muted); font-size: 13px; }
 .ordering-kds-page { min-height: 100vh; padding: 22px max(16px, calc((100vw - 1180px) / 2)); background: #10191f; color: #f7fbfb; }
+.ordering-kds-page .ordering-center-card { background:#fff; color:var(--ordering-ink); }
+.ordering-kds-page .ordering-center-card h1 { color:#172335; }
+.ordering-kds-page .ordering-center-card p { color:#657185; }
 .ordering-kds-header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
 .ordering-kds-header h1 { margin:0; font-size:clamp(25px, 5vw, 42px); }.ordering-kds-header p { margin:5px 0 0; color:#b8c8cc; }.ordering-kds-header a { color:#dff5ef; }
 .ordering-kds-tabs { display:flex; gap:10px; margin-bottom:18px; overflow:auto; }.ordering-kds-tabs button { min-height:48px; padding:10px 16px; border:1px solid #40555b; border-radius:12px; background:#1a2a30; color:#d9e9e9; font:inherit; font-weight:800; cursor:pointer; }.ordering-kds-tabs button.active { border-color:#59c7ae; background:#196856; color:#fff; }

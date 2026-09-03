@@ -150,9 +150,11 @@ function nextOrderActions(status: OrderingOrderStatus) {
 export function AdminQrOrderingPage({
   merchantMode = false,
   fixedMerchantId = "",
+  onResourceError,
 }: {
   merchantMode?: boolean;
   fixedMerchantId?: string;
+  onResourceError?: (error: unknown) => boolean;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeSection = normalizeOrderingSection(searchParams.get("section"));
@@ -273,12 +275,12 @@ export function AdminQrOrderingPage({
           : { ...current, category_id: data.categories[0].id },
       );
     } catch (error) {
-      setMessage(errorMessage(error, "讀取掃碼系統失敗。"));
+      if (!onResourceError?.(error)) setMessage(errorMessage(error, "讀取掃碼系統失敗。"));
       setOverview(null);
     } finally {
       setLoading(false);
     }
-  }, [merchantId, merchants, request]);
+  }, [merchantId, merchants, onResourceError, request]);
 
   useEffect(() => {
     if (merchantMode) return;

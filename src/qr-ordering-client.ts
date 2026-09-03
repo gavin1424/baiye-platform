@@ -276,10 +276,30 @@ function lastOrderKey(merchantId: string) {
 
 let merchantCsrfToken = "";
 
+export type MerchantProtectedResourceState =
+  | "unauthenticated"
+  | "permission_denied"
+  | "activation_required"
+  | "rate_limited"
+  | "unavailable";
+
+export function merchantProtectedResourceState(error: unknown): MerchantProtectedResourceState {
+  const detail = error as { status?: number; code?: string } | null;
+  const status = Number(detail?.status || 0);
+  const code = String(detail?.code || "");
+  if (status === 401 || code === "UNAUTHENTICATED") return "unauthenticated";
+  if (status === 403 || code === "PERMISSION_DENIED") return "permission_denied";
+  if (status === 423 || code === "MERCHANT_ACTIVATION_REQUIRED") return "activation_required";
+  if (status === 429) return "rate_limited";
+  return "unavailable";
+}
+
 export async function merchantOrderingApi<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15_000);
   const method = String(init.method || "GET").toUpperCase();
   const multipart = typeof FormData !== "undefined" && init.body instanceof FormData;
   const headers: Record<string, string> = {
@@ -289,19 +309,29 @@ export async function merchantOrderingApi<T>(
       : {}),
     ...((init.headers || {}) as Record<string, string>),
   };
-  const response = await fetch(`${API}${path}`, {
-    ...init,
-    credentials: "include",
-    headers,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(data.error || "商家點餐管理服務暫時無法使用。");
-    Object.assign(error, { status: response.status, code: data.code || "" });
+  try {
+    const response = await fetch(`${API}${path}`, {
+      ...init,
+      credentials: "include",
+      headers,
+      signal: init.signal || controller.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.error || "商家點餐管理服務暫時無法使用。");
+      Object.assign(error, { status: response.status, code: data.code || "" });
+      throw error;
+    }
+    if (typeof data.csrf_token === "string") merchantCsrfToken = data.csrf_token;
+    return data as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw Object.assign(new Error("連線逾時，請重新整理後再試。"), { status: 0, code: "NETWORK_TIMEOUT" });
+    }
     throw error;
+  } finally {
+    window.clearTimeout(timeout);
   }
-  if (typeof data.csrf_token === "string") merchantCsrfToken = data.csrf_token;
-  return data as T;
 }
 
 export function getOrderingMemberToken(merchantId: string) {
