@@ -62,7 +62,7 @@ const suitableForBaiye = [
 
 const suitableForPos = [
   "尖峰時段需要快速連續結帳與多工作站出單",
-  "需要斷網仍可營業、錢箱、廚房出單或 KDS",
+  "需要斷網仍可營業、錢箱、廚房出單或出餐看板",
   "需要電子發票、外送接單、桌位與餐飲 BOM 立即完整上線",
   "需要現場硬體、安裝、教育訓練與即時技術支援",
 ];
@@ -81,7 +81,7 @@ export function PosComparisonPage() {
             </h1>
             <p>
               創百業智慧鏈適合希望先建立品牌官網、LINE、AI、預約、會員與 Web
-              訂單入口的商家；若需要離線收銀、多台出單、KDS、電子發票即時開立等高強度現場流程，專業 POS 仍有不可取代的價值。
+              訂單入口的商家；若需要離線收銀、多台出單、出餐看板、電子發票即時開立等高強度現場流程，專業 POS 仍有不可取代的價值。
             </p>
             <div className="pos-compare-actions">
               <Link to="/pricing" className="btn btn-primary btn-lg">

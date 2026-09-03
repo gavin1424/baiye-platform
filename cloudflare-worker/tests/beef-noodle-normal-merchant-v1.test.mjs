@@ -43,6 +43,7 @@ test("merchant dashboard presents normal merchant language and 出餐看板", ()
   for (const forbidden of ["百工官方示範", "試用商家", "開始試用", "廚房 KDS", "KDS 廚房看板", "重置試用資料"]) assert.doesNotMatch(`${dashboard}\n${kds}`, new RegExp(forbidden));
   assert.match(kds, /<h1>出餐看板<\/h1>/);
   assert.match(dashboard, />恢復初始資料<\/button>/);
+  assert.doesNotMatch(`${read("src/pages/HomePage.tsx")}\n${read("src/pages/PosComparisonPage.tsx")}`, /KDS|Kitchen Display System/);
 });
 
 test("release adds no D1 migration and preserves internal safety flags", () => {
