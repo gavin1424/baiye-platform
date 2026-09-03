@@ -1,8 +1,8 @@
-import { ArrowRight, CalendarCheck, ChartLineUp, CheckCircle, GlobeHemisphereWest, GoogleLogo, Handshake, LinkSimpleHorizontal, List, LineSegments, QrCode, Robot, ShieldCheck, User, X } from "@phosphor-icons/react";
+import { ArrowRight, CalendarCheck, ChartLineUp, CheckCircle, GlobeHemisphereWest, GoogleLogo, Handshake, LineSegments, QrCode, Robot, ShieldCheck, User, X } from "@phosphor-icons/react";
 import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import heroScene from "../assets/baiye-multi-industry-isometric-hero.png";
-import { MobileBottomNav } from "../components";
+import { Header, MobileBottomNav } from "../components";
 
 type Feature = { name: string; summary: string; audience: string; value: string; items: string[]; cta: string; to: string; icon: ComponentType<{ weight?: "duotone" | "fill" }> };
 
@@ -21,38 +21,30 @@ const values = [[QrCode, "多業態整合", "一站式管理"], [ChartLineUp, "�
 
 export function HomePage() {
   const [selected, setSelected] = useState<Feature | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     if (!selected) return;
     const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelected(null); };
     document.body.classList.add("home-detail-open"); window.addEventListener("keydown", close);
     return () => { document.body.classList.remove("home-detail-open"); window.removeEventListener("keydown", close); };
   }, [selected]);
-  return <>
-    <main className="immersive-home">
+  return <div className="app-shell"><a className="skip-link" href="#home-content">跳到主要內容</a><Header />
+    <main className="immersive-home" id="home-content">
     <section className="immersive-home-hero">
-      <header className="immersive-home-header">
-        <Link className="immersive-home-brand" to="/" aria-label="創百業智慧鏈首頁"><span><LinkSimpleHorizontal weight="duotone" /></span><div><strong>創百業智慧鏈</strong><small>baiyeconnect</small></div></Link>
-        <button type="button" className="immersive-menu-button" aria-label={menuOpen ? "關閉選單" : "開啟選單"} aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>{menuOpen ? <X /> : <List />}</button>
-        {menuOpen && <nav className="immersive-menu" aria-label="首頁選單"><Link to="/features">平台功能</Link><Link to="/pricing">商家方案</Link><Link to="/pricing">商家加入</Link><Link to="/partner">承攬夥伴</Link><Link to="/contact">聯絡我們</Link></nav>}
-      </header>
+      <div className="immersive-home-heading"><span className="eyebrow hero-enter hero-enter-1">百工數位營運平台</span><h1 className="hero-enter hero-enter-2">全業態數位升級，<em>一站完成</em></h1><p className="hero-enter hero-enter-3">餐飲 × 美業 × 零售，多產業整合的智慧經營平台</p></div>
 
-      <div className="immersive-home-heading"><h1>全業態數位升級，<em>一站完成</em></h1><p>餐飲 × 美業 × 零售，多產業整合的智慧經營平台</p></div>
-
-      <div className="immersive-showcase" aria-label="餐飲、美業與零售智慧經營場景">
+      <div className="immersive-showcase hero-enter hero-enter-4" aria-label="餐飲、美業與零售智慧經營場景">
         <img src={heroScene} alt="餐飲、美業與零售整合的智慧經營場景" />
         <div className="immersive-feature-overlay" aria-label="百工八大功能">
           {features.map((feature, index) => <FeatureButton key={feature.name} feature={feature} index={index + 1} onClick={() => setSelected(feature)} />)}
         </div>
       </div>
 
-      <section className="immersive-values" aria-label="品牌價值">{values.map(([Icon, title, text]) => <article key={title}><Icon weight="duotone" /><strong>{title}</strong><span>{text}</span></article>)}</section>
+      <section className="immersive-values baiye-reveal is-visible" aria-label="品牌價值">{values.map(([Icon, title, text]) => <article className="premium-card" key={title}><Icon weight="duotone" /><strong>{title}</strong><span>{text}</span></article>)}</section>
     </section>
 
     {selected && <div className="home-feature-detail" role="dialog" aria-modal="true" aria-labelledby="home-feature-title"><button type="button" className="home-feature-backdrop" aria-label="關閉功能介紹" onClick={() => setSelected(null)} /><article className="home-feature-panel"><button type="button" className="home-feature-close" aria-label="關閉" onClick={() => setSelected(null)}><X /></button><span className="home-feature-panel-icon"><selected.icon weight="duotone" /></span><p className="home-feature-label">百工數位服務</p><h2 id="home-feature-title">{selected.name}</h2><p className="home-feature-summary">{selected.summary}</p><dl><dt>適用對象</dt><dd>{selected.audience}</dd><dt>核心價值</dt><dd>{selected.value}</dd></dl><h3>主要功能</h3><ul>{selected.items.map((item) => <li key={item}><CheckCircle weight="fill" />{item}</li>)}</ul><Link className="btn btn-primary btn-lg" to={selected.to}>{selected.cta} <ArrowRight /></Link></article></div>}
-    </main>
-    <MobileBottomNav />
-  </>;
+    </main><MobileBottomNav />
+  </div>;
 }
 
 function FeatureButton({ feature, index, onClick }: { feature: Feature; index: number; onClick: () => void }) { const Icon = feature.icon; return <button className={`immersive-feature feature-${index}`} type="button" onClick={onClick} aria-haspopup="dialog"><span><Icon weight="duotone" /></span><strong>{feature.name}</strong></button>; }

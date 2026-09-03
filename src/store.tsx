@@ -238,7 +238,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       registerMerchant: (name, email) => {
         setSession({ role: "business", name, email });
         setMembershipPlan("merchant");
-        notify("商家 AI 行銷推廣方案已完成，商家功能已開通。");
+        notify("商家方案已完成啟用，對應商家功能已開通。");
       },
       logout: () => {
         void logoutAdmin();

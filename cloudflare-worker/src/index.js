@@ -19,6 +19,7 @@ import {
   handlePublicContractVerification,
 } from "./merchant-contracts.js";
 import { handlePlatformMemberRequest } from "./platform-membership.js";
+import { handleCommercialCatalog } from "./commercial-catalog.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -204,6 +205,11 @@ export default {
 
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, service: "創百業智慧鏈", checks: { worker: "ok", d1: Boolean(env.FINANCE_DB), r2: Boolean(env.CONTRACTS_BUCKET), ai: Boolean(env.OPENAI_API_KEY), line: Boolean(env.LINE_MEILING_CHANNEL_SECRET), ordering: Boolean(env.FINANCE_DB) } });
+    }
+
+    if (url.pathname === "/api/public/commercial-catalog") {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      return handleCommercialCatalog(request, cors);
     }
 
     if (url.pathname.startsWith("/api/admin/auth/")) {

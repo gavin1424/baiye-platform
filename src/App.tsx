@@ -7,7 +7,7 @@ import { AdminFinancePage } from "./pages/AdminFinance";
 import { AdminBookings } from "./pages/AdminBookings";
 import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
 import { AiChatWidget } from "./components/AiChatWidget";
-import { FaqPageV13, HowItWorksPageV13, PricingPageV13, TermsPageV13 } from "./pages/CommercialV13Pages";
+import { FaqPageV13, HowItWorksPageV13, MerchantPlanSelectPage, PricingPageV13, TermsPageV13 } from "./pages/CommercialV13Pages";
 import { AccountUnavailablePage, CatalogUnavailablePage, EmptyCollaborationPage, MerchantAccessUnavailablePage, ProductionContactPage, ProductionNotFoundPage, ProductionPrivacyPage, VerifiedBusinessesPage } from "./pages/ProductionPublicPages";
 import { ProductionAdminOverview } from "./pages/ProductionAdminOverview";
 import { DepositSettlementPage, MerchantSettlementsUnavailablePage } from "./pages/DepositSettlementPage";
@@ -53,12 +53,12 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/collaborations": "合作需求管理｜創百業智慧鏈",
   "/messages": "私訊中心｜創百業智慧鏈",
   "/notifications": "通知中心｜創百業智慧鏈",
-  "/pricing": "AI 行銷推廣方案｜創百業智慧鏈",
+  "/pricing": "商家網站、AI 智慧商城與免 POS 點餐方案｜創百業智慧鏈",
   "/features": "全部功能總覽｜創百業智慧鏈",
   "/pos-comparison": "Web-POS 效益與成本比較｜創百業智慧鏈",
   "/demo-sites": "五大產業示範網站｜創百業智慧鏈",
   "/about": "關於平台｜創百業智慧鏈",
-  "/how-it-works": "AI 行銷推廣如何運作｜創百業智慧鏈",
+  "/how-it-works": "商家數位升級如何運作｜創百業智慧鏈",
   "/success-stories": "成功合作案例｜創百業智慧鏈",
   "/faq": "方案常見問題｜創百業智慧鏈",
   "/contact": "聯絡我們｜創百業智慧鏈",
@@ -134,9 +134,12 @@ function ScrollAndMetadata() {
       : "QR 手機點餐示範｜百工牛肉麵｜創百業智慧鏈";
     const activeTitle = IS_BEEF_NOODLE_DEMO ? demoTitle : title;
     document.title = activeTitle;
+    const publicDescription = path === "/pricing"
+      ? "比較百工標準網站、AI 智慧商城與免 POS 機智慧點餐方案，清楚了解價格、服務期間、加購、試用與保證金。"
+      : "創百業智慧鏈整合商家網站、AI 智能客服、LINE、會員、預約、智慧商城與免 POS 機點餐，協助百業完成數位升級。";
     const description = IS_BEEF_NOODLE_DEMO
       ? "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。"
-      : "創百業智慧鏈提供 AI 行銷推廣、平台上架與商家數位營運服務，現階段推廣促銷價 NT$18,000，標準規格網站基礎建置免費附贈。";
+      : publicDescription;
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
     document.querySelector('meta[name="robots"]')?.setAttribute("content", IS_BEEF_NOODLE_DEMO || IS_STAGING ? "noindex,nofollow" : "index,follow");
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", activeTitle);
@@ -152,7 +155,7 @@ function MerchantRoute({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (session.role === "member") {
-      notify("商家完整功能需完成 AI 行銷推廣方案；原價 NT$30,000，現階段推廣促銷價 NT$18,000，標準規格網站基礎建置免費附贈。", "warning");
+      notify("商家管理功能需完成方案選擇、契約簽署與正式啟用。", "warning");
     }
   }, [location.pathname, notify, session.role]);
 
@@ -212,6 +215,7 @@ export function App() {
         <Route path="/demo/beef-noodle" element={<BeefNoodleDemoPage />} />
         <Route path="/merchant/login" element={<MerchantLoginPage />} />
         <Route path="/merchant/register" element={<MerchantRegisterPage />} />
+        <Route path="/merchant/select-plan" element={<MerchantPlanSelectPage />} />
         <Route path="/merchant/password-setup" element={<MerchantPasswordSetupPage />} />
         <Route path="/demo/beef-noodle/login" element={<Navigate to="/merchant/login" replace />} />
         <Route path="/booking/beef-noodle-demo" element={<BeefNoodleBookingPage />} />
