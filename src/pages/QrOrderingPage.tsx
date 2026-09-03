@@ -701,7 +701,7 @@ export function QrOrderingPage() {
   const showTableInput = orderType === "dine_in" && !context.qr.table_label;
   const directMenu = context.qr.purpose !== "member_only";
   const officialProductionDemo = context.merchant_id === "demo_beef_noodle";
-  const storefrontName = IS_BEEF_NOODLE_DEMO
+  const storefrontName = (IS_BEEF_NOODLE_DEMO || officialProductionDemo)
     ? context.display_name.split("｜")[0]
     : context.display_name;
   const serviceLabel =
@@ -865,7 +865,7 @@ export function QrOrderingPage() {
           <Check size={52} weight="bold" />
           <h2>會員加入完成</h2>
           <p>
-            {member?.display_name || "您"}，您已成為「{context.display_name}」快速會員。
+            {member?.display_name || "您"}，您已成為「{storefrontName}」快速會員。
           </p>
           <small>手機：{member?.phone_masked || ""}</small>
         </section>
