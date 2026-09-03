@@ -21,7 +21,7 @@ import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
 import { PlatformMemberCenterPage, PlatformMemberJoinPage, PlatformMemberWelcomePage } from "./pages/PlatformMemberPages";
-import { DemoMerchantLoginPage } from "./pages/DemoMerchantLoginPage";
+import { MerchantLoginPage } from "./pages/MerchantLoginPage";
 import { MerchantKitchenDisplayPage } from "./pages/MerchantKitchenDisplayPage";
 import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantGoogleBookingPage, MerchantInventoryPage, MerchantInvoicePage, MerchantLinePage, MerchantMembersPage, MerchantPaymentsPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 import { BeefNoodleBookingPage } from "./pages/BeefNoodleBookingPage";
@@ -88,11 +88,11 @@ const PAGE_TITLES: Record<string, string> = {
   "/member/join": "手機一鍵加入會員｜創百業智慧鏈",
   "/member/welcome": "歡迎成為創百業會員｜創百業智慧鏈",
   "/member": "我的會員｜創百業智慧鏈",
-  "/demo/beef-noodle": "百工牛肉麵｜完整功能試用店",
-  "/demo/beef-noodle/login": "百工官方示範店試用驗證",
+  "/demo/beef-noodle": "百工牛肉麵｜手機點餐",
+  "/merchant/login": "商家管理者登入｜創百業智慧鏈",
   "/merchant/dashboard": "百工牛肉麵商家管理中心",
   "/merchant/inventory": "百工牛肉麵庫存管理",
-  "/merchant-admin/ordering/kitchen": "百工牛肉麵廚房 KDS",
+  "/merchant-admin/ordering/kitchen": "百工牛肉麵出餐看板",
 };
 
 function ScrollAndMetadata() {
@@ -204,7 +204,8 @@ export function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/demo/beef-noodle" element={<BeefNoodleDemoPage />} />
-        <Route path="/demo/beef-noodle/login" element={<DemoMerchantLoginPage />} />
+        <Route path="/merchant/login" element={<MerchantLoginPage />} />
+        <Route path="/demo/beef-noodle/login" element={<Navigate to="/merchant/login" replace />} />
         <Route path="/booking/beef-noodle-demo" element={<BeefNoodleBookingPage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />

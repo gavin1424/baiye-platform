@@ -26,11 +26,11 @@ async function audit(db, request, action, row, metadata = {}) {
 }
 
 export async function handleProductionDemoLogin(request, env, url, cors = {}) {
-  if (url.pathname !== "/api/production-demo/login" || request.method !== "POST") return null;
+  if (!["/api/merchant-auth/phone-login", "/api/production-demo/login"].includes(url.pathname) || request.method !== "POST") return null;
   if (env.PRODUCTION_DEMO_ENABLED !== "true") return json({ error: "Not found" }, 404, cors);
   const input = await request.json().catch(() => ({}));
   const phone = String(input.phone || "").replace(/[\s()-]/g, "");
-  const code = String(input.access_code || "").trim().slice(0, 256);
+  const code = String(input.verification_code || input.access_code || "").trim().slice(0, 256);
   const db = env.FINANCE_DB;
   const row = await db.prepare(`SELECT c.*,u.id merchant_user_id,u.status user_status,m.status merchant_status,d.enabled,d.official_demo,d.demo_contract_exemption
     FROM production_demo_access_credentials c JOIN production_demo_merchants d ON d.merchant_id=c.merchant_id
@@ -40,7 +40,7 @@ export async function handleProductionDemoLogin(request, env, url, cors = {}) {
   const now = Date.now();
   if (row?.locked_until && Date.parse(row.locked_until) > now) {
     await audit(db, request, "login_rate_limited", row, { locked: true });
-    return json({ code: "DEMO_LOGIN_RATE_LIMITED", error: "登入嘗試過多，請稍後再試。" }, 429, cors);
+    return json({ code: "MERCHANT_LOGIN_RATE_LIMITED", error: "登入嘗試過多，請稍後再試。" }, 429, cors);
   }
   const expectedPhoneHash = await sha(`phone:${phone}`);
   const suppliedCodeHash = await deriveMerchantPassword(code || "invalid", row?.code_salt || "production-demo-fallback", Number(row?.code_iterations || 600000));
@@ -54,7 +54,7 @@ export async function handleProductionDemoLogin(request, env, url, cors = {}) {
       await db.prepare("UPDATE production_demo_access_credentials SET failed_attempts=?,locked_until=?,updated_at=CURRENT_TIMESTAMP WHERE merchant_id='demo_beef_noodle'").bind(failures, lockedUntil).run();
       await audit(db, request, lockedUntil ? "login_rate_limited" : "login_failed", row, { failed_attempts: failures });
     }
-    return json({ code: "DEMO_CREDENTIAL_INVALID", error: "手機號碼或試用驗證碼不正確。" }, 401, cors);
+    return json({ code: "MERCHANT_CREDENTIAL_INVALID", error: "手機號碼或管理者驗證碼不正確。" }, 401, cors);
   }
   const raw = random(), csrf = random(), memberToken = random();
   const expiresAt = new Date(now + 8 * 60 * 60_000).toISOString();
@@ -68,10 +68,11 @@ export async function handleProductionDemoLogin(request, env, url, cors = {}) {
   ]);
   await audit(db, request, "session_rotated", row, { merchant_user_id: row.merchant_user_id });
   await audit(db, request, "login_success", row, { display_role: "管理者" });
-  return json({ code: "DEMO_LOGIN_SUCCESS", merchant: { id: PRODUCTION_DEMO_MERCHANT_ID, name: "百工牛肉麵" },
-    administrator: { name: "百工牛肉麵｜試用管理者", display_role: "管理者", internal_role: "merchant_owner" },
+  return json({ code: "MERCHANT_PHONE_LOGIN_SUCCESS", merchant: { id: PRODUCTION_DEMO_MERCHANT_ID, name: "百工牛肉麵", status: "active" },
+    administrator: { name: "百工牛肉麵｜管理者", display_role: "管理者", internal_role: "merchant_owner" },
     platform_member: { id: row.platform_member_id, relationship: "active" }, platform_session: { token: memberToken, expires_at: memberExpiresAt },
-    official_demo: true, badge: "百工官方示範", csrf_token: csrf, expires_at: expiresAt, next_url: "/merchant/dashboard" }, 200,
+    merchant_resolution: { automatic: true, count: 1, requires_selection: false },
+    csrf_token: csrf, expires_at: expiresAt, next_url: "/merchant/dashboard" }, 200,
   { ...cors, "set-cookie": `baiye_merchant_session=${raw}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=28800` });
 }
 
