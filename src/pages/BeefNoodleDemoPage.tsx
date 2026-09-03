@@ -48,7 +48,7 @@ export function BeefNoodleDemoPage() {
               <Link className="beef-demo-btn" to={`/q/${A1_CODE}`}>立即手機點餐 <ArrowRight /></Link>
               <a className="beef-demo-btn beef-demo-btn-outline" href="#signature">看看完整菜單 <ArrowDown /></a>
             </div>
-            <div className="beef-demo-notice"><ShieldCheck weight="fill" /><span><strong>示範資料／不進行真實交易。</strong> 正式付款 Provider 尚未啟用，不會發生真實扣款或出貨。</span></div>
+            <div className="beef-demo-notice"><ShieldCheck weight="fill" /><span><strong>示範資料／不進行真實交易。</strong> 正式付款服務尚未啟用，不會發生真實扣款或出貨。</span></div>
           </div>
           <div className="beef-demo-hero-art" role="img" aria-label="熱騰騰的紅燒牛肉麵插畫">
             <div className="beef-demo-steam steam-one" /><div className="beef-demo-steam steam-two" /><div className="beef-demo-steam steam-three" />

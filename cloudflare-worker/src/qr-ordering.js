@@ -1,5 +1,6 @@
 import { couponOrderStateStatements, issueWelcomeCoupon, prepareCouponForOrder } from "./member-integrations.js";
-import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
+import { authenticatePlatformMember, ensurePlatformMember, findPlatformMemberByPhone, issuePlatformMemberSession, normalizeTaiwanMobile } from "./platform-membership.js";
+import { authenticateMerchantSession, deriveMerchantPassword as deriveNumericPassword, validateMerchantNumericPassword as validateNumericPassword } from "./merchant-auth.js";
 import { deductionStatements, restoreStatements } from "./inventory.js";
 import { attachMerchantProductAssetFromUrl } from "./merchant-assets.js";
 export { normalizeTaiwanMobile } from "./platform-membership.js";
@@ -9,6 +10,9 @@ const SESSION_DAYS = 180;
 const MAX_ORDER_LINES = 50;
 const MAX_ITEM_QUANTITY = 20;
 const CUSTOMER_ERROR = "掃碼會員與點餐系統目前暫時忙碌，請稍後再試或洽店家協助。";
+const MEMBER_CREDENTIAL_TYPE = "numeric_password_8";
+const MEMBER_CREDENTIAL_ALGORITHM = "pbkdf2-sha256-segmented-v1";
+const MEMBER_LOGIN_ERROR = "手機號碼或會員密碼錯誤。";
 
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status,
@@ -230,6 +234,189 @@ async function issueSession(db, merchantId, membershipId) {
   return { token: rawToken, expires_at: expiresAt };
 }
 
+function constantTimeEqual(left, right) {
+  if (!left || !right || left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  return difference === 0;
+}
+
+function clientIp(request) {
+  return request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+}
+
+async function memberSecurityAudit(db, request, action, memberId = null, merchantId = null, metadata = {}) {
+  await db.prepare(`INSERT INTO platform_member_security_events
+    (id,platform_member_id,merchant_id,action,ip_hash,user_agent_hash,metadata)
+    VALUES(?,?,?,?,?,?,?)`).bind(
+    uid("pmse"), memberId, merchantId, action,
+    await hash(`ip:${clientIp(request)}`),
+    await hash(`ua:${request.headers.get("user-agent") || "unknown"}`),
+    JSON.stringify(metadata),
+  ).run();
+}
+
+async function consumeMemberHourlyLimit(db, scope, rawKey, limit) {
+  const bucket = new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString();
+  const key = await hash(`${scope}:${rawKey}`);
+  await db.prepare(`INSERT INTO platform_member_rate_limits(scope,rate_key_hash,bucket_start,attempt_count)
+    VALUES(?,?,?,1) ON CONFLICT(scope,rate_key_hash,bucket_start)
+    DO UPDATE SET attempt_count=attempt_count+1`).bind(scope, key, bucket).run();
+  const row = await db.prepare("SELECT attempt_count FROM platform_member_rate_limits WHERE scope=? AND rate_key_hash=? AND bucket_start=?").bind(scope, key, bucket).first();
+  return Number(row?.attempt_count || 0) <= limit;
+}
+
+async function memberCredential(db, memberId) {
+  return db.prepare(`SELECT * FROM platform_member_login_credentials
+    WHERE platform_member_id=? AND credential_type=? LIMIT 1`).bind(memberId, MEMBER_CREDENTIAL_TYPE).first();
+}
+
+async function upsertMemberCredential(db, platformMemberId, password) {
+  const salt = randomToken(24);
+  const passwordHash = await deriveNumericPassword(password, salt, 600000);
+  return db.prepare(`INSERT INTO platform_member_login_credentials
+    (id,platform_member_id,credential_type,password_hash,password_salt,password_algorithm,password_iterations,password_updated_at)
+    VALUES(?,?,?,?,?,?,600000,CURRENT_TIMESTAMP)
+    ON CONFLICT(platform_member_id,credential_type) DO UPDATE SET
+      password_hash=excluded.password_hash,password_salt=excluded.password_salt,
+      password_algorithm=excluded.password_algorithm,password_iterations=excluded.password_iterations,
+      failed_attempts=0,locked_until=NULL,reset_required=0,status='active',
+      password_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`).bind(
+    uid("pmlc"), platformMemberId, MEMBER_CREDENTIAL_TYPE, passwordHash, salt, MEMBER_CREDENTIAL_ALGORITHM,
+  );
+}
+
+async function existingMerchantMembership(db, context, platformMemberId) {
+  return db.prepare(`SELECT m.id membership_id,m.membership_no,m.status,c.display_name,c.phone_normalized,c.id customer_id
+    FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id
+    JOIN merchant_ordering_memberships m ON m.customer_id=c.id AND m.merchant_id=?
+    WHERE p.id=? LIMIT 1`).bind(context.merchant_id, platformMemberId).first();
+}
+
+async function ensureMerchantMembership(db, context, platformMember, consentGranted) {
+  let membership = await existingMerchantMembership(db, context, platformMember.id);
+  if (!membership && !consentGranted) {
+    throw Object.assign(new Error("請先同意加入此店會員後再繼續。"), { status: 422, code: "MERCHANT_MEMBERSHIP_CONSENT_REQUIRED" });
+  }
+  if (!membership) {
+    await db.prepare(`INSERT OR IGNORE INTO merchant_ordering_memberships
+      (id,merchant_id,customer_id,membership_no,status,joined_via_qr_id,consent_version,consented_at,visit_count,last_seen_at)
+      VALUES(?,?,?,?,'active',?,?,CURRENT_TIMESTAMP,1,CURRENT_TIMESTAMP)`).bind(
+      uid("membership"), context.merchant_id, platformMember.customer_id,
+      membershipNumber(), context.id, context.consent_version,
+    ).run();
+    membership = await existingMerchantMembership(db, context, platformMember.id);
+  } else {
+    await db.prepare(`UPDATE merchant_ordering_memberships SET joined_via_qr_id=?,last_seen_at=CURRENT_TIMESTAMP,
+      visit_count=visit_count+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=?`).bind(context.id, membership.membership_id, context.merchant_id).run();
+  }
+  if (!membership || membership.status === "blocked") throw Object.assign(new Error("此會員狀態目前無法使用，請洽店家協助。"), { status: 403, code: "MEMBER_ACCOUNT_UNAVAILABLE" });
+  return membership;
+}
+
+function memberResponse(membership) {
+  return {
+    membership_id: membership.membership_id,
+    membership_no: membership.membership_no,
+    display_name: membership.display_name || "會員",
+    phone_masked: maskPhone(membership.phone_normalized),
+  };
+}
+
+async function trustedPlatformIdentity(request, env, context) {
+  const platformMember = await authenticatePlatformMember(env.FINANCE_DB, request);
+  if (platformMember) return { member: platformMember, via: "platform_session" };
+  const merchantSession = await authenticateMerchantSession(request, env);
+  if (!merchantSession || merchantSession.merchant_id !== context.merchant_id || !merchantSession.platform_member_id) return null;
+  const member = await env.FINANCE_DB.prepare(`SELECT p.*,c.phone_normalized,c.display_name
+    FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id
+    WHERE p.id=? AND p.status='active'`).bind(merchantSession.platform_member_id).first();
+  return member ? { member, via: "merchant_session" } : null;
+}
+
+async function handleMemberSession(request, env, context, cors) {
+  const trusted = await trustedPlatformIdentity(request, env, context);
+  if (!trusted) return json({ code: "MEMBER_SESSION_REQUIRED", error: "請先加入會員或登入。" }, 401, cors);
+  const membership = await existingMerchantMembership(env.FINANCE_DB, context, trusted.member.id);
+  if (!membership || membership.status !== "active") return json({ code: "MERCHANT_MEMBERSHIP_CONSENT_REQUIRED", error: "請先同意加入此店會員後再繼續。" }, 409, cors);
+  const session = await issueSession(env.FINANCE_DB, context.merchant_id, membership.membership_id);
+  const platformSession = trusted.via === "merchant_session" ? await issuePlatformMemberSession(env.FINANCE_DB, trusted.member.id, clean(request.headers.get("x-device-id"), 300)) : null;
+  return json({ member: memberResponse(membership), session, platform_session: platformSession, member_password_set: Boolean(await memberCredential(env.FINANCE_DB, trusted.member.id)), reused: true }, 200, cors);
+}
+
+async function handleMemberPasswordSet(request, env, context, cors) {
+  let trusted = await trustedPlatformIdentity(request, env, context);
+  if (!trusted) {
+    const orderingSession = await memberSession(env.FINANCE_DB, request, context.merchant_id);
+    const member = orderingSession ? await env.FINANCE_DB.prepare(`SELECT p.*,c.phone_normalized,c.display_name
+      FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE p.customer_id=? AND p.status='active'`).bind(orderingSession.customer_id).first() : null;
+    if (member) trusted = { member, via: "ordering_member_session" };
+  }
+  if (!trusted) return json({ code: "MEMBER_SESSION_REQUIRED", error: "請先使用原登入裝置，或聯絡客服協助身分確認。" }, 401, cors);
+  if (!await existingMerchantMembership(env.FINANCE_DB, context, trusted.member.id)) return json({ code: "MEMBER_RELATIONSHIP_REQUIRED", error: "請先加入此店會員。" }, 403, cors);
+  if (await memberCredential(env.FINANCE_DB, trusted.member.id)) return json({ code: "MEMBER_PASSWORD_ALREADY_SET", error: "會員登入密碼已設定。" }, 409, cors);
+  const input = await request.json();
+  const password = String(input?.password || ""), confirm = String(input?.password_confirm || "");
+  if (password !== confirm) return json({ error: "兩次輸入的會員密碼不一致。", code: "PASSWORD_CONFIRM_MISMATCH" }, 422, cors);
+  const validation = validateNumericPassword(password, trusted.member.phone_normalized);
+  if (!validation.ok) return json({ error: validation.error, code: "WEAK_MEMBER_PASSWORD" }, 422, cors);
+  await env.FINANCE_DB.batch([await upsertMemberCredential(env.FINANCE_DB, trusted.member.id, password)]);
+  await memberSecurityAudit(env.FINANCE_DB, request, "PASSWORD_SET", trusted.member.id, context.merchant_id);
+  return json({ ok: true, member_password_set: true, message: "會員登入密碼設定完成。" }, 200, cors);
+}
+
+async function handleMemberLogin(request, env, context, cors) {
+  const db = env.FINANCE_DB, input = await request.json();
+  const phone = normalizeTaiwanMobile(input?.phone), password = String(input?.password || "");
+  const ipAllowed = await consumeMemberHourlyLimit(db, "member_login_ip_hour", clientIp(request), 100);
+  const phoneAllowed = await consumeMemberHourlyLimit(db, "member_login_phone_hour", phone || "invalid", 20);
+  if (!ipAllowed || !phoneAllowed) return json({ code: "MEMBER_LOGIN_RATE_LIMITED", error: "登入嘗試過多，請稍後再試。" }, 429, cors);
+  const candidate = phone ? await findPlatformMemberByPhone(db, phone) : null;
+  const credential = candidate ? await memberCredential(db, candidate.id) : null;
+  const fallbackSalt = "platform-member-auth-constant-time-fallback-v1";
+  const supplied = await deriveNumericPassword(password || "invalid", credential?.password_salt || fallbackSalt, Number(credential?.password_iterations || 600000));
+  const now = Date.now();
+  if (credential?.locked_until && Date.parse(credential.locked_until) > now) {
+    await memberSecurityAudit(db, request, "ACCOUNT_LOCKED", candidate?.id, context.merchant_id, { locked_until: credential.locked_until });
+    return json({ code: "MEMBER_ACCOUNT_LOCKED", error: "登入嘗試過多，請於 15 分鐘後再試。" }, 429, cors);
+  }
+  const valid = Boolean(candidate && candidate.status === "active" && credential?.status === "active" && !Number(credential?.reset_required || 0) && constantTimeEqual(supplied, credential.password_hash));
+  if (!valid) {
+    if (credential) {
+      const failures = Number(credential.failed_attempts || 0) + 1;
+      const lockedUntil = failures >= 5 ? new Date(now + 15 * 60_000).toISOString() : null;
+      await db.prepare("UPDATE platform_member_login_credentials SET failed_attempts=?,locked_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(failures, lockedUntil, credential.id).run();
+      await memberSecurityAudit(db, request, lockedUntil ? "ACCOUNT_LOCKED" : "LOGIN_FAILED", candidate.id, context.merchant_id, { failed_attempts: failures, locked_until: lockedUntil });
+    } else {
+      await memberSecurityAudit(db, request, "LOGIN_FAILED", candidate?.id || null, context.merchant_id);
+    }
+    const delay = Math.min(750, Number(credential?.failed_attempts || 0) * 150);
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    return json({ code: "MEMBER_CREDENTIAL_INVALID", error: MEMBER_LOGIN_ERROR }, 401, cors);
+  }
+  await db.prepare("UPDATE platform_member_login_credentials SET failed_attempts=0,locked_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(credential.id).run();
+  let membership;
+  try { membership = await ensureMerchantMembership(db, context, candidate, input?.merchant_consent === true); }
+  catch (error) { return json({ error: error.message, code: error.code }, error.status, cors); }
+  const [session, platformSession] = await Promise.all([
+    issueSession(db, context.merchant_id, membership.membership_id),
+    issuePlatformMemberSession(db, candidate.id, clean(input?.device_id || request.headers.get("x-device-id"), 300)),
+  ]);
+  await memberSecurityAudit(db, request, "LOGIN_SUCCESS", candidate.id, context.merchant_id);
+  return json({ message: "會員登入成功", member: memberResponse(membership), session, platform_session: platformSession, member_password_set: true }, 200, cors);
+}
+
+async function handleMemberLogout(request, env, context, cors) {
+  const db = env.FINANCE_DB, membership = await memberSession(db, request, context.merchant_id);
+  if (membership) await db.prepare("UPDATE merchant_member_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE id=?").bind(membership.session_id).run();
+  const platformHeaders = new Headers(request.headers);
+  platformHeaders.delete("authorization");
+  const platformMember = await authenticatePlatformMember(db, new Request(request.url, { method: "GET", headers: platformHeaders }));
+  if (platformMember) await db.prepare("UPDATE platform_member_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE id=?").bind(platformMember.session_id).run();
+  if (membership || platformMember) await memberSecurityAudit(db, request, "LOGOUT", platformMember?.id || null, context.merchant_id);
+  return json({ ok: true }, 200, cors);
+}
+
 async function orderWithItems(db, merchantId, membershipId, orderCodeValue) {
   const row = await db.prepare(`
     SELECT * FROM merchant_food_orders
@@ -362,72 +549,57 @@ function resolveOrderType(context, input) {
 async function handleContext(request, db, context, cors) {
   const session = await memberSession(db, request, context.merchant_id);
   const line = await lineIntegrationForMerchant(db, context.merchant_id);
-  return json({ context: { ...publicContext(context), line: publicLineIntegration(line) }, member: session ? publicMember(session) : null }, 200, cors);
+  const platformMember = session ? await db.prepare("SELECT id FROM platform_members WHERE customer_id=?").bind(session.customer_id).first() : null;
+  return json({ context: { ...publicContext(context), line: publicLineIntegration(line) }, member: session ? publicMember(session) : null, member_password_set: platformMember ? Boolean(await memberCredential(db, platformMember.id)) : false }, 200, cors);
 }
 
-async function handleJoin(request, db, context, cors) {
+async function handleJoin(request, env, context, cors) {
+  const db = env.FINANCE_DB;
   if (!context.enabled) return json({ error: "此商家的掃碼會員服務尚未開放。" }, 409, cors);
   if (!await publicRateLimit(db, request, context.merchant_id, "join", 12)) return json({ error: "操作過於頻繁，請稍後再試。" }, 429, cors);
   const input = await request.json();
   const phone = normalizeTaiwanMobile(input?.phone);
   if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 400, cors);
+  const password = String(input?.password || ""), passwordConfirm = String(input?.password_confirm || "");
+  if (password !== passwordConfirm) return json({ error: "兩次輸入的會員密碼不一致。", code: "PASSWORD_CONFIRM_MISMATCH" }, 422, cors);
+  const validation = validateNumericPassword(password, phone);
+  if (!validation.ok) return json({ error: validation.error, code: "WEAK_MEMBER_PASSWORD" }, 422, cors);
   if (input?.privacy_consent !== true || clean(input?.consent_version, 60) !== context.consent_version) {
     return json({ error: "請閱讀並同意會員與隱私權說明後再加入。" }, 400, cors);
   }
-  const existingCustomer = await db.prepare("SELECT id FROM ordering_customers WHERE phone_normalized=?").bind(phone).first();
-  const existingPlatformMember = existingCustomer ? await db.prepare("SELECT id FROM platform_members WHERE customer_id=?").bind(existingCustomer.id).first() : null;
-  let authenticatedMember = null;
-  if (existingPlatformMember) {
-    authenticatedMember = await authenticatePlatformMember(db, request);
-    if (!authenticatedMember || authenticatedMember.id !== existingPlatformMember.id) {
-      return json({ error: "此手機已建立會員，請先完成手機或 LINE 身分驗證。", code: "MEMBER_VERIFICATION_REQUIRED" }, 409, cors);
-    }
+  const existingPlatformMember = await findPlatformMemberByPhone(db, phone);
+  const trusted = existingPlatformMember ? await trustedPlatformIdentity(request, env, context) : null;
+  if (existingPlatformMember && trusted?.member?.id !== existingPlatformMember.id) {
+    const existingCredential = await memberCredential(db, existingPlatformMember.id);
+    return existingCredential
+      ? json({ error: "您已經是會員，請使用「已有會員登入」。", code: "MEMBER_ALREADY_REGISTERED" }, 409, cors)
+      : json({ error: "此會員尚未設定登入密碼，請使用原登入裝置設定，或聯絡客服協助身分確認。", code: "MEMBER_PASSWORD_SETUP_REQUIRES_TRUSTED_SESSION" }, 409, cors);
   }
   const platform = await ensurePlatformMember(db, {
     phone,
     source: "qr",
     privacyConsentVersion: context.consent_version,
     deviceId: clean(input?.device_id || request.headers.get("x-device-id"), 300),
-    issueSession: !authenticatedMember,
+    issueSession: !trusted,
   });
   const customer = platform.customer;
-
-  const previousMembership = await db.prepare(`SELECT m.id FROM merchant_ordering_memberships m JOIN ordering_customers c ON c.id=m.customer_id WHERE m.merchant_id=? AND c.phone_normalized=? LIMIT 1`).bind(context.merchant_id, phone).first();
-  const membership = await db.prepare(`
-    INSERT INTO merchant_ordering_memberships
-      (id,merchant_id,customer_id,membership_no,status,joined_via_qr_id,consent_version,consented_at,visit_count,last_seen_at)
-    VALUES (?,?,?,?, 'active',?,?,CURRENT_TIMESTAMP,1,CURRENT_TIMESTAMP)
-    ON CONFLICT(merchant_id,customer_id) DO UPDATE SET
-      status=CASE WHEN merchant_ordering_memberships.status='blocked' THEN 'blocked' ELSE 'active' END,
-      joined_via_qr_id=excluded.joined_via_qr_id,
-      consent_version=excluded.consent_version,
-      consented_at=CURRENT_TIMESTAMP,
-      visit_count=merchant_ordering_memberships.visit_count+1,
-      last_seen_at=CURRENT_TIMESTAMP,
-      updated_at=CURRENT_TIMESTAMP
-    RETURNING id membership_id,membership_no,status
-  `).bind(
-    uid("membership"), context.merchant_id, customer.id, membershipNumber(), context.id, context.consent_version,
-  ).first();
-
-  if (!membership || membership.status === "blocked") {
-    return json({ error: "此會員狀態目前無法使用，請洽店家協助。" }, 403, cors);
-  }
+  const previousMembership = await existingMerchantMembership(db, context, platform.member.id);
+  const membership = await ensureMerchantMembership(db, context, { ...platform.member, customer_id: customer.id, display_name: customer.display_name, phone_normalized: customer.phone_normalized }, true);
+  const existingCredential = await memberCredential(db, platform.member.id);
+  if (!existingCredential) await db.batch([await upsertMemberCredential(db, platform.member.id, password)]);
   const session = await issueSession(db, context.merchant_id, membership.membership_id);
   const coupon = await issueWelcomeCoupon(db, { merchantId: context.merchant_id, membershipId: membership.membership_id, phoneVerified: Boolean(customer.phone_verified), newlyCreated: !previousMembership, issuanceEnabled: false });
   await audit(db, context.merchant_id, "customer", membership.membership_id, "member_joined_or_returned", "membership", membership.membership_id, { qr_id: context.id });
+  await memberSecurityAudit(db, request, "PASSWORD_SET", platform.member.id, context.merchant_id, { new_member: platform.created });
+  const platformSession = platform.session || (trusted?.via === "merchant_session" ? await issuePlatformMemberSession(db, platform.member.id, clean(input?.device_id || request.headers.get("x-device-id"), 300)) : null);
   return json({
-    message: "加入會員成功，現在可以開始點餐。",
-    member: {
-      membership_id: membership.membership_id,
-      membership_no: membership.membership_no,
-      display_name: customer.display_name || "會員",
-      phone_masked: maskPhone(customer.phone_normalized),
-    },
+    message: "會員登入成功",
+    member: memberResponse(membership),
     session,
     coupon,
     platform_membership: platform.member,
-    platform_session: platform.session,
+    platform_session: platformSession,
+    member_password_set: true,
     welcome: platform.welcome,
   }, 201, cors);
 }
@@ -435,7 +607,7 @@ async function handleJoin(request, db, context, cors) {
 async function handleMenu(request, db, context, cors) {
   if (!context.enabled) return json({ error: "此商家的掃碼點餐尚未開放。" }, 409, cors);
   const session = await memberSession(db, request, context.merchant_id);
-  if (context.require_member && !session) return json({ error: "請先加入會員或重新掃描 QR Code。", code: "MEMBER_REQUIRED" }, 401, cors);
+  const platformMember = session ? await db.prepare("SELECT id FROM platform_members WHERE customer_id=?").bind(session.customer_id).first() : null;
   const [categories, items, groups, values, links, line] = await Promise.all([
     db.prepare(`SELECT id,name,description,sort_order FROM merchant_menu_categories WHERE merchant_id=? AND active=1 ORDER BY sort_order,name`).bind(context.merchant_id).all(),
     db.prepare(`SELECT m.id,m.category_id,m.sku,m.name,m.description,m.price_minor,m.image_url,m.sort_order,
@@ -453,6 +625,7 @@ async function handleMenu(request, db, context, cors) {
   return json({
     context: { ...publicContext(context), line: publicLineIntegration(line) },
     member: session ? publicMember(session) : null,
+    member_password_set: platformMember ? Boolean(await memberCredential(db, platformMember.id)) : false,
     categories: categories.results || [],
     items: (items.results || []).map((item) => ({ ...item, price_minor: Number(item.price_minor) })),
     option_groups: (groups.results || []).map((group) => ({
@@ -635,13 +808,17 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
   if (!env.FINANCE_DB) return json({ error: CUSTOMER_ERROR }, 503, cors);
   const db = env.FINANCE_DB;
   try {
-    const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|menu|orders))?$/);
+    const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|login|member-session|member-password|logout|menu|orders))?$/);
     if (qrMatch) {
       const context = await qrContext(db, qrMatch[1]);
       if (!context) return json({ error: "此 QR Code 無效、已停用或已過期。" }, 404, cors);
       const action = qrMatch[2] || "context";
       if (request.method === "GET" && action === "context") return handleContext(request, db, context, cors);
-      if (request.method === "POST" && action === "join") return handleJoin(request, db, context, cors);
+      if (request.method === "POST" && action === "join") return handleJoin(request, env, context, cors);
+      if (request.method === "POST" && action === "login") return handleMemberLogin(request, env, context, cors);
+      if (request.method === "POST" && action === "member-session") return handleMemberSession(request, env, context, cors);
+      if (request.method === "POST" && action === "member-password") return handleMemberPasswordSet(request, env, context, cors);
+      if (request.method === "POST" && action === "logout") return handleMemberLogout(request, env, context, cors);
       if (request.method === "GET" && action === "menu") return handleMenu(request, db, context, cors);
       if (request.method === "POST" && action === "orders") return handleCreateOrder(request, db, context, cors);
       return json({ error: "Method not allowed" }, 405, cors);
