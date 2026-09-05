@@ -40,3 +40,23 @@ test("mobile comparison avoids an overflowing desktop table", () => {
   assert.match(styles, /pricing-comparison-desktop\{display:none\}/);
   assert.match(styles, /pricing-mobile-selector/);
 });
+
+test("homepage value cards define WCAG AA light-surface foregrounds", () => {
+  assert.match(styles, /\.premium-card\{[^}]*color:var\(--baiye-text\)/s);
+  assert.match(styles, /\.immersive-values \.premium-card\{[^}]*color:var\(--baiye-navy-900\)[^}]*opacity:1/s);
+  assert.match(styles, /\.immersive-values \.premium-card strong\{color:var\(--baiye-navy-900\)\}/);
+  assert.match(styles, /\.immersive-values \.premium-card span\{color:var\(--baiye-muted-dark\)\}/);
+  assert.match(styles, /\.immersive-values \.premium-card svg\{color:var\(--baiye-gold-contrast\);opacity:1\}/);
+
+  const luminance = (hex) => {
+    const channels = hex.match(/[a-f\d]{2}/gi).map((part) => parseInt(part, 16) / 255)
+      .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  };
+  const contrast = (foreground, background = "ffffff") =>
+    (luminance(background) + 0.05) / (luminance(foreground) + 0.05);
+
+  assert.ok(contrast("031b32") >= 4.5);
+  assert.ok(contrast("475569") >= 4.5);
+  assert.ok(contrast("986414") >= 4.5);
+});
