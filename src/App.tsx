@@ -26,6 +26,8 @@ import { MerchantKitchenDisplayPage } from "./pages/MerchantKitchenDisplayPage";
 import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantGoogleBookingPage, MerchantInventoryPage, MerchantInvoicePage, MerchantLinePage, MerchantMembersPage, MerchantPaymentsPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 import { BeefNoodleBookingPage } from "./pages/BeefNoodleBookingPage";
 import { GeneralOrderingEntryPage } from "./pages/GeneralOrderingEntryPage";
+import { AdvisorApplyPage, AdvisorCategoryPage, AdvisorDashboardPage, AdvisorLoginPage, AdvisorMarketplacePage, AdvisorMatchPage, AdvisorProfilePage, AdvisorWorkspacePage } from "./pages/AdvisorMarketplacePages";
+import { AdminAdvisorPage } from "./pages/AdminAdvisorPage";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -98,6 +100,11 @@ const PAGE_TITLES: Record<string, string> = {
   "/merchant/inventory": "百工牛肉麵庫存管理",
   "/merchant-admin/ordering/kitchen": "百工牛肉麵出餐看板",
   "/scan": "百工牛肉麵｜手機點餐入口",
+  "/advisors": "身心靈生活顧問聯盟｜創百業智慧鏈",
+  "/advisors/match": "AI 找顧問｜身心靈生活顧問聯盟",
+  "/advisor/apply": "申請成為生活顧問｜創百業智慧鏈",
+  "/advisor/login": "老師／顧問登入｜創百業智慧鏈",
+  "/advisor/dashboard": "顧問工作台｜創百業智慧鏈",
 };
 
 function ScrollAndMetadata() {
@@ -221,6 +228,14 @@ export function App() {
         <Route path="/booking/beef-noodle-demo" element={<BeefNoodleBookingPage />} />
         <Route path="/q/:code" element={<QrOrderingPage />} />
         <Route path="/scan" element={<GeneralOrderingEntryPage />} />
+        <Route path="/advisors" element={<AdvisorMarketplacePage />} />
+        <Route path="/advisors/match" element={<AdvisorMatchPage />} />
+        <Route path="/advisors/category/:slug" element={<AdvisorCategoryPage />} />
+        <Route path="/advisors/:slug" element={<AdvisorProfilePage />} />
+        <Route path="/advisor/apply" element={<AdvisorApplyPage />} />
+        <Route path="/advisor/login" element={<AdvisorLoginPage />} />
+        <Route path="/advisor/dashboard" element={<AdvisorDashboardPage />} />
+        {['profile','services','availability','bookings','customers','reviews','media','earnings','contracts','account'].map(section=><Route key={`advisor-${section}`} path={`/advisor/${section}`} element={<AdvisorWorkspacePage section={section}/>} />)}
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
         <Route path="/merchant-admin/ordering/kitchen" element={<MerchantKitchenDisplayPage />} />
         <Route path="/merchant/dashboard" element={<MerchantAdminDashboardPage />} />
@@ -302,6 +317,7 @@ export function App() {
         <Route path="/admin/financing" element={<AdminRoute><AdminFinancingPage /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
         <Route path="/admin/contracts" element={<AdminRoute><AdminContractsPage /></AdminRoute>} />
+        {['advisors','advisor-applications','advisor-services','advisor-bookings','advisor-reviews','advisor-content','advisor-commissions','advisor-settlements','advisor-contracts','advisor-policies'].map(section=><Route key={section} path={`/admin/${section}`} element={<AdminRoute><AdminAdvisorPage section={section.replace('advisor-','')}/></AdminRoute>} />)}
         <Route path="*" element={<ProductionNotFoundPage />} />
       </Routes>
       <ContextualAiChatWidget />

@@ -20,6 +20,7 @@ import {
 } from "./merchant-contracts.js";
 import { handlePlatformMemberRequest } from "./platform-membership.js";
 import { handleCommercialCatalog } from "./commercial-catalog.js";
+import { handleAdvisorAdmin, handleAdvisorPrivate, handleAdvisorPublic } from "./advisor.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -212,6 +213,18 @@ export default {
       return handleCommercialCatalog(request, cors);
     }
 
+    if (url.pathname.startsWith("/api/advisors") || url.pathname === "/api/advisor/apply" || url.pathname === "/api/advisor/login" || (url.pathname === "/api/advisor/bookings" && request.method === "POST") || (/^\/api\/advisor\/bookings\/[^/]+\/review$/.test(url.pathname) && request.method === "POST")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleAdvisorPublic(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname.startsWith("/api/advisor/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return handleAdvisorPrivate(request, env, url, cors);
+    }
+
     if (url.pathname.startsWith("/api/admin/auth/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
@@ -307,6 +320,7 @@ export default {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const adminSession = url.pathname.startsWith("/api/admin/") ? await requireAdmin(request, env) : null;
       if (url.pathname.startsWith("/api/admin/") && !adminSession) return json({ error: "需要正式管理員授權。" }, 401, cors);
+      if (url.pathname.startsWith("/api/admin/advisor")) return handleAdvisorAdmin(request, env, url, cors, adminSession);
       if (url.pathname.startsWith("/api/admin/merchant-credentials/")) return (await handleMerchantCredentialAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
       if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors, true);
       if (url.pathname.startsWith("/api/admin/merchant-contract") || /^\/api\/admin\/merchants\/[^/]+\/commercial-terms$/.test(url.pathname)) {

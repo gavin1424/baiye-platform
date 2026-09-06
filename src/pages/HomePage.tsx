@@ -40,6 +40,7 @@ export function HomePage() {
       </div>
 
       <section className="immersive-values baiye-reveal is-visible" aria-label="品牌價值">{values.map(([Icon, title, text]) => <article className="premium-card" key={title}><Icon weight="duotone" /><strong>{title}</strong><span>{text}</span></article>)}</section>
+      <aside className="home-marketplace-entry" aria-label="百工產業服務入口"><div><span>百工產業 Marketplace</span><strong>身心靈生活顧問聯盟</strong><p>依探索方向、服務時段與公開評價，找到合適的老師／顧問。</p></div><Link className="btn btn-outline" to="/advisors">探索顧問服務 <ArrowRight /></Link></aside>
     </section>
 
     {selected && <div className="home-feature-detail" role="dialog" aria-modal="true" aria-labelledby="home-feature-title"><button type="button" className="home-feature-backdrop" aria-label="關閉功能介紹" onClick={() => setSelected(null)} /><article className="home-feature-panel"><button type="button" className="home-feature-close" aria-label="關閉" onClick={() => setSelected(null)}><X /></button><span className="home-feature-panel-icon"><selected.icon weight="duotone" /></span><p className="home-feature-label">百工數位服務</p><h2 id="home-feature-title">{selected.name}</h2><p className="home-feature-summary">{selected.summary}</p><dl><dt>適用對象</dt><dd>{selected.audience}</dd><dt>核心價值</dt><dd>{selected.value}</dd></dl><h3>主要功能</h3><ul>{selected.items.map((item) => <li key={item}><CheckCircle weight="fill" />{item}</li>)}</ul><Link className="btn btn-primary btn-lg" to={selected.to}>{selected.cta} <ArrowRight /></Link></article></div>}

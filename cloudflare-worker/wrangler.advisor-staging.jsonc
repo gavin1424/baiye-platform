@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chuang-baiye-advisor-staging",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-20",
+  "d1_databases": [
+    {
+      "binding": "FINANCE_DB",
+      "database_name": "baiye-advisor-marketplace-staging-v1",
+      "database_id": "ce02b6ec-bb1c-4a8a-8406-3f27949c1ea0",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "CONTRACTS_BUCKET",
+      "bucket_name": "baiye-advisor-contracts-staging"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://baiye-advisor-marketplace-staging.pages.dev,http://localhost:5173",
+    "PUBLIC_SITE_URL": "https://baiye-advisor-marketplace-staging.pages.dev",
+    "APP_MODE": "staging",
+    "CONTRACT_SIGNING_MODE": "staging",
+    "REAL_ADVISOR_PAYMENT_ENABLED": "false",
+    "REAL_ADVISOR_PAYOUT_ENABLED": "false",
+    "ADVISOR_PROVIDER_CREDENTIALS_READY": "false",
+    "ADVISOR_LEGAL_REVIEW_APPROVED": "false",
+    "ADVISOR_FINANCE_POLICY_APPROVED": "false",
+    "ADVISOR_REFUND_POLICY_APPROVED": "false"
+  }
+}
