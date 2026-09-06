@@ -1,6 +1,10 @@
-export const ADVISOR_COMMISSION_POLICY_VERSION = "advisor-commission-draft-v1";
-export const ADVISOR_REFUND_POLICY_VERSION = "advisor-refund-policy-draft-v1";
+export const ADVISOR_COMMERCIAL_POLICY_VERSION = "advisor_commercial_policy_v1_0";
+export const ADVISOR_COMMISSION_POLICY_VERSION = "advisor_commission_policy_v1_0";
+export const ADVISOR_REFUND_POLICY_VERSION = "advisor_cancellation_policy_v1_0";
+export const ADVISOR_SETTLEMENT_POLICY_VERSION = "advisor_settlement_policy_v1_0";
 export const ADVISOR_COMMISSION_MODE = "progressive_nonretroactive";
+export const ADVISOR_PROVIDER_FEE_POLICY = "before_split";
+export const ADVISOR_ROUNDING_POLICY = "platform_remainder";
 export const ADVISOR_TIERS = Object.freeze([
   { min: 1, max: 30, advisorRateBp: 5000 },
   { min: 31, max: 60, advisorRateBp: 5200 },
@@ -15,7 +19,7 @@ export function advisorTierForCount(count) {
   return ADVISOR_TIERS.find((tier) => value >= tier.min && value <= tier.max);
 }
 
-export function advisorCommissionSnapshot({ servicePriceMinor, providerFeeMinor = 0, monthlyCompletedCount, providerFeePolicy = "platform_absorbs" }) {
+export function advisorCommissionSnapshot({ servicePriceMinor, providerFeeMinor = 0, monthlyCompletedCount, providerFeePolicy = ADVISOR_PROVIDER_FEE_POLICY, providerFeeActualMinor = null, providerFeeEstimatedMinor = null, providerFeeSource = "none" }) {
   if (![servicePriceMinor, providerFeeMinor, monthlyCompletedCount].every(Number.isInteger) || servicePriceMinor < 0 || providerFeeMinor < 0) throw new TypeError("Amounts and count must be integer minor units");
   if (!['platform_absorbs','advisor_absorbs','before_split','pro_rata','custom'].includes(providerFeePolicy)) throw new TypeError("Provider fee policy required");
   const tier = advisorTierForCount(monthlyCompletedCount);
@@ -30,12 +34,41 @@ export function advisorCommissionSnapshot({ servicePriceMinor, providerFeeMinor 
     platformShareMinor -= providerFeeMinor - advisorFee;
   }
   return {
-    servicePriceMinor, providerFeeMinor, advisorRateBp: tier.advisorRateBp,
+    servicePriceMinor, grossAmountMinor: servicePriceMinor, providerFeeMinor,
+    providerFeeActualMinor, providerFeeEstimatedMinor, providerFeeSource,
+    providerFeePolicyVersion: ADVISOR_COMMERCIAL_POLICY_VERSION,
+    commissionBaseMinor: splitBase, tierAtCompletion: `${tier.min}-${tier.max === Infinity ? "plus" : tier.max}`,
+    advisorRateBp: tier.advisorRateBp,
     platformRateBp: 10000 - tier.advisorRateBp, monthlyCompletedCountAtSnapshot: monthlyCompletedCount,
     advisorShareMinor, platformShareMinor, commissionPolicyVersion: ADVISOR_COMMISSION_POLICY_VERSION,
     commissionApplicationMode: ADVISOR_COMMISSION_MODE,
-    refundPolicyVersion: ADVISOR_REFUND_POLICY_VERSION,
+    refundPolicyVersion: ADVISOR_REFUND_POLICY_VERSION, roundingPolicy: ADVISOR_ROUNDING_POLICY,
   };
+}
+
+export function advisorRefundReversalSnapshot(original, refundAmountMinor) {
+  const gross = Number(original.grossAmountMinor ?? original.servicePriceMinor);
+  if (!Number.isInteger(gross) || gross <= 0 || !Number.isInteger(refundAmountMinor) || refundAmountMinor <= 0 || refundAmountMinor > gross) throw new TypeError("Refund amount must be a positive integer no greater than gross");
+  const base = Number(original.commissionBaseMinor ?? gross);
+  const reversalBaseMinor = Math.floor(base * refundAmountMinor / gross);
+  const advisorReversalMinor = Math.floor(reversalBaseMinor * Number(original.advisorRateBp) / 10000);
+  return {
+    refundAmountMinor,
+    reversalBaseMinor,
+    advisorReversalMinor,
+    platformReversalMinor: reversalBaseMinor - advisorReversalMinor,
+    roundingPolicy: original.roundingPolicy || ADVISOR_ROUNDING_POLICY,
+    policyVersion: original.refundPolicyVersion || ADVISOR_REFUND_POLICY_VERSION,
+  };
+}
+
+export function advisorSettlementStageForDay(day) {
+  if (!Number.isInteger(day) || day < 1 || day > 31) throw new TypeError("Calendar day required");
+  if (day === 1) return "draft_created";
+  if (day <= 5) return "reconciliation_buffer";
+  if (day < 10) return "review";
+  if (day < 15) return "lock_target";
+  return "payout_target";
 }
 
 export function advisorStarLevel(completed) {

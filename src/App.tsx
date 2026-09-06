@@ -26,7 +26,7 @@ import { MerchantKitchenDisplayPage } from "./pages/MerchantKitchenDisplayPage";
 import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantGoogleBookingPage, MerchantInventoryPage, MerchantInvoicePage, MerchantLinePage, MerchantMembersPage, MerchantPaymentsPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 import { BeefNoodleBookingPage } from "./pages/BeefNoodleBookingPage";
 import { GeneralOrderingEntryPage } from "./pages/GeneralOrderingEntryPage";
-import { AdvisorApplyPage, AdvisorCategoryPage, AdvisorDashboardPage, AdvisorLoginPage, AdvisorMarketplacePage, AdvisorMatchPage, AdvisorProfilePage, AdvisorWorkspacePage } from "./pages/AdvisorMarketplacePages";
+import { AdvisorApplyPage, AdvisorCategoryPage, AdvisorDashboardPage, AdvisorEarningsPage, AdvisorLoginPage, AdvisorMarketplacePage, AdvisorMatchPage, AdvisorProfilePage, AdvisorWorkspacePage } from "./pages/AdvisorMarketplacePages";
 import { AdminAdvisorPage } from "./pages/AdminAdvisorPage";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
@@ -235,7 +235,8 @@ export function App() {
         <Route path="/advisor/apply" element={<AdvisorApplyPage />} />
         <Route path="/advisor/login" element={<AdvisorLoginPage />} />
         <Route path="/advisor/dashboard" element={<AdvisorDashboardPage />} />
-        {['profile','services','availability','bookings','customers','reviews','media','earnings','contracts','account'].map(section=><Route key={`advisor-${section}`} path={`/advisor/${section}`} element={<AdvisorWorkspacePage section={section}/>} />)}
+        {['profile','services','availability','bookings','customers','reviews','media','contracts','account'].map(section=><Route key={`advisor-${section}`} path={`/advisor/${section}`} element={<AdvisorWorkspacePage section={section}/>} />)}
+        <Route path="/advisor/earnings" element={<AdvisorEarningsPage />} />
         <Route path="/merchant-admin/ordering" element={<MerchantOrderingPage />} />
         <Route path="/merchant-admin/ordering/kitchen" element={<MerchantKitchenDisplayPage />} />
         <Route path="/merchant/dashboard" element={<MerchantAdminDashboardPage />} />
