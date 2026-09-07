@@ -20,6 +20,7 @@ import {
 } from "./merchant-contracts.js";
 import { handlePlatformMemberRequest } from "./platform-membership.js";
 import { handleCommercialCatalog } from "./commercial-catalog.js";
+import { handleMerchantPrinting } from "./merchant-printing.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -222,6 +223,32 @@ export default {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       return (await handleMerchantAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    // Native Android clients do not send a browser Origin. They still use the
+    // existing merchant credentials, HttpOnly session cookie and CSRF token.
+    if (url.pathname.startsWith("/api/merchant-app/auth/")) {
+      const scopedUrl = new URL(url);
+      scopedUrl.pathname = scopedUrl.pathname.replace("/api/merchant-app/auth/", "/api/merchant-auth/");
+      return (await handleMerchantAuth(request, env, scopedUrl, {})) || json({ error: "Not found" }, 404);
+    }
+
+    if (url.pathname.startsWith("/api/merchant-app/ordering")) {
+      const mappedPath = url.pathname.replace(/^\/api\/merchant-app\/ordering/, "/api/merchant-admin/ordering");
+      const permission = permissionForOrderingRequest(mappedPath, request.method);
+      const authorization = await authorizeMerchant(request, env, permission);
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status);
+      if (!await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id, env.APP_MODE === "staging")) return json({ code: "MERCHANT_ACTIVATION_REQUIRED" }, 423);
+      const scopedUrl = new URL(url);
+      scopedUrl.pathname = mappedPath.replace(/^\/api\/merchant-admin\/ordering/, "/api/admin/ordering");
+      scopedUrl.searchParams.set("merchant_id", authorization.session.merchant_id);
+      return handleOrderingAdminRequest(request, env, scopedUrl, {}, true, {
+        actor_type: "merchant", actor_id: authorization.session.user_id, actor_role: "merchant_owner",
+      });
+    }
+
+    if (url.pathname.startsWith("/api/merchant-app/")) {
+      return handleMerchantPrinting(request, env, url, {});
     }
 
     if (url.pathname.startsWith("/api/contract-verification/") && request.method === "GET") {

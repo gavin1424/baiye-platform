@@ -30,3 +30,6 @@ design-qa.md
 data/payment-runtime*.json
 .openai/
 AGENTS.md
+android/.gradle/
+android/local.properties
+android/app/build/

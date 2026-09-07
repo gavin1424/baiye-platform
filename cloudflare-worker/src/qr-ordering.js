@@ -3,6 +3,7 @@ import { authenticatePlatformMember, ensurePlatformMember, findPlatformMemberByP
 import { authenticateMerchantSession, deriveMerchantPassword as deriveNumericPassword, validateMerchantNumericPassword as validateNumericPassword } from "./merchant-auth.js";
 import { deductionStatements, restoreStatements } from "./inventory.js";
 import { attachMerchantProductAssetFromUrl } from "./merchant-assets.js";
+import { buildKitchenPayload } from "./merchant-printing.js";
 export { normalizeTaiwanMobile } from "./platform-membership.js";
 
 const E = new TextEncoder();
@@ -698,6 +699,7 @@ async function handleCreateOrder(request, db, context, cors) {
   const orderId = uid("foodorder");
   const initialStatus = Number(context.auto_accept_orders) === 1 ? "accepted" : "submitted";
   const code = `${clean(context.order_number_prefix || "BY", 8).replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "BY"}-${new Date().toISOString().slice(0,10).replaceAll("-","")}-${randomCode(6).toUpperCase()}`;
+  const createdAt = new Date().toISOString();
   let diningSessionId = null;
   if (orderType === "dine_in" && Number(context.table_session_enabled ?? 1) === 1) {
     const candidate = uid("dining");
@@ -712,6 +714,26 @@ async function handleCreateOrder(request, db, context, cors) {
     const messages = { COUPON_NOT_AVAILABLE: "此禮券目前無法使用。", COUPON_MINIMUM_NOT_MET: "此訂單尚未達到禮券最低消費。", PHONE_VERIFICATION_REQUIRED: "請先完成手機驗證再使用禮券。" };
     return json({ error: messages[error instanceof Error ? error.message : ""] || "禮券驗證失敗。" }, 409, cors);
   }
+  // Queue one original kitchen task per enabled printer. If the migration is
+  // being rolled out immediately before this Worker version, the compatibility
+  // catch keeps existing QR ordering available until D1 is ready.
+  let printerResult = { results: [] };
+  try {
+    printerResult = await db.prepare("SELECT id,copies FROM printers WHERE merchant_id=? AND enabled=1").bind(context.merchant_id).all();
+  } catch (error) {
+    if (!String(error instanceof Error ? error.message : error).includes("no such table: printers")) throw error;
+  }
+  const kitchenPayload = buildKitchenPayload({
+    merchantName: context.display_name,
+    orderCode: code,
+    tableLabel,
+    orderType,
+    paymentMethod: "counter",
+    totalMinor: calculation.total_minor,
+    createdAt,
+    customerNote: clean(input?.customer_note, 500),
+    items: calculation.lines,
+  });
   const statements = [
     db.prepare(`
       INSERT INTO merchant_food_orders
@@ -745,6 +767,11 @@ async function handleCreateOrder(request, db, context, cors) {
         (id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata)
       VALUES (?,?,?,?,?,?,?,?)
     `).bind(uid("ordaudit"), context.merchant_id, "customer", session.membership_id, "order_submitted", "order", orderId, JSON.stringify({ qr_id: context.id, order_type: orderType })),
+    ...(printerResult.results || []).map((printer) => db.prepare(`
+      INSERT OR IGNORE INTO print_jobs
+        (id,merchant_id,order_id,order_code,printer_id,print_type,status,copies,payload_json,available_at,created_by,idempotency_key)
+      VALUES (?,?,?,?,?,'kitchen','pending',?,?,CURRENT_TIMESTAMP,'order_commit',?)
+    `).bind(uid("printjob"), context.merchant_id, orderId, code, printer.id, Number(printer.copies || 1), JSON.stringify(kitchenPayload), `${orderId}:${printer.id}:kitchen:original`)),
   ];
 
   try {
