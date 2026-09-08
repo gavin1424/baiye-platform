@@ -14,8 +14,9 @@ Android v1 直接延伸現有 Production 掃碼點餐架構，不新建 merchant
 
 所有 `/api/merchant-app/*` 都使用現有商家帳密、HttpOnly merchant session、CSRF 與 merchant permission；merchant_id 來自 server-side session，不接受 App 指定。
 
-- `POST /api/merchant-app/auth/login`
-- `GET /api/merchant-app/auth/session`
+- `POST /api/merchant-auth/login`（沿用正式 Merchant Auth）
+- `POST /api/merchant-auth/select`（同一手機對應多商家時）
+- `GET /api/merchant-auth/session`
 - `GET|POST /api/merchant-app/printers`
 - `PUT /api/merchant-app/printers/:id`
 - `GET /api/merchant-app/print-jobs/pending`
@@ -27,6 +28,12 @@ Android v1 直接延伸現有 Production 掃碼點餐架構，不新建 merchant
 - `POST /api/merchant-app/print-jobs/:id/reprint`
 - `GET /api/merchant-app/ordering/overview`
 - `PATCH /api/merchant-app/ordering/orders/:code/status`
+
+### Android Merchant Auth audit（v1.0.1）
+
+舊版 APK 的 `API_BASE_URL` 已是 `https://chuang-baiye-ai.baiye-platform.workers.dev`，但登入 path 錯誤使用 `/api/merchant-app/auth/login`。因此實際請求為 `POST https://chuang-baiye-ai.baiye-platform.workers.dev/api/merchant-app/auth/login`，JSON body 是 `phone` 與 `password`，Production 回覆 HTTP 404 `{"error":"Not found"}`。
+
+v1.0.1 改為直接呼叫既有 `POST /api/merchant-auth/login`；多商家選擇及 session 驗證分別使用 `/api/merchant-auth/select` 與 `/api/merchant-auth/session`。Android 以 OkHttp `PersistentCookieJar` 接收並保存 HttpOnly `baiye_merchant_session`，App process 重啟後仍會依 domain、path、secure 與 expiry 規則自動送回。CSRF token 仍取自既有 Merchant Auth response，後續 mutation 透過 `X-CSRF-Token` 傳送。密碼不寫入 log 或本機儲存。
 
 App ordering alias 內部仍交給既有 `handleOrderingAdminRequest`，所以狀態只能按 `submitted → accepted → preparing → ready → served → completed` 流程前進。
 

@@ -6,7 +6,8 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import java.util.UUID
 
-class LocalStore(context: Context) : SQLiteOpenHelper(context, "baiye_printer_v1.db", null, 1) {
+class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "baiye_printer_v1.db", null, 1) {
+    val applicationContext: Context = context.applicationContext
     private val preferences = context.getSharedPreferences("baiye_session_v1", Context.MODE_PRIVATE)
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -26,7 +27,7 @@ class LocalStore(context: Context) : SQLiteOpenHelper(context, "baiye_printer_v1
     fun cookie() = preferences.getString("cookie", "") ?: ""
     fun csrf() = preferences.getString("csrf", "") ?: ""
     fun merchantName() = preferences.getString("merchant_name", "") ?: ""
-    fun hasSession() = cookie().isNotBlank()
+    fun hasSession() = preferences.getString("merchant_id", "").orEmpty().isNotBlank()
     fun clearSession() = preferences.edit().remove("cookie").remove("csrf").remove("merchant_id").remove("merchant_name").apply()
     fun setLastSync(epochMs: Long) = preferences.edit().putLong("last_sync", epochMs).apply()
     fun lastSync() = preferences.getLong("last_sync", 0)
