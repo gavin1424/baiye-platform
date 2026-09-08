@@ -63,6 +63,25 @@ function publicTemplate(template) {
   };
 }
 
+function publicPlanEntry(template) {
+  const plan = parseSnapshot(template);
+  return {
+    plan_id: template.plan_id,
+    plan_slug: template.plan_slug,
+    contract_name: template.contract_name,
+    contract_version: template.contract_version,
+    plan: {
+      plan_id: plan.plan_id,
+      plan_slug: plan.plan_slug,
+      plan_name: plan.plan_name,
+      plan_price_minor: plan.plan_price_minor,
+      plan_price_display: plan.plan_price_display,
+      currency: plan.currency,
+    },
+    signing_available: template.status === "approved" && template.approved_content_hash === template.contract_content_hash,
+  };
+}
+
 async function contractEvent(db, request, template, { signatureId = null, merchantId = null, actorType = "visitor", actorId = null, action, metadata = {} }) {
   return db.prepare("INSERT INTO service_plan_contract_events(id,contract_template_id,signature_id,merchant_id,actor_type,actor_id,action,metadata_json,ip_address) VALUES(?,?,?,?,?,?,?,?,?)")
     .bind(makeId("spce"), template.id, signatureId, merchantId, actorType, actorId, action, JSON.stringify(metadata), clientIp(request)).run();
@@ -91,7 +110,7 @@ export async function handlePlanContractPublic(request, env, url, cors = {}) {
   try {
     const template = await templateBySlug(env.FINANCE_DB, decodeURIComponent(match[1]));
     if (!template) throw new ContractError("PLAN_CONTRACT_NOT_FOUND", "找不到此方案契約。", 404);
-    return json(publicTemplate(template), 200, cors);
+    return json(publicPlanEntry(template), 200, cors);
   } catch (error) { return errorResponse(error, cors); }
 }
 
@@ -120,6 +139,7 @@ export async function handlePlanContractRequest(request, env, url, cors = {}, au
     const plan = parseSnapshot(template);
     const signature = await db.prepare("SELECT id,public_id,signed_at,status,pdf_hash FROM service_plan_contract_signatures WHERE merchant_id=? AND contract_template_id=?").bind(session.merchant_id, template.id).first();
     if (!match[2] && request.method === "GET") {
+      assertContractSignable({ ...template, legal_review_status: template.status, content_hash: template.contract_content_hash, approved_content_hash: template.approved_content_hash }, env);
       await contractEvent(db, request, template, { merchantId: session.merchant_id, actorType: "merchant", actorId: session.user_id, action: "plan.contract.opened", metadata: { plan_id: template.plan_id, authenticated: true } });
       return json({ ...publicTemplate(template), signed: Boolean(signature), signature }, 200, cors);
     }
@@ -140,7 +160,7 @@ export async function handlePlanContractRequest(request, env, url, cors = {}, au
       const operation = await beginContractOperation(db, { partyType: "merchant", partyId: `${session.merchant_id}:${template.id}`, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") });
       if (operation.replay) return json(operation.result, 200, cors);
       const existing = await db.prepare("SELECT id,public_id,signed_at,document_hash,pdf_hash FROM service_plan_contract_signatures WHERE merchant_id=? AND contract_template_id=?").bind(session.merchant_id, template.id).first();
-      if (existing) { const result = { ...existing, replay: true, plan_id: template.plan_id, continue_url: `/merchant/select-plan?plan=${encodeURIComponent(template.plan_id)}` }; await completeContractOperation(db, operation.operation.id, result); return json(result, 200, cors); }
+      if (existing) { const result = { ...existing, replay: true, plan_id: template.plan_id, continue_url: `/contact?plan=${encodeURIComponent(template.plan_id)}` }; await completeContractOperation(db, operation.operation.id, result); return json(result, 200, cors); }
       const merchant = await db.prepare("SELECT id,name FROM merchants WHERE id=?").bind(session.merchant_id).first();
       if (!merchant) throw new ContractError("MERCHANT_NOT_FOUND", "找不到商家資料。", 404);
       const signatureId = makeId("spcs");
@@ -163,7 +183,7 @@ export async function handlePlanContractRequest(request, env, url, cors = {}, au
       });
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, `contracts/service-plans/${session.merchant_id}/${template.plan_slug}/${template.contract_version}/${signatureId}`, agreement);
       const priceSnapshot = JSON.stringify({ amount_minor: plan.plan_price_minor, display: plan.plan_price_display, currency: plan.currency });
-      const result = { contract_id: publicId, signature_id: signatureId, contract_template_id: template.id, contract_version: template.contract_version, plan_id: template.plan_id, plan_slug: template.plan_slug, plan_name: plan.plan_name, signed_at: agreement.signedAt, document_hash: agreement.documentHash, pdf_hash: agreement.pdfHash, continue_url: `/merchant/select-plan?plan=${encodeURIComponent(template.plan_id)}` };
+      const result = { contract_id: publicId, signature_id: signatureId, contract_template_id: template.id, contract_version: template.contract_version, plan_id: template.plan_id, plan_slug: template.plan_slug, plan_name: plan.plan_name, signed_at: agreement.signedAt, document_hash: agreement.documentHash, pdf_hash: agreement.pdfHash, continue_url: `/contact?plan=${encodeURIComponent(template.plan_id)}` };
       try {
         await db.batch([
           db.prepare("INSERT INTO service_plan_contract_signatures(id,public_id,contract_template_id,contract_type,merchant_id,signer_user_id,signer_platform_member_id,legal_name,plan_id,plan_slug,plan_name,plan_price_snapshot,plan_details_snapshot,contract_version,contract_snapshot,contract_content_hash,consent_states_json,consent_version,electronic_signature,signature_hash,signed_at,timezone,ip_address,user_agent,request_metadata_json,document_hash,pdf_object_key,pdf_hash,evidence_object_key,signature_assurance_level,final_confirmed_at,submitted_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ContractSignatureCanvas, hasUsableSignature, type SignatureValue } from "../components/ContractSignatureCanvas";
-import { merchantOrderingApi } from "../qr-ordering-client";
+import { merchantLoginPathForContract } from "../contract-routing";
+import { merchantOrderingApi, merchantProtectedResourceState } from "../qr-ordering-client";
 
 const API = (import.meta.env.VITE_PLATFORM_API_URL || "https://chuang-baiye-ai.baiye-platform.workers.dev").replace(/\/$/, "");
 const errorText = (error: unknown) => error instanceof Error ? error.message : "方案契約服務暫時無法使用。";
@@ -9,15 +10,16 @@ const errorText = (error: unknown) => error instanceof Error ? error.message : "
 async function publicContract(slug: string) {
   const response = await fetch(`${API}/api/public/plan-contracts/${encodeURIComponent(slug)}`, { credentials: "include" });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "找不到此方案契約。");
+  if (!response.ok) throw Object.assign(new Error(data.error || "找不到此方案契約。"), { status: response.status, code: data.code || "" });
   return data;
 }
 
 export function PlanContractPage() {
   const { planSlug = "" } = useParams();
+  const navigate = useNavigate();
   const [contract, setContract] = useState<any>();
-  const [authenticated, setAuthenticated] = useState(false);
   const [signed, setSigned] = useState<any>();
+  const [invalidPlan, setInvalidPlan] = useState(false);
   const [legalName, setLegalName] = useState("");
   const [consents, setConsents] = useState({ read: false, plan_details: false, electronic: false });
   const [signature, setSignature] = useState<SignatureValue>();
@@ -29,16 +31,30 @@ export function PlanContractPage() {
   useEffect(() => {
     sessionStorage.setItem(intentKey, signingIntent.current);
     let active = true;
-    void publicContract(planSlug).then((data) => { if (active) setContract(data); }).catch((error) => { if (active) setNotice(errorText(error)); });
-    void merchantOrderingApi<any>("/api/merchant-auth/session").then(async () => {
-      const current = await merchantOrderingApi<any>(`/api/merchant/plan-contracts/${encodeURIComponent(planSlug)}`);
-      if (!active) return;
-      setAuthenticated(true);
-      setContract(current);
-      setSigned(current.signature);
-    }).catch(() => { if (active) setAuthenticated(false); });
+    setContract(undefined); setSigned(undefined); setInvalidPlan(false); setNotice("");
+    void (async () => {
+      try {
+        await publicContract(planSlug);
+        try { await merchantOrderingApi<any>("/api/merchant-auth/session"); }
+        catch (error) {
+          if (merchantProtectedResourceState(error) === "unauthenticated") {
+            if (active) navigate(merchantLoginPathForContract(planSlug), { replace: true });
+            return;
+          }
+          throw error;
+        }
+        const current = await merchantOrderingApi<any>(`/api/merchant/plan-contracts/${encodeURIComponent(planSlug)}`);
+        if (!active) return;
+        setContract(current);
+        setSigned(current.signature);
+      } catch (error) {
+        if (!active) return;
+        if (Number((error as { status?: number })?.status) === 404) setInvalidPlan(true);
+        setNotice(errorText(error));
+      }
+    })();
     return () => { active = false; };
-  }, [planSlug]);
+  }, [navigate, planSlug]);
   const ready = useMemo(() => Boolean(legalName.trim()) && Object.values(consents).every(Boolean) && hasUsableSignature(signature), [consents, legalName, signature]);
   const payload = { ...consents, legal_name: legalName, signature, plan_id: contract?.plan_id, plan_slug: contract?.plan_slug, contract_template_id: contract?.contract_template_id };
   const openPreview = async () => {
@@ -72,21 +88,18 @@ export function PlanContractPage() {
     } catch (error) { viewer?.close(); setNotice(errorText(error)); }
     finally { setBusy(false); }
   };
-  if (!contract) return <main className="partner-shell partner-contract plan-contract-page"><p className="partner-eyebrow">方案合作契約</p><h1>載入方案契約</h1><p>{notice || "正在讀取伺服器正式方案資料…"}</p></main>;
+  if (!contract) return <main className="partner-shell partner-contract plan-contract-page"><p className="partner-eyebrow">創百業智慧鏈</p><h1>{invalidPlan ? "找不到此方案契約" : "正在載入方案合約"}</h1><p>{notice || "正在確認登入狀態與正式契約…"}</p>{invalidPlan && <Link className="btn btn-primary" to="/pricing">返回方案</Link>}</main>;
   const plan = contract.plan;
   return <main className="partner-shell partner-contract plan-contract-page">
     <style>{"body:has(.partner-contract) .ai-chat{display:none}"}</style>
-    <p className="partner-eyebrow">創百業智慧鏈｜方案合作契約</p>
-    <h1>{contract.contract_name}</h1>
+    <p className="partner-eyebrow">創百業智慧鏈</p>
+    <h1>{plan.plan_name} 合作契約</h1>
     <section className="contract-summary-grid plan-contract-summary">
-      <article><span>方案名稱</span><strong>{plan.plan_name}</strong></article>
       <article><span>方案費用</span><strong>{plan.plan_price_display}</strong></article>
-      <article><span>服務期間</span><strong>{plan.service_period}</strong></article>
+      <article><span>契約版本</span><strong>{contract.contract_version}</strong></article>
     </section>
     <article className="contract-document" dangerouslySetInnerHTML={{ __html: contract.contract_snapshot }} />
-    {signed ? <section className="partner-status success contract-signed-actions"><strong>方案合約簽署完成</strong><span>契約編號：{signed.contract_id || signed.public_id}</span><span>已簽署方案：{plan.plan_name} · {signed.signed_at}</span><div className="partner-workflow-actions"><button className="btn btn-primary" disabled={busy} onClick={() => void openPdf(false)}>查看正式契約</button><button className="btn btn-outline" disabled={busy} onClick={() => void openPdf(true)}>下載已簽署 PDF</button><Link className="btn btn-primary" to={signed.continue_url || `/merchant/select-plan?plan=${encodeURIComponent(contract.plan_id)}`}>繼續完成方案申請</Link></div></section>
-      : !contract.production_signing_enabled ? <section className="plan-contract-gate"><p><strong>LEGAL REVIEW：PENDING</strong></p><p>三份方案契約各自保留法律審閱 Gate；本草稿不可於 Production 正式簽署。</p><div className="partner-workflow-actions"><Link className="btn btn-outline" to="/pricing">返回方案比較</Link><Link className="btn btn-primary" to={`/merchant/register?plan=${encodeURIComponent(contract.plan_id)}`}>先建立商家帳號</Link></div></section>
-      : !authenticated ? <section className="plan-contract-gate"><p>請先登入商家擁有者帳號，再完成此方案的正式電子簽署。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to={`/merchant/login?next=${encodeURIComponent(`/plans/${planSlug}/contract`)}`}>登入後簽署</Link><Link className="btn btn-outline" to={`/merchant/register?plan=${encodeURIComponent(contract.plan_id)}`}>建立商家帳號</Link></div></section>
+    {signed ? <section className="partner-status success contract-signed-actions"><strong>方案合約簽署完成</strong><span>契約編號：{signed.contract_id || signed.public_id}</span><span>已簽署方案：{plan.plan_name} · {signed.signed_at}</span><div className="partner-workflow-actions"><button className="btn btn-primary" disabled={busy} onClick={() => void openPdf(false)}>查看正式契約</button><button className="btn btn-outline" disabled={busy} onClick={() => void openPdf(true)}>下載已簽署 PDF</button><Link className="btn btn-primary" to={signed.continue_url || `/contact?plan=${encodeURIComponent(contract.plan_id)}`}>繼續完成方案申請</Link></div></section>
       : <section className="plan-contract-signing"><label>法定姓名<input required value={legalName} onChange={(event) => setLegalName(event.target.value)} /></label>{[
         ["read", "本人已閱讀並理解本方案合作契約全部內容。"],
         ["plan_details", "本人確認所選方案、服務內容及費用資訊正確。"],

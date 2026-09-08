@@ -15,11 +15,13 @@ test("pricing renders three server-provided merchant plans and no free plan card
   assert.doesNotMatch(page, /方案原價 NT\$30,000<br/);
 });
 
-test("merchant registration continues to the server-backed plan selector", () => {
+test("merchant registration preserves a contract return target or continues to the plan selector", () => {
   const app = read("src/App.tsx");
   const register = read("src/pages/MerchantLoginPage.tsx");
   assert.match(app, /path="\/merchant\/select-plan"/);
-  assert.match(register, /navigate\(`\/merchant\/select-plan/);
+  assert.match(register, /sanitizePlanContractReturnTo/);
+  assert.match(register, /\/merchant\/select-plan/);
+  assert.match(register, /\/merchant\/login\?returnTo=/);
 });
 
 test("public navigation is shared and routes to current merchant entry", () => {

@@ -51,11 +51,10 @@ export function planContractSnapshot(plan) {
 const list = (items) => `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
 const agreementName = (planName) => `${planName}${planName.endsWith("方案") ? "" : "方案"}合作契約`;
 
-export function planContractHtml(plan) {
+function reviewedTerms(plan) {
   const snapshot = planContractSnapshot(plan);
   return [
     `<h1>創百業智慧鏈｜${agreementName(snapshot.plan_name)} v1.0</h1>`,
-    "<p><strong>法律審閱草稿｜pending_review｜目前不可於 Production 正式簽署</strong></p>",
     `<h2>一、契約雙方與所選方案</h2><p>甲方：陳靈有限公司（創百業智慧鏈）；乙方：完成電子簽署之商家或其合法授權代表。乙方所選方案為「${snapshot.plan_name}」，方案識別碼為 ${snapshot.plan_id}。</p>`,
     `<h2>二、方案費用與付款方式</h2><p>${snapshot.payment_terms}</p><p>公開頁面或後續報價如有變動，不影響已簽署契約所保存之費用及方案 Snapshot。未經乙方另行確認，不視為同意自動續約或自動扣款。</p>`,
     `<h2>三、服務期間、內容與交付範圍</h2><p>${snapshot.service_period}</p><p>${snapshot.summary}</p>${list(snapshot.service_items)}`,
@@ -65,11 +64,43 @@ export function planContractHtml(plan) {
     "<h2>七、個資、AI、智慧財產與資料</h2><p>雙方應依適用法令處理個人資料。AI 產出應由乙方確認，不保證正確率、營收或搜尋排名。雙方既有智慧財產權仍歸原權利人；商家資料之合法性、授權及使用責任由提供資料之一方負責。</p>",
     "<h2>八、費用、變更、終止與爭議</h2><p>退款、取消、違約、終止、不可抗力及其他未盡事項，應以完成法律審閱之正式版本、個別報價或補充協議為準。方案變更不得直接覆寫既有契約；改選其他方案時應建立並重新簽署該方案之新契約。</p>",
     "<h2>九、電子形式、版本與證據</h2><p>雙方同意以電子形式完成程序；法定姓名、明確同意、手寫簽名軌跡、時間、Session、IP、User-Agent、方案 Snapshot、契約 Snapshot 與雜湊作為線上簽署證據。已簽署文件不得覆寫，條款或方案內容變更應建立新版本。</p>",
+  ];
+}
+
+export function approvedPlanContractHtml(plan) {
+  return reviewedTerms(plan).join("");
+}
+
+export function planContractHtml(plan) {
+  const terms = reviewedTerms(plan);
+  return [
+    terms[0],
+    "<p><strong>法律審閱草稿｜pending_review｜目前不可於 Production 正式簽署</strong></p>",
+    ...terms.slice(1),
     "<h2>十、法律審閱 Gate</h2><p>本版本尚待正式法律審閱。未經平台授權管理員依實際法律審閱結果核准並鎖定內容 Hash 前，不得於 Production 正式簽署；準據法、管轄及依法不得排除之權利義務，以完成法律審閱後之正式版本為準。</p>",
   ].join("");
 }
 
+const DRAFT_TEMPLATE_IDS = Object.freeze({
+  baiye_standard_18000_addons: "plan_contract_standard_v1_0",
+  baiye_commerce_ai_45000: "plan_contract_commerce_v1_0",
+  baiye_softpos_24000: "plan_contract_softpos_v1_0",
+});
+
 export const PLAN_CONTRACT_DRAFTS = Object.freeze(MERCHANT_PLANS.map((plan) => Object.freeze({
+  contract_template_id: DRAFT_TEMPLATE_IDS[plan.plan_id],
+  contract_type: "service_plan_agreement",
+  plan_id: plan.plan_id,
+  plan_slug: plan.plan_slug,
+  contract_name: `創百業智慧鏈｜${agreementName(plan.display_name)}`,
+  contract_version: "draft-v1.0-20260908",
+  plan_snapshot: planContractSnapshot(plan),
+  contract_snapshot: planContractHtml(plan),
+  effective_at: "2026-09-08",
+  status: "pending_review",
+})));
+
+export const PLAN_CONTRACTS = Object.freeze(MERCHANT_PLANS.map((plan) => Object.freeze({
   contract_template_id: plan.contract_template_id,
   contract_type: "service_plan_agreement",
   plan_id: plan.plan_id,
@@ -77,11 +108,11 @@ export const PLAN_CONTRACT_DRAFTS = Object.freeze(MERCHANT_PLANS.map((plan) => O
   contract_name: `創百業智慧鏈｜${agreementName(plan.display_name)}`,
   contract_version: plan.plan_contract_version,
   plan_snapshot: planContractSnapshot(plan),
-  contract_snapshot: planContractHtml(plan),
+  contract_snapshot: approvedPlanContractHtml(plan),
   effective_at: "2026-09-08",
-  status: "pending_review",
+  status: "approved",
 })));
 
 export function findPlanContractDefinition(slug) {
-  return PLAN_CONTRACT_DRAFTS.find((item) => item.plan_slug === slug) || null;
+  return PLAN_CONTRACTS.find((item) => item.plan_slug === slug) || null;
 }
