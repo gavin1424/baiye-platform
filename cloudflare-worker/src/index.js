@@ -345,7 +345,12 @@ export default {
     if (url.pathname.startsWith("/api/merchant-admin/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
-      const authorization = await authorizeMerchant(request, env);
+      const merchantAdminPermission = url.pathname === "/api/merchant-admin/dashboard" ? "operations.dashboard.read"
+        : url.pathname === "/api/merchant-admin/operations/reports" ? "operations.reports.read"
+        : url.pathname.startsWith("/api/merchant-admin/members") ? "operations.members.read"
+        : url.pathname.startsWith("/api/merchant-admin/operations/integrations") || url.pathname.startsWith("/api/merchant-admin/operations/staff") ? "operations.integrations.read"
+        : "";
+      const authorization = await authorizeMerchant(request, env, merchantAdminPermission);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
       const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
       if (!operationGate.ok) return json({ error: operationGate.error === "MERCHANT_PAYMENT_REQUIRED" ? "契約已簽署，尚待完成付款。" : "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error, onboarding_state: operationGate.state, payment_next_url: operationGate.payment_next_url || null }, operationGate.status, cors);

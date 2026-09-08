@@ -148,5 +148,62 @@ export async function handleMerchantAdmin(request, env, url, cors, authorization
   if (url.pathname === "/api/merchant-admin/audit" && request.method === "GET") {
     const rows = await db.prepare("SELECT id,role,action,resource_type,resource_id,before_json,after_json,created_at FROM merchant_admin_audit_logs WHERE merchant_id=? ORDER BY datetime(created_at) DESC LIMIT 100").bind(merchantId).all(); return json({ items: rows.results || [] }, 200, cors);
   }
+
+  if (url.pathname === "/api/merchant-admin/operations/reports" && request.method === "GET") {
+    const period = clean(url.searchParams.get("period") || "today", 20);
+    const days = period === "yesterday" ? 1 : period === "7d" ? 7 : period === "30d" ? 30 : 0;
+    const customFrom = /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get("from") || "") ? url.searchParams.get("from") : null;
+    const customTo = /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get("to") || "") ? url.searchParams.get("to") : null;
+    const where = customFrom && customTo
+      ? "date(o.created_at,'+8 hours') BETWEEN date(?) AND date(?)"
+      : period === "yesterday"
+        ? "date(o.created_at,'+8 hours')=date('now','+8 hours','-1 day')"
+        : days > 0 ? `date(o.created_at,'+8 hours')>=date('now','+8 hours','-${days - 1} days')` : "date(o.created_at,'+8 hours')=date('now','+8 hours')";
+    const bind = (statement) => customFrom && customTo ? statement.bind(merchantId, customFrom, customTo) : statement.bind(merchantId);
+    const active = "o.status<>'cancelled' AND o.demo_reset_at IS NULL";
+    const [kpis, daily, hourly, products, sources, payments, types, members] = await Promise.all([
+      bind(db.prepare(`SELECT COALESCE(SUM(o.total_minor),0) revenue_minor,COUNT(*) orders,COALESCE(AVG(o.total_minor),0) average_order_minor,SUM(CASE WHEN o.status IN('submitted','accepted','preparing','ready') THEN 1 ELSE 0 END) pending FROM merchant_food_orders o WHERE o.merchant_id=? AND ${active} AND ${where}`)).first(),
+      bind(db.prepare(`SELECT date(o.created_at,'+8 hours') label,SUM(o.total_minor) value_minor,COUNT(*) count FROM merchant_food_orders o WHERE o.merchant_id=? AND ${active} AND ${where} GROUP BY label ORDER BY label`)).all(),
+      bind(db.prepare(`SELECT strftime('%H:00',o.created_at,'+8 hours') label,SUM(o.total_minor) value_minor,COUNT(*) count FROM merchant_food_orders o WHERE o.merchant_id=? AND ${active} AND ${where} GROUP BY label ORDER BY label`)).all(),
+      bind(db.prepare(`SELECT i.name_snapshot label,SUM(i.quantity) quantity,SUM(i.line_total_minor) value_minor FROM merchant_food_orders o JOIN merchant_food_order_items i ON i.order_id=o.id WHERE o.merchant_id=? AND ${active} AND ${where} GROUP BY i.name_snapshot ORDER BY quantity DESC,value_minor DESC LIMIT 10`)).all(),
+      bind(db.prepare(`SELECT COALESCE(f.source,'QR') label,COUNT(*) count,SUM(o.total_minor) value_minor FROM merchant_food_orders o LEFT JOIN merchant_order_fulfillment f ON f.merchant_id=o.merchant_id AND f.order_id=o.id WHERE o.merchant_id=? AND ${active} AND ${where} GROUP BY label ORDER BY count DESC`)).all(),
+      bind(db.prepare(`SELECT COALESCE(o.payment_method_v1,o.payment_method,'counter') label,COUNT(*) count,SUM(o.total_minor) value_minor FROM merchant_food_orders o WHERE o.merchant_id=? AND ${active} AND ${where} GROUP BY label ORDER BY count DESC`)).all(),
+      bind(db.prepare(`SELECT o.order_type label,COUNT(*) count,SUM(o.total_minor) value_minor FROM merchant_food_orders o WHERE o.merchant_id=? AND ${active} AND ${where} GROUP BY label ORDER BY count DESC`)).all(),
+      bind(db.prepare(`SELECT COUNT(DISTINCT o.membership_id) active_members,SUM(CASE WHEN m.order_count=1 THEN 1 ELSE 0 END) new_members,SUM(CASE WHEN m.order_count>1 THEN 1 ELSE 0 END) repeat_members FROM merchant_food_orders o JOIN merchant_ordering_memberships m ON m.merchant_id=o.merchant_id AND m.id=o.membership_id WHERE o.merchant_id=? AND ${active} AND ${where}`)).first(),
+    ]);
+    return json({ period, from: customFrom, to: customTo, kpis: { revenue_minor: Number(kpis?.revenue_minor || 0), orders: Number(kpis?.orders || 0), average_order_minor: Math.round(Number(kpis?.average_order_minor || 0)), pending: Number(kpis?.pending || 0), new_members: Number(members?.new_members || 0), repeat_members: Number(members?.repeat_members || 0) }, daily: daily.results || [], hourly: hourly.results || [], products: (products.results || []).map(({ label, value_minor, ...row }) => ({ ...row, name: label, revenue_minor: value_minor })), sources: sources.results || [], payments: payments.results || [], order_types: types.results || [] }, 200, cors);
+  }
+
+  if (url.pathname === "/api/merchant-admin/operations/promotions" && request.method === "GET") {
+    const rows = await db.prepare("SELECT id,name,campaign_type,enabled,production_ready,discount_type,discount_value_minor,minimum_spend_minor,valid_days,starts_at,ends_at,terms_version FROM merchant_coupon_campaigns WHERE merchant_id=? ORDER BY datetime(created_at) DESC").bind(merchantId).all();
+    const promotions = (rows.results || []).map((row) => ({ ...row, enabled: Boolean(row.enabled), production_ready: Boolean(row.production_ready) }));
+    return json({ promotions, campaigns: promotions, supported_types: ["fixed_amount"], future_types: ["percentage","threshold","quantity","buy_n_get_m","takeaway","free_delivery"] }, 200, cors);
+  }
+
+  const memberDetail = url.pathname.match(/^\/api\/merchant-admin\/members\/([^/]+)$/);
+  if (memberDetail && request.method === "GET") {
+    const member = await db.prepare(`SELECT m.id,m.membership_no,m.status,m.visit_count,m.order_count,m.last_seen_at,m.created_at,c.display_name,c.phone_normalized FROM merchant_ordering_memberships m JOIN ordering_customers c ON c.id=m.customer_id WHERE m.merchant_id=? AND m.id=?`).bind(merchantId, memberDetail[1]).first();
+    if (!member) return json({ error: "找不到此會員。" }, 404, cors);
+    const [orders, coupons] = await Promise.all([
+      db.prepare("SELECT order_code,status,payment_status,total_minor,created_at FROM merchant_food_orders WHERE merchant_id=? AND membership_id=? AND demo_reset_at IS NULL ORDER BY datetime(created_at) DESC LIMIT 100").bind(merchantId, member.id).all(),
+      db.prepare(`SELECT c.id,c.status,c.issued_at,c.expires_at,p.name campaign_name,p.discount_value_minor FROM merchant_member_coupons c JOIN merchant_coupon_campaigns p ON p.id=c.campaign_id WHERE c.merchant_id=? AND c.membership_id=? ORDER BY datetime(c.issued_at) DESC`).bind(merchantId, member.id).all(),
+    ]);
+    return json({ member: { ...member, phone_masked: mask(member.phone_normalized), phone_normalized: undefined }, orders: orders.results || [], coupons: coupons.results || [], tags: [], notes: [], totals: { lifetime_spend_minor: (orders.results || []).filter((order) => order.status !== "cancelled").reduce((sum, order) => sum + Number(order.total_minor || 0), 0) } }, 200, cors);
+  }
+
+  if (url.pathname === "/api/merchant-admin/operations/staff" && request.method === "GET") {
+    const rows = await db.prepare(`SELECT u.id,u.display_name,u.status,GROUP_CONCAT(DISTINCT r.code) roles,GROUP_CONCAT(DISTINCT rp.permission_code) permissions FROM merchant_users u LEFT JOIN merchant_user_roles ur ON ur.merchant_id=u.merchant_id AND ur.user_id=u.id LEFT JOIN merchant_roles r ON r.id=ur.role_id LEFT JOIN merchant_role_permissions rp ON rp.role_id=r.id WHERE u.merchant_id=? GROUP BY u.id ORDER BY u.display_name`).bind(merchantId).all();
+    return json({ staff: rows.results || [], role_catalog: ["OWNER","MANAGER","CASHIER","KITCHEN","STAFF"] }, 200, cors);
+  }
+
+  if (url.pathname === "/api/merchant-admin/operations/integrations" && request.method === "GET") {
+    const [line, payments, deliveries, printers] = await Promise.all([
+      db.prepare("SELECT enabled,basic_id,display_name,add_friend_url,integration_mode FROM merchant_line_integrations WHERE merchant_id=?").bind(merchantId).first(),
+      db.prepare("SELECT provider,mode,enabled,production_ready,provider_status,display_name FROM merchant_payment_integrations WHERE merchant_id=?").bind(merchantId).all(),
+      db.prepare("SELECT provider,display_name,enabled,production_ready,verified_status FROM merchant_delivery_links WHERE merchant_id=?").bind(merchantId).all(),
+      db.prepare("SELECT id,name,model,enabled,last_seen_at FROM printers WHERE merchant_id=?").bind(merchantId).all(),
+    ]);
+    return json({ line: line ? { ...line, connected: Boolean(line.enabled) } : null, payments: payments.results || [], deliveries: deliveries.results || [], printers: printers.results || [], invoice: { status: "not_enabled", provider_ready: false }, google: { status: "needs_configuration" }, external: [{ provider: "uber_eats", status: "not_connected" }, { provider: "foodpanda", status: "not_connected" }], secrets_exposed: false }, 200, cors);
+  }
   return null;
 }

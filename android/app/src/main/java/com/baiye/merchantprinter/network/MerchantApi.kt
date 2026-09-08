@@ -8,6 +8,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class ApiException(val status: Int, val code: String, message: String) : Exception(message)
@@ -30,17 +31,20 @@ class MerchantApi(
     private fun request(path: String, method: String = "GET", body: JSONObject? = null, idempotencyKey: String = ""): Response {
         val requestBody = body?.toString()?.toRequestBody(JSON)
         val builder = Request.Builder().url(baseUrl.trimEnd('/') + path).header("Accept", "application/json")
-        if (path.startsWith("/api/merchant-auth/")) builder.header("Origin", BuildConfig.MERCHANT_AUTH_ORIGIN)
+        if (path.startsWith("/api/merchant-auth/") || path.startsWith("/api/merchant-admin/")) builder.header("Origin", BuildConfig.MERCHANT_AUTH_ORIGIN)
         if (method !in listOf("GET", "HEAD") && store.csrf().isNotBlank()) builder.header("X-CSRF-Token", store.csrf())
         if (idempotencyKey.isNotBlank()) builder.header("Idempotency-Key", idempotencyKey)
         builder.method(method, if (method in listOf("GET", "HEAD")) null else requestBody ?: EMPTY_JSON)
 
-        client.newCall(builder.build()).execute().use { response ->
-            val text = response.body?.string().orEmpty()
-            val json = runCatching { JSONObject(text.ifBlank { "{}" }) }.getOrElse { JSONObject().put("error", text) }
-            if (!response.isSuccessful) throw ApiException(response.code, json.optString("code"), json.optString("error", "連線失敗 (${response.code})"))
-            return Response(response.code, json)
-        }
+        try {
+            client.newCall(builder.build()).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                val json = runCatching { JSONObject(text.ifBlank { "{}" }) }.getOrElse { JSONObject().put("error", text) }
+                if (!response.isSuccessful) throw ApiException(response.code, json.optString("code"), friendlyError(response.code, json.optString("error")))
+                return Response(response.code, json)
+            }
+        } catch (error: ApiException) { throw error }
+        catch (_: IOException) { throw ApiException(0, "NETWORK_OFFLINE", "目前無法連線，資料將保留並在網路恢復後重新同步。") }
     }
 
     fun login(phone: String, password: String): String {
@@ -88,8 +92,41 @@ class MerchantApi(
         return PrinterConfig(saved.getString("id"), saved.getString("name"), "Xprinter XP-N160II", saved.getString("host"), saved.getInt("port"), 80, saved.optBoolean("enabled", true), saved.optBoolean("auto_print"), saved.optInt("copies", 1)).also(store::savePrinter)
     }
 
-    fun overview(): List<MerchantOrder> = request("/api/merchant-app/ordering/overview").body.optJSONArray("orders").toList().map { parseOrder(it as JSONObject) }
-    fun updateOrder(code: String, status: String) = request("/api/merchant-app/ordering/orders/${enc(code)}/status", "PATCH", JSONObject().put("status", status))
+    fun overviewJson(): JSONObject = request("/api/merchant-admin/ordering/overview").body.also { store.cache("overview", it.toString()) }
+    fun cachedOverview(): JSONObject? = store.cached("overview")?.let { runCatching { JSONObject(it) }.getOrNull() }
+    fun overview(): List<MerchantOrder> = overviewJson().optJSONArray("orders").toList().map { parseOrder(it as JSONObject) }
+    fun updateOrder(code: String, status: String, cancelReason: String = "", key: String = ""): Response {
+        val path = "/api/merchant-admin/ordering/orders/${enc(code)}/status"
+        val body = JSONObject().put("status", status).apply { if (cancelReason.isNotBlank()) put("cancel_reason", cancelReason) }
+        return queuedWhenOffline("PATCH", path, body, key.ifBlank { "order-$code-$status" })
+    }
+    fun confirmPayment(code: String, method: String, key: String) = request("/api/merchant-admin/ordering/orders/${enc(code)}/payment", "POST", JSONObject().put("action", "confirmed").put("payment_method", method), key)
+    fun saveOrderingSettings(body: JSONObject) = request("/api/merchant-admin/ordering/settings", "PATCH", body)
+    fun updateMenuItem(id: String, body: JSONObject) = request("/api/merchant-admin/ordering/items/${enc(id)}", "PATCH", body)
+    fun createMenuItem(body: JSONObject) = request("/api/merchant-admin/ordering/items", "POST", body)
+    fun createCategory(body: JSONObject) = request("/api/merchant-admin/ordering/categories", "POST", body)
+    fun updateCategory(id: String, body: JSONObject) = request("/api/merchant-admin/ordering/categories/${enc(id)}", "PATCH", body)
+    fun createQr(label: String, table: String) = request("/api/merchant-admin/ordering/qrs", "POST", JSONObject().put("label", label).put("purpose", if (table.isBlank()) "takeaway" else "dine_in").put("table_label", table)).body
+    fun closeTable(id: String) = request("/api/merchant-admin/ordering/dining-sessions/${enc(id)}/close", "POST")
+    fun counterOrder(body: JSONObject, key: String): JSONObject = try { request("/api/merchant-admin/ordering/orders", "POST", body, key).body }
+        catch (error: ApiException) { if (error.code != "NETWORK_OFFLINE") throw error; store.enqueueMutation("POST", "/api/merchant-admin/ordering/orders", body.toString(), key); JSONObject().put("queued", true) }
+    fun dashboard(): JSONObject = request("/api/merchant-admin/dashboard").body.also { store.cache("dashboard", it.toString()) }
+    fun members(): JSONObject = request("/api/merchant-admin/members").body.also { store.cache("members", it.toString()) }
+    fun member(id: String): JSONObject = request("/api/merchant-admin/members/${enc(id)}").body
+    fun line(): JSONObject = request("/api/merchant-admin/line").body
+    fun inventory(): JSONObject = request("/api/merchant-admin/inventory").body.also { store.cache("inventory", it.toString()) }
+    fun reports(period: String = "today"): JSONObject = request("/api/merchant-admin/operations/reports?period=${enc(period)}").body.also { store.cache("reports_$period", it.toString()) }
+    fun promotions(): JSONObject = request("/api/merchant-admin/operations/promotions").body
+    fun staff(): JSONObject = request("/api/merchant-admin/operations/staff").body
+    fun integrations(): JSONObject = request("/api/merchant-admin/operations/integrations").body
+    fun syncPending(): Int {
+        var synced = 0
+        for (mutation in store.pendingMutations()) {
+            try { request(mutation.path, mutation.method, JSONObject(mutation.body), mutation.key); store.mutationSynced(mutation.id); synced++ }
+            catch (error: ApiException) { store.mutationFailed(mutation.id, error.message.orEmpty()); if (error.code == "NETWORK_OFFLINE") break }
+        }
+        return synced
+    }
 
     fun pendingJobs(): List<PrintJob> = request("/api/merchant-app/print-jobs/pending").body.optJSONArray("jobs").toList().map { parseJob(it as JSONObject) }
     fun history(): List<PrintJob> = request("/api/merchant-app/print-jobs/history").body.optJSONArray("jobs").toList().map { parseJob(it as JSONObject) }
@@ -116,6 +153,20 @@ class MerchantApi(
         private val JSON = "application/json; charset=utf-8".toMediaType()
         private val EMPTY_JSON = "{}".toRequestBody(JSON)
     }
+
+    private fun friendlyError(status: Int, server: String): String = when {
+        server.isNotBlank() && server != "Not found" -> server
+        status == 401 -> "登入已失效，請重新登入。"
+        status == 403 -> "此帳號沒有執行這項操作的權限。"
+        status == 404 -> "目前找不到這項資料，請重新整理後再試。"
+        status == 409 -> "資料狀態已變更，請重新整理後再試。"
+        status == 429 -> "操作過於頻繁，請稍後再試。"
+        status >= 500 -> "服務暫時忙碌，請稍後再試。"
+        else -> "操作未完成，請稍後再試。"
+    }
+
+    private fun queuedWhenOffline(method: String, path: String, body: JSONObject, key: String): Response = try { request(path, method, body, key) }
+        catch (error: ApiException) { if (error.code != "NETWORK_OFFLINE") throw error; store.enqueueMutation(method, path, body.toString(), key); Response(202, JSONObject().put("queued", true).put("message", "待同步")) }
 }
 
 private fun JSONArray?.toList(): List<Any> = if (this == null) emptyList() else (0 until length()).map { get(it) }
