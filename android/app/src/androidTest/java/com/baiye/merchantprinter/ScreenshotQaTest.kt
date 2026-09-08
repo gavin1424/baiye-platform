@@ -25,7 +25,7 @@ class ScreenshotQaTest {
         store.saveSession("qa-cookie", "qa-csrf", "merchant-qa", "百工牛肉麵｜完整功能試用店與很長的分店名稱")
         store.savePrinter(PrinterConfig(id = "printer-qa", name = "XP-N160II 廚房出單機", host = "192.168.1.200", autoPrint = true))
         store.setOnboardingDone()
-        store.setDemoMode(true)
+        store.setDemoModeForQa(true)
         output = File(context.getExternalFilesDir(null), "qa").also { it.mkdirs() }
         compose.setContent { MerchantPrinterApp(store, MerchantApi(store, "http://127.0.0.1:9")) }
         compose.waitUntil(5_000) { compose.onAllNodesWithText("今日統計").fetchSemanticsNodes().isNotEmpty() }
@@ -69,7 +69,7 @@ class ScreenshotQaTest {
     }
 
     @Test fun captureOfflineState() {
-        store.setDemoMode(false)
+        store.setDemoModeForQa(false)
         compose.onNodeWithContentDescription("重新整理").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("離線，顯示上次同步資料").fetchSemanticsNodes().isNotEmpty() }
         capture("07-offline")

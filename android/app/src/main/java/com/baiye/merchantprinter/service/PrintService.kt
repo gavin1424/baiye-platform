@@ -20,6 +20,7 @@ class PrintService : Service() {
     private lateinit var store: LocalStore
     private lateinit var api: MerchantApi
     @Volatile private var syncing = false
+    @Volatile private var backendPrinterSynced = false
 
     override fun onCreate() {
         super.onCreate(); store = LocalStore(this); api = MerchantApi(store); createChannel(); startForeground(NOTIFICATION_ID, notification("正在連線列印佇列…"))
@@ -34,7 +35,11 @@ class PrintService : Service() {
         syncing = true
         try {
             api.syncPending()
-            val printer = store.printer() ?: return
+            var printer = store.printer() ?: return
+            if (!backendPrinterSynced) {
+                printer = api.savePrinter(printer)
+                backendPrinterSynced = true
+            }
             updateNotification("${printer.name} • ${if (printer.autoPrint) "自動出單 ON" else "自動出單 OFF"}")
             recover(printer)
             if (!printer.autoPrint || !printer.enabled) return

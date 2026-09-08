@@ -48,10 +48,11 @@ export async function authenticateMerchantSession(request, env) {
   const token = cookie(request, COOKIE);
   if (!token || !env.FINANCE_DB) return null;
   return env.FINANCE_DB.prepare(`SELECT s.id session_id,s.merchant_id,s.user_id,s.platform_member_id,s.assurance_level,s.issued_via,s.csrf_hash,s.expires_at,
-    u.email,u.display_name,u.phone_normalized,u.status,m.name merchant_name,m.status merchant_status,
+    u.email,u.display_name,u.phone_normalized,u.status,COALESCE(NULLIF(ap.brand_name,''),m.name) merchant_name,m.status merchant_status,
     CASE WHEN m.id='demo_beef_noodle' THEN 1 ELSE 0 END official_demo,
     GROUP_CONCAT(DISTINCT p.permission_code) permissions,GROUP_CONCAT(DISTINCT r.code) roles
     FROM merchant_user_sessions s JOIN merchant_users u ON u.merchant_id=s.merchant_id AND u.id=s.user_id JOIN merchants m ON m.id=s.merchant_id
+    LEFT JOIN merchant_admin_profiles ap ON ap.merchant_id=m.id
     LEFT JOIN merchant_user_roles ur ON ur.merchant_id=u.merchant_id AND ur.user_id=u.id LEFT JOIN merchant_roles r ON r.id=ur.role_id LEFT JOIN merchant_role_permissions p ON p.role_id=ur.role_id
     WHERE s.token_hash=? AND s.revoked_at IS NULL AND datetime(s.expires_at)>datetime('now') AND u.status='active' GROUP BY s.id`).bind(await sha(token)).first();
 }
@@ -85,8 +86,9 @@ async function consumeHourlyLimit(db, scope, rawKey, limit) {
 }
 
 async function credentialRows(db, phone) {
-  const result = await db.prepare(`SELECT c.*,l.platform_member_id,l.phone_normalized,u.status user_status,u.display_name,u.email,m.name merchant_name,m.status merchant_status
+  const result = await db.prepare(`SELECT c.*,l.platform_member_id,l.phone_normalized,u.status user_status,u.display_name,u.email,COALESCE(NULLIF(ap.brand_name,''),m.name) merchant_name,m.status merchant_status
     FROM merchant_owner_links l JOIN merchant_users u ON u.merchant_id=l.merchant_id AND u.id=l.merchant_user_id JOIN merchants m ON m.id=l.merchant_id
+    LEFT JOIN merchant_admin_profiles ap ON ap.merchant_id=m.id
     LEFT JOIN merchant_login_credentials c ON c.merchant_id=l.merchant_id AND c.merchant_user_id=l.merchant_user_id AND c.credential_type='numeric_password_8'
     WHERE l.phone_normalized=? AND l.status='active'`).bind(phone).all();
   return resultRows(result);
@@ -139,7 +141,7 @@ async function selectMerchant(request, db, input, cors) {
   const token = String(input.selection_token || ""), merchantId = String(input.merchant_id || ""), selection = await db.prepare("SELECT * FROM merchant_login_selections WHERE token_hash=? AND used_at IS NULL AND datetime(expires_at)>datetime('now')").bind(await sha(token)).first();
   let allowed = []; try { allowed = JSON.parse(selection?.allowed_merchant_ids_json || "[]"); } catch {}
   if (!selection || !allowed.includes(merchantId)) return json({ error: "商家選擇已失效，請重新登入。" }, 401, cors);
-  const selected = await db.prepare(`SELECT c.*,l.platform_member_id,u.display_name,m.name merchant_name FROM merchant_login_credentials c JOIN merchant_owner_links l ON l.merchant_id=c.merchant_id AND l.merchant_user_id=c.merchant_user_id JOIN merchant_users u ON u.id=c.merchant_user_id AND u.merchant_id=c.merchant_id JOIN merchants m ON m.id=c.merchant_id WHERE c.merchant_id=? AND l.platform_member_id=? AND c.status='active'`).bind(merchantId, selection.platform_member_id).first();
+  const selected = await db.prepare(`SELECT c.*,l.platform_member_id,u.display_name,COALESCE(NULLIF(ap.brand_name,''),m.name) merchant_name FROM merchant_login_credentials c JOIN merchant_owner_links l ON l.merchant_id=c.merchant_id AND l.merchant_user_id=c.merchant_user_id JOIN merchant_users u ON u.id=c.merchant_user_id AND u.merchant_id=c.merchant_id JOIN merchants m ON m.id=c.merchant_id LEFT JOIN merchant_admin_profiles ap ON ap.merchant_id=m.id WHERE c.merchant_id=? AND l.platform_member_id=? AND c.status='active'`).bind(merchantId, selection.platform_member_id).first();
   if (!selected) return json({ error: "商家選擇已失效，請重新登入。" }, 401, cors);
   await db.prepare("UPDATE merchant_login_selections SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(selection.id).run();
   return successfulLogin(db, request, selected, cors);

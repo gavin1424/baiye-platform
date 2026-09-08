@@ -25,6 +25,14 @@ test("new order and print job are committed in the same D1 batch", () => {
   assert.ok(ordering.indexOf("INSERT INTO merchant_food_orders") < batch);
 });
 
+test("first printer sync reconciles recent canonical orders without duplicating originals", () => {
+  assert.match(worker, /reconcileRecentCanonicalOrders/);
+  assert.match(worker, /merchant_food_orders/);
+  assert.match(worker, /datetime\(o\.created_at\)>=datetime\('now','-24 hours'\)/);
+  assert.match(worker, /NOT EXISTS\(SELECT 1 FROM print_jobs/);
+  assert.match(worker, /INSERT OR IGNORE INTO print_jobs/);
+});
+
 test("retry schedule is bounded", () => {
   assert.deepEqual(RETRY_DELAYS_SECONDS, [5, 15, 30, 60]);
   assert.deepEqual([1, 2, 3, 4, 99].map(retryDelaySeconds), [5, 15, 30, 60, 60]);

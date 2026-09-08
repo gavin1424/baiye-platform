@@ -25,7 +25,7 @@ class ScreensSmokeTest {
         store.saveSession("cookie-jar", "csrf", "merchant-test", "百工牛肉麵")
         store.savePrinter(PrinterConfig(id = "printer-test", host = "192.0.2.1"))
         store.setOnboardingDone()
-        store.setDemoMode(true)
+        store.setDemoModeForQa(true)
         compose.setContent { MerchantPrinterApp(store, MerchantApi(store, "http://127.0.0.1:9")) }
     }
 
@@ -72,7 +72,7 @@ class ScreensSmokeTest {
     @Test fun seedDemoSessionForScreenshotQa() {
         store.saveSession("cookie-jar", "csrf", "merchant-test", "百工牛肉麵｜完整功能試用店與很長的分店名稱")
         store.setOnboardingDone()
-        store.setDemoMode(true)
+        store.setDemoModeForQa(true)
         assertTrue(store.hasSession())
     }
 }
