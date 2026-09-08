@@ -76,6 +76,7 @@ export function PlanContractPage() {
   if (!contract) return <main className="partner-shell partner-contract plan-contract-page"><p className="partner-eyebrow">方案合作契約</p><h1>載入方案契約</h1><p>{notice || "正在讀取伺服器正式方案資料…"}</p></main>;
   const plan = contract.plan;
   return <main className="partner-shell partner-contract plan-contract-page">
+    <style>{"body:has(.plan-contract-page) .ai-chat{display:none}"}</style>
     <p className="partner-eyebrow">創百業智慧鏈｜方案合作契約</p>
     <h1>{contract.contract_name}</h1>
     <section className={`partner-status ${contract.production_signing_enabled ? "success" : "warning"}`}>
