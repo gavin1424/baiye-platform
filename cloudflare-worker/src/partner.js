@@ -9,6 +9,7 @@ import {
   sessionEvidenceHash,
   storePrivateAgreementArtifacts,
   validateExplicitConsents,
+  validateLegalName,
 } from "./contract-engine.js";
 import { ensurePlatformMember, finalizePlatformMembershipBatch, normalizeTaiwanMobile, preparePlatformMembershipBatch } from "./platform-membership.js";
 
@@ -32,12 +33,6 @@ function deviceMetadata(request) {
   const platform = /Android/i.test(userAgent) ? "Android" : /iPhone|iPad|iPod/i.test(userAgent) ? "iOS" : /Windows/i.test(userAgent) ? "Windows" : /Macintosh|Mac OS X/i.test(userAgent) ? "macOS" : /Linux/i.test(userAgent) ? "Linux" : "unknown";
   const browser = /Line\//i.test(userAgent) ? "LINE" : /Edg\//i.test(userAgent) ? "Edge" : /CriOS|Chrome\//i.test(userAgent) ? "Chrome" : /Safari\//i.test(userAgent) ? "Safari" : "unknown";
   return { platform, browser, mobile: /Mobile|Android|iPhone|iPad|iPod/i.test(userAgent) };
-}
-function validSignature(value) {
-  try {
-    const signature = JSON.parse(value);
-    return Array.isArray(signature.strokes) && signature.strokes.some((stroke) => Array.isArray(stroke) && stroke.length >= 2) && String(value).length < 100000;
-  } catch { return false; }
 }
 async function audit(db, request, actorType, actorId, action, entityType, entityId, metadata = {}) {
   await db.prepare("INSERT INTO audit_logs (id,actor_type,actor_id,action,entity_type,entity_id,metadata,ip_address) VALUES (?,?,?,?,?,?,?,?)")
@@ -920,23 +915,25 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     try {
       const input = await body(request), contract = await activeContract(db);
       assertContractSignable(contract, env);
-      if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
+      const legalName = validateLegalName(input.legal_name);
       const consents = validateExplicitConsents({ read: input.read, electronic: input.electronic, independent: input.independent }, "partner");
       const validatedSignature = parseAndValidateSignature(input.signature);
       await db.batch([
-        contractAuditInsert(db, request, partnerId, "partner.contract.consent_accepted", contract.id, { version: contract.version, consents }),
-        contractAuditInsert(db, request, partnerId, "partner.contract.signature_completed", contract.id, { version: contract.version, point_count: validatedSignature.pointCount }),
-        contractAuditInsert(db, request, partnerId, "partner.contract.final_confirmation", contract.id, { version: contract.version }),
+        contractAuditInsert(db, request, partnerId, "partner.contract.consent_accepted", contract.id, { version: contract.version, legal_name: legalName, consents }),
+        contractAuditInsert(db, request, partnerId, "partner.contract.signature_completed", contract.id, { version: contract.version, legal_name: legalName, point_count: validatedSignature.pointCount, movement_distance: validatedSignature.distance }),
+        contractAuditInsert(db, request, partnerId, "partner.contract.final_confirmation", contract.id, { version: contract.version, legal_name: legalName }),
       ]);
-      return json({ version: contract.version, party_a: "平台契約正式設定法律主體", party_b: partner.legal_name, signatory: partner.legal_name, relationship: "獨立承攬／居間合作，非僱傭關係", signed_at: now(), important_terms: ["有效成交與五級獎勵", "每月合作資格維持", "退款與佣金沖回", "禁止私收款、假交易與未授權承諾", "線上簽署證據不等同憑證式數位簽章"] }, 200, cors);
+      return json({ version: contract.version, party_a: "平台契約正式設定法律主體", party_b: partner.legal_name, signatory: legalName, relationship: "獨立承攬／居間合作，非僱傭關係", signed_at: now(), important_terms: ["有效成交與五級獎勵", "每月合作資格維持", "退款與佣金沖回", "禁止私收款、假交易與未授權承諾", "線上簽署證據不等同憑證式數位簽章"] }, 200, cors);
     } catch (error) { return contractFailure(error, cors); }
   }
   if (path === "/api/partner/contract/sign" && request.method === "POST") {
     try {
       const input = await body(request), contract = await activeContract(db);
       const staging = assertContractSignable(contract, env).staging;
-      if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
+      const legalName = validateLegalName(input.legal_name);
       if (!normalizeTaiwanMobile(partner.phone)) throw new ContractError("PARTNER_PHONE_REQUIRED", "承攬夥伴手機資料不完整，請先聯絡平台更新後再簽署。", 422);
+      const consents = validateExplicitConsents({ read: input.read, electronic: input.electronic, independent: input.independent }, "partner");
+      parseAndValidateSignature(input.signature);
       const cookieToken = (request.headers.get("cookie") || "").match(/(?:^|;\s*)partner_session=([^;]+)/)?.[1] || "unknown";
       const operation = await beginContractOperation(db, { partyType: "partner", partyId: partnerId, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
       if (operation.replay) return json({ ...operation.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
@@ -948,23 +945,23 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       }
       const signatureId = id("sign"), publicId = `BYPC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
       const sessionHash = await sessionEvidenceHash(cookieToken);
-      const submittedAt = now(), metadata = deviceMetadata(request), consents = { read: input.read, electronic: input.electronic, independent: input.independent };
-      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：陳靈有限公司　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", signature: input.signature, consents, consentVersion: "partner-contract-consent-v1.0", ip: clientIp(request), userAgent: request.headers.get("user-agent"), deviceMetadata: metadata, timezone: "Asia/Taipei", finalConfirmedAt: submittedAt, submittedAt, sessionEvidence: sessionHash, staging });
+      const submittedAt = now(), metadata = deviceMetadata(request);
+      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：陳靈有限公司　乙方：${partner.legal_name}`, signatory: legalName, signatoryRole: "承攬夥伴", signature: input.signature, consents, consentVersion: "partner-contract-consent-v1.0", ip: clientIp(request), userAgent: request.headers.get("user-agent"), deviceMetadata: metadata, timezone: "Asia/Taipei", finalConfirmedAt: submittedAt, submittedAt, sessionEvidence: sessionHash, staging });
       const prefix = `contracts/partners/${partnerId}/${contract.version}/${signatureId}`;
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
       const membershipBatch = await preparePlatformMembershipBatch(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract" });
       try {
         await db.batch([
           db.prepare("INSERT INTO contract_signatures(id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version,signature_assurance_level,public_id,evidence_object_key,session_id_hash,status,contract_name,contract_version_snapshot,contract_snapshot,timezone,consents_json,device_metadata_json,final_confirmed_at,submitted_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-            .bind(signatureId, partnerId, contract.id, partner.legal_name, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.0", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID", contract.title, contract.version, contract.content_html, "Asia/Taipei", JSON.stringify(agreement.consents), JSON.stringify(metadata), submittedAt, submittedAt),
+            .bind(signatureId, partnerId, contract.id, legalName, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.0", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID", contract.title, contract.version, contract.content_html, "Asia/Taipei", JSON.stringify(agreement.consents), JSON.stringify(metadata), submittedAt, submittedAt),
           db.prepare("UPDATE partners SET contract_status='signed',contract_version=?,contract_signed_at=?,updated_at=? WHERE id=?").bind(contract.version, agreement.signedAt, now(), partnerId),
           ...membershipBatch.statements,
-          contractAuditInsert(db, request, partnerId, "partner.contract.submit_requested", signatureId, { version: contract.version, idempotency_key_present: true }),
-          contractAuditInsert(db, request, partnerId, "partner.contract.signed", signatureId, { version: contract.version, document_hash: agreement.documentHash }),
-          contractAuditInsert(db, request, partnerId, "partner.contract.pdf_generated", signatureId, { version: contract.version, pdf_hash: agreement.pdfHash }),
+          contractAuditInsert(db, request, partnerId, "partner.contract.submit_requested", signatureId, { version: contract.version, legal_name: legalName, idempotency_key_present: true }),
+          contractAuditInsert(db, request, partnerId, "partner.contract.signed", signatureId, { version: contract.version, legal_name: legalName, document_hash: agreement.documentHash }),
+          contractAuditInsert(db, request, partnerId, "partner.contract.pdf_generated", signatureId, { version: contract.version, legal_name: legalName, pdf_hash: agreement.pdfHash }),
         ]);
       } catch (error) { await stored.cleanup(); throw error; }
-      await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE });
+      await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, legal_name: legalName, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE });
       const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
       const result = { ok: true, contract_id: publicId, contract_version: contract.version, signature_id: signatureId, public_id: publicId, signed_at: agreement.signedAt, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome };
       await completeContractOperation(db, operation.operation.id, result);

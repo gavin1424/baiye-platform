@@ -18,26 +18,43 @@ export function stableStringify(value) {
   return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
 }
 
+export function validateLegalName(value) {
+  const legalName = typeof value === "string" ? value : "";
+  if (!legalName.trim()) throw new ContractError("LEGAL_NAME_REQUIRED", "請輸入法定姓名", 422);
+  if (legalName.length > 100 || /[\u0000-\u001F\u007F]/.test(legalName)) {
+    throw new ContractError("LEGAL_NAME_INVALID", "法定姓名格式不正確", 422);
+  }
+  return legalName;
+}
+
 export async function hashCanonical(value) {
   return sha256(stableStringify(value));
 }
 
-export function parseAndValidateSignature(signature, { minimumPoints = 6 } = {}) {
+export function parseAndValidateSignature(signature, { minimumDistance = 8, minimumSpan = 6 } = {}) {
   let parsed;
   try { parsed = typeof signature === "string" ? JSON.parse(signature) : signature; }
-  catch { throw new ContractError("SIGNATURE_INVALID", "簽名資料格式不正確。", 422); }
-  if (!parsed || !Array.isArray(parsed.strokes)) throw new ContractError("SIGNATURE_REQUIRED", "請完成手寫簽名。", 422);
+  catch { throw new ContractError("SIGNATURE_INVALID", "簽名尚未完成，請重新簽名", 422); }
+  if (!parsed || !Array.isArray(parsed.strokes)) throw new ContractError("SIGNATURE_REQUIRED", "請完成手寫簽名", 422);
   const strokes = parsed.strokes
     .filter((stroke) => Array.isArray(stroke))
-    .map((stroke) => stroke.filter((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite)));
+    .map((stroke) => stroke.filter((point) => Array.isArray(point) && point.length === 2 && point.every((coordinate) => Number.isFinite(coordinate) && Math.abs(coordinate) <= 10000)));
   const points = strokes.reduce((total, stroke) => total + stroke.length, 0);
-  if (!strokes.some((stroke) => stroke.length >= 2) || points < minimumPoints) {
-    throw new ContractError("SIGNATURE_TOO_SHORT", "簽名筆劃不足，請重新完整簽名。", 422);
+  const drawnStrokes = strokes.filter((stroke) => stroke.length >= 2);
+  const flattened = drawnStrokes.flat();
+  let distance = 0;
+  for (const stroke of drawnStrokes) {
+    for (let index = 1; index < stroke.length; index += 1) distance += Math.hypot(stroke[index][0] - stroke[index - 1][0], stroke[index][1] - stroke[index - 1][1]);
+  }
+  const width = flattened.length ? Math.max(...flattened.map(([x]) => x)) - Math.min(...flattened.map(([x]) => x)) : 0;
+  const height = flattened.length ? Math.max(...flattened.map(([, y]) => y)) - Math.min(...flattened.map(([, y]) => y)) : 0;
+  if (!drawnStrokes.length || distance < minimumDistance || Math.max(width, height) < minimumSpan) {
+    throw new ContractError("SIGNATURE_TOO_SHORT", "簽名尚未完成，請重新簽名", 422);
   }
   const normalized = { strokes: strokes.map((stroke) => stroke.map(([x, y]) => [Math.round(x * 100) / 100, Math.round(y * 100) / 100])) };
   const serialized = stableStringify(normalized);
-  if (serialized.length > 100000) throw new ContractError("SIGNATURE_TOO_LARGE", "簽名資料超過允許大小。", 413);
-  return { normalized, serialized, pointCount: points };
+  if (serialized.length > 100000) throw new ContractError("SIGNATURE_TOO_LARGE", "簽名尚未完成，請重新簽名", 413);
+  return { normalized, serialized, pointCount: points, distance, bounds: { width, height } };
 }
 
 export function assertContractSignable(contract, env = {}) {
@@ -60,11 +77,12 @@ export function validateExplicitConsents(consents, partyType) {
       ? ["read", "plan_details", "electronic"]
     : ["read", "electronic", "commercial_terms", "authority", "signature_evidence"];
   const missing = required.filter((key) => consents?.[key] !== true);
-  if (missing.length) throw new ContractError("CONSENT_REQUIRED", "請完成全部契約確認項目。", 422, { missing });
+  if (missing.length) throw new ContractError("CONSENT_REQUIRED", "請完成所有必要確認項目", 422, { missing });
   return required.reduce((result, key) => ({ ...result, [key]: true }), {});
 }
 
 export async function buildSignedAgreement(input) {
+  const signatory = validateLegalName(input.signatory);
   const signature = parseAndValidateSignature(input.signature);
   const consents = validateExplicitConsents(input.consents, input.partyType);
   const signatureHash = await sha256(signature.serialized);
@@ -78,7 +96,7 @@ export async function buildSignedAgreement(input) {
     commercial_terms_hash: input.commercialTermsHash || null,
     party_type: input.partyType,
     party_id: input.partyId,
-    signatory: input.signatory,
+    signatory,
     signatory_role: input.signatoryRole,
     signature_hash: signatureHash,
     signed_at: signedAt,
@@ -86,6 +104,8 @@ export async function buildSignedAgreement(input) {
     consent_version: input.consentVersion,
     signature_assurance_level: STANDARD_ASSURANCE,
     timezone: input.timezone || "Asia/Taipei",
+    session_evidence: input.sessionEvidence || null,
+    invite_evidence: input.inviteEvidence || null,
     ...(input.documentContext ? { document_context: input.documentContext } : {}),
   };
   const documentHash = await hashCanonical(canonicalDocument);
@@ -96,7 +116,7 @@ export async function buildSignedAgreement(input) {
     verificationUrl: input.verificationUrl,
     version: input.contract.version,
     partyLabel: input.partyLabel,
-    signatory: input.signatory,
+    signatory,
     signatoryRole: input.signatoryRole,
     signedAt,
     contentHtml: input.contract.content_html,
@@ -120,8 +140,6 @@ export async function buildSignedAgreement(input) {
     device_metadata: input.deviceMetadata || null,
     final_confirmed_at: input.finalConfirmedAt || signedAt,
     submitted_at: input.submittedAt || signedAt,
-    session_evidence: input.sessionEvidence || null,
-    invite_evidence: input.inviteEvidence || null,
     signature_point_count: signature.pointCount,
     environment: input.staging ? "STAGING_NOT_A_REAL_CONTRACT" : "PRODUCTION",
   };

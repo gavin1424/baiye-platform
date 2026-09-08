@@ -9,6 +9,7 @@ import {
   sessionEvidenceHash,
   storePrivateAgreementArtifacts,
   validateExplicitConsents,
+  validateLegalName,
 } from "./contract-engine.js";
 
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=UTF-8", "cache-control": "no-store", ...headers } });
@@ -78,8 +79,7 @@ function validateSelection(input, template) {
 }
 
 function validateSigningInput(input) {
-  const legalName = String(input.legal_name || "").trim();
-  if (legalName.length < 2 || legalName.length > 100) throw new ContractError("LEGAL_NAME_REQUIRED", "請輸入完整法定姓名。", 422);
+  const legalName = validateLegalName(input.legal_name);
   const consents = validateExplicitConsents(input, "service_plan");
   const signature = parseAndValidateSignature(input.signature);
   return { legalName, consents, signature };
@@ -129,9 +129,9 @@ export async function handlePlanContractRequest(request, env, url, cors = {}, au
     assertContractSignable({ ...template, legal_review_status: template.status, content_hash: template.contract_content_hash, approved_content_hash: template.approved_content_hash }, env);
     if (match[2] === "sign-preview" && request.method === "POST") {
       await db.batch([
-        db.prepare("INSERT INTO service_plan_contract_events(id,contract_template_id,merchant_id,actor_type,actor_id,action,metadata_json,ip_address) VALUES(?,?,?,?,?,?,?,?)").bind(makeId("spce"), template.id, session.merchant_id, "merchant", session.user_id, "plan.contract.consent_accepted", JSON.stringify({ consents: validated.consents }), clientIp(request)),
-        db.prepare("INSERT INTO service_plan_contract_events(id,contract_template_id,merchant_id,actor_type,actor_id,action,metadata_json,ip_address) VALUES(?,?,?,?,?,?,?,?)").bind(makeId("spce"), template.id, session.merchant_id, "merchant", session.user_id, "plan.contract.signature_completed", JSON.stringify({ point_count: validated.signature.pointCount }), clientIp(request)),
-        db.prepare("INSERT INTO service_plan_contract_events(id,contract_template_id,merchant_id,actor_type,actor_id,action,metadata_json,ip_address) VALUES(?,?,?,?,?,?,?,?)").bind(makeId("spce"), template.id, session.merchant_id, "merchant", session.user_id, "plan.contract.final_confirmation", JSON.stringify({ plan_id: template.plan_id }), clientIp(request)),
+        db.prepare("INSERT INTO service_plan_contract_events(id,contract_template_id,merchant_id,actor_type,actor_id,action,metadata_json,ip_address) VALUES(?,?,?,?,?,?,?,?)").bind(makeId("spce"), template.id, session.merchant_id, "merchant", session.user_id, "plan.contract.consent_accepted", JSON.stringify({ legal_name: validated.legalName, consents: validated.consents }), clientIp(request)),
+        db.prepare("INSERT INTO service_plan_contract_events(id,contract_template_id,merchant_id,actor_type,actor_id,action,metadata_json,ip_address) VALUES(?,?,?,?,?,?,?,?)").bind(makeId("spce"), template.id, session.merchant_id, "merchant", session.user_id, "plan.contract.signature_completed", JSON.stringify({ legal_name: validated.legalName, point_count: validated.signature.pointCount, movement_distance: validated.signature.distance }), clientIp(request)),
+        db.prepare("INSERT INTO service_plan_contract_events(id,contract_template_id,merchant_id,actor_type,actor_id,action,metadata_json,ip_address) VALUES(?,?,?,?,?,?,?,?)").bind(makeId("spce"), template.id, session.merchant_id, "merchant", session.user_id, "plan.contract.final_confirmation", JSON.stringify({ legal_name: validated.legalName, plan_id: template.plan_id }), clientIp(request)),
       ]);
       return json({ plan_name: plan.plan_name, plan_price: plan.plan_price_display, contract_version: template.contract_version, legal_name: validated.legalName, contract_template_id: template.id }, 200, cors);
     }
@@ -170,7 +170,7 @@ export async function handlePlanContractRequest(request, env, url, cors = {}, au
             .bind(signatureId, publicId, template.id, template.contract_type, session.merchant_id, session.user_id, session.platform_member_id || null, validated.legalName, template.plan_id, template.plan_slug, plan.plan_name, priceSnapshot, template.plan_details_snapshot, template.contract_version, template.contract_snapshot, template.contract_content_hash, JSON.stringify(agreement.consents), "service-plan-contract-consent-v1.0", agreement.signatureData, agreement.signatureHash, agreement.signedAt, "Asia/Taipei", clientIp(request), request.headers.get("user-agent"), JSON.stringify(metadata), agreement.documentHash, stored.pdfKey, agreement.pdfHash, stored.evidenceKey, STANDARD_ASSURANCE, submittedAt, submittedAt),
           db.prepare("INSERT INTO service_plan_contract_artifacts(id,signature_id,merchant_id,artifact_type,object_key,sha256,content_type) VALUES(?,?,?,?,?,?,?)").bind(makeId("spca"), signatureId, session.merchant_id, "signed_pdf", stored.pdfKey, agreement.pdfHash, "application/pdf"),
           db.prepare("INSERT INTO service_plan_contract_artifacts(id,signature_id,merchant_id,artifact_type,object_key,sha256,content_type) VALUES(?,?,?,?,?,?,?)").bind(makeId("spca"), signatureId, session.merchant_id, "evidence_json", stored.evidenceKey, stored.evidenceHash, "application/json"),
-          ...["submit_requested","signed","pdf_generated"].map((action) => db.prepare("INSERT INTO service_plan_contract_events(id,contract_template_id,signature_id,merchant_id,actor_type,actor_id,action,metadata_json,ip_address) VALUES(?,?,?,?,?,?,?,?,?)").bind(makeId("spce"), template.id, signatureId, session.merchant_id, "merchant", session.user_id, `plan.contract.${action}`, JSON.stringify({ plan_id: template.plan_id, document_hash: agreement.documentHash, pdf_hash: agreement.pdfHash }), clientIp(request))),
+          ...["submit_requested","signed","pdf_generated"].map((action) => db.prepare("INSERT INTO service_plan_contract_events(id,contract_template_id,signature_id,merchant_id,actor_type,actor_id,action,metadata_json,ip_address) VALUES(?,?,?,?,?,?,?,?,?)").bind(makeId("spce"), template.id, signatureId, session.merchant_id, "merchant", session.user_id, `plan.contract.${action}`, JSON.stringify({ legal_name: validated.legalName, plan_id: template.plan_id, document_hash: agreement.documentHash, pdf_hash: agreement.pdfHash }), clientIp(request))),
         ]);
       } catch (error) { await stored.cleanup(); throw error; }
       await completeContractOperation(db, operation.operation.id, result);

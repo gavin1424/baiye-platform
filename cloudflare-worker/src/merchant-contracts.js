@@ -7,9 +7,12 @@ import {
   buildSignedAgreement,
   completeContractOperation,
   hashCanonical,
+  parseAndValidateSignature,
   publicVerificationRecord,
   sessionEvidenceHash,
   storePrivateAgreementArtifacts,
+  validateExplicitConsents,
+  validateLegalName,
 } from "./contract-engine.js";
 import { sha256 } from "./contract-pdf.js";
 import { ensurePlatformMember, finalizePlatformMembershipBatch, normalizeTaiwanMobile, preparePlatformMembershipBatch } from "./platform-membership.js";
@@ -195,13 +198,24 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
     if (url.pathname === "/api/merchant/contracts/sign-preview" && request.method === "POST") {
       const input = await body(request); const context = await merchantContractContext(db, session, env);
       if (!normalizeTaiwanMobile(context.merchant.phone)) throw new ContractError("MERCHANT_CONTACT_PHONE_REQUIRED", "商家聯絡手機資料不完整，請先聯絡平台更新後再簽署。", 422);
+      const legalName = validateLegalName(input.signatory_legal_name);
+      validateExplicitConsents(input, "merchant");
+      parseAndValidateSignature(input.signature);
       const termsHash = await hashCanonical(commercialTermsSnapshot(context.terms));
       if (termsHash !== context.terms.terms_hash) throw new ContractError("COMMERCIAL_TERMS_HASH_MISMATCH", "商業條件雜湊不一致，已停止簽署。", 409);
-      return json({ version: context.contract.version, company_name: context.merchant.name, signatory: String(input.signatory_legal_name || session.display_name), signatory_role: input.signatory_role, plan_name: context.terms.plan_name, total_minor: context.terms.discount_price_minor, payment_plan: context.terms.payment_plan, period: { start: context.terms.start_date, end: context.terms.service_period_end }, attachments: commercialAttachments(context.terms) }, 200, cors);
+      return json({ version: context.contract.version, company_name: context.merchant.name, signatory: legalName, signatory_role: input.signatory_role, plan_name: context.terms.plan_name, total_minor: context.terms.discount_price_minor, payment_plan: context.terms.payment_plan, period: { start: context.terms.start_date, end: context.terms.service_period_end }, attachments: commercialAttachments(context.terms) }, 200, cors);
     }
     if (url.pathname === "/api/merchant/contracts/sign" && request.method === "POST") {
       const input = await body(request); const context = await merchantContractContext(db, session, env);
       if (!normalizeTaiwanMobile(context.merchant.phone)) throw new ContractError("MERCHANT_CONTACT_PHONE_REQUIRED", "商家聯絡手機資料不完整，請先聯絡平台更新後再簽署。", 422);
+      const legalName = validateLegalName(input.signatory_legal_name);
+      if (!['legal_representative','authorized_representative'].includes(input.signatory_role)) throw new ContractError("SIGNATORY_ROLE_INVALID", "請確認簽署人身份。", 422);
+      if (input.signatory_role === "authorized_representative" && input.authorization_confirmed !== true) throw new ContractError("AUTHORIZATION_REQUIRED", "受授權代表須確認已取得合法簽約授權。", 422);
+      validateExplicitConsents(input, "merchant");
+      parseAndValidateSignature(input.signature);
+      const termsHash = await hashCanonical(commercialTermsSnapshot(context.terms));
+      if (termsHash !== context.terms.terms_hash) throw new ContractError("COMMERCIAL_TERMS_HASH_MISMATCH", "商業條件雜湊不一致，已停止簽署。", 409);
+      const staging = assertContractSignable(context.contract, env).staging;
       const operation = await beginContractOperation(db, { partyType: "merchant", partyId: session.merchant_id, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
       if (operation.replay) return json({ ...operation.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
       const existing = await db.prepare("SELECT id,public_id,document_hash FROM merchant_contract_signatures WHERE merchant_id=? AND contract_version_id=?").bind(session.merchant_id, context.contract.id).first();
@@ -210,20 +224,14 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
         const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, replay: true };
         await completeContractOperation(db, operation.operation.id, replay); return json(replay, 200, cors);
       }
-      if (!String(input.signatory_legal_name || "").trim()) throw new ContractError("SIGNATORY_REQUIRED", "請填寫簽署人法定姓名。", 422);
-      if (!['legal_representative','authorized_representative'].includes(input.signatory_role)) throw new ContractError("SIGNATORY_ROLE_INVALID", "請確認簽署人身份。", 422);
-      if (input.signatory_role === "authorized_representative" && input.authorization_confirmed !== true) throw new ContractError("AUTHORIZATION_REQUIRED", "受授權代表須確認已取得合法簽約授權。", 422);
-      const termsHash = await hashCanonical(commercialTermsSnapshot(context.terms));
-      if (termsHash !== context.terms.terms_hash) throw new ContractError("COMMERCIAL_TERMS_HASH_MISMATCH", "商業條件雜湊不一致，已停止簽署。", 409);
       const signatureId = makeId("mcsig"), publicId = `BYMC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
-      const staging = assertContractSignable(context.contract, env).staging;
       const sessionHash = await sessionEvidenceHash(session.session_id);
       const agreement = await buildSignedAgreement({
         title: "創百業智慧鏈｜商家平台服務契約", documentId: signatureId, publicId,
         verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`,
         contract: context.contract, partyType: "merchant", partyId: session.merchant_id,
         partyLabel: `平台方：契約正式設定法律主體　商家：${context.merchant.name}`,
-        signatory: String(input.signatory_legal_name).trim(), signatoryRole: input.signatory_role,
+        signatory: legalName, signatoryRole: input.signatory_role,
         signature: input.signature, consents: { read: input.read, electronic: input.electronic, commercial_terms: input.commercial_terms, authority: input.authority, signature_evidence: input.signature_evidence },
         consentVersion: "merchant-contract-consent-v1", commercialTermsHash: termsHash,
         attachments: commercialAttachments(context.terms), ip: ip(request), userAgent: request.headers.get("user-agent"),
@@ -235,15 +243,15 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
       try {
         await db.batch([
           db.prepare("INSERT INTO merchant_contract_signatures(id,public_id,merchant_id,merchant_user_id,contract_version_id,commercial_terms_id,signatory_legal_name,signatory_role,legal_representative_name,company_name,tax_id,authorization_declaration_version,signed_at,ip_address,user_agent,contract_content_hash,commercial_terms_hash,signature_hash,signature_data,document_hash,pdf_hash,consent_version,signature_assurance_level,invite_id,session_id_hash,r2_key,evidence_object_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-            .bind(signatureId, publicId, session.merchant_id, session.user_id, context.contract.id, context.terms.id, String(input.signatory_legal_name).trim(), input.signatory_role, String(input.legal_representative_name || input.signatory_legal_name).trim(), context.merchant.name, input.tax_id || null, input.signatory_role === "authorized_representative" ? "merchant-authorization-v1" : null, agreement.signedAt, ip(request), request.headers.get("user-agent"), context.contract.content_hash, termsHash, agreement.signatureHash, agreement.signatureData, agreement.documentHash, agreement.pdfHash, "merchant-contract-consent-v1", STANDARD_ASSURANCE, context.invite.id, sessionHash, stored.pdfKey, stored.evidenceKey),
+            .bind(signatureId, publicId, session.merchant_id, session.user_id, context.contract.id, context.terms.id, legalName, input.signatory_role, String(input.legal_representative_name || input.signatory_legal_name), context.merchant.name, input.tax_id || null, input.signatory_role === "authorized_representative" ? "merchant-authorization-v1" : null, agreement.signedAt, ip(request), request.headers.get("user-agent"), context.contract.content_hash, termsHash, agreement.signatureHash, agreement.signatureData, agreement.documentHash, agreement.pdfHash, "merchant-contract-consent-v1", STANDARD_ASSURANCE, context.invite.id, sessionHash, stored.pdfKey, stored.evidenceKey),
           db.prepare("INSERT INTO merchant_contract_artifacts(id,merchant_id,signature_id,artifact_type,object_key,sha256,content_type) VALUES(?,?,?,?,?,?,?)").bind(makeId("mcart"), session.merchant_id, signatureId, "signed_pdf", stored.pdfKey, agreement.pdfHash, "application/pdf"),
           db.prepare("INSERT INTO merchant_contract_artifacts(id,merchant_id,signature_id,artifact_type,object_key,sha256,content_type) VALUES(?,?,?,?,?,?,?)").bind(makeId("mcart"), session.merchant_id, signatureId, "evidence_json", stored.evidenceKey, stored.evidenceHash, "application/json"),
           db.prepare("UPDATE merchants SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(session.merchant_id),
           ...membershipBatch.statements,
         ]);
       } catch (error) { await stored.cleanup(); throw error; }
-      await contractEvent(db, request, { merchantId: session.merchant_id, signatureId, inviteId: context.invite.id, actorType: "merchant", actorId: session.user_id, action: "merchant_contract_signed", metadata: { version: context.contract.version, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE } });
-      await audit(db, request, "merchant", session.user_id, "merchant_contract_signed", "merchant_contract_signature", signatureId, { merchant_id: session.merchant_id, version: context.contract.version, document_hash: agreement.documentHash });
+      await contractEvent(db, request, { merchantId: session.merchant_id, signatureId, inviteId: context.invite.id, actorType: "merchant", actorId: session.user_id, action: "merchant_contract_signed", metadata: { version: context.contract.version, legal_name: legalName, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE } });
+      await audit(db, request, "merchant", session.user_id, "merchant_contract_signed", "merchant_contract_signature", signatureId, { merchant_id: session.merchant_id, version: context.contract.version, legal_name: legalName, document_hash: agreement.documentHash });
       const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
       const result = { ok: true, signature_id: signatureId, public_id: publicId, document_hash: agreement.documentHash, pdf_hash: agreement.pdfHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome };
       await completeContractOperation(db, operation.operation.id, result);

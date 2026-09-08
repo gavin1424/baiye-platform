@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
+import { ContractSignatureCanvas, hasUsableSignature, type SignatureValue } from "../components/ContractSignatureCanvas";
 import { merchantOrderingApi } from "../qr-ordering-client";
 
 const API = (import.meta.env.VITE_PLATFORM_API_URL || "https://chuang-baiye-ai.baiye-platform.workers.dev").replace(/\/$/, "");
 const errorText = (error: unknown) => error instanceof Error ? error.message : "方案契約服務暫時無法使用。";
-const pointCount = (value?: SignatureValue) => value?.strokes?.reduce((total, stroke) => total + stroke.length, 0) || 0;
 
 async function publicContract(slug: string) {
   const response = await fetch(`${API}/api/public/plan-contracts/${encodeURIComponent(slug)}`, { credentials: "include" });
@@ -40,7 +39,7 @@ export function PlanContractPage() {
     }).catch(() => { if (active) setAuthenticated(false); });
     return () => { active = false; };
   }, [planSlug]);
-  const ready = useMemo(() => legalName.trim().length >= 2 && Object.values(consents).every(Boolean) && pointCount(signature) >= 6, [consents, legalName, signature]);
+  const ready = useMemo(() => Boolean(legalName.trim()) && Object.values(consents).every(Boolean) && hasUsableSignature(signature), [consents, legalName, signature]);
   const payload = { ...consents, legal_name: legalName, signature, plan_id: contract?.plan_id, plan_slug: contract?.plan_slug, contract_template_id: contract?.contract_template_id };
   const openPreview = async () => {
     if (!ready || busy) return;
@@ -76,13 +75,9 @@ export function PlanContractPage() {
   if (!contract) return <main className="partner-shell partner-contract plan-contract-page"><p className="partner-eyebrow">方案合作契約</p><h1>載入方案契約</h1><p>{notice || "正在讀取伺服器正式方案資料…"}</p></main>;
   const plan = contract.plan;
   return <main className="partner-shell partner-contract plan-contract-page">
-    <style>{"body:has(.plan-contract-page) .ai-chat{display:none}"}</style>
+    <style>{"body:has(.partner-contract) .ai-chat{display:none}"}</style>
     <p className="partner-eyebrow">創百業智慧鏈｜方案合作契約</p>
     <h1>{contract.contract_name}</h1>
-    <section className={`partner-status ${contract.production_signing_enabled ? "success" : "warning"}`}>
-      <strong>{contract.production_signing_enabled ? "本方案契約已完成審閱並開放正式簽署" : "本方案契約目前提供法律審閱"}</strong>
-      <span>版本 {contract.contract_version} · LEGAL REVIEW：{contract.legal_review_approved ? "APPROVED" : "PENDING"}</span>
-    </section>
     <section className="contract-summary-grid plan-contract-summary">
       <article><span>方案名稱</span><strong>{plan.plan_name}</strong></article>
       <article><span>方案費用</span><strong>{plan.plan_price_display}</strong></article>

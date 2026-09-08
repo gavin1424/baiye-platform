@@ -4,7 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { MarketingHero, PublicLayout } from "../components";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
-import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
+import { ContractSignatureCanvas, hasUsableSignature, type SignatureValue } from "../components/ContractSignatureCanvas";
 import { savePlatformMemberToken } from "../qr-ordering-client";
 
 const API = (
@@ -680,11 +680,13 @@ export function PartnerContract() {
     load().catch((error) => setMessage(errorText(error)));
   }, []);
   const payload = { legal_name: name, read: checks[0], electronic: checks[1], independent: checks[2], signature };
-  const signaturePoints = signature.strokes.reduce((total, stroke) => total + stroke.length, 0);
-  const ready = name.trim().length > 0 && checks.every(Boolean) && signaturePoints >= 6;
+  const ready = name.trim().length > 0 && checks.every(Boolean) && hasUsableSignature(signature);
   const openPreview = async () => {
     setMessage("");
-    if (!ready) return setMessage("請完成法定姓名、全部確認項目與手寫電子簽名。");
+    if (!name.trim()) return setMessage("請輸入法定姓名");
+    if (!checks.every(Boolean)) return setMessage("請完成所有必要確認項目");
+    if (!signature.strokes.length) return setMessage("請完成手寫簽名");
+    if (!hasUsableSignature(signature)) return setMessage("簽名尚未完成，請重新簽名");
     setBusy(true);
     try {
       setPreview(await api("/api/partner/contract/sign-preview", { method: "POST", body: JSON.stringify(payload) }));
@@ -735,15 +737,11 @@ export function PartnerContract() {
   };
   return (
     <main className="partner-shell partner-contract">
+      <style>{"body:has(.partner-contract) .ai-chat{display:none}"}</style>
       <p className="partner-eyebrow">正式電子契約</p>
       <h1>創百業智慧鏈｜承攬夥伴合作契約</h1>
       {contract && (
         <>
-          <section className={`partner-status ${contract.production_signing_enabled ? "success" : "warning"}`}>
-            <strong>{contract.production_signing_enabled ? "本契約已完成審閱並正式啟用" : "此契約版本尚未開放簽署"}</strong>
-            <span>契約版本 {contract.version} · 生效日期 {contract.effective_date}</span>
-            {contract.signature && <span>契約編號：{contract.signature.contract_id}</span>}
-          </section>
           <article className="contract-document" dangerouslySetInnerHTML={{ __html: contract.content_html }} />
           {contract.signature ? (
             <section className="partner-status success contract-signed-actions">
