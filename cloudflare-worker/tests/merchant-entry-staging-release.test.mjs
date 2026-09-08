@@ -14,7 +14,7 @@ test("unified join center exposes only the five public choices plus two logins",
 test("merchant register remains free, uses the Production numeric credential, and has actionable network copy", () => {
   const access = read("src/pages/MerchantAccessPages.tsx");
   assert.match(access, /\/api\/merchant\/register/);
-  assert.match(access, /phone, password, privacy_consent: consent/);
+  assert.match(access, /password_confirm: passwordConfirm/);
   assert.match(access, /目前無法連線至商家註冊服務，請稍後再試。/);
   assert.match(access, /type="password"/);
   assert.doesNotMatch(access, /<label>Email/);

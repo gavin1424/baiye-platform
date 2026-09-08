@@ -71,6 +71,15 @@ test("production gates and bindings remain production-safe", () => {
   assert.equal(config.name, "chuang-baiye-ai");
   assert.equal(config.d1_databases[0].database_name, "baiye-finance");
   assert.equal(config.r2_buckets[0].bucket_name, "baiye-contracts");
-  assert.equal(config.vars.PARTNER_OTP_MODE, "disabled");
+  assert.equal("PARTNER_OTP_MODE" in config.vars, false);
   assert.equal("CONTRACT_SIGNING_MODE" in config.vars, false);
+});
+
+test("homepage contrast overrides keep light cards dark and dark navigation light", () => {
+  const styles = read("src/styles.css");
+  assert.match(styles, /\.immersive-values \.premium-card\{[^}]*background:rgba\(255,255,255,\.98\)[^}]*color:#031b32/);
+  assert.match(styles, /\.immersive-values \.premium-card strong\{[^}]*color:#031b32[^}]*font-weight:900/);
+  assert.match(styles, /\.immersive-values \.premium-card span\{[^}]*color:#475569[^}]*font-weight:650/);
+  assert.match(styles, /@media\(max-width:760px\)\{\.mobile-bottom-nav a\{color:#eef4fb\}/);
+  assert.match(styles, /\.immersive-home-heading p\{[^}]*color:#d7deeb/);
 });

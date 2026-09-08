@@ -22,6 +22,13 @@ import {
   partnerPeriodDisplayStatus,
   taipeiDateFromInstant,
 } from "./partner-identity.js";
+import {
+  createNumericCredentialMaterial,
+  platformCredentialByMember,
+  upsertPlatformCredentialStatement,
+  validateNumericPassword,
+  verifyNumericCredential,
+} from "./numeric-password-auth.js";
 
 const E = new TextEncoder();
 const D = new TextDecoder();
@@ -120,7 +127,7 @@ function randomToken() {
 function partnerCookie(token, maxAge = 2592000) {
   return `partner_session=${token}; HttpOnly; Secure; SameSite=None; Partitioned; Path=/api/partner; Max-Age=${maxAge}`;
 }
-async function preparePartnerSession(db, partnerId, assuranceLevel, issuedVia, loginChallengeId = null) {
+async function preparePartnerSession(db, partnerId, assuranceLevel, issuedVia, loginChallengeId = null, credentialAssurance = null) {
   const token = randomToken();
   const sessionId = id("partner_session");
   const expiresAt = new Date(Date.now() + 30 * 864e5).toISOString();
@@ -128,8 +135,8 @@ async function preparePartnerSession(db, partnerId, assuranceLevel, issuedVia, l
     token,
     sessionId,
     expiresAt,
-    statement: db.prepare("INSERT INTO partner_sessions(id,partner_id,token_hash,assurance_level,issued_via,login_challenge_id,expires_at) VALUES(?,?,?,?,?,?,?)")
-      .bind(sessionId, partnerId, await hash(token), assuranceLevel, issuedVia, loginChallengeId, expiresAt),
+    statement: db.prepare("INSERT INTO partner_sessions(id,partner_id,token_hash,assurance_level,issued_via,login_challenge_id,expires_at,credential_assurance) VALUES(?,?,?,?,?,?,?,?)")
+      .bind(sessionId, partnerId, await hash(token), assuranceLevel, issuedVia, loginChallengeId, expiresAt, credentialAssurance),
   };
 }
 async function partnerAuth(request, db) {
@@ -480,12 +487,15 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
 
   if (path === "/api/partner/apply" && request.method === "POST") {
     const input = await body(request);
-    if (!input.legal_name || !input.id_number || !input.email || !input.phone || !input.consent) return json({ error: "請完整填寫必填資料，並確認獨立承攬／居間合作聲明。" }, 400, cors);
+    if (!input.legal_name || !input.id_number || !input.email || !input.phone || !input.password || !input.password_confirm || !input.consent) return json({ error: "請完整填寫必填資料，並確認獨立承攬／居間合作聲明。" }, 400, cors);
     const email = String(input.email).trim().toLowerCase();
     const phone = normalizeTaiwanMobile(input.phone);
     const idNumber = normalizeTaiwanIdNumber(input.id_number);
     if (!validEmail(email)) return json({ error: "請輸入有效的 Email。", code: "INVALID_EMAIL" }, 422, cors);
     if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+    if (input.password !== input.password_confirm) return json({ error: "兩次輸入的密碼不一致。", code: "PASSWORD_CONFIRMATION_MISMATCH" }, 422, cors);
+    const passwordValidation = validateNumericPassword(input.password, phone);
+    if (!passwordValidation.ok) return json({ error: passwordValidation.error, code: "INVALID_PASSWORD" }, 422, cors);
     if (!isValidTaiwanIdNumber(idNumber)) return json({ error: "請輸入正確的台灣身分證字號。", code: "INVALID_PARTNER_ID_NUMBER" }, 422, cors);
     let idNumberHash;
     try { idNumberHash = await hashPartnerIdNumber(idNumber, env.PARTNER_ID_HASH_SECRET); }
@@ -498,6 +508,9 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     const existingPartner = emailOwner || phoneOwner;
     if (idOwner && (!existingPartner || idOwner.id !== existingPartner.id)) return json({ error: "此身分資料已有承攬夥伴紀錄，請使用原手機登入或聯絡平台協助。", code: "PARTNER_ID_ALREADY_EXISTS" }, 409, cors);
     if (existingPartner) {
+      const existingLink = await db.prepare("SELECT member_id FROM partner_platform_member_links WHERE partner_id=? LIMIT 1").bind(existingPartner.id).first();
+      const existingCredential = existingLink ? await platformCredentialByMember(db, existingLink.member_id) : null;
+      if (existingCredential && !(await verifyNumericCredential(input.password, existingCredential))) return json({ error: "手機號碼或密碼錯誤。", code: "INVALID_CREDENTIALS" }, 401, cors);
       if (emailOwner && normalizeTaiwanMobile(emailOwner.phone) !== phone) return json({ error: "此申請資料已存在，身分資料不符，請聯絡平台客服。", code: "PARTNER_IDENTITY_MISMATCH" }, 409, cors);
       if (phoneOwner && String(phoneOwner.email || "").trim().toLowerCase() !== email) return json({ error: "此手機已建立承攬夥伴帳號，請使用手機登入或聯絡平台客服。", code: "PARTNER_PHONE_ALREADY_REGISTERED", state: phoneOwner.status === "active" ? "active" : "pending_activation", next_url: "/partner/login" }, 409, cors);
       if (existingPartner.id_number_hash && existingPartner.id_number_hash !== idNumberHash) return json({ error: "此申請資料已存在，身分資料不符，請聯絡平台客服。", code: "PARTNER_IDENTITY_MISMATCH" }, 409, cors);
@@ -515,6 +528,9 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       const idNumberEncrypted = await encryptPartnerIdNumber(idNumber, env.PARTNER_ID_FIELD_ENCRYPTION_KEY);
       const invite = await prepareActivationInvite(db, partnerId);
       const membership = await preparePlatformMembershipBatch(db, { phone, source: "phone", privacyConsentVersion: "partner-auto-approval-v1", issueSession: false });
+      const existingCredential = await platformCredentialByMember(db, membership.memberId);
+      if (existingCredential && !(await verifyNumericCredential(input.password, existingCredential))) return json({ error: "手機號碼或密碼錯誤。", code: "INVALID_CREDENTIALS" }, 401, cors);
+      const credentialMaterial = existingCredential ? null : await createNumericCredentialMaterial(input.password);
       const statements = [
         db.prepare("INSERT INTO partners (id,partner_code,legal_name,display_name,email,phone,company_name,tax_id,status,referral_code,approved_at,approved_by,approval_mode,auto_approved_at,id_number_encrypted,id_number_hash,id_number_last4,identity_completion_required) VALUES (?,?,?,?,?,?,?,?,?,?,?,'system','automatic',?,?,?,?,0)")
           .bind(partnerId, partnerCode, String(input.legal_name).slice(0, 80), String(input.legal_name).slice(0, 80), email, phone, input.company_name || null, input.tax_id || null, "pending_contract", partnerCode, approvedAt, approvedAt, idNumberEncrypted, idNumberHash, idNumber.slice(-4)),
@@ -526,6 +542,7 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
         auditInsert(db, "system", "partner_auto_approval", "partner.auto_approved", "partner", partnerId, { approval_mode: "automatic" }),
         auditInsert(db, "system", "partner_auto_approval", "partner.activation_invite_created", "partner", partnerId, { expires_at: invite.expiresAt }),
       ];
+      if (credentialMaterial) statements.push(upsertPlatformCredentialStatement(db, membership.memberId, credentialMaterial));
       if (membership.memberCreated) statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_member.created", "platform_member", membership.memberId, { source: "partner_application" }));
       else statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_member.linked", "platform_member", membership.memberId, { source: "partner_application" }));
       if (membership.couponCreated) statements.push(auditInsert(db, "system", "partner_auto_approval", "platform_coupon.claimed", "platform_member", membership.memberId, { campaign_id: "platform_welcome_member_v1" }));
@@ -574,118 +591,64 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
   if (path === "/api/partner/invite/validate" && request.method === "POST") {
     const input = await body(request);
     if (!input.token) return json({ error: "請提供啟用連結。" }, 400, cors);
-    const invite = await db.prepare("SELECT i.expires_at,p.legal_name,p.display_name,p.email,p.status,p.approved_at FROM partner_invites i JOIN partners p ON p.id=i.partner_id WHERE i.token_hash=? AND i.used_at IS NULL AND i.expires_at>? LIMIT 1")
+    const invite = await db.prepare("SELECT i.expires_at,p.legal_name,p.display_name,p.email,p.status,p.approved_at,c.id credential_id FROM partner_invites i JOIN partners p ON p.id=i.partner_id LEFT JOIN partner_platform_member_links l ON l.partner_id=p.id LEFT JOIN platform_member_login_credentials c ON c.platform_member_id=l.member_id AND c.credential_type='numeric_password_8' AND c.status='active' WHERE i.token_hash=? AND i.used_at IS NULL AND i.expires_at>? LIMIT 1")
       .bind(await hash(String(input.token)), now()).first();
     if (!invite || invite.status !== "pending_contract" || !invite.approved_at) return json({ error: "啟用連結無效、已使用、已過期或帳號尚未核准。" }, 401, cors);
-    return json({ legal_name: invite.legal_name, display_name: invite.display_name, email: invite.email, expires_at: invite.expires_at }, 200, cors);
+    return json({ legal_name: invite.legal_name, display_name: invite.display_name, email: invite.email, expires_at: invite.expires_at, password_setup_required: !invite.credential_id }, 200, cors);
   }
 
   if (path === "/api/partner/accept-invite" && request.method === "POST") {
     const input = await body(request);
     if (!input.token) return json({ error: "啟用連結必須有效。" }, 400, cors);
-    const invite = await db.prepare("SELECT i.*,p.status,p.approved_at,p.activated_at FROM partner_invites i JOIN partners p ON p.id=i.partner_id WHERE i.token_hash=? AND i.used_at IS NULL AND i.expires_at>? LIMIT 1")
+    const invite = await db.prepare("SELECT i.*,p.status,p.approved_at,p.activated_at,p.phone,l.member_id,c.id credential_id FROM partner_invites i JOIN partners p ON p.id=i.partner_id LEFT JOIN partner_platform_member_links l ON l.partner_id=p.id LEFT JOIN platform_member_login_credentials c ON c.platform_member_id=l.member_id AND c.credential_type='numeric_password_8' AND c.status='active' WHERE i.token_hash=? AND i.used_at IS NULL AND i.expires_at>? LIMIT 1")
       .bind(await hash(String(input.token)), now()).first();
     if (!invite || invite.status !== "pending_contract" || !invite.approved_at) return json({ error: "啟用連結無效、已使用、已過期或帳號尚未核准。" }, 401, cors);
     const activatedAt = invite.activated_at || now();
     try {
-      const session = await preparePartnerSession(db, invite.partner_id, "activation_invite", "activation_invite");
-      await db.batch([
+      let credentialStatement = null;
+      if (!invite.credential_id) {
+        if (!invite.member_id) return json({ error: "共用平台帳號尚未完成連結，請聯絡平台客服。", code: "PLATFORM_MEMBER_LINK_REQUIRED" }, 409, cors);
+        if (input.password !== input.password_confirm) return json({ error: "兩次輸入的密碼不一致。", code: "PASSWORD_CONFIRMATION_MISMATCH" }, 422, cors);
+        const validation = validateNumericPassword(input.password, normalizeTaiwanMobile(invite.phone));
+        if (!validation.ok) return json({ error: validation.error, code: "INVALID_PASSWORD" }, 422, cors);
+        credentialStatement = upsertPlatformCredentialStatement(db, invite.member_id, await createNumericCredentialMaterial(input.password));
+      }
+      const session = await preparePartnerSession(db, invite.partner_id, "activation_invite", "activation_invite", null, "password_authenticated");
+      const statements = [
         db.prepare("UPDATE partners SET status='active',activated_at=COALESCE(activated_at,?),updated_at=? WHERE id=?").bind(activatedAt, now(), invite.partner_id),
         db.prepare("UPDATE partner_invites SET used_at=? WHERE id=?").bind(now(), invite.id),
         session.statement,
         auditInsert(db, "partner", invite.partner_id, "partner.activation_session_issued", "partner_session", session.sessionId, { assurance_level: "activation_invite", invite_id: invite.id }),
-      ]);
+      ];
+      if (credentialStatement) statements.push(credentialStatement);
+      await db.batch(statements);
       await audit(db, request, "partner", invite.partner_id, "contractor_activated", "partner", invite.partner_id, { invite_id: invite.id, activated_at: activatedAt });
       await syncVipReward(db, invite.partner_id);
       return json({ ok: true, status: "active", next_url: await partnerNextUrl(db, invite.partner_id) }, 200, { ...cors, "set-cookie": partnerCookie(session.token) });
     } catch { return json({ error: "帳號啟用暫時無法完成，請稍後再試。" }, 503, cors); }
   }
 
-  if (path === "/api/partner/login/start" && request.method === "POST") {
+  if (path === "/api/partner/login" && request.method === "POST") {
     const input = await body(request);
     const phone = normalizeTaiwanMobile(input.phone);
-    if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+    if (!phone) return json({ error: "請輸入手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+    if (!/^\d{8}$/.test(String(input.password || ""))) return json({ error: "請輸入 8 位數字密碼。", code: "INVALID_PASSWORD" }, 422, cors);
     if (!await partnerLoginRateLimit(db, request, phone)) return json({ error: "登入操作過於頻繁，請 15 分鐘後再試。", code: "RATE_LIMITED" }, 429, cors);
-    const currentSession = await partnerAuth(request, db);
-    if (currentSession) {
-      const currentPartner = await db.prepare("SELECT p.id,p.phone,p.status FROM partners p WHERE p.id=?").bind(currentSession.partner_id).first();
-      if (currentPartner && normalizeTaiwanMobile(currentPartner.phone) === phone && currentPartner.status === "active") {
-        await audit(db, request, "partner", currentPartner.id, "partner.session_restored", "partner_session", currentSession.id, { assurance_level: "trusted_existing_session" });
-        return json({ code: "SESSION_RESTORED", next_url: await partnerNextUrl(db, currentPartner.id) }, 200, { ...cors, "cache-control": "no-store" });
-      }
+    const partner = await partnerByNormalizedPhone(db, phone);
+    const link = partner ? await db.prepare("SELECT member_id FROM partner_platform_member_links WHERE partner_id=? LIMIT 1").bind(partner.id).first() : null;
+    const credential = link ? await platformCredentialByMember(db, link.member_id) : null;
+    if (!credential || credential.locked_until && new Date(credential.locked_until) > new Date() || !(await verifyNumericCredential(input.password, credential))) {
+      if (credential) await db.prepare("UPDATE platform_member_login_credentials SET failed_attempts=failed_attempts+1,locked_until=CASE WHEN failed_attempts+1>=8 THEN datetime('now','+15 minutes') ELSE locked_until END,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(credential.id).run();
+      return json({ error: "手機號碼或密碼錯誤。", code: "INVALID_CREDENTIALS" }, 401, cors);
     }
-    let partner = await partnerByNormalizedPhone(db, phone);
-    if (partner) {
-      try {
-        const modern = await ensurePartnerModernized(db, request, env, partner, {
-          createInvite: partner.status !== "active",
-          source: "partner_login_start",
-        });
-        partner = modern.partner;
-        if (partner?.status === "suspended") return json({ error: "此承攬夥伴帳號目前已暫停使用，請聯絡平台客服。", code: "PARTNER_SUSPENDED" }, 403, cors);
-        if (partner?.status === "terminated") return json({ error: "此承攬夥伴帳號的合作關係已終止。", code: "PARTNER_TERMINATED" }, 403, cors);
-        if (partner?.status === "rejected" || partner?.status === "blocked") return json({ error: "此承攬夥伴帳號目前無法登入，請聯絡平台客服。", code: "PARTNER_ACCOUNT_UNAVAILABLE" }, 403, cors);
-        if (partner?.status !== "active") {
-          return json({
-            code: modern.migrated ? "PARTNER_LEGACY_MODERNIZED" : "PARTNER_ACTIVATION_REQUIRED",
-            state: "pending_activation",
-            message: modern.migrated ? "您的承攬夥伴資料已更新，可以繼續完成啟用。" : "您的承攬夥伴帳號尚未完成啟用。",
-            activation_url: modern.activation_url,
-            activation_expires_at: modern.activation_expires_at,
-          }, 202, { ...cors, "cache-control": "no-store" });
-        }
-      } catch (error) {
-        return json({ error: error?.message || "承攬夥伴資料更新失敗。", code: error?.code || "PARTNER_MODERNIZATION_FAILED" }, Number(error?.status || 503), cors);
-      }
-    }
-    const challengeId = id("partner_challenge");
-    const staging = env.PARTNER_OTP_MODE === "staging";
-    const code = staging ? String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0") : null;
-    const expiresAt = new Date(Date.now() + 10 * 60e3).toISOString();
-    const phoneHash = await hash(`partner-login-phone:${phone}`);
-    const ipHash = await hash(`partner-login-ip:${clientIp(request) || "unknown"}`);
-    const deviceHash = await hash(`partner-login-device:${String(request.headers.get("x-device-id") || request.headers.get("user-agent") || "unknown").slice(0, 300)}`);
-    await db.prepare("INSERT INTO partner_login_challenges(id,partner_id,phone_hash,code_hash,provider,expires_at,ip_hash,device_hash) VALUES(?,?,?,?,?,?,?,?)")
-      .bind(challengeId, partner?.id || null, phoneHash, code ? await hash(`partner-otp:${challengeId}:${code}`) : null, staging ? "staging_otp" : "disabled", expiresAt, ipHash, deviceHash).run();
-    await audit(db, request, "public", phoneHash, "partner.login_challenge_created", "partner_login_challenge", challengeId, { provider: staging ? "staging_otp" : "disabled", partner_linked: Boolean(partner) });
-    return json({
-      code: "VERIFICATION_REQUIRED",
-      challenge_id: challengeId,
-      expires_at: expiresAt,
-      verification_available: staging,
-      verification_method: staging ? "staging_otp" : null,
-      staging_code: staging ? code : undefined,
-      message: staging ? "請輸入測試環境驗證碼。" : "若此手機已登記為承攬夥伴，我們將提供登入驗證方式。正式手機驗證服務尚未開放。",
-    }, 202, { ...cors, "cache-control": "no-store" });
-  }
-
-  if (path === "/api/partner/login/verify" && request.method === "POST") {
-    const input = await body(request);
-    const challengeId = String(input.challenge_id || "");
-    const code = String(input.code || "");
-    if (!challengeId || !/^\d{6}$/.test(code)) return json({ error: "請輸入 6 位數驗證碼。", code: "INVALID_OTP" }, 422, cors);
-    const challenge = await db.prepare("SELECT * FROM partner_login_challenges WHERE id=? LIMIT 1").bind(challengeId).first();
-    if (!challenge || challenge.used_at || challenge.revoked_at || new Date(challenge.expires_at) <= new Date()) return json({ error: "驗證碼已失效，請重新取得。", code: "OTP_EXPIRED" }, 401, cors);
-    if (challenge.provider !== "staging_otp" || env.PARTNER_OTP_MODE !== "staging" || !challenge.partner_id) return json({ error: "目前無法完成手機驗證。", code: "PARTNER_VERIFICATION_UNAVAILABLE" }, 503, cors);
-    if (Number(challenge.attempt_count) >= Number(challenge.max_attempts)) return json({ error: "驗證嘗試次數過多，請重新取得驗證碼。", code: "OTP_ATTEMPTS_EXCEEDED" }, 429, cors);
-    if (await hash(`partner-otp:${challengeId}:${code}`) !== challenge.code_hash) {
-      await db.prepare("UPDATE partner_login_challenges SET attempt_count=attempt_count+1 WHERE id=? AND used_at IS NULL").bind(challengeId).run();
-      return json({ error: "驗證碼錯誤。", code: "INVALID_OTP" }, 401, cors);
-    }
-    const partner = await db.prepare("SELECT id,status FROM partners WHERE id=?").bind(challenge.partner_id).first();
-    if (!partner || partner.status !== "active") return json({ error: "承攬夥伴帳號目前無法登入。", code: "PARTNER_ACCOUNT_UNAVAILABLE" }, 403, cors);
-    const session = await preparePartnerSession(db, partner.id, "verified_phone", "staging_otp", challenge.id);
-    const usedAt = now();
+    if (partner.status !== "active") return json({ error: "此帳號目前無法登入，請聯絡平台客服。", code: "PARTNER_ACCOUNT_UNAVAILABLE" }, 403, cors);
+    const session = await preparePartnerSession(db, partner.id, "trusted_existing_session", "session_restore", null, "password_authenticated");
     await db.batch([
-      db.prepare("UPDATE partner_login_challenges SET used_at=?,attempt_count=attempt_count+1 WHERE id=? AND used_at IS NULL").bind(usedAt, challenge.id),
+      db.prepare("UPDATE platform_member_login_credentials SET failed_attempts=0,locked_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(credential.id),
       session.statement,
-      auditInsert(db, "partner", partner.id, "partner.phone_verified_login", "partner_session", session.sessionId, { provider: "staging_otp", challenge_id: challenge.id }),
+      auditInsert(db, "partner", partner.id, "partner.password_login", "partner_session", session.sessionId, { credential_assurance: "password_authenticated" }),
     ]);
     return json({ ok: true, code: "PARTNER_LOGIN_SUCCESS", next_url: await partnerNextUrl(db, partner.id) }, 200, { ...cors, "set-cookie": partnerCookie(session.token), "cache-control": "no-store" });
-  }
-
-  if (path === "/api/partner/login" && request.method === "POST") {
-    return json({ error: "Email／密碼登入已停用，請改用手機免密碼登入。", code: "PARTNER_PASSWORD_LOGIN_DEPRECATED" }, 410, cors);
   }
 
   if (path === "/api/partner/attribution" && request.method === "POST") {
@@ -931,7 +894,25 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
   const partner = await db.prepare("SELECT * FROM partners WHERE id=?").bind(partnerId).first();
   if (!partner || partner.status !== "active") return json({ error: "承攬夥伴帳號目前尚未啟用或已終止。" }, 403, cors);
 
-  if (path === "/api/partner/me") return json({ id: partner.id, partner_code: partner.partner_code, legal_name: partner.legal_name, display_name: partner.display_name, status: partner.status, referral_code: partner.referral_code, identity_completion_required: Boolean(partner.identity_completion_required), id_number_masked: partner.id_number_last4 ? `******${partner.id_number_last4}` : null }, 200, cors);
+  if (path === "/api/partner/me") {
+    const link = await db.prepare("SELECT member_id FROM partner_platform_member_links WHERE partner_id=? LIMIT 1").bind(partnerId).first();
+    const credential = link ? await platformCredentialByMember(db, link.member_id) : null;
+    return json({ id: partner.id, partner_code: partner.partner_code, legal_name: partner.legal_name, display_name: partner.display_name, status: partner.status, referral_code: partner.referral_code, identity_completion_required: Boolean(partner.identity_completion_required), id_number_masked: partner.id_number_last4 ? `******${partner.id_number_last4}` : null, password_configured: Boolean(credential) }, 200, cors);
+  }
+  if (path === "/api/partner/password" && request.method === "POST") {
+    const input = await body(request);
+    const link = await db.prepare("SELECT member_id FROM partner_platform_member_links WHERE partner_id=? LIMIT 1").bind(partnerId).first();
+    if (!link) return json({ error: "共用平台帳號尚未完成連結，請聯絡平台客服。", code: "PLATFORM_MEMBER_LINK_REQUIRED" }, 409, cors);
+    if (await platformCredentialByMember(db, link.member_id)) return json({ error: "此帳號已設定登入密碼。", code: "PASSWORD_ALREADY_CONFIGURED" }, 409, cors);
+    if (input.password !== input.password_confirm) return json({ error: "兩次輸入的密碼不一致。", code: "PASSWORD_CONFIRMATION_MISMATCH" }, 422, cors);
+    const validation = validateNumericPassword(input.password, normalizeTaiwanMobile(partner.phone));
+    if (!validation.ok) return json({ error: validation.error, code: "INVALID_PASSWORD" }, 422, cors);
+    await db.batch([
+      upsertPlatformCredentialStatement(db, link.member_id, await createNumericCredentialMaterial(input.password)),
+      auditInsert(db, "partner", partnerId, "partner.password_configured", "platform_member", link.member_id, { credential_type: "numeric_password_8" }),
+    ]);
+    return json({ ok: true, password_configured: true }, 200, { ...cors, "cache-control": "no-store" });
+  }
   if (path === "/api/partner/identity" && request.method === "POST") {
     const input = await body(request), idNumber = normalizeTaiwanIdNumber(input.id_number);
     if (!isValidTaiwanIdNumber(idNumber)) return json({ error: "請輸入正確的台灣身分證字號。", code: "INVALID_PARTNER_ID_NUMBER" }, 422, cors);

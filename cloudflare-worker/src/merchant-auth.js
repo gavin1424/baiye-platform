@@ -1,8 +1,16 @@
 import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
 import { getSoftposRenewal } from "./merchant-softpos-plan.js";
 import { findMerchantPlan, saveMerchantPlanIntent } from "./merchant-plan-catalog.js";
+import {
+  createNumericCredentialMaterial,
+  deriveNumericPassword,
+  platformCredentialByMember,
+  upsertPlatformCredentialStatement,
+  validateNumericPassword,
+  verifyNumericCredential,
+} from "./numeric-password-auth.js";
 
-const E = new TextEncoder(), COOKIE = "baiye_merchant_session", ITERATIONS = 600000, SEGMENT = 100000;
+const E = new TextEncoder(), COOKIE = "baiye_merchant_session", ITERATIONS = 600000;
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=UTF-8", "cache-control": "no-store", ...headers } });
 const b64 = (a) => btoa(String.fromCharCode(...a)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 const random = () => b64(crypto.getRandomValues(new Uint8Array(32)));
@@ -12,17 +20,8 @@ const same = (a, b) => { if (!a || !b || a.length !== b.length) return false; le
 const cookieValue = (request, name) => String(request.headers.get("cookie") || "").split(";").map((x) => x.trim()).find((x) => x.startsWith(`${name}=`))?.slice(name.length + 1) || "";
 export const merchantSessionCookie = (value, age = 2592000) => `${COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${age}`;
 
-async function pbkdf2(input, salt, iterations) { const key = await crypto.subtle.importKey("raw", input, "PBKDF2", false, ["deriveBits"]); return new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: E.encode(salt), iterations }, key, 256)); }
-export async function deriveMerchantPassword(password, salt, iterations = ITERATIONS) { let material = E.encode(String(password)); for (let i = 0; i < Math.ceil(iterations / SEGMENT); i += 1) material = await pbkdf2(material, `${salt}:${i}`, Math.min(SEGMENT, iterations - i * SEGMENT)); return b64(material); }
-
-export function validateMerchantNumericPassword(password, phone = "") {
-  const value = String(password || "");
-  if (!/^[0-9]{8}$/.test(value)) return { ok: false, error: "密碼必須為 8 位數字。" };
-  const repeated = /^(\d)\1{7}$/.test(value) || /^(\d{1,2})\1+$/.test(value);
-  const sequential = ["01234567", "12345678", "23456789", "98765432", "87654321", "76543210"].includes(value);
-  if (repeated || sequential || (phone && value === phone.slice(-8))) return { ok: false, error: "此密碼過於簡單，請重新設定。" };
-  return { ok: true };
-}
+export const deriveMerchantPassword = deriveNumericPassword;
+export const validateMerchantNumericPassword = validateNumericPassword;
 
 export async function authenticateMerchantSession(request, env) {
   const token = cookieValue(request, COOKIE); if (!token || !env.FINANCE_DB) return null;
@@ -77,13 +76,20 @@ async function register(request, env, cors) {
   const db = env.FINANCE_DB, input = await request.json().catch(() => ({})), phone = normalizeTaiwanMobile(input.phone), password = String(input.password || "");
   if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
   if (input.privacy_consent !== true || !String(input.consent_version || "").trim()) return json({ error: "請閱讀並同意會員服務、隱私權說明及商家平台相關條款。", code: "PRIVACY_CONSENT_REQUIRED" }, 422, cors);
-  if (password) { const validation = validateMerchantNumericPassword(password, phone); if (!validation.ok) return json({ error: validation.error, code: "PASSWORD_INVALID" }, 422, cors); }
+  const passwordConfirmation = String(input.password_confirm || "");
+  if (password !== passwordConfirmation) return json({ error: "兩次輸入的密碼不一致。", code: "PASSWORD_CONFIRM_MISMATCH" }, 422, cors);
+  const passwordValidation = validateNumericPassword(password, phone); if (!passwordValidation.ok) return json({ error: passwordValidation.error, code: "PASSWORD_INVALID" }, 422, cors);
   if (!await rateLimit(db, request, phone, "merchant_register")) return json({ error: "操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
   if ((await ownersByPhone(db, phone)).length) return json({ code: "MERCHANT_ALREADY_REGISTERED", message: "此手機已有商家帳號，請前往商家登入。", next_url: "/merchant/login" }, 409, cors);
   const intendedPlanId = String(input.intended_plan || "").trim();
   if (intendedPlanId && !await findMerchantPlan(db, intendedPlanId)) return json({ error: "所選方案不存在或目前不可選擇。", code: "PLAN_NOT_SELECTABLE" }, 422, cors);
   const existingMember = await db.prepare("SELECT p.id FROM platform_members p JOIN ordering_customers c ON c.id=p.customer_id WHERE c.phone_normalized=?").bind(phone).first();
-  if (existingMember) { const authenticated = await authenticatePlatformMember(db, request); if (!authenticated || authenticated.id !== existingMember.id) return json({ error: "此手機已是平台會員，請先完成帳戶驗證。", code: "MEMBER_VERIFICATION_REQUIRED" }, 401, cors); }
+  let commonCredential = existingMember ? await platformCredentialByMember(db, existingMember.id) : null;
+  if (existingMember) {
+    const authenticated = await authenticatePlatformMember(db, request);
+    if (!authenticated || authenticated.id !== existingMember.id) return json({ error: "此手機已是平台會員，請先使用手機號碼與密碼登入。", code: "MEMBER_LOGIN_REQUIRED" }, 401, cors);
+    if (commonCredential && !await verifyNumericCredential(password, commonCredential)) return json({ error: "手機號碼或密碼錯誤。", code: "MEMBER_CREDENTIAL_INVALID" }, 401, cors);
+  }
   const membership = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version), deviceId: request.headers.get("x-device-id") || "merchant-register", issueSession: true });
   const merchantId = uid("merchant"), merchantCode = `MR${crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`;
   await db.batch([
@@ -92,11 +98,11 @@ async function register(request, env, cors) {
     db.prepare("INSERT INTO merchant_onboarding_states(merchant_id,registration_mode,state,operation_locked,commercial_terms_approval_required) VALUES(?,'standard_self_service','registered',1,0)").bind(merchantId),
   ]);
   const owner = await createPasswordlessMerchantOwner(db, { request, merchantId, platformMember: membership.member, phone });
-  if (password) {
-    const salt = random();
-    await db.prepare("INSERT INTO merchant_login_credentials(id,merchant_user_id,merchant_id,credential_type,password_hash,password_salt,password_algorithm,password_iterations) VALUES(?,?,?,'numeric_password_8',?,?,'pbkdf2-sha256-segmented-v1',600000)")
-      .bind(uid("merchantcredential"), owner.userId, merchantId, await deriveMerchantPassword(password, salt), salt).run();
-  }
+  const credentialMaterial = commonCredential || await createNumericCredentialMaterial(password);
+  await db.batch([
+    merchantCredentialStatement(db, merchantId, owner.userId, credentialMaterial),
+    ...(commonCredential ? [] : [upsertPlatformCredentialStatement(db, membership.member.id, credentialMaterial)]),
+  ]);
   if (intendedPlanId) await saveMerchantPlanIntent(db, merchantId, intendedPlanId, "join");
   await db.prepare("UPDATE merchant_applications SET status='activated',updated_at=CURRENT_TIMESTAMP WHERE merchant_id=?").bind(merchantId).run();
   const session = await issueMerchantSession(db, { merchantId, userId: owner.userId, platformMemberId: membership.member.id, assuranceLevel: "verified_phone", issuedVia: "phone_registration" });
@@ -105,73 +111,65 @@ async function register(request, env, cors) {
   return json({ code: "MERCHANT_REGISTERED", merchant: { id: merchantId, name: "待完成商家資料", status: "registration_started", operation_locked: true }, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: null, registration_price_minor: 0, intended_plan: intendedPlanId || null, csrf_token: session.csrf, next_url: "/merchant/select-plan" }, 201, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
 }
 
-async function loginStart(request, env, cors) {
-  const db = env.FINANCE_DB, input = await request.json().catch(() => ({})), phone = normalizeTaiwanMobile(input.phone);
-  if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
-  if (!await rateLimit(db, request, phone, "merchant_login_start")) return json({ error: "操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
-  const current = await getSession(request, env); if (current?.phone_normalized === phone) { const state = await db.prepare("SELECT state,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(current.merchant_id).first(); return json({ code: "SESSION_RESTORED", next_url: !state?.commercial_terms_id ? "/merchant/select-plan" : state.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard" }, 200, cors); }
-  const owners = await ownersByPhone(db, phone); if (!owners.length) return json({ code: "MERCHANT_NOT_FOUND", message: "若此手機已登記為商家管理者，系統將提供安全登入方式。" }, 202, cors);
-  if (owners.every((row) => ownerState(row) !== "ACTIVE")) { const state = ownerState(owners[0]); return json({ code: state, error: state === "MERCHANT_SUSPENDED" ? "商家帳號目前暫停使用，請聯絡平台。" : "商家帳號目前無法使用。" }, 403, cors); }
-  const mode = String(env.MERCHANT_OTP_MODE || "disabled"); if (!["staging", "sms_otp", "line_login"].includes(mode)) return json({ code: "VERIFICATION_SERVICE_UNAVAILABLE", error: "手機驗證服務目前尚未開放，請使用原裝置或安全啟用連結。" }, 503, cors);
-  const challengeId = uid("mchallenge"), code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0"), expiresAt = new Date(Date.now() + 10 * 60e3).toISOString();
-  await db.prepare("INSERT INTO merchant_login_challenges(id,platform_member_id,phone_hash,code_hash,mode,expires_at) VALUES(?,?,?,?,?,?)").bind(challengeId, owners[0].platform_member_id, await sha(`phone:${phone}`), await sha(`merchant-otp:${challengeId}:${code}`), mode === "staging" ? "staging_otp" : mode, expiresAt).run();
-  await event(db, request, "merchant.login_challenge_created", null, null, { challenge_id: challengeId, mode }); return json({ code: "VERIFICATION_REQUIRED", challenge_id: challengeId, expires_at: expiresAt, ...(mode === "staging" ? { staging_otp: code } : {}) }, 200, cors);
-}
-
-async function loginVerify(request, env, cors) {
-  const db = env.FINANCE_DB, input = await request.json().catch(() => ({})), challenge = await db.prepare("SELECT * FROM merchant_login_challenges WHERE id=? AND used_at IS NULL AND datetime(expires_at)>datetime('now')").bind(String(input.challenge_id || "")).first();
-  if (!challenge) return json({ error: "驗證碼無效或已過期。", code: "CHALLENGE_INVALID" }, 401, cors);
-  if (!await rateLimit(db, request, challenge.phone_hash, "merchant_login_verify")) return json({ error: "操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
-  if (!same(await sha(`merchant-otp:${challenge.id}:${String(input.code || "")}`), challenge.code_hash)) { await db.prepare("UPDATE merchant_login_challenges SET attempts=attempts+1 WHERE id=? AND attempts<8").bind(challenge.id).run(); return json({ error: "驗證碼錯誤。", code: "OTP_INVALID" }, 401, cors); }
-  const rows = (await db.prepare(`SELECT l.merchant_id,l.merchant_user_id,l.platform_member_id,l.status link_status,u.status user_status,m.name merchant_name,m.status merchant_status FROM merchant_owner_links l JOIN merchant_users u ON u.id=l.merchant_user_id AND u.merchant_id=l.merchant_id JOIN merchants m ON m.id=l.merchant_id WHERE l.platform_member_id=? ORDER BY l.created_at`).bind(challenge.platform_member_id).all()).results.filter((row) => ownerState(row) === "ACTIVE");
-  if (!rows.length) return json({ error: "商家帳號目前無法使用。", code: "MERCHANT_DISABLED" }, 403, cors);
-  if (rows.length > 1 && !input.merchant_id) return json({ code: "MERCHANT_SELECTION_REQUIRED", merchants: rows.map((row) => ({ id: row.merchant_id, name: row.merchant_name })) }, 200, cors);
-  const selected = rows.find((row) => row.merchant_id === (input.merchant_id || rows[0].merchant_id)); if (!selected) return json({ error: "無法存取所選商家。", code: "MERCHANT_ISOLATION_DENIED" }, 403, cors);
-  const changed = await db.prepare("UPDATE merchant_login_challenges SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(challenge.id).run(); if (!changed.meta?.changes) return json({ error: "驗證碼已使用。", code: "OTP_REPLAY" }, 409, cors);
-  const session = await issueMerchantSession(db, { merchantId: selected.merchant_id, userId: selected.merchant_user_id, platformMemberId: selected.platform_member_id, assuranceLevel: "verified_phone", issuedVia: challenge.mode }); await event(db, request, "merchant.session_created", selected.merchant_id, selected.merchant_user_id, { assurance_level: "verified_phone" });
-  const onboarding = await db.prepare("SELECT state,operation_locked,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(selected.merchant_id).first();
-  const nextUrl = !onboarding?.commercial_terms_id ? "/merchant/select-plan" : onboarding.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard";
-  return json({ code: "LOGIN_SUCCESS", merchant: { id: selected.merchant_id, name: selected.merchant_name }, administrator: { display_role: "管理者", internal_role: "merchant_owner", status: Number(onboarding?.operation_locked ?? 1) === 0 ? "ACTIVE" : "PENDING_ACTIVATION" }, csrf_token: session.csrf, expires_at: session.expiresAt, next_url: nextUrl }, 200, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
-}
-
 async function passwordLogin(request, env, cors) {
   const db = env.FINANCE_DB, body = await request.json().catch(() => ({})), phone = normalizeTaiwanMobile(body.phone), password = String(body.password || "");
-  if (!phone || !await rateLimit(db, request, phone, "merchant_password_login")) return json({ error: "手機號碼或密碼錯誤。" }, phone ? 429 : 401, cors);
-  const rows = (await db.prepare(`SELECT c.*,l.platform_member_id,l.merchant_id,l.merchant_user_id,u.display_name,m.name merchant_name,m.status merchant_status
+  if (!phone) return json({ error: "請輸入手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+  if (!/^\d{8}$/.test(password)) return json({ error: "請輸入 8 位數字密碼。", code: "INVALID_PASSWORD" }, 422, cors);
+  if (!await rateLimit(db, request, phone, "merchant_password_login")) return json({ error: "登入操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
+  const rows = (await db.prepare(`SELECT c.*,l.platform_member_id,l.merchant_id,l.merchant_user_id,u.display_name,m.name merchant_name,m.status merchant_status,
+      pc.id common_credential_id,pc.password_hash common_password_hash,pc.password_salt common_password_salt,
+      pc.password_iterations common_password_iterations,pc.failed_attempts common_failed_attempts,
+      pc.locked_until common_locked_until,pc.reset_required common_reset_required,pc.status common_status
     FROM merchant_owner_links l JOIN merchant_users u ON u.id=l.merchant_user_id AND u.merchant_id=l.merchant_id JOIN merchants m ON m.id=l.merchant_id
-    JOIN merchant_login_credentials c ON c.merchant_id=l.merchant_id AND c.merchant_user_id=l.merchant_user_id AND c.credential_type='numeric_password_8'
-    WHERE l.phone_normalized=? AND l.status='active' AND u.status='active' AND c.status='active'`).bind(phone).all()).results || [];
-  if (rows.some((row) => row.locked_until && Date.parse(row.locked_until) > Date.now())) return json({ error: "登入嘗試過多，請於 15 分鐘後再試。", code: "MERCHANT_ACCOUNT_LOCKED" }, 429, cors);
+    LEFT JOIN merchant_login_credentials c ON c.merchant_id=l.merchant_id AND c.merchant_user_id=l.merchant_user_id AND c.credential_type='numeric_password_8' AND c.status='active'
+    LEFT JOIN platform_member_login_credentials pc ON pc.platform_member_id=l.platform_member_id AND pc.credential_type='numeric_password_8'
+    WHERE l.phone_normalized=? AND l.status='active' AND u.status='active'`).bind(phone).all()).results || [];
+  if (rows.some((row) => (row.common_locked_until || row.locked_until) && Date.parse(row.common_locked_until || row.locked_until) > Date.now())) return json({ error: "登入嘗試過多，請於 15 分鐘後再試。", code: "MERCHANT_ACCOUNT_LOCKED" }, 429, cors);
   const matched = [];
-  for (const row of rows) if (same(await deriveMerchantPassword(password, row.password_salt, Number(row.password_iterations || ITERATIONS)), row.password_hash)) matched.push(row);
+  for (const row of rows) {
+    const credential = row.common_credential_id
+      ? { password_hash: row.common_password_hash, password_salt: row.common_password_salt, password_iterations: row.common_password_iterations, reset_required: row.common_reset_required, status: row.common_status }
+      : row;
+    if (await verifyNumericCredential(password, credential)) matched.push(row);
+  }
   if (!matched.length) {
-    for (const row of rows) { const failures = Number(row.failed_attempts || 0) + 1, lockedUntil = failures >= 5 ? new Date(Date.now() + 15 * 60_000).toISOString() : null; await db.prepare("UPDATE merchant_login_credentials SET failed_attempts=?,locked_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(failures, lockedUntil, row.id).run(); }
+    const seen = new Set();
+    for (const row of rows) {
+      const credentialId = row.common_credential_id || row.id;
+      if (!credentialId) continue;
+      if (seen.has(credentialId)) continue;
+      seen.add(credentialId);
+      const failures = Number(row.common_credential_id ? row.common_failed_attempts : row.failed_attempts || 0) + 1;
+      const lockedUntil = failures >= 5 ? new Date(Date.now() + 15 * 60_000).toISOString() : null;
+      const table = row.common_credential_id ? "platform_member_login_credentials" : "merchant_login_credentials";
+      await db.prepare(`UPDATE ${table} SET failed_attempts=?,locked_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(failures, lockedUntil, credentialId).run();
+    }
     return json({ error: "手機號碼或密碼錯誤。" }, 401, cors);
   }
   if (matched.length > 1) return json({ code: "MERCHANT_SELECTION_REQUIRED", merchants: matched.map((row) => ({ id: row.merchant_id, name: row.merchant_name })) }, 409, cors);
   const selected = matched[0], session = await issueMerchantSession(db, { merchantId: selected.merchant_id, userId: selected.merchant_user_id, platformMemberId: selected.platform_member_id, assuranceLevel: "trusted_existing_session", issuedVia: "numeric_password_8" });
-  await db.prepare("UPDATE merchant_login_credentials SET failed_attempts=0,locked_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(selected.id).run();
+  await db.prepare(`UPDATE ${selected.common_credential_id ? "platform_member_login_credentials" : "merchant_login_credentials"} SET failed_attempts=0,locked_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(selected.common_credential_id || selected.id).run();
   let onboarding = null;
   try { onboarding = await db.prepare("SELECT state,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(selected.merchant_id).first(); } catch {}
   const nextUrl = !onboarding?.commercial_terms_id ? "/merchant/select-plan" : onboarding.state === "contract_required" ? "/merchant/contract" : "/merchant/dashboard";
   return json({ code: "LOGIN_SUCCESS", merchant: { id: selected.merchant_id, name: selected.merchant_name }, platform_member_id: selected.platform_member_id, merchant_resolution: { automatic: true, count: 1, requires_selection: false }, csrf_token: session.csrf, expires_at: session.expiresAt, next_url: nextUrl }, 200, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
 }
 
-async function upsertMerchantCredential(db, merchantId, userId, password) {
-  const salt = random(), passwordHash = await deriveMerchantPassword(password, salt);
+function merchantCredentialStatement(db, merchantId, userId, material) {
   return db.prepare(`INSERT INTO merchant_login_credentials(id,merchant_user_id,merchant_id,credential_type,password_hash,password_salt,password_algorithm,password_iterations,reset_required,password_updated_at)
     VALUES(?,?,?,'numeric_password_8',?,?,'pbkdf2-sha256-segmented-v1',600000,0,CURRENT_TIMESTAMP)
     ON CONFLICT(merchant_id,merchant_user_id,credential_type) DO UPDATE SET password_hash=excluded.password_hash,password_salt=excluded.password_salt,password_algorithm=excluded.password_algorithm,password_iterations=excluded.password_iterations,failed_attempts=0,locked_until=NULL,reset_required=0,status='active',password_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`)
-    .bind(uid("merchantcredential"), userId, merchantId, passwordHash, salt);
+    .bind(uid("merchantcredential"), userId, merchantId, material.password_hash, material.password_salt);
 }
 
 async function setupMerchantPassword(request, env, cors) {
   const input = await request.json().catch(() => ({})), token = String(input.token || ""), password = String(input.password || ""), confirm = String(input.password_confirm || "");
-  const setup = await env.FINANCE_DB.prepare(`SELECT t.*,l.phone_normalized FROM merchant_password_setup_tokens t JOIN merchant_owner_links l ON l.merchant_id=t.merchant_id AND l.merchant_user_id=t.merchant_user_id WHERE t.token_hash=? AND t.used_at IS NULL AND t.revoked_at IS NULL AND datetime(t.expires_at)>datetime('now')`).bind(await sha(token)).first();
+  const setup = await env.FINANCE_DB.prepare(`SELECT t.*,l.phone_normalized,l.platform_member_id FROM merchant_password_setup_tokens t JOIN merchant_owner_links l ON l.merchant_id=t.merchant_id AND l.merchant_user_id=t.merchant_user_id WHERE t.token_hash=? AND t.used_at IS NULL AND t.revoked_at IS NULL AND datetime(t.expires_at)>datetime('now')`).bind(await sha(token)).first();
   if (!setup) return json({ error: "設定連結已失效，請聯絡創百業客服。" }, 401, cors);
   if (password !== confirm) return json({ error: "兩次輸入的密碼不一致。" }, 422, cors);
   const validation = validateMerchantNumericPassword(password, setup.phone_normalized); if (!validation.ok) return json({ error: validation.error }, 422, cors);
-  await env.FINANCE_DB.batch([await upsertMerchantCredential(env.FINANCE_DB, setup.merchant_id, setup.merchant_user_id, password), env.FINANCE_DB.prepare("UPDATE merchant_password_setup_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(setup.id)]);
+  const material = await createNumericCredentialMaterial(password);
+  await env.FINANCE_DB.batch([merchantCredentialStatement(env.FINANCE_DB, setup.merchant_id, setup.merchant_user_id, material), upsertPlatformCredentialStatement(env.FINANCE_DB, setup.platform_member_id, material), env.FINANCE_DB.prepare("UPDATE merchant_password_setup_tokens SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(setup.id)]);
   await event(env.FINANCE_DB, request, setup.purpose === "PASSWORD_RESET" ? "PASSWORD_RESET" : "PASSWORD_CHANGED", setup.merchant_id, setup.merchant_user_id, { setup_completed: true });
   return json({ ok: true, next_url: "/merchant/login" }, 200, cors);
 }
@@ -190,8 +188,6 @@ const getSession = authenticateMerchantSession;
 export async function handleMerchantAuth(request, env, url, cors = {}) {
   const db = env.FINANCE_DB; if (!db) return json({ error: "商家登入服務暫時無法使用。" }, 503, cors);
   if (url.pathname === "/api/merchant/register" && request.method === "POST") return register(request, env, cors);
-  if (url.pathname === "/api/merchant-auth/login/start" && request.method === "POST") return loginStart(request, env, cors);
-  if (url.pathname === "/api/merchant-auth/login/verify" && request.method === "POST") return loginVerify(request, env, cors);
   if (url.pathname === "/api/merchant-auth/login" && request.method === "POST") return passwordLogin(request, env, cors);
   if (url.pathname === "/api/merchant-auth/password/setup" && request.method === "POST") return setupMerchantPassword(request, env, cors);
   if (url.pathname === "/api/merchant-auth/session" && request.method === "GET") { const s = await getSession(request, env); if (!s) return json({ error: "未登入。" }, 401, cors); const csrf = random(); await db.prepare("UPDATE merchant_user_sessions SET csrf_hash=?,last_seen_at=CURRENT_TIMESTAMP WHERE id=?").bind(await sha(csrf), s.session_id).run(); const signed = await db.prepare("SELECT id,public_id,signed_at FROM merchant_contract_signatures WHERE merchant_id=? AND status='VALID' ORDER BY signed_at DESC LIMIT 1").bind(s.merchant_id).first(); const onboarding = await db.prepare("SELECT state,operation_locked,commercial_terms_approval_required,commercial_terms_id FROM merchant_onboarding_states WHERE merchant_id=?").bind(s.merchant_id).first(); const active = Boolean(signed) && onboarding?.state === "active" && Number(onboarding.operation_locked) === 0; const nextUrl = signed ? "/merchant/dashboard" : !onboarding?.commercial_terms_id ? "/merchant/select-plan" : "/merchant/contract"; return json({ user: { id: s.user_id, merchant_id: s.merchant_id, name: s.display_name, phone_masked: s.phone_normalized ? `${s.phone_normalized.slice(0,2)}** *** ${s.phone_normalized.slice(-3)}` : null, display_role: "管理者", internal_role: "merchant_owner", administrator_status: active ? "ACTIVE" : "PENDING_ACTIVATION" }, merchant: { id: s.merchant_id, name: s.merchant_name, status: s.merchant_status, operation_locked: onboarding ? Number(onboarding.operation_locked) === 1 : true, onboarding_state: onboarding?.state || null }, contract_status: signed ? "signed" : onboarding?.commercial_terms_id ? "contract_required" : "plan_selection_required", contract_signature: signed || null, permissions: String(s.permissions || "").split(",").filter(Boolean), roles: String(s.roles || "").split(",").filter(Boolean), assurance_level: s.assurance_level, csrf_token: csrf, expires_at: s.expires_at, next_url: nextUrl }, 200, cors); }

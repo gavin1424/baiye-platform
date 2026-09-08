@@ -13,7 +13,7 @@ export const testContractFontAssets = Object.freeze({
   regularSha256: hash(regularBytes),
   boldSha256: hash(boldBytes),
   monoSha256: hash(monoBytes),
-  subsetSafe: true,
+  subsetSafe: false,
 });
 
 export const testContractFontEnv = Object.freeze({

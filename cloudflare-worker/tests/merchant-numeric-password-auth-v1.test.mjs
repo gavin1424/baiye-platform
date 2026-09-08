@@ -18,9 +18,9 @@ class D1 { constructor() { this.sqlite = new DatabaseSync(":memory:"); this.sqli
 const request = (path, body, headers = {}) => new Request(`https://worker.test${path}`, { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.9", ...headers }, body: JSON.stringify(body) });
 const call = async (db, path, body) => { const req = request(path, body); const response = await handleMerchantAuth(req, { FINANCE_DB: db }, new URL(req.url), {}); return { response, data: await response.json() }; };
 
-test("8-digit policy accepts strong value and rejects invalid/weak/phone-tail values", () => {
-  assert.equal(validateMerchantNumericPassword("48270615", "0900000026").ok, true);
-  for (const value of ["1234567", "123456789", "abcd1234", "12345678", "00000000", "00000026", "12121212"]) assert.equal(validateMerchantNumericPassword(value, "0900000026").ok, false, value);
+test("8-digit policy implements exactly the required numeric format", () => {
+  for (const value of ["48270615", "12345678", "00000000", "00000026", "12121212"]) assert.equal(validateMerchantNumericPassword(value, "0900000026").ok, true, value);
+  for (const value of ["1234567", "123456789", "abcd1234", "1234 678"]) assert.equal(validateMerchantNumericPassword(value, "0900000026").ok, false, value);
 });
 
 test("admin setup token stores only a hash, then phone/password login reuses owner identity", async () => {
@@ -60,6 +60,7 @@ test("generic errors, five-failure lockout, locked correct rejection and expiry"
   for (let index = 1; index < 5; index += 1) await call(db, "/api/merchant-auth/login", { phone: "0900000026", password: "48270616" });
   const locked = await call(db, "/api/merchant-auth/login", { phone: "0900000026", password: "48270615" }); assert.equal(locked.response.status, 429);
   db.sqlite.prepare("UPDATE merchant_login_credentials SET locked_until='2000-01-01T00:00:00.000Z'").run();
+  db.sqlite.prepare("UPDATE platform_member_login_credentials SET locked_until='2000-01-01T00:00:00.000Z'").run();
   const recovered = await call(db, "/api/merchant-auth/login", { phone: "0900000026", password: "48270615" }); assert.equal(recovered.response.status, 200);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM platform_members").get().count, 1);
 });
@@ -98,7 +99,7 @@ test("merchant owner session reuses the same platform member for customer orderi
   const qr = db.sqlite.prepare("SELECT code FROM merchant_ordering_qr_codes WHERE id='bn_qr_a1'").get();
   const memberRequest = new Request(`https://worker.test/api/ordering/qr/${qr.code}/member-session`, { method: "POST", headers: { cookie: sessionCookie, "x-device-id": "owner-device" } });
   const response = await handleOrderingRequest(memberRequest, { FINANCE_DB: db }, new URL(memberRequest.url), {}), data = await response.json();
-  assert.equal(response.status, 200); assert.equal(data.member.membership_id, "owner_membership"); assert.equal(data.member_password_set, false);
+  assert.equal(response.status, 200); assert.equal(data.member.membership_id, "owner_membership"); assert.equal(data.member_password_set, true);
   assert.ok(data.platform_session.token); assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM platform_members WHERE id='owner_member'").get().count, 1);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_ordering_memberships WHERE merchant_id='demo_beef_noodle' AND customer_id='owner_customer'").get().count, 1);
 });

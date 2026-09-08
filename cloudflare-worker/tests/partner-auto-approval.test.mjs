@@ -25,7 +25,7 @@ class D1 {
 const cors = { "access-control-allow-origin": "https://staging.example" };
 const env = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://staging.example", CONTRACT_SIGNING_MODE: "staging", PARTNER_ID_FIELD_ENCRYPTION_KEY: "test-encryption-key-at-least-32-bytes", PARTNER_ID_HASH_SECRET: "test-hmac-secret-at-least-32-bytes" });
 function testId(suffix = "01") { const base = `A1${String(Number(suffix)).padStart(7, "0")}`; for (let digit = 0; digit <= 9; digit += 1) if (isValidTaiwanIdNumber(`${base}${digit}`)) return `${base}${digit}`; throw new Error("cannot make test id"); }
-const payload = (suffix = "01", overrides = {}) => ({ legal_name: `測試夥伴${suffix}`, id_number: testId(suffix), email: `auto-${suffix}@example.test`, phone: `09123456${suffix}`, company_name: "", tax_id: "", note: "", consent: true, ...overrides });
+const payload = (suffix = "01", overrides = {}) => ({ legal_name: `測試夥伴${suffix}`, id_number: testId(suffix), email: `auto-${suffix}@example.test`, phone: `09123456${suffix}`, company_name: "", tax_id: "", note: "", password: "48261735", password_confirm: "48261735", consent: true, ...overrides });
 function request(path, data, headers = {}) { return new Request(`https://worker.test${path}`, { method: "POST", headers: { "content-type": "application/json", "CF-Connecting-IP": "203.0.113.9", ...headers }, body: JSON.stringify(data) }); }
 async function apply(db, data) { const req = request("/api/partner/apply", data); const response = await handlePartnerRequest(req, env(db), new URL(req.url), cors); return { response, data: await response.json() }; }
 

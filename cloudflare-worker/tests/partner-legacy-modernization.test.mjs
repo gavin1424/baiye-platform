@@ -22,7 +22,7 @@ class D1 {
 }
 
 const cors = { "access-control-allow-origin": "https://staging.example" };
-const env = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://staging.example", PARTNER_OTP_MODE: "staging", CONTRACT_SIGNING_MODE: "staging", PARTNER_ID_FIELD_ENCRYPTION_KEY: "test-encryption-key-at-least-32-bytes", PARTNER_ID_HASH_SECRET: "test-hmac-secret-at-least-32-bytes" });
+const env = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://staging.example", CONTRACT_SIGNING_MODE: "staging", PARTNER_ID_FIELD_ENCRYPTION_KEY: "test-encryption-key-at-least-32-bytes", PARTNER_ID_HASH_SECRET: "test-hmac-secret-at-least-32-bytes" });
 function request(path, data) {
   return new Request(`https://worker.test${path}`, { method: "POST", headers: { "content-type": "application/json", "CF-Connecting-IP": "198.51.100.18" }, body: JSON.stringify(data) });
 }
@@ -40,7 +40,7 @@ function insertLegacy(db, overrides = {}) {
 
 test("L01 Legacy Apply 自動核准且不建立第二筆 Partner", async () => {
   const db = new D1(); const legacy = insertLegacy(db);
-  const result = await call(db, "/api/partner/apply", { legal_name: legacy.legal_name, id_number: "A123456789", email: legacy.email, phone: "0912-345-678", consent: true });
+  const result = await call(db, "/api/partner/apply", { legal_name: legacy.legal_name, id_number: "A123456789", email: legacy.email, phone: "0912-345-678", password: "48261735", password_confirm: "48261735", consent: true });
   assert.equal(result.response.status, 200); assert.equal(result.data.code, "PARTNER_LEGACY_MODERNIZED");
   const row = db.sqlite.prepare("SELECT status,approved_at,phone FROM partners WHERE id=?").get(legacy.id);
   assert.deepEqual([row.status, Boolean(row.approved_at), row.phone], ["pending_contract", true, "0912345678"]);
@@ -54,16 +54,16 @@ test("L02 手機 Status 自動 Modernize 並提供啟用入口", async () => {
   assert.match(result.data.message, /資料已更新/);
 });
 
-test("L03 Login Start 自動 Modernize 並回安全啟用入口", async () => {
+test("L03 Legacy Partner uses status modernization instead of a login challenge", async () => {
   const db = new D1(); insertLegacy(db);
-  const result = await call(db, "/api/partner/login/start", { phone: "0912345678" });
-  assert.equal(result.response.status, 202); assert.equal(result.data.code, "PARTNER_LEGACY_MODERNIZED"); assert.ok(result.data.activation_url);
+  const result = await call(db, "/api/partner/status", { phone: "0912345678" });
+  assert.equal(result.response.status, 200); assert.equal(result.data.code, "PARTNER_PENDING_ACTIVATION"); assert.ok(result.data.activation_url);
 });
 
 test("L04 重複入口仍維持一 Partner、一 Member 且不發 Coupon", async () => {
   const db = new D1(); insertLegacy(db);
   await call(db, "/api/partner/status", { phone: "0912345678" });
-  await call(db, "/api/partner/login/start", { phone: "0912345678" });
+  await call(db, "/api/partner/status", { phone: "0912345678" });
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM partners").get().n, 1);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_members").get().n, 1);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_member_coupons").get().n, 0);
@@ -79,10 +79,10 @@ test("L05 Modernize 寫入身份、會員連結及必要 Audit", async () => {
   assert.ok(actions.includes("partner.legacy_auto_migrated")); assert.ok(actions.includes("partner.auto_approved")); assert.ok(actions.includes("partner.activation_invite_created"));
 });
 
-test("L06 Active Legacy 不重建 Partner 且進手機驗證", async () => {
+test("L06 Active Legacy without password gets generic login rejection", async () => {
   const db = new D1(); insertLegacy(db, { status: "active", approved_at: new Date().toISOString() });
-  const result = await call(db, "/api/partner/login/start", { phone: "0912345678" });
-  assert.equal(result.response.status, 202); assert.equal(result.data.code, "VERIFICATION_REQUIRED");
+  const result = await call(db, "/api/partner/login", { phone: "0912345678", password: "48261735" });
+  assert.equal(result.response.status, 401); assert.equal(result.data.code, "INVALID_CREDENTIALS");
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM partner_invites").get().n, 0);
 });
 

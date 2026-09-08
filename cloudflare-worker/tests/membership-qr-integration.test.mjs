@@ -38,9 +38,10 @@ test("MQI-05 legacy shared QR paths delegate to current ordering core", () => {
   assert.match(worker, /handleSharedQrMembershipCompatibility/);
 });
 
-test("MQI-06 obsolete Email and password membership cannot create a second identity", () => {
+test("MQI-06 obsolete Email membership cannot create a second identity", () => {
   assert.doesNotMatch(compatibility, /platform_users|password_hash|password_salt/);
-  assert.match(compatibility, /PHONE_ONLY_MEMBERSHIP_REQUIRED/);
+  assert.match(compatibility, /UNIFIED_PLATFORM_LOGIN_REQUIRED/);
+  assert.match(compatibility, /\/member\/login/);
 });
 
 test("MQI-07 main QR routes remain available through safe compatibility redirects", () => {

@@ -67,9 +67,9 @@ export async function handleSharedQrMembershipCompatibility(request, env, url, c
 
   if (["/api/member/register", "/api/member/login"].includes(url.pathname)) {
     return json({
-      error: "平台會員已改用手機免密碼流程。",
-      code: "PHONE_ONLY_MEMBERSHIP_REQUIRED",
-      next: "/member/join",
+      error: "此舊版入口已停用，請使用手機號碼與 8 位數字密碼登入。",
+      code: "UNIFIED_PLATFORM_LOGIN_REQUIRED",
+      next: "/member/login",
     }, 410, cors);
   }
 

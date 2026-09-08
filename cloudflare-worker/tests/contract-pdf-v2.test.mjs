@@ -80,8 +80,19 @@ test("PDFV2-14 extracts English and numbers without inserted spacing", async () 
 test("PDFV2-15 extracts verification URL without inserted spacing", async () => assert.match((await extracted()).text.replace(/\s/g, ""), /https:\/\/baiyeconnect\.com\/#\/verify-contract\/VERIFY-CJK-001/));
 test("PDFV2-16 extracts hashes", async () => assert.match((await extracted()).text.replace(/\s/g, ""), /DOCUMENT_HASH_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/));
 test("PDFV2-17 private PDF contains identity while public evidence remains separate", async () => assert.match((await extracted()).text, /A123456789/));
-test("PDFV2-18 creates a dedicated signature page", async () => { const result=await extracted(); assert.match(result.pages.at(-1).text,/電子簽署紀錄/); assert.match(result.pages.at(-1).text,/本人手寫簽名/); });
+test("PDFV2-18 creates a dedicated signature page", async () => { const result=await extracted(); assert.match(result.pages.at(-1).text,/電子簽署紀錄/); assert.match(result.pages.at(-1).text,/手寫電子簽名/); });
 test("PDFV2-19 keeps extracted text inside page bounds", async () => { const result=await extracted(); for (const {items} of result.pages) for (const item of items) { const x=item.transform[4],y=item.transform[5]; assert.ok(x >= 0 && x <= A4.width); assert.ok(y >= 0 && y <= A4.height); assert.ok(x + item.width <= A4.width + 1); } });
-test("PDFV2-20 keeps signature label above hash evidence", async () => { const last=(await extracted()).pages.at(-1).items; const signatureLabel=last.find((item)=>item.str.includes("本人手寫簽名")); const documentHash=last.find((item)=>item.str.includes("DOCUMENT_HASH_")); assert.ok(signatureLabel.transform[5] > documentHash.transform[5]); });
+test("PDFV2-20 keeps signature label above hash evidence", async () => { const last=(await extracted()).pages.at(-1).items; const signatureLabel=last.find((item)=>item.str.includes("手寫電子簽名")); const documentHash=last.find((item)=>item.str.includes("DOCUMENT_HASH_")); assert.ok(signatureLabel.transform[5] > documentHash.transform[5]); });
 test("PDFV2-21 preserves supplied document hash", async () => assert.equal((await artifactPromise).documentHash, input.documentHash));
 test("PDFV2-22 layout changes only PDF hash", async () => { const first=await artifactPromise; const second=await createSignedAgreementPdf({...input,contentHtml:`${input.contentHtml}<p>完整句子</p>`}); assert.equal(second.documentHash,first.documentHash); assert.notEqual(second.pdfHash,first.pdfHash); });
+test("PDFV2-23 complete Traditional Chinese regression glyph set extracts exactly", async () => {
+  const required = ["創百業智慧鏈","商家服務合作契約","承攬夥伴合作契約","智慧商務","智慧點餐","免 POS","三個月試用","正式服務","保證金","抵約","契約","簽署","法定姓名","簽署時間","電子簽名","文件驗證資訊","葉耀仁","陳靈有限公司"];
+  const artifact = await createSignedAgreementPdf({ ...input, title: "創百業智慧鏈｜商家服務合作契約", signatory: "葉耀仁", signatoryRole: "legal_representative", partyLabel: "甲方：創百業智慧鏈　乙方：陳靈有限公司", contentHtml: `<h1>${required.join("　")}</h1>` });
+  const document = await pdfjs.getDocument({ data: Uint8Array.from(artifact.bytes), useWorkerFetch: false, isEvalSupported: false }).promise;
+  let text = "";
+  for (let number=1; number<=document.numPages; number+=1) { const page=await document.getPage(number); text += (await page.getTextContent()).items.map((item)=>item.str).join(""); }
+  for (const value of required) assert.match(text, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(text, /�|□/);
+});
+test("PDFV2-24 embeds distinct Regular and true Bold font programs", async () => { const raw=new TextDecoder("latin1").decode((await artifactPromise).bytes); assert.ok((raw.match(/\/FontFile2/g)||[]).length>=2); assert.notEqual((await artifactPromise).fontAssetSha256,(await artifactPromise).fontAssetBoldSha256); });
+test("PDFV2-25 user-facing evidence labels and timestamp are zh-TW", async () => { const text=(await extracted()).text; for(const label of ["文件編號","簽署同意紀錄","契約內容雜湊值","商業條款雜湊值","電子簽名雜湊值","文件雜湊值","電子簽署驗證等級","文件驗證網址","PDF 文件雜湊值"])assert.match(text,new RegExp(label)); assert.match(text,/2026年8月30日 12:00:00/); assert.doesNotMatch(text,/2026-08-30T12:00:00|Document ID|Consent|Verification URL|Signature Assurance|PDF Artifact ID/); });

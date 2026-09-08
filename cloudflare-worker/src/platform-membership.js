@@ -1,4 +1,12 @@
 const WELCOME_CAMPAIGN_ID = "platform_welcome_member_v1";
+import {
+  createNumericCredentialMaterial,
+  platformCredentialByMember,
+  upsertPlatformCredentialStatement,
+  validateNumericPassword,
+  verifyNumericCredential,
+} from "./numeric-password-auth.js";
+
 const SESSION_DAYS = 180;
 
 function json(data, status = 200, headers = {}) {
@@ -98,10 +106,10 @@ export async function authenticatePlatformMember(db, request) {
   return row || null;
 }
 
-async function checkRateLimit(db, request, phone, deviceId) {
+async function checkRateLimit(db, request, phone, deviceId, action = "member_join") {
   const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
   const bucket = new Date(Math.floor(Date.now() / 600000) * 600000).toISOString();
-  for (const [scope, raw, limit] of [["member_join_phone", phone, 8], ["member_join_ip", ip, 30], ["member_join_device", deviceId || "unknown", 12]]) {
+  for (const [scope, raw, limit] of [[`${action}_phone`, phone, 8], [`${action}_ip`, ip, 30], [`${action}_device`, deviceId || "unknown", 12]]) {
     const key = await sha256(raw);
     await db.prepare("INSERT INTO platform_member_rate_limits(scope,rate_key_hash,bucket_start,attempt_count) VALUES(?,?,?,1) ON CONFLICT(scope,rate_key_hash,bucket_start) DO UPDATE SET attempt_count=attempt_count+1").bind(scope, key, bucket).run();
     const row = await db.prepare("SELECT attempt_count FROM platform_member_rate_limits WHERE scope=? AND rate_key_hash=? AND bucket_start=?").bind(scope, key, bucket).first();
@@ -161,16 +169,47 @@ export async function handlePlatformMemberRequest(request, env, url, cors = {}) 
       if (input?.privacy_consent !== true || !String(input?.consent_version || "").trim()) return json({ error: "請閱讀並同意會員服務與隱私權說明。", code: "PRIVACY_CONSENT_REQUIRED" }, 422, cors);
       const phone = normalizeTaiwanMobile(input.phone);
       if (!phone) return json({ error: "請輸入正確的台灣手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+      const password = String(input.password || ""), passwordConfirm = String(input.password_confirm || "");
+      if (password !== passwordConfirm) return json({ error: "兩次輸入的密碼不一致。", code: "PASSWORD_CONFIRM_MISMATCH" }, 422, cors);
+      const validation = validateNumericPassword(password, phone);
+      if (!validation.ok) return json({ error: validation.error, code: "PASSWORD_INVALID" }, 422, cors);
       const deviceId = String(input.device_id || request.headers.get("x-device-id") || "").slice(0, 300);
       if (!await checkRateLimit(db, request, phone, deviceId)) return json({ error: "操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
       const existing = await findPlatformMemberByPhone(db, phone);
       if (existing) {
         const current = await authenticatePlatformMember(db, request);
-        if (!current || current.id !== existing.id) return json({ error: "此手機已建立會員，請使用會員登入，或在原登入裝置管理會員。", code: "MEMBER_LOGIN_REQUIRED" }, 409, cors);
+        if (!current || current.id !== existing.id) return json({ error: "此手機已建立會員，請使用手機號碼與 8 位數字密碼登入。", code: "MEMBER_LOGIN_REQUIRED" }, 409, cors);
+        const credential = await platformCredentialByMember(db, existing.id);
+        if (credential && !(await verifyNumericCredential(password, credential))) return json({ error: "手機號碼或密碼錯誤。", code: "MEMBER_CREDENTIAL_INVALID" }, 401, cors);
+        if (!credential) await upsertPlatformCredentialStatement(db, existing.id, await createNumericCredentialMaterial(password)).run();
         return json({ member: { id: current.id, member_no: current.member_no, status: current.status, phone_masked: maskMemberPhone(current.phone_normalized), joined_at: current.joined_at }, new_member: false, welcome: { show: false }, session: null }, 200, cors);
       }
       const result = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version).slice(0, 100), deviceId, couponIssuanceEnabled: env.MEMBERSHIP_COUPON_ISSUANCE_ENABLED === "1" });
+      const material = await createNumericCredentialMaterial(password);
+      await upsertPlatformCredentialStatement(db, result.member.id, material).run();
       return json({ member: result.member, new_member: true, welcome: result.welcome, coupon: result.coupon, session: result.session }, 201, cors);
+    }
+    if (url.pathname === "/api/members/login" && request.method === "POST") {
+      const input = await request.json().catch(() => ({}));
+      const phone = normalizeTaiwanMobile(input.phone), password = String(input.password || "");
+      const deviceId = String(input.device_id || request.headers.get("x-device-id") || "").slice(0, 300);
+      if (!phone) return json({ error: "請輸入手機號碼。", code: "INVALID_PHONE" }, 422, cors);
+      if (!/^[0-9]{8}$/.test(password)) return json({ error: "請輸入 8 位數字密碼。", code: "INVALID_PASSWORD" }, 422, cors);
+      if (!await checkRateLimit(db, request, phone, deviceId, "member_login")) return json({ error: "登入操作過於頻繁，請稍後再試。", code: "RATE_LIMITED" }, 429, cors);
+      const member = await findPlatformMemberByPhone(db, phone);
+      const credential = member ? await platformCredentialByMember(db, member.id) : null;
+      if (credential?.locked_until && Date.parse(credential.locked_until) > Date.now()) return json({ error: "登入嘗試過多，請於 15 分鐘後再試。", code: "MEMBER_ACCOUNT_LOCKED" }, 429, cors);
+      if (!member || member.status !== "active" || !await verifyNumericCredential(password, credential)) {
+        if (credential) {
+          const failures = Number(credential.failed_attempts || 0) + 1;
+          const lockedUntil = failures >= 5 ? new Date(Date.now() + 15 * 60_000).toISOString() : null;
+          await db.prepare("UPDATE platform_member_login_credentials SET failed_attempts=?,locked_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(failures, lockedUntil, credential.id).run();
+        }
+        return json({ error: "手機號碼或密碼錯誤。", code: "MEMBER_CREDENTIAL_INVALID" }, 401, cors);
+      }
+      await db.prepare("UPDATE platform_member_login_credentials SET failed_attempts=0,locked_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(credential.id).run();
+      const session = await issuePlatformMemberSession(db, member.id, deviceId);
+      return json({ member: { id: member.id, member_no: member.member_no, status: member.status, phone_masked: maskMemberPhone(phone), joined_at: member.joined_at }, session, next_url: "/member" }, 200, cors);
     }
     const member = await authenticatePlatformMember(db, request);
     if (!member) return json({ error: "會員 Session 無效或已過期。", code: "MEMBER_SESSION_REQUIRED" }, 401, cors);

@@ -16,8 +16,8 @@ test("normal merchant login is the only maintained login UI", () => {
   const app = read("src/App.tsx");
   const page = read("src/pages/MerchantLoginPage.tsx");
   const components = read("src/components.tsx");
-  assert.match(app, /path="\/merchant\/login" element=\{<MerchantLoginPage \/>\}/);
-  assert.match(app, /path="\/demo\/beef-noodle\/login" element=\{<Navigate to="\/merchant\/login" replace \/>\}/);
+  assert.match(app, /path="\/merchant\/login"[\s\S]{0,80}element=\{<MerchantLoginPage \/>\}/);
+  assert.match(app, /path="\/demo\/beef-noodle\/login"[\s\S]{0,120}element=\{<Navigate to="\/merchant\/login" replace \/>\}/);
   assert.match(page, /\/api\/merchant-auth\/login/);
   assert.match(page, /JSON\.stringify\(\{ phone, password \}\)/);
   assert.doesNotMatch(page, /簡訊已寄出|verification_code|phone-login/);
