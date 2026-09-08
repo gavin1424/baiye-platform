@@ -9,6 +9,9 @@ const errorText = (error: unknown) => error instanceof Error ? error.message : "
 
 export function MerchantLoginPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const requestedNext = params.get("next") || "";
+  const nextPath = requestedNext.startsWith("/plans/") ? requestedNext : "";
   const [checkingSession, setCheckingSession] = useState(true);
   const [phone, setPhone] = useState(""), [password, setPassword] = useState("");
   const [choices, setChoices] = useState<MerchantChoice[]>([]), [selectionToken, setSelectionToken] = useState("");
@@ -16,21 +19,21 @@ export function MerchantLoginPage() {
   useEffect(() => {
     let active = true;
     void merchantOrderingApi<LoginResponse>("/api/merchant-auth/session")
-      .then((data) => { if (active) navigate(data.next_url || "/merchant/dashboard", { replace: true }); })
+      .then((data) => { if (active) navigate(nextPath || data.next_url || "/merchant/dashboard", { replace: true }); })
       .catch(() => { if (active) setCheckingSession(false); });
     return () => { active = false; };
-  }, [navigate]);
+  }, [navigate, nextPath]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); if (loading) return; setLoading(true); setNotice("");
     try {
       const data = await merchantOrderingApi<LoginResponse>("/api/merchant-auth/login", { method: "POST", body: JSON.stringify({ phone, password }) });
       if (data.merchant_resolution?.requires_selection) { setChoices(data.merchant_resolution.merchants || []); setSelectionToken(data.merchant_resolution.selection_token || ""); return; }
-      navigate(data.next_url || "/merchant/dashboard", { replace: true });
+      navigate(nextPath || data.next_url || "/merchant/dashboard", { replace: true });
     } catch (error) { setNotice(errorText(error)); } finally { setLoading(false); }
   };
   const choose = async (merchantId: string) => {
     setLoading(true); setNotice("");
-    try { const data = await merchantOrderingApi<LoginResponse>("/api/merchant-auth/select", { method: "POST", body: JSON.stringify({ selection_token: selectionToken, merchant_id: merchantId }) }); navigate(data.next_url || "/merchant/dashboard", { replace: true }); }
+    try { const data = await merchantOrderingApi<LoginResponse>("/api/merchant-auth/select", { method: "POST", body: JSON.stringify({ selection_token: selectionToken, merchant_id: merchantId }) }); navigate(nextPath || data.next_url || "/merchant/dashboard", { replace: true }); }
     catch (error) { setNotice(errorText(error)); } finally { setLoading(false); }
   };
   if (checkingSession) return <main className="demo-merchant-login"><section className="demo-merchant-login-card" aria-live="polite"><Storefront size={48} weight="duotone" /><h1>商家管理者登入</h1><p>正在確認商家登入狀態…</p></section></main>;

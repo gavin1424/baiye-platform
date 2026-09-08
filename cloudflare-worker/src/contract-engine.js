@@ -56,6 +56,8 @@ export function assertContractSignable(contract, env = {}) {
 export function validateExplicitConsents(consents, partyType) {
   const required = partyType === "partner"
     ? ["read", "electronic", "independent"]
+    : partyType === "service_plan"
+      ? ["read", "plan_details", "electronic"]
     : ["read", "electronic", "commercial_terms", "authority", "signature_evidence"];
   const missing = required.filter((key) => consents?.[key] !== true);
   if (missing.length) throw new ContractError("CONSENT_REQUIRED", "請完成全部契約確認項目。", 422, { missing });
@@ -84,6 +86,7 @@ export async function buildSignedAgreement(input) {
     consent_version: input.consentVersion,
     signature_assurance_level: STANDARD_ASSURANCE,
     timezone: input.timezone || "Asia/Taipei",
+    ...(input.documentContext ? { document_context: input.documentContext } : {}),
   };
   const documentHash = await hashCanonical(canonicalDocument);
   const pdf = await createSignedAgreementPdf({

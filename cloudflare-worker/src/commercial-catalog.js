@@ -3,6 +3,9 @@ export const COMMERCIAL_CATALOG_VERSION = "2026-09-03.v1";
 export const MERCHANT_PLANS = Object.freeze([
   Object.freeze({
     plan_id: "baiye_standard_18000_addons",
+    plan_slug: "standard-digital-18000",
+    contract_template_id: "plan_contract_standard_v1_0",
+    plan_contract_version: "v1.0",
     display_name: "百工標準方案",
     short_name: "標準數位升級",
     price_minor: 1800000,
@@ -28,6 +31,9 @@ export const MERCHANT_PLANS = Object.freeze([
   }),
   Object.freeze({
     plan_id: "baiye_commerce_ai_45000",
+    plan_slug: "ai-commerce-45000",
+    contract_template_id: "plan_contract_commerce_v1_0",
+    plan_contract_version: "v1.0",
     display_name: "AI 智慧商城完整版",
     short_name: "AI 智慧商城",
     price_minor: 4500000,
@@ -53,6 +59,9 @@ export const MERCHANT_PLANS = Object.freeze([
   }),
   Object.freeze({
     plan_id: "baiye_softpos_24000",
+    plan_slug: "softpos-24000",
+    contract_template_id: "plan_contract_softpos_v1_0",
+    plan_contract_version: "v1.0",
     display_name: "免 POS 機智慧點餐",
     short_name: "免 POS 機智慧點餐",
     price_minor: 2400000,

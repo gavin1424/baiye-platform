@@ -24,7 +24,10 @@ function PlanCard({ plan }: { plan: CommercialPlan }) {
   const tone = planTone[plan.plan_id];
   return <PremiumCard className={`pricing-v2-card pricing-v2-${tone}`}>
     <div className="pricing-v2-card-head"><span className="pricing-v2-badge">{plan.badge}</span><h2>{plan.display_name}</h2><p>{plan.summary}</p>{plan.list_price_minor > plan.price_minor && <del>原價 {formatTwd(plan.list_price_minor)}</del>}<div className="pricing-v2-amount"><strong>{formatTwd(plan.price_minor)}</strong><span>／{plan.term_months} 個月</span></div>{plan.trial_months > 0 && <p className="pricing-v2-trial"><Clock weight="fill" />前 {plan.trial_months} 個月系統服務費免費</p>}</div>
-    <Link className="btn btn-primary btn-lg" to={`/merchant/register?plan=${plan.plan_id}`}>免費建立商家帳號</Link>
+    <div className="pricing-v2-contract-actions">
+      <Link className="btn btn-primary btn-lg" to={`/plans/${plan.plan_slug}/contract`}>選擇方案</Link>
+      <Link className="btn btn-outline" to={`/plans/${plan.plan_slug}/contract?mode=view`}>查看方案合約</Link>
+    </div>
     <ul>{plan.features.map((feature) => <li key={feature}><Check weight="bold" />{feature}</li>)}</ul>
     {tone === "standard" && <p className="pricing-v2-note">網站主要內容由百工協助維護；不開放完整 CMS。基礎協助上架 {plan.base_product_limit} 項。</p>}
     {tone === "commerce" && <p className="pricing-v2-note">商家可自行管理商品、價格、圖片、分類、規格與上下架；真實金流仍依 Provider readiness。</p>}

@@ -350,6 +350,8 @@ export async function handleMerchantContractAdmin(request, env, url, cors = {}, 
 
 export async function handlePublicContractVerification(env, publicId, cors = {}) {
   const db = env.FINANCE_DB;
+  const plan = await db.prepare("SELECT public_id,signed_at,status,document_hash,contract_version version FROM service_plan_contract_signatures WHERE public_id=?").bind(publicId).first().catch(() => null);
+  if (plan) return json(publicVerificationRecord(plan, "SERVICE_PLAN_AGREEMENT", plan.version), 200, cors);
   const merchant = await db.prepare("SELECT s.public_id,s.signed_at,s.status,s.document_hash,v.version FROM merchant_contract_signatures s JOIN merchant_contract_versions v ON v.id=s.contract_version_id WHERE s.public_id=?").bind(publicId).first();
   if (merchant) return json(publicVerificationRecord(merchant, "MERCHANT_PLATFORM_SERVICE", merchant.version), 200, cors);
   const partner = await db.prepare("SELECT s.public_id,s.signed_at,s.status,s.document_hash,v.version FROM contract_signatures s JOIN contract_versions v ON v.id=s.contract_version_id WHERE s.public_id=?").bind(publicId).first();
