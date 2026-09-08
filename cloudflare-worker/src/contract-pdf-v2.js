@@ -63,23 +63,24 @@ export function wrapByWidth(value, font, size, maxWidth) {
   const output = [];
   for (const paragraph of String(value || "").split(/\r?\n/)) {
     if (!paragraph) { output.push(""); continue; }
-    let line = "";
+    let line = "", lineWidth = 0;
     const tokens = paragraph.match(/[\p{Script=Han}]{1,8}\s+NT\$[\d,]+(?:\.\d+)?|https?:\/\/\S+|NT\$[\d,]+(?:\.\d+)?|[A-Za-z0-9][A-Za-z0-9._:/#?&=%+\-]*|\s+|[^\s]/gu) || [];
     for (const token of tokens) {
-      const candidate = line + token;
-      if (line && font.widthOfTextAtSize(candidate, size) > maxWidth) {
+      const tokenWidth = font.widthOfTextAtSize(token, size);
+      if (line && lineWidth + tokenWidth > maxWidth) {
         output.push(line.trimEnd());
         line = token.trimStart();
-      } else line = candidate;
-      if (line && font.widthOfTextAtSize(line, size) > maxWidth) {
+        lineWidth = font.widthOfTextAtSize(line, size);
+      } else { line += token; lineWidth += tokenWidth; }
+      if (line && lineWidth > maxWidth) {
         const oversized = line;
-        line = "";
+        line = ""; lineWidth = 0;
         for (const character of Array.from(oversized)) {
-          const characterCandidate = line + character;
-          if (line && font.widthOfTextAtSize(characterCandidate, size) > maxWidth) {
+          const characterWidth = font.widthOfTextAtSize(character, size);
+          if (line && lineWidth + characterWidth > maxWidth) {
             output.push(line.trimEnd());
-            line = character;
-          } else line = characterCandidate;
+            line = character; lineWidth = characterWidth;
+          } else { line += character; lineWidth += characterWidth; }
         }
       }
     }

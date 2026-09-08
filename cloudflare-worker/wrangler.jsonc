@@ -3,9 +3,6 @@
   "name": "chuang-baiye-ai",
   "main": "src/index.js",
   "compatibility_date": "2026-08-20",
-  "limits": {
-    "cpu_ms": 300000
-  },
   "ai": {
     "binding": "AI"
   },
