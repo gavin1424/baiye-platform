@@ -147,7 +147,8 @@ test("SP10 subsequent renewal is a new 24-month cycle for 24,000 with no second 
 
 test("SP11 UI includes the legal commercial labels and never claims zero hardware", () => {
   const page = readFileSync(new URL("../../src/pages/MerchantContractPages.tsx", import.meta.url), "utf8");
-  for (const phrase of ["開通費","保證金","前三個月","正式方案","第一週期抵充後","後續週期","是否續用免 POS 機智慧點餐系統","不會產生假交易"]) assert.match(page, new RegExp(phrase));
+  for (const phrase of ["開通費","保證金","前三個月","正式方案","第一週期抵充後","後續週期","是否續用免 POS 機智慧點餐系統","分期方式須由合作銀行／金流服務商確認後提供"]) assert.match(page, new RegExp(phrase));
+  assert.doesNotMatch(page, /假交易|Provider 實際 24 期能力/);
   assert.doesNotMatch(page, />完全零硬體</);
 });
 

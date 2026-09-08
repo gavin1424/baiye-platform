@@ -41,6 +41,7 @@ test("mobile bottom nav and coupon-disabled entry UI stay intact", () => {
   const components = read("src/components.tsx");
   const partner = read("src/pages/PartnerPages.tsx");
   assert.match(home, /<MobileBottomNav \/>/);
-  for (const label of ["首頁", "搜尋", "發布需求", "私訊", "我的"]) assert.match(components, new RegExp(`label: "${label}"`));
+  for (const label of ["首頁", "搜尋", "方案", "加入"]) assert.match(components, new RegExp(`label: "${label}"`));
+  assert.match(components, /"登入" : "我的"/);
   for (const forbidden of ["迎新券", "優惠券", "折價券", "立即領取"]) assert.equal(partner.includes(forbidden), false);
 });

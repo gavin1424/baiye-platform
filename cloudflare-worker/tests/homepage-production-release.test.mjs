@@ -17,19 +17,19 @@ test("production homepage exposes all eight interactive features", () => {
   assert.doesNotMatch(source, /立即試用完整商家系統|\/demo\/beef-noodle/);
 });
 
-test("immersive homepage restores the historical five-item mobile navigation", () => {
+test("immersive homepage keeps five truthful mobile navigation destinations", () => {
   const home = read("src/pages/HomePage.tsx");
   const components = read("src/components.tsx");
   const styles = read("src/styles.css");
   for (const item of [
     ['首頁', '/'],
     ['搜尋', '/businesses'],
-    ['發布需求', '/collaborations/new'],
-    ['私訊', '/messages'],
+    ['方案', '/pricing'],
+    ['加入', '/join'],
   ]) {
     assert.match(components, new RegExp(`label: "${item[0]}"[\\s\\S]{0,50}to: "${item[1].replaceAll('/', '\\/')}"`));
   }
-  assert.match(components, /label: "我的"/);
+  assert.match(components, /"登入" : "我的"/);
   assert.match(components, /className=\{\(\{ isActive \}\)/);
   assert.match(home, /<MobileBottomNav \/>/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);

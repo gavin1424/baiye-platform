@@ -6,6 +6,7 @@ import {
   getPlatformMemberToken,
   savePlatformMemberToken,
 } from "../qr-ordering-client";
+import { userFacingError } from "../user-facing-error";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -25,7 +26,7 @@ async function memberApi<T>(path: string, init: RequestInit = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok)
-    throw Object.assign(new Error(data.error || "會員服務暫時無法使用。"), {
+    throw Object.assign(new Error("會員服務暫時無法使用。"), {
       code: data.code,
       status: response.status,
     });
@@ -63,7 +64,7 @@ export function PlatformMemberJoinPage() {
       );
       navigate(result.new_member ? "/member/welcome" : "/member");
     } catch (error: any) {
-      setMessage(error.message);
+      setMessage(userFacingError(error, "會員服務暫時無法使用，請稍後再試。"));
     } finally {
       setBusy(false);
     }
@@ -177,7 +178,7 @@ export function PlatformMemberLoginPage() {
       if (result.session?.token) savePlatformMemberToken(result.session.token);
       navigate("/member", { replace: true });
     } catch (error: any) {
-      setMessage(error.message);
+      setMessage(userFacingError(error, "會員服務暫時無法使用，請稍後再試。"));
     } finally {
       setBusy(false);
     }
@@ -266,7 +267,7 @@ export function PlatformMemberCenterPage() {
   useEffect(() => {
     memberApi<any>("/api/members/me")
       .then((result) => setData(result.member))
-      .catch((error) => setMessage(error.message));
+      .catch((error) => setMessage(userFacingError(error, "會員資料暫時無法載入，請稍後再試。")));
   }, []);
   if (message)
     return (

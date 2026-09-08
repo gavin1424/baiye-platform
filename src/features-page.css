@@ -27,6 +27,9 @@
   line-height: 1.85;
 }
 
+.features-hero h1 { color: #ffffff; }
+.features-hero p { color: #eef4fb; }
+
 .features-hero-actions {
   display: flex;
   flex-wrap: wrap;

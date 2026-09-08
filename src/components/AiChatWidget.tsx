@@ -49,6 +49,12 @@ export function AiChatWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading, open]);
 
+  useEffect(() => {
+    const openChat = () => setOpen(true);
+    window.addEventListener("baiye:open-ai-chat", openChat);
+    return () => window.removeEventListener("baiye:open-ai-chat", openChat);
+  }, []);
+
   const clearConversation = () => {
     const next = [{ role: "assistant" as const, content: WELCOME_MESSAGE }];
     window.localStorage.removeItem(STORAGE_KEY);
@@ -62,7 +68,7 @@ export function AiChatWidget() {
     if (!message || loading) return;
 
     if (!WORKER_URL) {
-      setError("AI 客服服務正在設定中，請稍後再試或透過 LINE 聯絡我們。");
+      setError("AI 客服目前暫時無法使用，請稍後再試。");
       return;
     }
 
@@ -87,7 +93,7 @@ export function AiChatWidget() {
       const assistantMessage: ChatMessage = { role: "assistant", content: reply };
       setMessages((current) => [...current, assistantMessage].slice(-MAX_HISTORY_MESSAGES));
     } catch {
-      setError("目前無法取得 AI 回覆，請稍後再試或透過 LINE 聯絡我們。");
+      setError("目前無法取得 AI 回覆，請稍後再試。");
     } finally {
       setLoading(false);
     }

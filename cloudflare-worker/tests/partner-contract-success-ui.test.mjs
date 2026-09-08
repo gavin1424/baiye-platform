@@ -12,7 +12,7 @@ test("UI05 coupon notification is removed", () => assert.doesNotMatch(source, /N
 test("UI06 member success links to member center", () => assert.match(source, /前往會員中心/));
 test("UI07 signing button is double-click protected", () => assert.match(source, /disabled=\{signing\}[\s\S]*簽署處理中…/));
 test("UI08 one stable idempotency ref is used", () => assert.match(source, /useRef\(crypto\.randomUUID\(\)\)[\s\S]*"idempotency-key": signIdempotencyKey\.current/));
-test("UI09 incomplete sign result does not close preview", () => { const validation=source.indexOf("SIGN_RESULT_INCOMPLETE"),close=source.indexOf("setPreview(undefined);",validation); assert.ok(validation>0&&close>validation); });
+test("UI09 incomplete sign result does not close preview", () => { const validation=source.indexOf("簽署結果尚未完整確認"),close=source.indexOf("setPreview(undefined);",validation); assert.ok(validation>0&&close>validation); });
 test("UI10 success redirects to partner dashboard", () => assert.match(source, /navigate\("\/partner\/dashboard", \{ replace: true \}\)/));
 test("UI11 signed refresh hides signing form", () => assert.match(source, /signed && !signSuccess[\s\S]*此版本已完成簽署[\s\S]*!signed &&/));
 test("UI12 signed refresh offers download and dashboard only", () => {

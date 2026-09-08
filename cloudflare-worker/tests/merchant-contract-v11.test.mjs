@@ -97,6 +97,6 @@ test("MCV11-08 v1.1 private PDF extracts the complete Chinese body and Attachmen
 });
 test("MCV11-09 merchant UI exposes one private download label and no legacy completed copy for unsigned state", () => {
   const page = readFileSync(new URL("../../src/pages/MerchantContractPages.tsx", import.meta.url), "utf8"); const portal = readFileSync(new URL("../../src/pages/MerchantAccessPages.tsx", import.meta.url), "utf8");
-  assert.match(page, /下載契約檔案/); assert.doesNotMatch(page, /查看已簽 PDF/); assert.match(page, /本人正楷手寫簽名/); assert.match(page, /NT\$18,000/);
+  assert.match(page, /下載契約檔案/); assert.doesNotMatch(page, /查看已簽 PDF/); assert.match(page, /本人手寫電子簽名/); assert.match(page, /NT\$18,000/);
   assert.match(portal, /完成契約簽署後，即可啟用商家正式營運功能/); assert.match(portal, /下載契約檔案/); assert.doesNotMatch(portal, /商家平台服務契約已完成。/);
 });

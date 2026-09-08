@@ -59,7 +59,8 @@ import {
   type QrMenuResponse,
 } from "../qr-ordering-client";
 
-const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
+const IS_BEEF_NOODLE_DEMO =
+  import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 
 const orderStatusLabels: Record<OrderingOrderStatus, string> = {
   submitted: "已送出",
@@ -130,8 +131,11 @@ function QrOrderingView({ code }: { code: string }) {
   const [paymentOptions, setPaymentOptions] = useState<OrderingPaymentOption[]>(
     [],
   );
-  const [checkoutPaymentOptions, setCheckoutPaymentOptions] = useState<CheckoutPaymentCapability[]>([]);
-  const [checkoutPaymentProvider, setCheckoutPaymentProvider] = useState<CheckoutPaymentProvider>("manual_counter");
+  const [checkoutPaymentOptions, setCheckoutPaymentOptions] = useState<
+    CheckoutPaymentCapability[]
+  >([]);
+  const [checkoutPaymentProvider, setCheckoutPaymentProvider] =
+    useState<CheckoutPaymentProvider>("manual_counter");
   const [deliveryLinks, setDeliveryLinks] = useState<OrderingDeliveryLink[]>(
     [],
   );
@@ -156,15 +160,26 @@ function QrOrderingView({ code }: { code: string }) {
     password_confirm: "",
     consent: false,
   });
-  const [loginForm, setLoginForm] = useState({ phone: "", password: "", consent: false });
+  const [loginForm, setLoginForm] = useState({
+    phone: "",
+    password: "",
+    consent: false,
+  });
   const [authTab, setAuthTab] = useState<"join" | "login">("join");
-  const [memberPasswordSet, setMemberPasswordSet] = useState<boolean | null>(null);
-  const [memberPasswordForm, setMemberPasswordForm] = useState({ password: "", password_confirm: "" });
+  const [memberPasswordSet, setMemberPasswordSet] = useState<boolean | null>(
+    null,
+  );
+  const [memberPasswordForm, setMemberPasswordForm] = useState({
+    password: "",
+    password_confirm: "",
+  });
   const [resumeCartAfterAuth, setResumeCartAfterAuth] = useState(false);
   const [orderType, setOrderType] = useState<OrderingOrderType>("dine_in");
   const [tableLabel, setTableLabel] = useState("");
   const [customerNote, setCustomerNote] = useState("");
-  const [demoInvoiceMethod, setDemoInvoiceMethod] = useState<"individual" | "mobile_barcode" | "business_tax_id" | "donation">("individual");
+  const [demoInvoiceMethod, setDemoInvoiceMethod] = useState<
+    "individual" | "mobile_barcode" | "business_tax_id" | "donation"
+  >("individual");
   const [invoiceCarrier, setInvoiceCarrier] = useState("");
   const [invoiceTaxId, setInvoiceTaxId] = useState("");
   const [invoiceBuyerName, setInvoiceBuyerName] = useState("");
@@ -177,7 +192,9 @@ function QrOrderingView({ code }: { code: string }) {
 
   useEffect(() => {
     if (!IS_BEEF_NOODLE_DEMO) return;
-    void merchantOrderingApi("/api/merchant-auth/session").then(() => setDemoAdministrator(true)).catch(() => setDemoAdministrator(false));
+    void merchantOrderingApi("/api/merchant-auth/session")
+      .then(() => setDemoAdministrator(true))
+      .catch(() => setDemoAdministrator(false));
   }, []);
 
   const loadBenefits = useCallback(
@@ -242,7 +259,12 @@ function QrOrderingView({ code }: { code: string }) {
     try {
       const data = await orderingPublicApi<QrContextResponse>(
         `/api/ordering/qr/${encodeURIComponent(code)}`,
-        { headers: { "x-platform-member-token": getPlatformMemberToken(), "x-device-id": getPlatformDeviceId() } },
+        {
+          headers: {
+            "x-platform-member-token": getPlatformMemberToken(),
+            "x-device-id": getPlatformDeviceId(),
+          },
+        },
       );
       const ctx = data.context;
       setContext(ctx);
@@ -259,7 +281,8 @@ function QrOrderingView({ code }: { code: string }) {
         setItemSelections(persisted.itemSelections || {});
         setCustomerNote(persisted.customerNote || "");
         if (!ctx.qr.table_label) setTableLabel(persisted.tableLabel || "");
-        if (ctx.qr.purpose === "member_order") setOrderType(persisted.orderType || "dine_in");
+        if (ctx.qr.purpose === "member_order")
+          setOrderType(persisted.orderType || "dine_in");
       }
       setLineClicked(getOrderingLineClicked(code));
 
@@ -304,13 +327,17 @@ function QrOrderingView({ code }: { code: string }) {
             member_password_set: boolean;
           }>(`/api/ordering/qr/${encodeURIComponent(code)}/member-session`, {
             method: "POST",
-            headers: { "x-platform-member-token": getPlatformMemberToken(), "x-device-id": getPlatformDeviceId() },
+            headers: {
+              "x-platform-member-token": getPlatformMemberToken(),
+              "x-device-id": getPlatformDeviceId(),
+            },
           });
           setMember(reused.member);
           setToken(reused.session.token);
           setMemberPasswordSet(reused.member_password_set);
           saveOrderingMemberToken(ctx.merchant_id, reused.session.token);
-          if (reused.platform_session?.token) savePlatformMemberToken(reused.platform_session.token);
+          if (reused.platform_session?.token)
+            savePlatformMemberToken(reused.platform_session.token);
           await loadMenu(ctx, reused.session.token);
           await loadBenefits(reused.session.token);
         } catch (error) {
@@ -331,15 +358,40 @@ function QrOrderingView({ code }: { code: string }) {
 
   useEffect(() => {
     if (!context || loading || order) return;
-    savePersistedOrderingCart(code, { cart, itemSelections, customerNote, orderType, tableLabel });
-  }, [cart, code, context, customerNote, itemSelections, loading, order, orderType, tableLabel]);
+    savePersistedOrderingCart(code, {
+      cart,
+      itemSelections,
+      customerNote,
+      orderType,
+      tableLabel,
+    });
+  }, [
+    cart,
+    code,
+    context,
+    customerNote,
+    itemSelections,
+    loading,
+    order,
+    orderType,
+    tableLabel,
+  ]);
 
   useEffect(() => {
     if (!context?.line?.configured) return;
     const key = `baiye:ordering-line-impression:${code}:menu_banner`;
     if (window.sessionStorage.getItem(key)) return;
     window.sessionStorage.setItem(key, "1");
-    void orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/line-events`, { method: "POST", body: JSON.stringify({ event_type: "impression", source: "menu_banner" }) }).catch(() => undefined);
+    void orderingPublicApi(
+      `/api/ordering/qr/${encodeURIComponent(code)}/line-events`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          event_type: "impression",
+          source: "menu_banner",
+        }),
+      },
+    ).catch(() => undefined);
   }, [code, context?.line?.configured]);
 
   useEffect(() => {
@@ -417,7 +469,12 @@ function QrOrderingView({ code }: { code: string }) {
       .filter((group): group is OrderingOptionGroup => Boolean(group?.active));
 
   const openItem = (item: OrderingMenuItem) => {
-    if (item.status === "sold_out" || item.available === false || (item.inventory_enabled && Number(item.stock_on_hand) === 0)) return;
+    if (
+      item.status === "sold_out" ||
+      item.available === false ||
+      (item.inventory_enabled && Number(item.stock_on_hand) === 0)
+    )
+      return;
     setDraftSelection(
       itemSelections[item.id] || { option_value_ids: [], note: "" },
     );
@@ -449,7 +506,9 @@ function QrOrderingView({ code }: { code: string }) {
 
   const changeQuantity = (itemId: string, delta: number) => {
     const item = items.find((candidate) => candidate.id === itemId);
-    const maximum = item?.inventory_enabled ? Math.min(20, Number(item.stock_on_hand || 0)) : 20;
+    const maximum = item?.inventory_enabled
+      ? Math.min(20, Number(item.stock_on_hand || 0))
+      : 20;
     setCart((current) => {
       const next = Math.max(
         0,
@@ -494,9 +553,14 @@ function QrOrderingView({ code }: { code: string }) {
       setMember(data.member);
       setToken(data.session.token);
       saveOrderingMemberToken(context.merchant_id, data.session.token);
-      if (data.platform_session?.token) savePlatformMemberToken(data.platform_session.token);
+      if (data.platform_session?.token)
+        savePlatformMemberToken(data.platform_session.token);
       setMemberPasswordSet(true);
-      setMessage(data.welcome?.show ? `${data.welcome.title} ${data.welcome.message}` : "會員登入成功");
+      setMessage(
+        data.welcome?.show
+          ? `${data.welcome.title} ${data.welcome.message}`
+          : "會員登入成功",
+      );
       await loadBenefits(data.session.token);
       if (context.qr.purpose !== "member_only")
         await loadMenu(context, data.session.token);
@@ -522,7 +586,11 @@ function QrOrderingView({ code }: { code: string }) {
       }>(`/api/ordering/qr/${encodeURIComponent(code)}/login`, {
         method: "POST",
         headers: { "x-device-id": getPlatformDeviceId() },
-        body: JSON.stringify({ ...loginForm, merchant_consent: loginForm.consent, device_id: getPlatformDeviceId() }),
+        body: JSON.stringify({
+          ...loginForm,
+          merchant_consent: loginForm.consent,
+          device_id: getPlatformDeviceId(),
+        }),
       });
       setMember(data.member);
       setToken(data.session.token);
@@ -547,11 +615,15 @@ function QrOrderingView({ code }: { code: string }) {
     setSubmitting(true);
     setMessage("");
     try {
-      await orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/member-password`, {
-        method: "POST",
-        headers: { "x-platform-member-token": getPlatformMemberToken() },
-        body: JSON.stringify(memberPasswordForm),
-      }, token);
+      await orderingPublicApi(
+        `/api/ordering/qr/${encodeURIComponent(code)}/member-password`,
+        {
+          method: "POST",
+          headers: { "x-platform-member-token": getPlatformMemberToken() },
+          body: JSON.stringify(memberPasswordForm),
+        },
+        token,
+      );
       setMemberPasswordSet(true);
       setMemberPasswordForm({ password: "", password_confirm: "" });
       setMessage("會員登入密碼設定完成。");
@@ -566,10 +638,15 @@ function QrOrderingView({ code }: { code: string }) {
     if (!context) return;
     setSubmitting(true);
     try {
-      if (token) await orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/logout`, {
-        method: "POST",
-        headers: { "x-platform-member-token": getPlatformMemberToken() },
-      }, token);
+      if (token)
+        await orderingPublicApi(
+          `/api/ordering/qr/${encodeURIComponent(code)}/logout`,
+          {
+            method: "POST",
+            headers: { "x-platform-member-token": getPlatformMemberToken() },
+          },
+          token,
+        );
     } catch {
       // Local logout still completes when the previous session is already expired.
     } finally {
@@ -583,14 +660,19 @@ function QrOrderingView({ code }: { code: string }) {
     }
   };
 
-  const recordLineClick = (source: "menu_banner" | "checkout_reminder" | "order_success") => {
+  const recordLineClick = (
+    source: "menu_banner" | "checkout_reminder" | "order_success",
+  ) => {
     if (!context?.line?.configured) return;
     saveOrderingLineClicked(code);
     setLineClicked(true);
-    void orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/line-events`, {
-      method: "POST",
-      body: JSON.stringify({ event_type: "click", source }),
-    }).catch(() => undefined);
+    void orderingPublicApi(
+      `/api/ordering/qr/${encodeURIComponent(code)}/line-events`,
+      {
+        method: "POST",
+        body: JSON.stringify({ event_type: "click", source }),
+      },
+    ).catch(() => undefined);
   };
 
   const submitOrder = async () => {
@@ -647,12 +729,18 @@ function QrOrderingView({ code }: { code: string }) {
       setMessage(data.message);
       if (checkoutPaymentProvider !== "manual_counter") {
         const paymentKey = `${pendingOrderKey.current || crypto.randomUUID()}:payment`;
-        const payment = await orderingPublicApi<{ redirect_url?: string; intent: { status: string } }>(
+        const payment = await orderingPublicApi<{
+          redirect_url?: string;
+          intent: { status: string };
+        }>(
           `/api/ordering/qr/${encodeURIComponent(code)}/payments`,
           {
             method: "POST",
             headers: { "idempotency-key": paymentKey },
-            body: JSON.stringify({ order_code: data.order.order_code, provider: checkoutPaymentProvider }),
+            body: JSON.stringify({
+              order_code: data.order.order_code,
+              provider: checkoutPaymentProvider,
+            }),
           },
           token,
         );
@@ -669,7 +757,11 @@ function QrOrderingView({ code }: { code: string }) {
         setToken("");
         setMember(null);
       }
-      if (errorStatus(error) === 409 && (error as { code?: string })?.code === "INVENTORY_INSUFFICIENT") await loadMenu(context, token).catch(() => undefined);
+      if (
+        errorStatus(error) === 409 &&
+        (error as { code?: string })?.code === "INVENTORY_INSUFFICIENT"
+      )
+        await loadMenu(context, token).catch(() => undefined);
       setMessage(errorMessage(error));
     } finally {
       setSubmitting(false);
@@ -720,48 +812,203 @@ function QrOrderingView({ code }: { code: string }) {
   const showJoin = !member || !token;
   const showTableInput = orderType === "dine_in" && !context.qr.table_label;
   const directMenu = context.qr.purpose !== "member_only";
-  const generalOrderingEntry = context.qr.purpose === "member_order" && !context.qr.table_label;
+  const generalOrderingEntry =
+    context.qr.purpose === "member_order" && !context.qr.table_label;
   const officialProductionDemo = context.merchant_id === "demo_beef_noodle";
-  const storefrontName = (IS_BEEF_NOODLE_DEMO || officialProductionDemo)
-    ? context.display_name.split("｜")[0]
-    : context.display_name;
-  const serviceLabel =
-    generalOrderingEntry
-      ? "線上點餐｜手機點餐"
-      : context.qr.purpose === "takeaway"
+  const storefrontName =
+    IS_BEEF_NOODLE_DEMO || officialProductionDemo
+      ? context.display_name.split("｜")[0]
+      : context.display_name;
+  const serviceLabel = generalOrderingEntry
+    ? "線上點餐｜手機點餐"
+    : context.qr.purpose === "takeaway"
       ? "外帶｜手機點餐"
-      : `${(context.qr.table_label || context.qr.label).endsWith("桌") ? (context.qr.table_label || context.qr.label) : `${context.qr.table_label || context.qr.label} 桌`}｜手機點餐`;
+      : `${(context.qr.table_label || context.qr.label).endsWith("桌") ? context.qr.table_label || context.qr.label : `${context.qr.table_label || context.qr.label} 桌`}｜手機點餐`;
 
   const memberAuthCard = (afterMenu = false) => (
-    <section className={`ordering-join-card ${afterMenu ? "ordering-join-after-menu" : ""}`} ref={afterMenu ? joinRef : undefined}>
-      <div className="ordering-section-heading"><Users weight="duotone" /><div><span>手機點餐</span><h2>加入會員後即可送出訂單</h2><p>加入會員後即可查看菜單、送出訂單並追蹤出餐進度。</p></div></div>
-      <div className="ordering-auth-tabs" role="tablist" aria-label="會員操作">
-        <button type="button" role="tab" aria-selected={authTab === "join"} className={authTab === "join" ? "active" : ""} onClick={() => setAuthTab("join")}>新會員加入</button>
-        <button type="button" role="tab" aria-selected={authTab === "login"} className={authTab === "login" ? "active" : ""} onClick={() => setAuthTab("login")}>已有會員登入</button>
+    <section
+      className={`ordering-join-card ${afterMenu ? "ordering-join-after-menu" : ""}`}
+      ref={afterMenu ? joinRef : undefined}
+    >
+      <div className="ordering-section-heading">
+        <Users weight="duotone" />
+        <div>
+          <span>手機點餐</span>
+          <h2>加入會員後即可送出訂單</h2>
+          <p>加入會員後即可查看菜單、送出訂單並追蹤出餐進度。</p>
+        </div>
       </div>
-      {authTab === "join" ? <form onSubmit={join} className="ordering-form-grid">
-        <p className="ordering-auth-copy ordering-form-wide">第一次來嗎？用手機建立會員即可開始點餐。</p>
-        <label>手機號碼<input required inputMode="tel" autoComplete="tel" value={joinForm.phone} onChange={(event) => setJoinForm({ ...joinForm, phone: event.target.value })} placeholder="09xxxxxxxx" /></label>
-        <label>設定 8 位數字會員密碼<input required type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={joinForm.password} onChange={(event) => setJoinForm({ ...joinForm, password: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-        <label>再次確認會員密碼<input required type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={joinForm.password_confirm} onChange={(event) => setJoinForm({ ...joinForm, password_confirm: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-        <label className="ordering-consent ordering-form-wide"><input type="checkbox" checked={joinForm.consent} onChange={(event) => setJoinForm({ ...joinForm, consent: event.target.checked })} /><span>我已閱讀並同意會員服務與<Link to="/privacy">隱私權政策</Link>。</span></label>
-        <button className="btn btn-primary btn-lg ordering-form-wide" type="submit" disabled={submitting}>{submitting ? "正在加入…" : "加入會員並開始點餐"}</button>
-      </form> : <form onSubmit={login} className="ordering-form-grid">
-        <p className="ordering-auth-copy ordering-form-wide">已經加入過？輸入手機與會員密碼即可登入。</p>
-        <label>手機號碼<input required inputMode="tel" autoComplete="tel" value={loginForm.phone} onChange={(event) => setLoginForm({ ...loginForm, phone: event.target.value })} placeholder="09xxxxxxxx" /></label>
-        <label>8 位數字會員密碼<input required type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-        <label className="ordering-consent ordering-form-wide"><input type="checkbox" checked={loginForm.consent} onChange={(event) => setLoginForm({ ...loginForm, consent: event.target.checked })} /><span>我同意加入此店會員，並接受<Link to="/privacy">隱私權政策</Link>。</span></label>
-        <button className="btn btn-primary btn-lg ordering-form-wide" type="submit" disabled={submitting}>{submitting ? "正在登入…" : "會員登入並開始點餐"}</button>
-      </form>}
+      <div className="ordering-auth-tabs" role="tablist" aria-label="會員操作">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={authTab === "join"}
+          className={authTab === "join" ? "active" : ""}
+          onClick={() => setAuthTab("join")}
+        >
+          新會員加入
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={authTab === "login"}
+          className={authTab === "login" ? "active" : ""}
+          onClick={() => setAuthTab("login")}
+        >
+          已有會員登入
+        </button>
+      </div>
+      {authTab === "join" ? (
+        <form onSubmit={join} className="ordering-form-grid">
+          <p className="ordering-auth-copy ordering-form-wide">
+            第一次來嗎？用手機建立會員即可開始點餐。
+          </p>
+          <label>
+            手機號碼
+            <input
+              required
+              inputMode="tel"
+              autoComplete="tel"
+              value={joinForm.phone}
+              onChange={(event) =>
+                setJoinForm({ ...joinForm, phone: event.target.value })
+              }
+              placeholder="09xxxxxxxx"
+            />
+          </label>
+          <label>
+            設定 8 位數字會員密碼
+            <input
+              required
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              pattern="[0-9]{8}"
+              minLength={8}
+              maxLength={8}
+              value={joinForm.password}
+              onChange={(event) =>
+                setJoinForm({
+                  ...joinForm,
+                  password: event.target.value.replace(/\D/g, "").slice(0, 8),
+                })
+              }
+            />
+          </label>
+          <label>
+            再次確認會員密碼
+            <input
+              required
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              pattern="[0-9]{8}"
+              minLength={8}
+              maxLength={8}
+              value={joinForm.password_confirm}
+              onChange={(event) =>
+                setJoinForm({
+                  ...joinForm,
+                  password_confirm: event.target.value
+                    .replace(/\D/g, "")
+                    .slice(0, 8),
+                })
+              }
+            />
+          </label>
+          <label className="ordering-consent ordering-form-wide">
+            <input
+              type="checkbox"
+              checked={joinForm.consent}
+              onChange={(event) =>
+                setJoinForm({ ...joinForm, consent: event.target.checked })
+              }
+            />
+            <span>
+              我已閱讀並同意會員服務與<Link to="/privacy">隱私權政策</Link>。
+            </span>
+          </label>
+          <button
+            className="btn btn-primary btn-lg ordering-form-wide"
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting ? "正在加入…" : "加入會員並開始點餐"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={login} className="ordering-form-grid">
+          <p className="ordering-auth-copy ordering-form-wide">
+            已經加入過？輸入手機與會員密碼即可登入。
+          </p>
+          <label>
+            手機號碼
+            <input
+              required
+              inputMode="tel"
+              autoComplete="tel"
+              value={loginForm.phone}
+              onChange={(event) =>
+                setLoginForm({ ...loginForm, phone: event.target.value })
+              }
+              placeholder="09xxxxxxxx"
+            />
+          </label>
+          <label>
+            8 位數字會員密碼
+            <input
+              required
+              type="password"
+              inputMode="numeric"
+              autoComplete="current-password"
+              pattern="[0-9]{8}"
+              minLength={8}
+              maxLength={8}
+              value={loginForm.password}
+              onChange={(event) =>
+                setLoginForm({
+                  ...loginForm,
+                  password: event.target.value.replace(/\D/g, "").slice(0, 8),
+                })
+              }
+            />
+          </label>
+          <label className="ordering-consent ordering-form-wide">
+            <input
+              type="checkbox"
+              checked={loginForm.consent}
+              onChange={(event) =>
+                setLoginForm({ ...loginForm, consent: event.target.checked })
+              }
+            />
+            <span>
+              我同意加入此店會員，並接受<Link to="/privacy">隱私權政策</Link>。
+            </span>
+          </label>
+          <button
+            className="btn btn-primary btn-lg ordering-form-wide"
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting ? "正在登入…" : "會員登入並開始點餐"}
+          </button>
+        </form>
+      )}
     </section>
   );
 
   return (
     <main className="ordering-page">
       <OrderingTopbar />
-      <section className={`ordering-merchant-hero ${IS_BEEF_NOODLE_DEMO ? "ordering-storefront-hero" : ""}`}>
+      <section
+        className={`ordering-merchant-hero ${IS_BEEF_NOODLE_DEMO ? "ordering-storefront-hero" : ""}`}
+      >
         <div className="ordering-storefront-brand">
-          {IS_BEEF_NOODLE_DEMO && <span className="ordering-storefront-logo" aria-hidden="true"><CookingPot weight="fill" /></span>}
+          {IS_BEEF_NOODLE_DEMO && (
+            <span className="ordering-storefront-logo" aria-hidden="true">
+              <CookingPot weight="fill" />
+            </span>
+          )}
           <div>
             {!IS_BEEF_NOODLE_DEMO && (
               <span className="ordering-purpose">
@@ -769,30 +1016,81 @@ function QrOrderingView({ code }: { code: string }) {
               </span>
             )}
             <h1>{storefrontName}</h1>
-            <p className="ordering-storefront-meta"><span>營業中</span>{serviceLabel}</p>
-            <p className="ordering-qr-confirmed"><Check weight="bold" /> {generalOrderingEntry ? "已進入線上點餐" : "已掃描此桌 QR Code"}</p>
-            <Link className="btn btn-outline ordering-rescan" to="/scan"><QrCode />{generalOrderingEntry ? "返回點餐入口" : "改用線上點餐"}</Link>
+            <p className="ordering-storefront-meta">
+              <span>營業中</span>
+              {serviceLabel}
+            </p>
+            <p className="ordering-qr-confirmed">
+              <Check weight="bold" />{" "}
+              {generalOrderingEntry ? "已進入線上點餐" : "已掃描此桌 QR Code"}
+            </p>
+            <Link className="btn btn-outline ordering-rescan" to="/scan">
+              <QrCode />
+              {generalOrderingEntry ? "返回點餐入口" : "改用線上點餐"}
+            </Link>
           </div>
         </div>
-        {member && <div className="ordering-member-tools">
-          <div className="ordering-member-chip ordering-member-chip-compact"><Check weight="bold" /><span><strong>已登入會員</strong><small>{member.phone_masked}</small></span></div>
-          <button className="btn btn-ghost" type="button" onClick={() => void logoutMember()} disabled={submitting}>登出會員</button>
-        </div>}
-        {IS_BEEF_NOODLE_DEMO && demoAdministrator && <Link className="btn btn-outline ordering-admin-return" to="/merchant/dashboard">返回管理中心</Link>}
+        {member && (
+          <div className="ordering-member-tools">
+            <div className="ordering-member-chip ordering-member-chip-compact">
+              <Check weight="bold" />
+              <span>
+                <strong>已登入會員</strong>
+                <small>{member.phone_masked}</small>
+              </span>
+            </div>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => void logoutMember()}
+              disabled={submitting}
+            >
+              登出會員
+            </button>
+          </div>
+        )}
+        {IS_BEEF_NOODLE_DEMO && demoAdministrator && (
+          <Link
+            className="btn btn-outline ordering-admin-return"
+            to="/merchant/dashboard"
+          >
+            返回管理中心
+          </Link>
+        )}
       </section>
 
-      {officialProductionDemo && <div className="ordering-demo-privacy-note"><strong>付款服務尚未啟用</strong>｜目前不進行真實交易，也不會發生真實扣款。</div>}
+      {officialProductionDemo && (
+        <div className="ordering-demo-privacy-note">
+          <strong>付款服務尚未啟用</strong>
+          ｜目前不進行真實交易，也不會發生真實扣款。
+        </div>
+      )}
 
-      {IS_BEEF_NOODLE_DEMO && (
-        context.line?.configured ? (
-          <section className="ordering-line-banner" aria-label="店家 LINE 官方帳號">
-            <div><strong>加入{context.line.display_name || "百工牛肉麵 LINE"}</strong><span>加入後方便接收優惠與店家消息</span></div>
-            <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("menu_banner")}>加入 LINE</a>
+      {IS_BEEF_NOODLE_DEMO &&
+        (context.line?.configured ? (
+          <section
+            className="ordering-line-banner"
+            aria-label="店家 LINE 官方帳號"
+          >
+            <div>
+              <strong>
+                加入{context.line.display_name || "百工牛肉麵 LINE"}
+              </strong>
+              <span>加入後方便接收優惠與店家消息</span>
+            </div>
+            <a
+              className="btn btn-outline"
+              href={context.line.add_friend_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => recordLineClick("menu_banner")}
+            >
+              加入 LINE
+            </a>
           </section>
         ) : (
           <p className="ordering-line-unconfigured">LINE 官方帳號尚未設定</p>
-        )
-      )}
+        ))}
 
       {message && (
         <div className="ordering-message" role="status">
@@ -800,14 +1098,66 @@ function QrOrderingView({ code }: { code: string }) {
         </div>
       )}
 
-      {member && memberPasswordSet === false && <section className="ordering-join-card ordering-member-password-card">
-        <div className="ordering-section-heading"><Users weight="duotone" /><div><span>您已經是會員</span><h2>設定會員登入密碼</h2><p>設定後可在其他裝置使用手機號碼與會員密碼登入。</p></div></div>
-        <form className="ordering-form-grid" onSubmit={setMemberPassword}>
-          <label>設定 8 位數字會員密碼<input required type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={memberPasswordForm.password} onChange={(event) => setMemberPasswordForm({ ...memberPasswordForm, password: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-          <label>再次確認會員密碼<input required type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={memberPasswordForm.password_confirm} onChange={(event) => setMemberPasswordForm({ ...memberPasswordForm, password_confirm: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-          <button className="btn btn-primary ordering-form-wide" disabled={submitting}>設定會員登入密碼</button>
-        </form>
-      </section>}
+      {member && memberPasswordSet === false && (
+        <section className="ordering-join-card ordering-member-password-card">
+          <div className="ordering-section-heading">
+            <Users weight="duotone" />
+            <div>
+              <span>您已經是會員</span>
+              <h2>設定會員登入密碼</h2>
+              <p>設定後可在其他裝置使用手機號碼與會員密碼登入。</p>
+            </div>
+          </div>
+          <form className="ordering-form-grid" onSubmit={setMemberPassword}>
+            <label>
+              設定 8 位數字會員密碼
+              <input
+                required
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                pattern="[0-9]{8}"
+                minLength={8}
+                maxLength={8}
+                value={memberPasswordForm.password}
+                onChange={(event) =>
+                  setMemberPasswordForm({
+                    ...memberPasswordForm,
+                    password: event.target.value.replace(/\D/g, "").slice(0, 8),
+                  })
+                }
+              />
+            </label>
+            <label>
+              再次確認會員密碼
+              <input
+                required
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                pattern="[0-9]{8}"
+                minLength={8}
+                maxLength={8}
+                value={memberPasswordForm.password_confirm}
+                onChange={(event) =>
+                  setMemberPasswordForm({
+                    ...memberPasswordForm,
+                    password_confirm: event.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 8),
+                  })
+                }
+              />
+            </label>
+            <button
+              className="btn btn-primary ordering-form-wide"
+              disabled={submitting}
+            >
+              設定會員登入密碼
+            </button>
+          </form>
+        </section>
+      )}
 
       {order && (
         <section className="ordering-order-status-card">
@@ -827,7 +1177,14 @@ function QrOrderingView({ code }: { code: string }) {
             <small>
               系統會自動更新處理狀態；需要協助時請向店家出示訂單編號。現場付款將由店家確認。
             </small>
-            <div className="ordering-invoice-status"><strong>發票</strong>{order.invoice?.status === "ISSUED" ? <span>電子發票已開立：{order.invoice.invoice_number}</span> : <span>電子發票服務尚未啟用</span>}</div>
+            <div className="ordering-invoice-status">
+              <strong>發票</strong>
+              {order.invoice?.status === "ISSUED" ? (
+                <span>電子發票已開立：{order.invoice.invoice_number}</span>
+              ) : (
+                <span>電子發票服務尚未啟用</span>
+              )}
+            </div>
             <div className="ordering-status-actions">
               <button
                 className="btn btn-outline"
@@ -836,9 +1193,19 @@ function QrOrderingView({ code }: { code: string }) {
               >
                 再加點
               </button>
-              {IS_BEEF_NOODLE_DEMO && context.line?.configured && !lineClicked && (
-                <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("order_success")}>加入店家 LINE</a>
-              )}
+              {IS_BEEF_NOODLE_DEMO &&
+                context.line?.configured &&
+                !lineClicked && (
+                  <a
+                    className="btn btn-outline"
+                    href={context.line.add_friend_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => recordLineClick("order_success")}
+                  >
+                    加入店家 LINE
+                  </a>
+                )}
               {order.status === "submitted" &&
                 context.customer_cancel_before_accept && (
                   <button
@@ -883,56 +1250,61 @@ function QrOrderingView({ code }: { code: string }) {
         </section>
       )}
 
-      {showJoin && !directMenu ? memberAuthCard() : context.qr.purpose === "member_only" ? (
+      {showJoin && !directMenu ? (
+        memberAuthCard()
+      ) : context.qr.purpose === "member_only" ? (
         <section className="ordering-center-card ordering-success-card">
           <Check size={52} weight="bold" />
           <h2>會員加入完成</h2>
           <p>
-            {member?.display_name || "您"}，您已成為「{storefrontName}」快速會員。
+            {member?.display_name || "您"}，您已成為「{storefrontName}
+            」快速會員。
           </p>
           <small>手機：{member?.phone_masked || ""}</small>
         </section>
       ) : (
         <>
-          {!IS_BEEF_NOODLE_DEMO && <section className="ordering-controls-card">
-            <div>
-              <span>本次用餐方式</span>
-              <strong>{orderType === "dine_in" ? "內用" : "外帶"}</strong>
-              {context.qr.table_label && (
-                <small>桌號：{context.qr.table_label}</small>
+          {!IS_BEEF_NOODLE_DEMO && (
+            <section className="ordering-controls-card">
+              <div>
+                <span>本次用餐方式</span>
+                <strong>{orderType === "dine_in" ? "內用" : "外帶"}</strong>
+                {context.qr.table_label && (
+                  <small>桌號：{context.qr.table_label}</small>
+                )}
+              </div>
+              {context.qr.purpose === "member_order" &&
+                context.dine_in_enabled &&
+                context.takeaway_enabled && (
+                  <div className="ordering-segmented">
+                    <button
+                      type="button"
+                      className={orderType === "dine_in" ? "active" : ""}
+                      onClick={() => setOrderType("dine_in")}
+                    >
+                      內用
+                    </button>
+                    <button
+                      type="button"
+                      className={orderType === "takeaway" ? "active" : ""}
+                      onClick={() => setOrderType("takeaway")}
+                    >
+                      外帶
+                    </button>
+                  </div>
+                )}
+              {showTableInput && (
+                <label>
+                  桌號
+                  <input
+                    value={tableLabel}
+                    onChange={(event) => setTableLabel(event.target.value)}
+                    placeholder="例如 A3、12 桌"
+                  />
+                </label>
               )}
-            </div>
-            {context.qr.purpose === "member_order" &&
-              context.dine_in_enabled &&
-              context.takeaway_enabled && (
-                <div className="ordering-segmented">
-                  <button
-                    type="button"
-                    className={orderType === "dine_in" ? "active" : ""}
-                    onClick={() => setOrderType("dine_in")}
-                  >
-                    內用
-                  </button>
-                  <button
-                    type="button"
-                    className={orderType === "takeaway" ? "active" : ""}
-                    onClick={() => setOrderType("takeaway")}
-                  >
-                    外帶
-                  </button>
-                </div>
-              )}
-            {showTableInput && (
-              <label>
-                桌號
-                <input
-                  value={tableLabel}
-                  onChange={(event) => setTableLabel(event.target.value)}
-                  placeholder="例如 A3、12 桌"
-                />
-              </label>
-            )}
-          </section>}
+            </section>
+          )}
           {!IS_BEEF_NOODLE_DEMO && deliveryLinks.length > 0 && (
             <section className="ordering-controls-card">
               <div>
@@ -957,14 +1329,16 @@ function QrOrderingView({ code }: { code: string }) {
           )}
 
           <section className="ordering-menu-section">
-            {!IS_BEEF_NOODLE_DEMO && <div className="ordering-section-heading">
-              <ForkKnife weight="duotone" />
-              <div>
-                <span>手機菜單</span>
-                <h2>選擇餐點</h2>
-                <p>價格與供應狀態以送單當下的店家資料為準。</p>
+            {!IS_BEEF_NOODLE_DEMO && (
+              <div className="ordering-section-heading">
+                <ForkKnife weight="duotone" />
+                <div>
+                  <span>手機菜單</span>
+                  <h2>選擇餐點</h2>
+                  <p>價格與供應狀態以送單當下的店家資料為準。</p>
+                </div>
               </div>
-            </div>}
+            )}
             {!context.accepting_orders && (
               <div className="ordering-closed-notice" role="status">
                 <strong>店家目前暫停接單</strong>
@@ -990,7 +1364,11 @@ function QrOrderingView({ code }: { code: string }) {
                   <button
                     type="button"
                     key={category.id}
-                    onClick={() => document.getElementById(`ordering-category-${category.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    onClick={() =>
+                      document
+                        .getElementById(`ordering-category-${category.id}`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
                   >
                     {category.name}
                   </button>
@@ -1004,9 +1382,7 @@ function QrOrderingView({ code }: { code: string }) {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() =>
-                    context && void loadMenu(context, token)
-                  }
+                  onClick={() => context && void loadMenu(context, token)}
                 >
                   <ArrowClockwise />
                   重新整理
@@ -1026,7 +1402,11 @@ function QrOrderingView({ code }: { code: string }) {
                   <div className="ordering-menu-grid">
                     {categoryItems.map((item) => {
                       const quantity = Number(cart[item.id] || 0);
-                      const soldOut = item.status === "sold_out" || item.available === false || (item.inventory_enabled && Number(item.stock_on_hand) === 0);
+                      const soldOut =
+                        item.status === "sold_out" ||
+                        item.available === false ||
+                        (item.inventory_enabled &&
+                          Number(item.stock_on_hand) === 0);
                       return (
                         <article
                           className={`ordering-menu-item ${soldOut ? "is-sold-out" : ""}`}
@@ -1070,7 +1450,16 @@ function QrOrderingView({ code }: { code: string }) {
                                   ? openItem(item)
                                   : changeQuantity(item.id, 1)
                               }
-                              disabled={soldOut || quantity >= (item.inventory_enabled ? Math.min(20, Number(item.stock_on_hand || 0)) : 20)}
+                              disabled={
+                                soldOut ||
+                                quantity >=
+                                  (item.inventory_enabled
+                                    ? Math.min(
+                                        20,
+                                        Number(item.stock_on_hand || 0),
+                                      )
+                                    : 20)
+                              }
                               aria-label={`增加${item.name}`}
                             >
                               <Plus />
@@ -1093,8 +1482,13 @@ function QrOrderingView({ code }: { code: string }) {
           type="button"
           className="ordering-cart-bar"
           onClick={() => {
-            if (showJoin) { setResumeCartAfterAuth(true); joinRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
-            else setCartOpen(true);
+            if (showJoin) {
+              setResumeCartAfterAuth(true);
+              joinRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              });
+            } else setCartOpen(true);
           }}
         >
           <span>
@@ -1167,7 +1561,10 @@ function QrOrderingView({ code }: { code: string }) {
                           ? openItem(item)
                           : changeQuantity(item.id, 1)
                       }
-                      disabled={item.inventory_enabled && item.quantity >= Number(item.stock_on_hand || 0)}
+                      disabled={
+                        item.inventory_enabled &&
+                        item.quantity >= Number(item.stock_on_hand || 0)
+                      }
                     >
                       <Plus />
                     </button>
@@ -1215,49 +1612,204 @@ function QrOrderingView({ code }: { code: string }) {
               <strong>{money(subtotal, context.currency)}</strong>
             </div>
             {IS_BEEF_NOODLE_DEMO && (
-              <section className="ordering-demo-checkout" aria-label="牛肉麵 Demo 結帳方式">
+              <section
+                className="ordering-demo-checkout"
+                aria-label="牛肉麵 Demo 結帳方式"
+              >
                 <div>
                   <span>付款方式</span>
-                  <strong>{checkoutPaymentProvider === "manual_counter" ? "現場付款" : checkoutPaymentProvider === "line_pay_online" ? "LINE Pay（Sandbox）" : "Apple Pay"}</strong>
-                  <small>{checkoutPaymentProvider === "manual_counter" ? "送單後由店家於現場確認收款，不會進行線上扣款。" : "金額由系統重新核算後才會建立付款流程。"}</small>
+                  <strong>
+                    {checkoutPaymentProvider === "manual_counter"
+                      ? "現場付款"
+                      : checkoutPaymentProvider === "line_pay_online"
+                        ? "LINE Pay（目前未提供）"
+                        : "Apple Pay"}
+                  </strong>
+                  <small>
+                    {checkoutPaymentProvider === "manual_counter"
+                      ? "送單後由店家於現場確認收款，不會進行線上扣款。"
+                      : "金額由系統重新核算後才會建立付款流程。"}
+                  </small>
                 </div>
                 <label className="ordering-demo-payment-active">
-                  <input type="radio" checked={checkoutPaymentProvider === "manual_counter"} onChange={() => setCheckoutPaymentProvider("manual_counter")} name="demo-payment" />
+                  <input
+                    type="radio"
+                    checked={checkoutPaymentProvider === "manual_counter"}
+                    onChange={() =>
+                      setCheckoutPaymentProvider("manual_counter")
+                    }
+                    name="demo-payment"
+                  />
                   現場付款（可使用現金、刷卡或櫃檯確認）
                 </label>
-                <div className="ordering-demo-disabled-options" aria-label="後續付款功能預留">
-                  {(["line_pay_online", "apple_pay_web"] as const).map((provider) => {
-                    const option = checkoutPaymentOptions.find((item) => item.provider === provider);
-                    const label = provider === "line_pay_online" ? "LINE Pay" : "Apple Pay";
-                    const unavailable = provider === "line_pay_online" ? "LINE Pay 測試環境尚未設定" : "Apple Pay 測試設定尚未完成";
-                    return <label key={provider} className={option?.enabled ? "ordering-demo-payment-active" : "ordering-demo-payment-disabled"}>
-                      <input type="radio" name="demo-payment" checked={checkoutPaymentProvider === provider} disabled={!option?.enabled} onChange={() => setCheckoutPaymentProvider(provider)} />
-                      {label}・{option?.enabled ? "Sandbox 可用" : unavailable}
-                    </label>;
-                  })}
+                <div
+                  className="ordering-demo-disabled-options"
+                  aria-label="後續付款功能預留"
+                >
+                  {(["line_pay_online", "apple_pay_web"] as const).map(
+                    (provider) => {
+                      const option = checkoutPaymentOptions.find(
+                        (item) => item.provider === provider,
+                      );
+                      const label =
+                        provider === "line_pay_online"
+                          ? "LINE Pay"
+                          : "Apple Pay";
+                      const unavailable =
+                        provider === "line_pay_online"
+                          ? "LINE Pay 測試環境尚未設定"
+                          : "Apple Pay 測試設定尚未完成";
+                      return (
+                        <label
+                          key={provider}
+                          className={
+                            option?.enabled
+                              ? "ordering-demo-payment-active"
+                              : "ordering-demo-payment-disabled"
+                          }
+                        >
+                          <input
+                            type="radio"
+                            name="demo-payment"
+                            checked={checkoutPaymentProvider === provider}
+                            disabled={!option?.enabled}
+                            onChange={() =>
+                              setCheckoutPaymentProvider(provider)
+                            }
+                          />
+                          {label}・
+                          {option?.enabled ? "可用" : unavailable}
+                        </label>
+                      );
+                    },
+                  )}
                 </div>
                 <fieldset className="ordering-invoice-options">
                   <legend>發票方式</legend>
-                  <label><input type="radio" name="invoice-method" checked={demoInvoiceMethod === "individual"} onChange={() => setDemoInvoiceMethod("individual")} />個人電子發票</label>
-                  <label><input type="radio" name="invoice-method" checked={demoInvoiceMethod === "mobile_barcode"} onChange={() => setDemoInvoiceMethod("mobile_barcode")} />手機條碼載具</label>
-                  <label><input type="radio" name="invoice-method" checked={demoInvoiceMethod === "business_tax_id"} onChange={() => setDemoInvoiceMethod("business_tax_id")} />公司統編</label>
-                  <label><input type="radio" name="invoice-method" checked={demoInvoiceMethod === "donation"} onChange={() => setDemoInvoiceMethod("donation")} />捐贈</label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="invoice-method"
+                      checked={demoInvoiceMethod === "individual"}
+                      onChange={() => setDemoInvoiceMethod("individual")}
+                    />
+                    個人電子發票
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="invoice-method"
+                      checked={demoInvoiceMethod === "mobile_barcode"}
+                      onChange={() => setDemoInvoiceMethod("mobile_barcode")}
+                    />
+                    手機條碼載具
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="invoice-method"
+                      checked={demoInvoiceMethod === "business_tax_id"}
+                      onChange={() => setDemoInvoiceMethod("business_tax_id")}
+                    />
+                    公司統編
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="invoice-method"
+                      checked={demoInvoiceMethod === "donation"}
+                      onChange={() => setDemoInvoiceMethod("donation")}
+                    />
+                    捐贈
+                  </label>
                 </fieldset>
-                {demoInvoiceMethod === "mobile_barcode" && <label>手機條碼載具<input value={invoiceCarrier} placeholder="/ABC1234" maxLength={8} onChange={(event) => setInvoiceCarrier(event.target.value.toUpperCase())} /><small>僅檢查格式；尚未向財政部驗證。</small></label>}
-                {demoInvoiceMethod === "business_tax_id" && <><label>統一編號<input inputMode="numeric" value={invoiceTaxId} placeholder="12345678" maxLength={8} onChange={(event) => setInvoiceTaxId(event.target.value.replace(/\D/g, ""))} /></label><label>公司抬頭（選填）<input value={invoiceBuyerName} maxLength={160} onChange={(event) => setInvoiceBuyerName(event.target.value)} /></label></>}
-                {demoInvoiceMethod === "donation" && <label>捐贈碼<input value={invoiceDonationCode} maxLength={40} onChange={(event) => setInvoiceDonationCode(event.target.value)} /><small>正式驗證待電子發票服務啟用。</small></label>}
-                <p>電子發票服務尚未啟用。目前的訂單不會產生正式發票。</p>
-                {context.line?.configured && !lineClicked && !lineCheckoutSkipped && (
-                  <div className="ordering-line-checkout-reminder">
-                    <strong>加入{context.line.display_name || "店家 LINE"}</strong>
-                    <span>加入後可接收店家優惠與最新消息，不加入也能繼續結帳。</span>
-                    <div>
-                      <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("checkout_reminder")}>加入 LINE</a>
-                      <button type="button" className="btn btn-ghost" onClick={() => setLineCheckoutSkipped(true)}>先不用，繼續結帳</button>
-                    </div>
-                  </div>
+                {demoInvoiceMethod === "mobile_barcode" && (
+                  <label>
+                    手機條碼載具
+                    <input
+                      value={invoiceCarrier}
+                      placeholder="/ABC1234"
+                      maxLength={8}
+                      onChange={(event) =>
+                        setInvoiceCarrier(event.target.value.toUpperCase())
+                      }
+                    />
+                    <small>僅檢查格式；尚未向財政部驗證。</small>
+                  </label>
                 )}
-                {!context.line?.configured && <p>LINE 官方帳號尚未設定；系統不會偽造加入好友結果。</p>}
+                {demoInvoiceMethod === "business_tax_id" && (
+                  <>
+                    <label>
+                      統一編號
+                      <input
+                        inputMode="numeric"
+                        value={invoiceTaxId}
+                        placeholder="12345678"
+                        maxLength={8}
+                        onChange={(event) =>
+                          setInvoiceTaxId(event.target.value.replace(/\D/g, ""))
+                        }
+                      />
+                    </label>
+                    <label>
+                      公司抬頭（選填）
+                      <input
+                        value={invoiceBuyerName}
+                        maxLength={160}
+                        onChange={(event) =>
+                          setInvoiceBuyerName(event.target.value)
+                        }
+                      />
+                    </label>
+                  </>
+                )}
+                {demoInvoiceMethod === "donation" && (
+                  <label>
+                    捐贈碼
+                    <input
+                      value={invoiceDonationCode}
+                      maxLength={40}
+                      onChange={(event) =>
+                        setInvoiceDonationCode(event.target.value)
+                      }
+                    />
+                    <small>正式驗證待電子發票服務啟用。</small>
+                  </label>
+                )}
+                <p>電子發票服務尚未啟用。目前的訂單不會產生正式發票。</p>
+                {context.line?.configured &&
+                  !lineClicked &&
+                  !lineCheckoutSkipped && (
+                    <div className="ordering-line-checkout-reminder">
+                      <strong>
+                        加入{context.line.display_name || "店家 LINE"}
+                      </strong>
+                      <span>
+                        加入後可接收店家優惠與最新消息，不加入也能繼續結帳。
+                      </span>
+                      <div>
+                        <a
+                          className="btn btn-outline"
+                          href={context.line.add_friend_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => recordLineClick("checkout_reminder")}
+                        >
+                          加入 LINE
+                        </a>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => setLineCheckoutSkipped(true)}
+                        >
+                          先不用，繼續結帳
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                {!context.line?.configured && (
+                  <p>LINE 官方帳號尚未設定；系統不會偽造加入好友結果。</p>
+                )}
               </section>
             )}
             <button
@@ -1399,7 +1951,9 @@ function QrOrderingView({ code }: { code: string }) {
           </section>
         </div>
       )}
-      {IS_BEEF_NOODLE_DEMO && <footer className="ordering-powered">Powered by 創百業智慧鏈</footer>}
+      {IS_BEEF_NOODLE_DEMO && (
+        <footer className="ordering-powered">Powered by 創百業智慧鏈</footer>
+      )}
     </main>
   );
 }

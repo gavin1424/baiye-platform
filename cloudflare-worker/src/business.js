@@ -12,6 +12,9 @@ export const BUSINESS = {
     "AI 智能客服",
     "商家數位升級",
     "網站品牌設計",
+    "百工標準方案 NT$18,000／24 個月",
+    "AI 智慧商城完整版 NT$45,000／24 個月",
+    "免 POS 機智慧點餐 NT$24,000／24 個月（另有開通費、保證金及三個月試用條件）",
   ],
   officialCase: {
     name: "美玲拼布",
@@ -20,7 +23,7 @@ export const BUSINESS = {
   website: "https://baiyeconnect.com/",
 };
 
-export const HUMAN_HANDOFF = "這個問題我目前沒有足夠資料，建議由專人為您確認。您可以留下需求，或透過 LINE 聯絡我們。";
+export const HUMAN_HANDOFF = "這個問題需要由專人依您的情況確認。請前往網站的「聯絡我們」或「商家方案」頁查看下一步。";
 
 export const SYSTEM_PROMPT = `你是「${BUSINESS.brandName}」官方 AI 智能客服。請使用繁體中文回答，簡潔、自然、有禮貌，控制在 2 到 5 句。
 

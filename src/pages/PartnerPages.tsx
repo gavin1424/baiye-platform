@@ -26,6 +26,7 @@ import {
   openContractPdf,
   PartnerContractPdfError,
 } from "../lib/partner-contract-pdf";
+import { userFacingError } from "../user-facing-error";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -47,15 +48,17 @@ const money = (value: unknown) =>
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 function errorText(value: unknown) {
-  return value instanceof Error && value.message
-    ? value.message
-    : "系統暫時無法完成此操作，請稍後再試。";
+  return userFacingError(value, "系統暫時無法完成此操作，請稍後再試。");
 }
 class ApiError extends Error {
   data: any;
-  constructor(data: any) {
-    super(data?.error || "系統暫時無法完成此操作，請稍後再試。");
+  status: number;
+  code: string;
+  constructor(data: any, status = 0) {
+    super("系統暫時無法完成此操作，請稍後再試。");
     this.data = data;
+    this.status = status;
+    this.code = String(data?.code || "");
   }
 }
 async function api(path: string, init: RequestInit = {}) {
@@ -65,7 +68,7 @@ async function api(path: string, init: RequestInit = {}) {
     headers: { "content-type": "application/json", ...init.headers },
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ApiError(data);
+  if (!response.ok) throw new ApiError(data, response.status);
   return data;
 }
 function copyText(value: string) {
@@ -79,7 +82,7 @@ type Workflow = {
   activation_url?: string;
 };
 const workflowFromError = (error: unknown): Workflow =>
-  error instanceof ApiError ? error.data : { message: errorText(error) };
+  error instanceof ApiError ? { ...error.data, message: errorText(error) } : { message: errorText(error) };
 
 function WorkflowActions({ workflow }: { workflow: Workflow }) {
   return (
@@ -238,7 +241,7 @@ export function PartnerLanding() {
           <div>
             <h2>商家方案</h2>
             <p>
-              從統一加入中心選擇正式方案，再由伺服器建立對應商業條件與待簽契約。
+              從統一加入中心選擇方案，確認商業條件後即可進入契約簽署。
             </p>
           </div>
           <Link className="btn btn-primary" to="/join">
@@ -1236,7 +1239,7 @@ export function PartnerContract() {
     }
     if (!signatureReady) {
       showValidation(
-        "請以正楷完成至少 2 筆、共 12 點以上的本人手寫簽名。",
+        "請完成清楚且非空白的本人手寫簽名。",
         signatureSectionRef,
       );
       return false;
@@ -1286,7 +1289,7 @@ export function PartnerContract() {
       });
       if (!result.signature_id || !result.document_hash || !result.signed_at) {
         setMessage(
-          "SIGN_RESULT_INCOMPLETE：簽署結果尚未完整確認，請勿重複簽署並稍後重試。",
+          "簽署結果尚未完整確認。為避免重複簽署，請聯絡平台協助查詢。",
         );
         return;
       }
@@ -1381,8 +1384,7 @@ export function PartnerContract() {
                       安全保存身分資料
                     </button>
                     <span>
-                      完整資料會加密保存；一般畫面、Audit
-                      與公開驗證頁不顯示明文。
+                      完整資料會安全保存；一般畫面與公開驗證頁不顯示明文。
                     </span>
                   </section>
                 )}
@@ -1399,7 +1401,7 @@ export function PartnerContract() {
                     "本人同意使用電子形式完成本契約程序。",
                     "本人了解本合作為獨立承攬／居間合作，非僱傭關係。",
                     "本人確認以上姓名及身分證字號均為本人真實資料。",
-                    "本人確認手寫簽名係由本人親自以正楷完成。",
+                    "本人確認手寫簽名係由本人親自完成。",
                   ].map((text, index) => (
                     <label className="partner-consent" key={text}>
                       <input
@@ -1423,15 +1425,15 @@ export function PartnerContract() {
                   ref={signatureSectionRef}
                   className="partner-block-letter-signature"
                 >
-                  <h2>本人正楷手寫簽名</h2>
+                  <h2>本人手寫電子簽名</h2>
                   <p>
                     <strong>
-                      請以正楷清楚簽寫本人完整姓名，請勿草寫、潦草書寫、只寫英文縮寫、符號或隨意畫記。
+                      請由本人於下方完成一般手寫簽名。系統只檢查簽名是否為有效非空白筆跡，不進行筆跡辨識。
                     </strong>
                   </p>
-                  <p>簽署姓名須與上方填寫之法定姓名一致。</p>
+                  <p>請確認上方填寫的法定姓名正確。</p>
                   <p className="signature-copy-line">
-                    請正楷簽寫：<strong>{contract.partner_legal_name}</strong>
+                    簽署人：<strong>{contract.partner_legal_name}</strong>
                   </p>
                 </section>
                 <ContractSignatureCanvas

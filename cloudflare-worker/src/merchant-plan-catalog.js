@@ -37,6 +37,17 @@ function publicPlan(row) {
   };
 }
 
+function customerPlan(plan) {
+  const { contract_version: _contractVersion, features: _features, payment_provider_ready: _providerReady, ...customer } = plan;
+  return customer;
+}
+
+function taipeiDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
 export async function listMerchantPlans(db) {
   const rows = await db.prepare("SELECT * FROM merchant_plan_catalog WHERE is_public=1 AND is_selectable=1 ORDER BY display_order").all();
   return (rows.results || []).map(publicPlan);
@@ -91,21 +102,48 @@ async function createTermsStatement(db, merchantId, plan, actorId, installmentPl
 }
 
 export async function merchantPlanState(db, merchantId) {
-  const [selection, intent, signed] = await Promise.all([
+  const [selection, intent, latestSigned, pendingChange, merchant] = await Promise.all([
     db.prepare(`SELECT s.*,c.name,c.tagline,c.price_minor,c.currency,c.term_months,c.trial_months,c.activation_fee_minor,
       c.deposit_minor,c.cycle_fee_minor,c.first_cycle_credit_minor,c.first_cycle_balance_minor,c.renewal_fee_minor,
-      c.contract_version_id,c.features_json,c.installment_plan_available,c.payment_provider_ready
+      c.contract_version_id,c.features_json,c.installment_plan_available,c.payment_provider_ready,
+      t.start_date,t.service_period_end,t.status AS terms_status,
+      sig.id AS signature_id,sig.public_id AS signature_public_id,sig.signed_at,sig.status AS signature_status
       FROM merchant_plan_selections s JOIN merchant_plan_catalog c ON c.plan_id=s.plan_id
+      JOIN merchant_contract_commercial_terms t ON t.id=s.commercial_terms_id AND t.merchant_id=s.merchant_id
+      LEFT JOIN merchant_contract_signatures sig ON sig.commercial_terms_id=s.commercial_terms_id AND sig.merchant_id=s.merchant_id AND sig.status='VALID'
       WHERE s.merchant_id=? AND s.status='assigned' ORDER BY s.assigned_at DESC LIMIT 1`).bind(merchantId).first(),
     db.prepare("SELECT intended_plan_id,source,confirmed_at FROM merchant_plan_intents WHERE merchant_id=?").bind(merchantId).first(),
     db.prepare(`SELECT s.id,s.public_id,s.signed_at,s.contract_version_id,t.plan_code
       FROM merchant_contract_signatures s JOIN merchant_contract_commercial_terms t ON t.id=s.commercial_terms_id AND t.merchant_id=s.merchant_id
       WHERE s.merchant_id=? AND s.status='VALID' ORDER BY s.signed_at DESC LIMIT 1`).bind(merchantId).first(),
+    db.prepare(`SELECT id,current_plan_id,requested_plan_id,status,created_at FROM merchant_plan_change_requests
+      WHERE merchant_id=? AND status IN ('submitted','reviewing') ORDER BY created_at DESC LIMIT 1`).bind(merchantId).first(),
+    db.prepare("SELECT status FROM merchants WHERE id=?").bind(merchantId).first(),
   ]);
+  const today = taipeiDate();
+  let planStatus = selection ? "pending_signature" : "none";
+  if (selection?.signature_id && selection.terms_status === "approved") {
+    if (["terminated", "suspended"].includes(String(merchant?.status || ""))) planStatus = "terminated";
+    else if (today < String(selection.start_date)) planStatus = Number(selection.trial_months) > 0 ? "trial" : "pending_effective";
+    else if (today <= String(selection.service_period_end)) planStatus = "active";
+    else planStatus = "expired";
+  }
+  const effective = planStatus === "active" || planStatus === "trial";
   return {
     selected_plan: selection ? publicPlan(selection) : null,
     intended_plan_id: intent?.intended_plan_id || null,
-    signed_contract: signed || null,
+    plan_status: planStatus,
+    has_effective_plan: effective,
+    active_plan: effective && selection ? publicPlan(selection) : null,
+    signed_contract: selection?.signature_id ? {
+      id: selection.signature_id,
+      public_id: selection.signature_public_id,
+      signed_at: selection.signed_at,
+      contract_version_id: selection.contract_version_id,
+      plan_code: selection.plan_id,
+    } : null,
+    latest_signed_contract: latestSigned || null,
+    pending_plan_change: pendingChange || null,
   };
 }
 
@@ -140,9 +178,9 @@ export async function assignMerchantPlan(db, merchantId, actorId, planId, instal
   if (!plan) throw new ContractError("PLAN_NOT_SELECTABLE", "所選方案不存在或目前不可選擇。", 422);
   if (installmentRequested !== 24) throw new ContractError("INSTALLMENT_PLAN_INVALID", "目前只可提出信用卡 24 期零利率申請。", 422);
   const state = await merchantPlanState(db, merchantId);
-  if (state.signed_contract) {
+  if (state.has_effective_plan && state.signed_contract) {
     if (state.signed_contract.plan_code !== plan.plan_id) {
-      throw new ContractError("ACTIVE_PLAN_EXISTS", "您目前已有有效方案。方案升級或變更須走 Plan Change／Upgrade／Addendum，不會覆寫舊契約。", 409, { current_plan_id: state.signed_contract.plan_code });
+      throw new ContractError("ACTIVE_PLAN_EXISTS", "您目前已有有效方案。", 409, { current_plan_id: state.signed_contract.plan_code });
     }
     return { code: "PLAN_ALREADY_SIGNED", plan, signed_contract: state.signed_contract, next_url: "/merchant/contracts" };
   }
@@ -191,15 +229,52 @@ export async function assignMerchantPlan(db, merchantId, actorId, planId, instal
   };
 }
 
+export async function requestMerchantPlanChange(db, merchantId, actorId, requestedPlanId, idempotencyKey) {
+  const key = String(idempotencyKey || "").trim();
+  if (key.length < 12 || key.length > 200) throw new ContractError("IDEMPOTENCY_KEY_REQUIRED", "請重新整理後再送出申請。", 422);
+  const [state, requestedPlan] = await Promise.all([merchantPlanState(db, merchantId), findMerchantPlan(db, requestedPlanId)]);
+  if (!state.has_effective_plan || !state.active_plan) throw new ContractError("NO_ACTIVE_PLAN", "目前沒有需要變更的有效方案。", 409);
+  if (!requestedPlan || requestedPlan.plan_id === state.active_plan.plan_id) throw new ContractError("PLAN_CHANGE_INVALID", "請選擇與目前不同的方案。", 422);
+  const keyHash = await hashCanonical({ merchant_id: merchantId, key });
+  const existing = await db.prepare("SELECT id,current_plan_id,requested_plan_id,status,created_at FROM merchant_plan_change_requests WHERE merchant_id=? AND idempotency_key_hash=?").bind(merchantId, keyHash).first();
+  if (existing) return { code: "PLAN_CHANGE_ALREADY_SUBMITTED", request: existing, next_url: "/merchant/select-plan" };
+  const duplicate = await db.prepare(`SELECT id,current_plan_id,requested_plan_id,status,created_at FROM merchant_plan_change_requests
+    WHERE merchant_id=? AND requested_plan_id=? AND status IN ('submitted','reviewing') ORDER BY created_at DESC LIMIT 1`).bind(merchantId, requestedPlan.plan_id).first();
+  if (duplicate) return { code: "PLAN_CHANGE_ALREADY_SUBMITTED", request: duplicate, next_url: "/merchant/select-plan" };
+  const terms = {
+    plan_id: requestedPlan.plan_id,
+    name: requestedPlan.name,
+    price_minor: requestedPlan.price_minor,
+    currency: requestedPlan.currency,
+    term_months: requestedPlan.term_months,
+    trial_months: requestedPlan.trial_months,
+    activation_fee_minor: requestedPlan.activation_fee_minor,
+    deposit_minor: requestedPlan.deposit_minor,
+    cycle_fee_minor: requestedPlan.cycle_fee_minor,
+    first_cycle_credit_minor: requestedPlan.first_cycle_credit_minor,
+    first_cycle_balance_minor: requestedPlan.first_cycle_balance_minor,
+    renewal_fee_minor: requestedPlan.renewal_fee_minor,
+  };
+  const termsHash = await hashCanonical(terms);
+  const requestId = uid("mplan_change");
+  await db.batch([
+    db.prepare(`INSERT INTO merchant_plan_change_requests(id,merchant_id,current_plan_id,requested_plan_id,requested_terms_json,requested_terms_hash,idempotency_key_hash,requested_by)
+      VALUES(?,?,?,?,?,?,?,?)`).bind(requestId, merchantId, state.active_plan.plan_id, requestedPlan.plan_id, JSON.stringify(terms), termsHash, keyHash, actorId),
+    db.prepare("INSERT INTO audit_logs(id,actor_type,actor_id,action,entity_type,entity_id,metadata) VALUES(?,'merchant_user',?,'merchant_plan_change_requested','merchant_plan_change_request',?,?)")
+      .bind(uid("audit"), actorId, requestId, JSON.stringify({ merchant_id: merchantId, current_plan_id: state.active_plan.plan_id, requested_plan_id: requestedPlan.plan_id, requested_terms_hash: termsHash })),
+  ]);
+  return { code: "PLAN_CHANGE_SUBMITTED", request: { id: requestId, current_plan_id: state.active_plan.plan_id, requested_plan_id: requestedPlan.plan_id, status: "submitted" }, next_url: "/merchant/select-plan" };
+}
+
 function errorResponse(error, cors) {
-  if (error instanceof ContractError) return json({ error: error.message, code: error.code, details: error.details }, error.status, cors);
+  if (error instanceof ContractError) return json({ error: error.message, code: error.code }, error.status, cors);
   console.error(JSON.stringify({ service: "merchant_plan_catalog", error: error instanceof Error ? error.message : "unknown" }));
   return json({ error: "商家方案服務暫時無法使用。", code: "PLAN_SERVICE_ERROR" }, 503, cors);
 }
 
 export async function handleMerchantPlansPublic(request, env, url, cors = {}) {
   if (url.pathname !== "/api/public/merchant-plans" || request.method !== "GET") return null;
-  try { return json({ plans: await listMerchantPlans(env.FINANCE_DB) }, 200, cors); }
+  try { return json({ plans: (await listMerchantPlans(env.FINANCE_DB)).map(customerPlan) }, 200, cors); }
   catch (error) { return errorResponse(error, cors); }
 }
 
@@ -213,6 +288,11 @@ export async function handleMerchantPlans(request, env, url, cors, authorization
       const input = await request.json().catch(() => ({}));
       const result = await assignMerchantPlan(env.FINANCE_DB, authorization.session.merchant_id, authorization.session.user_id, input.plan_id, Number(input.installment_plan_requested ?? 24));
       return json(result, result.code === "PLAN_ASSIGNED" ? 201 : 200, cors);
+    }
+    if (url.pathname === "/api/merchant/plans/change-requests" && request.method === "POST") {
+      const input = await request.json().catch(() => ({}));
+      const result = await requestMerchantPlanChange(env.FINANCE_DB, authorization.session.merchant_id, authorization.session.user_id, input.plan_id, request.headers.get("idempotency-key"));
+      return json(result, result.code === "PLAN_CHANGE_SUBMITTED" ? 201 : 200, cors);
     }
     return null;
   } catch (error) { return errorResponse(error, cors); }

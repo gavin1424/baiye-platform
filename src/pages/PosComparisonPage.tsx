@@ -29,7 +29,8 @@ const comparisonRows = [
   {
     item: "品牌官網",
     pos: "部分方案提供線上菜單或點餐模組，實際依方案",
-    baiye: "標準規格品牌網站基礎建置免費附贈，並可依導入範圍整合 LINE、AI 與預約",
+    baiye:
+      "標準規格品牌網站基礎建置免費附贈，並可依導入範圍整合 LINE、AI 與預約",
   },
   {
     item: "會員與顧客經營",
@@ -39,12 +40,13 @@ const comparisonRows = [
   {
     item: "BOM／原料扣庫存",
     pos: "部分專業餐飲 POS 已提供 BOM 與成本管理",
-    baiye: "完整 BOM 與進階庫存仍屬 Commerce 功能開發範圍，未列為目前正式標準交付",
+    baiye:
+      "完整 BOM 與進階庫存仍屬 Commerce 功能開發範圍，未列為目前正式標準交付",
   },
   {
     item: "電子發票、正式金流、物流",
     pos: "部分方案已整合，依服務商與合約開通",
-    baiye: "已預留介面；正式 Provider 審核、憑證與 E2E 未通過前維持停用或另行評估",
+    baiye: "依合作金流服務商審核、商家資格與實際可用付款方式提供",
   },
   {
     item: "適用產業",
@@ -81,7 +83,8 @@ export function PosComparisonPage() {
             </h1>
             <p>
               創百業智慧鏈適合希望先建立品牌官網、LINE、AI、預約、會員與 Web
-              訂單入口的商家；若需要離線收銀、多台出單、出餐看板、電子發票即時開立等高強度現場流程，專業 POS 仍有不可取代的價值。
+              訂單入口的商家；若需要離線收銀、多台出單、出餐看板、電子發票即時開立等高強度現場流程，專業
+              POS 仍有不可取代的價值。
             </p>
             <div className="pos-compare-actions">
               <Link to="/pricing" className="btn btn-primary btn-lg">
@@ -96,7 +99,8 @@ export function PosComparisonPage() {
             <Storefront size={44} weight="duotone" />
             <strong>先選對工具，再談省多少</strong>
             <p>
-              本頁不是宣稱創百業已完整取代專業 POS，而是協助店家依現階段需求比較功能範圍與三年平台費用。
+              本頁不是宣稱創百業已完整取代專業
+              POS，而是協助店家依現階段需求比較功能範圍與三年平台費用。
             </p>
           </aside>
         </div>
@@ -131,7 +135,8 @@ export function PosComparisonPage() {
           </div>
           <div className="pos-compare-note">
             <WarningCircle weight="fill" />
-            肚肚 dudoo 官網目前未公開固定方案價格，本頁不使用未經官方確認的數字進行金額比較。
+            肚肚 dudoo
+            官網目前未公開固定方案價格，本頁不使用未經官方確認的數字進行金額比較。
           </div>
         </div>
       </section>
@@ -142,7 +147,11 @@ export function PosComparisonPage() {
             eyebrow="功能比較"
             title="不是誰一定比較好，而是是否符合你的營運方式"
           />
-          <div className="pos-compare-table" role="table" aria-label="創百業與專業 POS 功能比較">
+          <div
+            className="pos-compare-table"
+            role="table"
+            aria-label="創百業與專業 POS 功能比較"
+          >
             <div className="pos-compare-row pos-compare-head" role="row">
               <strong>比較項目</strong>
               <span>專業餐飲 POS</span>
@@ -177,13 +186,17 @@ export function PosComparisonPage() {
               <span>創百業正式費用規則</span>
               <strong>NT$25,000</strong>
               <p>前 2 年方案 NT$18,000＋第 3 年續用 NT$7,000</p>
-              <small>標準規格網站基礎建置免費附贈；客製功能與第三方費用另計。</small>
+              <small>
+                標準規格網站基礎建置免費附贈；客製功能與第三方費用另計。
+              </small>
             </article>
             <article className="pos-cost-card pos-cost-card-difference">
               <span>三年平台費用差額</span>
               <strong>NT$46,190</strong>
               <p>約為上述 iCHEF 標準軟體費用的 64.9%</p>
-              <small>此為費用比較，不得解讀為功能、硬體或服務內容完全相同。</small>
+              <small>
+                此為費用比較，不得解讀為功能、硬體或服務內容完全相同。
+              </small>
             </article>
           </div>
           <div className="pos-source-note">
@@ -191,7 +204,8 @@ export function PosComparisonPage() {
             <div>
               <strong>資料基準與比較原則</strong>
               <p>
-                市場資料更新日：2026 年 8 月 27 日。iCHEF 價格取自官方公開方案頁；競品價格、功能與活動可能隨時變更，實際仍以各業者最新正式報價與契約為準。
+                市場資料更新日：2026 年 8 月 27 日。iCHEF
+                價格取自官方公開方案頁；競品價格、功能與活動可能隨時變更，實際仍以各業者最新正式報價與契約為準。
               </p>
               <a
                 href="https://www.ichefpos.com/zh-tw/pricing/"
@@ -207,10 +221,7 @@ export function PosComparisonPage() {
 
       <section className="section pos-fit-section">
         <div className="container">
-          <SectionHeading
-            eyebrow="怎麼選"
-            title="依店家的真正需求決定"
-          />
+          <SectionHeading eyebrow="怎麼選" title="依店家的真正需求決定" />
           <div className="pos-fit-grid">
             <article>
               <h2>較適合先導入創百業</h2>
@@ -235,7 +246,9 @@ export function PosComparisonPage() {
             <article className="pos-fit-hybrid">
               <h2>也可以採混合方案</h2>
               <p>
-                以創百業作為官網、LINE、AI、會員與行銷入口，再讓既有或新導入的專業 POS 處理現場收銀、出單、電子發票與廚房流程。第三方 API 串接須另行評估。
+                以創百業作為官網、LINE、AI、會員與行銷入口，再讓既有或新導入的專業
+                POS 處理現場收銀、出單、電子發票與廚房流程。第三方 API
+                串接須另行評估。
               </p>
             </article>
           </div>

@@ -240,7 +240,7 @@ export function Footer() {
             <strong>承攬夥伴</strong>
             <Link to="/partner/apply">申請成為承攬夥伴</Link>
             <Link to="/partner/login">承攬夥伴登入</Link>
-            <Link to="/partner">承攬夥伴中心</Link>
+            <Link to="/join">加入中心</Link>
           </div>
           <div>
             <strong>關於我們</strong>
@@ -267,11 +267,11 @@ export function MobileBottomNav() {
   const items = [
     { label: "首頁", to: "/", icon: House },
     { label: "搜尋", to: "/businesses", icon: MagnifyingGlass },
-    { label: "發布需求", to: "/collaborations/new", icon: Plus, primary: true },
-    { label: "私訊", to: "/messages", icon: ChatCircleDots },
+    { label: "方案", to: "/pricing", icon: Storefront, primary: true },
+    { label: "加入", to: "/join", icon: Handshake },
     {
-      label: "我的",
-      to: session.role === "admin" ? "/admin" : "/merchant/login",
+      label: session.role === "guest" ? "登入" : "我的",
+      to: session.role === "admin" ? "/admin" : session.role === "business" ? "/merchant/dashboard" : session.role === "member" ? "/member" : "/merchant/login",
       icon: UserCircle,
     },
   ];

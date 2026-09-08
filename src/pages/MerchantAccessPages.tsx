@@ -7,6 +7,7 @@ import {
   savePlatformMemberToken,
 } from "../qr-ordering-client";
 import { downloadMerchantContractPdf } from "../merchant-contract-pdf";
+import { userFacingError } from "../user-facing-error";
 
 const errorText = (error: unknown) => {
   if (
@@ -15,9 +16,7 @@ const errorText = (error: unknown) => {
   ) {
     return "目前無法連線至商家註冊服務，請稍後再試。";
   }
-  return error instanceof Error
-    ? error.message
-    : "商家服務暫時無法使用，請稍後再試。";
+  return userFacingError(error, "商家服務暫時無法使用，請稍後再試。");
 };
 const authHeaders = () => ({
   "x-device-id": getPlatformDeviceId(),
@@ -123,7 +122,7 @@ export function MerchantRegisterPage() {
         </p>
         {intendedPlan && (
           <p className="merchant-intended-plan">
-            已保留您從加入中心選擇的方案意向；最終方案與價格仍由伺服器驗證並由您再次確認。
+            已保留您從加入中心選擇的方案；登入後會再次顯示方案與適用價格供您確認。
           </p>
         )}
         <form onSubmit={submit}>
@@ -288,7 +287,7 @@ export function MerchantLoginPage() {
           </button>
         </form>
         <p className="partner-guidance-note">
-          方案與價格會在登入後由伺服器重新驗證。
+          登入後將重新確認您選擇的方案與適用價格。
         </p>
         {notice && <div className="partner-message">{notice}</div>}
         <Link

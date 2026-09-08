@@ -1,6 +1,6 @@
 import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
 import { getSoftposRenewal } from "./merchant-softpos-plan.js";
-import { findMerchantPlan, saveMerchantPlanIntent } from "./merchant-plan-catalog.js";
+import { findMerchantPlan, merchantPlanState, saveMerchantPlanIntent } from "./merchant-plan-catalog.js";
 import {
   createNumericCredentialMaterial,
   deriveNumericPassword,
@@ -43,6 +43,10 @@ export async function merchantOperationsAllowed(db, merchantId) {
   const state = await db.prepare("SELECT operation_locked,state FROM merchant_onboarding_states WHERE merchant_id=?").bind(merchantId).first();
   if (state && Number(state.operation_locked) === 1) {
     return { ok: false, status: 423, error: "MERCHANT_CONTRACT_REQUIRED", state: state.state };
+  }
+  const plan = await merchantPlanState(db, merchantId);
+  if (["expired", "terminated"].includes(plan.plan_status)) {
+    return { ok: false, status: 423, error: "MERCHANT_PLAN_RENEWAL_REQUIRED", state: plan.plan_status };
   }
   return { ok: true, status: 200, state: state?.state || null };
 }
@@ -155,7 +159,7 @@ async function passwordLogin(request, env, cors) {
   return json({ code: "LOGIN_SUCCESS", merchant: { id: selected.merchant_id, name: selected.merchant_name }, platform_member_id: selected.platform_member_id, merchant_resolution: { automatic: true, count: 1, requires_selection: false }, csrf_token: session.csrf, expires_at: session.expiresAt, next_url: nextUrl }, 200, { ...cors, "set-cookie": merchantSessionCookie(session.raw) });
 }
 
-function merchantCredentialStatement(db, merchantId, userId, material) {
+export function merchantCredentialStatement(db, merchantId, userId, material) {
   return db.prepare(`INSERT INTO merchant_login_credentials(id,merchant_user_id,merchant_id,credential_type,password_hash,password_salt,password_algorithm,password_iterations,reset_required,password_updated_at)
     VALUES(?,?,?,'numeric_password_8',?,?,?,?,0,CURRENT_TIMESTAMP)
     ON CONFLICT(merchant_id,merchant_user_id,credential_type) DO UPDATE SET password_hash=excluded.password_hash,password_salt=excluded.password_salt,password_algorithm=excluded.password_algorithm,password_iterations=excluded.password_iterations,failed_attempts=0,locked_until=NULL,reset_required=0,status='active',password_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`)

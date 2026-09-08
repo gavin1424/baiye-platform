@@ -83,7 +83,7 @@ type Toast = {
 const defaultSiteSettings: SiteSettings = {
   name: "尚未開通商家",
   tagline: "商家資料將於正式審核後建立",
-  intro: "Production 不載入範例商家資料。",
+  intro: "目前尚無可顯示的商家資料。",
   logo: "",
   cover: "",
   primaryColor: "#116b5d",

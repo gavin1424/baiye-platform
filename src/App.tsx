@@ -111,7 +111,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/inquiry-cart": "企業詢價單｜創百業智慧鏈",
   "/shop": "百業商城｜創百業智慧鏈",
   "/cart": "購物車｜創百業智慧鏈",
-  "/checkout": "測試結帳｜創百業智慧鏈",
+  "/checkout": "線上結帳｜創百業智慧鏈",
   "/login": "商家管理者登入｜創百業智慧鏈",
   "/register": "商家免費註冊｜創百業智慧鏈",
   "/forgot-password": "忘記密碼｜創百業智慧鏈",
@@ -229,12 +229,14 @@ function ScrollAndMetadata() {
     document
       .querySelector('meta[name="description"]')
       ?.setAttribute("content", description);
-    document
-      .querySelector('meta[name="robots"]')
-      ?.setAttribute(
-        "content",
-        IS_BEEF_NOODLE_DEMO || IS_STAGING ? "noindex,nofollow" : "index,follow",
-      );
+    const indexable = new Set(["/", "/features", "/pricing", "/join", "/businesses", "/categories", "/collaborations", "/how-it-works", "/success-stories", "/faq", "/contact", "/privacy", "/terms", "/pos-comparison", "/services/deposit-settlement"]);
+    let robots = document.querySelector('meta[name="robots"]');
+    if (!robots) {
+      robots = document.createElement("meta");
+      robots.setAttribute("name", "robots");
+      document.head.appendChild(robots);
+    }
+    robots.setAttribute("content", IS_BEEF_NOODLE_DEMO || IS_STAGING || !indexable.has(path) ? "noindex,nofollow" : "index,follow");
     document
       .querySelector('meta[property="og:title"]')
       ?.setAttribute("content", activeTitle);
@@ -410,7 +412,7 @@ export function App() {
           element={<Navigate to="/merchant/register" replace />}
         />
         <Route path="/forgot-password" element={<AccountUnavailablePage />} />
-        <Route path="/account" element={<AccountUnavailablePage />} />
+        <Route path="/account" element={<Navigate to="/member" replace />} />
         <Route path="/dashboard" element={<MerchantAccessUnavailablePage />} />
         <Route
           path="/dashboard/site-editor"

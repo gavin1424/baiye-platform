@@ -11,6 +11,7 @@ import {
 } from "../components/ContractSignatureCanvas";
 import { downloadMerchantContractPdf } from "../merchant-contract-pdf";
 import { MerchantRegisterPage } from "./MerchantAccessPages";
+import { userFacingError } from "../user-facing-error";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -22,8 +23,7 @@ const money = (minor: number) =>
     currency: "TWD",
     maximumFractionDigits: 0,
   }).format(Number(minor || 0) / 100);
-const message = (error: unknown) =>
-  error instanceof Error ? error.message : "契約服務暫時無法使用。";
+const message = (error: unknown) => userFacingError(error, "契約服務暫時無法使用，請稍後再試。");
 const roleLabel = (role: string) =>
   role === "authorized_representative" ? "受授權代表" : "法定代表人";
 
@@ -36,7 +36,7 @@ async function publicApi(path: string, init: RequestInit = {}) {
     },
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "契約服務暫時無法使用。");
+  if (!response.ok) throw Object.assign(new Error("契約服務暫時無法使用。"), { status: response.status, code: data.code || "" });
   return data;
 }
 
@@ -44,7 +44,7 @@ export function MerchantContractActivate() {
   const [params] = useSearchParams();
   const token = params.get("token") || "";
   const [invite, setInvite] = useState<any>();
-  const [form, setForm] = useState({ phone: "", privacy_consent: false });
+  const [form, setForm] = useState({ phone: "", password: "", password_confirm: "", privacy_consent: false });
   const [notice, setNotice] = useState("");
   const [success, setSuccess] = useState<any>();
   const [seconds, setSeconds] = useState(3);
@@ -127,6 +127,14 @@ export function MerchantContractActivate() {
               }
             />
           </label>
+          <label>
+            設定 8 位數字密碼
+            <input required type="password" inputMode="numeric" pattern="[0-9]{8}" minLength={8} maxLength={8} autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+          </label>
+          <label>
+            再次確認密碼
+            <input required type="password" inputMode="numeric" pattern="[0-9]{8}" minLength={8} maxLength={8} autoComplete="new-password" value={form.password_confirm} onChange={(event) => setForm({ ...form, password_confirm: event.target.value })} />
+          </label>
           <label className="partner-consent">
             <input
               required
@@ -139,9 +147,7 @@ export function MerchantContractActivate() {
             我已閱讀並同意會員服務、隱私權說明及商家平台相關條款。
           </label>
           <button className="btn btn-primary">完成商家註冊</button>
-          <p className="partner-guidance-note">
-            不用設定密碼，使用手機即可註冊與登入。
-          </p>
+          <p className="partner-guidance-note">日後請使用此手機號碼與 8 位數字密碼登入。</p>
         </form>
       )}
       {success && (
@@ -229,7 +235,7 @@ export function MerchantContractPage() {
     const strokes = signature.strokes.filter((stroke) => stroke.length >= 2);
     const points = strokes.reduce((sum, stroke) => sum + stroke.length, 0);
     if (strokes.length < 2 || points < 12)
-      return "請以正楷完成至少 2 筆、共 12 點以上的手寫簽名。";
+      return "請完成清楚且非空白的本人手寫簽名。";
     return "";
   };
   const previewSign = async () => {
@@ -264,7 +270,7 @@ export function MerchantContractPage() {
       );
       if (!result.signature_id || !result.document_hash || !result.signed_at) {
         setNotice(
-          "SIGN_RESULT_INCOMPLETE：簽署結果不完整，請勿重新送出並聯絡平台協助。",
+          "簽署結果尚未完整確認。為避免重複簽署，請聯絡平台協助查詢。",
         );
         return;
       }
@@ -425,20 +431,20 @@ export function MerchantContractPage() {
           authority:
             "我確認免費試用 3 個月，正式計價為 NT$24,000／24 個月，非逐月短約。",
           signature_evidence:
-            "我了解 24 期零利率仍須依實際金融／支付機構核准與 Provider 可用能力為準。",
+            "我了解 24 期零利率仍須依實際金融／支付機構核准與當時提供條件為準。",
           electronic:
-            "我同意使用電子形式完成契約簽署並保存 Evidence、PDF、Hash 與 Audit。",
+            "我同意以電子形式完成契約簽署，並保存 PDF、驗證值與簽署紀錄。",
         }
       : context.terms.plan_code === "baiye_commerce_ai_45000"
         ? {
             read: "我已完整閱讀本契約及附件 A。",
             commercial_terms: "我確認 AI 智慧商城完整版固定總價為 NT$45,000。",
             authority:
-              "我確認服務期間為 24 個月，商城與管理權限依現有真實功能 Gate 啟用。",
+              "我確認服務期間為 24 個月，商城與管理功能依方案內容開通。",
             signature_evidence:
-              "我了解金流實際啟用及分期仍依 Provider 審核與真實 readiness 為準。",
+              "我了解金流與分期功能仍須依合作服務商審核及實際提供條件為準。",
             electronic:
-              "我同意使用電子形式完成契約簽署並保存 Evidence、PDF、Hash 與 Audit。",
+              "我同意以電子形式完成契約簽署，並保存 PDF、驗證值與簽署紀錄。",
           }
         : {
             read: "我已完整閱讀本契約及附件 A。",
@@ -487,12 +493,7 @@ export function MerchantContractPage() {
             <strong>免專用 POS 主機</strong>
             <span>不等於完全零硬體；仍需商家自備營運所需裝置與網路。</span>
             <span>{context.plan.payment_provider.disclosure}</span>
-            <span>
-              Provider 實際 24 期能力：
-              {context.plan.payment_provider.ready
-                ? "已驗證"
-                : "尚未驗證，不會產生假交易"}
-            </span>
+            <span>{context.plan.payment_provider.ready ? "目前可受理分期申請。" : "分期方式須由合作銀行／金流服務商確認後提供。"}</span>
           </section>
         </>
       ) : (
@@ -566,7 +567,7 @@ export function MerchantContractPage() {
             {(context.legal_entity?.missing_fields || [])
               .map((item: any) => item.label)
               .join("、") || "必要資料"}
-            。Staging 不會填入假公司資料。
+            。請稍後再試或聯絡平台協助。
           </span>
         </section>
       ) : (
@@ -645,11 +646,9 @@ export function MerchantContractPage() {
             </label>
           )}
           <section className="merchant-signature-notice">
-            <strong>本人正楷手寫簽名</strong>
-            <p>
-              請以正楷清楚簽寫本人完整姓名，簽署姓名須與上方填寫之簽署人姓名一致。
-            </p>
-            <p>請正楷簽寫：{form.signatory_legal_name || "您的完整姓名"}</p>
+            <strong>本人手寫電子簽名</strong>
+            <p>請由本人於下方簽名區完成一般手寫簽名。系統只檢查簽名是否為有效非空白筆跡，不進行筆跡辨識。</p>
+            <p>簽署人：{form.signatory_legal_name || "您的完整姓名"}</p>
           </section>
           <ContractSignatureCanvas
             onChange={setSignature}
@@ -703,8 +702,7 @@ export function MerchantContractPage() {
               <dd>{roleLabel(preview.signatory_role)}</dd>
             </dl>
             <p>
-              確認後將建立不可變 PDF 與私人 Evidence
-              JSON。手寫軌跡屬線上簽署證據，不是憑證式數位簽章。
+              確認後將建立不可變更的 PDF 與私人簽署證據。手寫軌跡屬線上簽署證據，不是憑證式數位簽章。
             </p>
             <div className="partner-workflow-actions">
               <button
@@ -799,7 +797,7 @@ export function VerifyContractPage() {
             <dd>{data.version}</dd>
             <dt>簽署日期</dt>
             <dd>{data.signed_at}</dd>
-            <dt>Document Hash</dt>
+            <dt>文件雜湊值</dt>
             <dd className="contract-hash">{data.document_hash}</dd>
           </dl>
           <p>公開驗證頁不顯示姓名、電話、Email、地址、IP、簽名圖或商業條件。</p>

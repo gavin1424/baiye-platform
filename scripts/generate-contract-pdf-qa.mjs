@@ -8,6 +8,7 @@ const db = new DatabaseSync(":memory:");
 for (const file of readdirSync(new URL("../cloudflare-worker/migrations", import.meta.url)).filter((name) => /^\d+.*\.sql$/.test(name)).sort()) {
   db.exec(readFileSync(new URL(`../cloudflare-worker/migrations/${file}`, import.meta.url), "utf8"));
 }
+db.exec(readFileSync(new URL("../cloudflare-worker/migrations/production_0032_unified_contract_center_approval.sql", import.meta.url), "utf8"));
 
 const definitions = [
   ["18k", "merchant_contract_versions", "merchant_service_v1_2_18000_addons", "legal_representative"],
@@ -23,7 +24,7 @@ for (const [name, table, id, role] of definitions) {
   const contract = db.prepare(`SELECT * FROM ${table} WHERE id=?`).get(id);
   if (!contract) throw new Error(`missing contract: ${id}`);
   const artifact = await createSignedAgreementPdf({
-    title: contract.title,
+    title: role === "partner" ? "創百業智慧鏈｜承攬夥伴合作契約" : contract.title,
     documentId: `QA-${name.toUpperCase()}-20260908`,
     publicId: `QA-${name.toUpperCase()}-VERIFY`,
     verificationUrl: `https://baiyeconnect.com/#/verify-contract/QA-${name.toUpperCase()}-VERIFY`,

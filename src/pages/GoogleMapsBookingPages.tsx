@@ -13,6 +13,7 @@ import {
 import { merchantOrderingApi } from "../qr-ordering-client";
 import { adminApi } from "../admin-auth-client";
 import { AdminModuleNav } from "../components/AdminModuleNav";
+import { userFacingError } from "../user-facing-error";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -214,7 +215,7 @@ export function GoogleMapsBookingLandingPage() {
             </h2>
             <p>
               {choice === "auth"
-                ? "系統會以安全 Merchant Session 綁定您的申請。"
+                ? "登入後，系統會將申請安全連結至您的商家帳號。"
                 : "完成契約簽署後，才能送出 Google 地圖預約開通申請。"}
             </p>
             <div>
@@ -346,7 +347,7 @@ export function MerchantGoogleMapsBookingPage() {
   if (!context.contract_signed)
     return (
       <main className="google-merchant-page">
-        <p className="google-kicker">Contract Gate</p>
+        <p className="google-kicker">申請資格</p>
         <h1>請先完成商家平台服務契約</h1>
         <p>完成 NT$18,000 商家平台服務契約後，即可申請 Google 地圖預約導流。</p>
         <Link className="btn btn-primary" to="/merchant/select-plan">
@@ -746,7 +747,7 @@ export function GoogleMapsBookingPage() {
       setSlots(data.items || []);
       setNotice(data.message || "");
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : "無法取得時段");
+      setNotice(userFacingError(e, "目前無法取得預約時段，請稍後再試。"));
     }
   };
   useEffect(() => {
@@ -771,7 +772,7 @@ export function GoogleMapsBookingPage() {
       setSuccess(data);
       idempotency.current = crypto.randomUUID();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "預約送出失敗");
+      setNotice(userFacingError(error, "預約尚未送出，請稍後再試。"));
     }
   };
   if (success)

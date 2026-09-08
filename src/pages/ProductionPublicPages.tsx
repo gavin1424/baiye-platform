@@ -15,15 +15,16 @@ export function CatalogUnavailablePage() {
 }
 
 export function AccountUnavailablePage() {
-  return <PublicLayout><section className="section"><div className="container empty-state"><span><LockKey/></span><h1>會員帳號功能準備中</h1><p>正式會員後端尚未開放，因此目前不提供公開註冊或一般會員登入。管理員與承攬夥伴請使用各自的安全登入入口。</p><div className="hero-actions"><Link className="btn btn-primary" to="/partner/login">承攬夥伴登入</Link><Link className="btn btn-outline" to="/contact">聯絡平台</Link></div></div></section></PublicLayout>;
+  return <PublicLayout><section className="section"><div className="container empty-state"><span><LockKey/></span><h1>需要帳號協助？</h1><p>為保護帳號安全，平台不會只憑手機號碼直接重設密碼。請由登入頁確認資料，或聯絡客服協助核對身分。</p><div className="hero-actions"><Link className="btn btn-primary" to="/merchant/login">前往登入</Link><Link className="btn btn-outline" to="/contact">聯絡客服</Link></div></div></section></PublicLayout>;
 }
 
 export function MerchantAccessUnavailablePage() {
-  return <PublicLayout><section className="section"><div className="container empty-state"><span><Buildings/></span><h1>商家後台採審核開通</h1><p>商家申請需經方案確認、付款／合約與平台審核後才會建立正式帳號。公開測試後台已停用。</p><Link className="btn btn-primary" to="/pricing">了解商家 AI 數位升級方案</Link></div></section></PublicLayout>;
+  return <PublicLayout><section className="section"><div className="container empty-state"><span><Buildings/></span><h1>請登入商家帳號</h1><p>商家管理功能會依帳號權限與已開通的服務顯示。登入後即可查看目前可使用的功能。</p><Link className="btn btn-primary" to="/merchant/login">商家登入</Link></div></section></PublicLayout>;
 }
 
 export function ProductionContactPage() {
-  return <PublicLayout><MarketingHero eyebrow="聯絡平台" title="一起規劃適合你的數位升級路徑" description="從品牌網站、AI 智慧商城到免 POS 機點餐，先釐清營運需求，再確認方案與導入範圍。" primary={{label:"先比較商家方案",to:"/pricing"}} secondary={{label:"查看導入流程",to:"/how-it-works"}} /><MarketingSection className="contact-v2"><PremiumCard><h2>可諮詢內容</h2><p>品牌網站、AI 客服、LINE、會員、預約、完整商城、智慧點餐與承攬夥伴合作。</p><p>平台不會在本頁蒐集非必要個資；請透過創百業正式聯絡管道提出需求。</p><Link className="btn btn-primary" to="/pricing">了解三種商家方案</Link></PremiumCard></MarketingSection></PublicLayout>;
+  const openChat = () => window.dispatchEvent(new Event("baiye:open-ai-chat"));
+  return <PublicLayout><MarketingHero eyebrow="聯絡平台" title="一起規劃適合你的數位升級路徑" description="從品牌網站、AI 智慧商城到免 POS 機點餐，先釐清營運需求，再確認方案與導入範圍。" primary={{label:"先比較商家方案",to:"/pricing"}} secondary={{label:"查看導入流程",to:"/how-it-works"}} /><MarketingSection className="contact-v2"><PremiumCard><h2>可諮詢內容</h2><p>品牌網站、AI 客服、LINE、會員、預約、完整商城、智慧點餐與承攬夥伴合作。</p><p>請開啟右下角 AI 客服提出需求；如需真人協助，客服會引導後續聯絡方式。請勿提供密碼、完整證件號碼或付款資訊。</p><div className="hero-actions"><button className="btn btn-primary" type="button" onClick={openChat}>開啟 AI 客服</button><Link className="btn btn-outline" to="/pricing">了解三種商家方案</Link></div></PremiumCard></MarketingSection></PublicLayout>;
 }
 
 export function ProductionPrivacyPage() {

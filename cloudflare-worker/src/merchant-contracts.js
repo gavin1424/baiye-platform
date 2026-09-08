@@ -1,4 +1,5 @@
-import { authorizeMerchant, createPasswordlessMerchantOwner, issueMerchantSession, merchantSessionCookie } from "./merchant-auth.js";
+import { authorizeMerchant, createPasswordlessMerchantOwner, issueMerchantSession, merchantCredentialStatement, merchantSessionCookie } from "./merchant-auth.js";
+import { createNumericCredentialMaterial, platformCredentialByMember, upsertPlatformCredentialStatement, validateNumericPassword, verifyNumericCredential } from "./numeric-password-auth.js";
 import {
   ContractError,
   STANDARD_ASSURANCE,
@@ -258,18 +259,27 @@ export async function handleMerchantContractPublic(request, env, url, cors = {})
       const phone = normalizeTaiwanMobile(input.phone);
       if (!phone) throw new ContractError("INVALID_PHONE", "請輸入正確的台灣手機號碼。", 422);
       if (input.privacy_consent !== true || !String(input.consent_version || "").trim()) throw new ContractError("PRIVACY_CONSENT_REQUIRED", "請閱讀並同意會員服務、隱私權說明及商家平台相關條款。", 422);
+      const password = String(input.password || ""), passwordConfirm = String(input.password_confirm || "");
+      if (password !== passwordConfirm) throw new ContractError("PASSWORD_CONFIRM_MISMATCH", "兩次輸入的密碼不一致。", 422);
+      const passwordValidation = validateNumericPassword(password, phone);
+      if (!passwordValidation.ok) throw new ContractError("PASSWORD_INVALID", passwordValidation.error, 422);
       const invite = await db.prepare("SELECT i.*,t.custom_quote_reference FROM merchant_contract_invites i JOIN merchant_contract_commercial_terms t ON t.id=i.commercial_terms_id AND t.merchant_id=i.merchant_id WHERE i.token_hash=? AND i.revoked_at IS NULL AND datetime(i.expires_at)>datetime('now')").bind(hashed).first();
       if (!invite) throw new ContractError("INVITE_INVALID", "商家啟用連結無效、已使用或已過期。", 401);
       const operation = await beginContractOperation(db, { partyType: "merchant", partyId: invite.merchant_id, operationType: "invite_accept", idempotencyKey: request.headers.get("idempotency-key") || "" });
       if (operation.replay) return json(operation.result, 200, cors);
       if (invite.used_at) throw new ContractError("INVITE_ALREADY_USED", "此啟用連結已使用，請直接登入商家後台。", 409);
-      const membership = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version), originVerified: true, deviceId: request.headers.get("x-device-id") || "merchant-invite", issueSession: true });
+      const membership = await ensurePlatformMember(db, { phone, source: "phone", privacyConsentVersion: String(input.consent_version), deviceId: request.headers.get("x-device-id") || "merchant-invite", issueSession: true });
+      const commonCredential = await platformCredentialByMember(db, membership.member.id);
+      if (commonCredential && !await verifyNumericCredential(password, commonCredential)) throw new ContractError("MEMBER_CREDENTIAL_INVALID", "手機號碼或密碼錯誤。", 401);
       const owner = await createPasswordlessMerchantOwner(db, { request, merchantId: invite.merchant_id, platformMember: membership.member, phone, email: invite.email });
       if (!owner.created) throw new ContractError("MERCHANT_ALREADY_REGISTERED", "此商家管理者已完成註冊，請直接登入。", 409);
+      const credentialMaterial = commonCredential || await createNumericCredentialMaterial(password);
       const merchantSession = await issueMerchantSession(db, { merchantId: invite.merchant_id, userId: owner.userId, platformMemberId: membership.member.id, assuranceLevel: "activation_invite", issuedVia: "merchant_contract_invite" });
       await db.batch([
         db.prepare("UPDATE merchant_contract_invites SET used_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL").bind(invite.id),
         db.prepare("UPDATE merchants SET phone=COALESCE(phone,?),status='contract_required',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(phone, invite.merchant_id),
+        merchantCredentialStatement(db, invite.merchant_id, owner.userId, credentialMaterial),
+        ...(commonCredential ? [] : [upsertPlatformCredentialStatement(db, membership.member.id, credentialMaterial)]),
         db.prepare("INSERT INTO merchant_onboarding_states(merchant_id,registration_mode,state,operation_locked,commercial_terms_approval_required,commercial_terms_id) VALUES(?,CASE WHEN ? IS NULL THEN 'standard_self_service' ELSE 'custom_quote' END,'contract_required',1,CASE WHEN ? IS NULL THEN 0 ELSE 1 END,?) ON CONFLICT(merchant_id) DO UPDATE SET state='contract_required',operation_locked=1,commercial_terms_id=excluded.commercial_terms_id,updated_at=CURRENT_TIMESTAMP")
           .bind(invite.merchant_id, invite.custom_quote_reference || null, invite.custom_quote_reference || null, invite.commercial_terms_id),
       ]);
