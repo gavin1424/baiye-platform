@@ -12,7 +12,8 @@ test("production homepage exposes all eight interactive features", () => {
   assert.match(source, /setSelected\(feature\)/);
   assert.match(source, /role="dialog"/);
   assert.match(source, /event\.key === "Escape"/);
-  assert.match(source, /heroScene/);
+  assert.match(source, /assets\/baiye-multi-industry-isometric-hero\.png/);
+  assert.match(source, /alt="餐飲、美業與零售整合的智慧經營場景"/);
   assert.doesNotMatch(source, /立即試用完整商家系統|\/demo\/beef-noodle/);
 });
 
