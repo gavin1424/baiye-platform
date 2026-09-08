@@ -34,17 +34,20 @@ class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext
     fun saveSession(cookie: String, csrf: String, merchantId: String, merchantName: String) = preferences.edit().putString("cookie", cookie).putString("csrf", csrf).putString("merchant_id", merchantId).putString("merchant_name", merchantName).apply()
     fun cookie() = preferences.getString("cookie", "") ?: ""
     fun csrf() = preferences.getString("csrf", "") ?: ""
+    fun merchantId() = preferences.getString("merchant_id", "") ?: ""
     fun merchantName() = preferences.getString("merchant_name", "") ?: ""
     fun hasSession() = preferences.getString("merchant_id", "").orEmpty().isNotBlank()
     fun clearSession() = preferences.edit().remove("cookie").remove("csrf").remove("merchant_id").remove("merchant_name").apply()
     fun setLastSync(epochMs: Long) = preferences.edit().putLong("last_sync", epochMs).apply()
     fun lastSync() = preferences.getLong("last_sync", 0)
-    fun cache(key: String, json: String) = writableDatabase.insertWithOnConflict("app_cache", null, ContentValues().apply { put("cache_key", key); put("payload_json", json); put("updated_at", System.currentTimeMillis()) }, SQLiteDatabase.CONFLICT_REPLACE)
-    fun cached(key: String): String? = readableDatabase.rawQuery("SELECT payload_json FROM app_cache WHERE cache_key=?", arrayOf(key)).use { if (it.moveToFirst()) it.getString(0) else null }
+    private fun scopedCacheKey(key: String) = "${merchantId()}:$key"
+    fun cache(key: String, json: String) = writableDatabase.insertWithOnConflict("app_cache", null, ContentValues().apply { put("cache_key", scopedCacheKey(key)); put("payload_json", json); put("updated_at", System.currentTimeMillis()) }, SQLiteDatabase.CONFLICT_REPLACE)
+    fun cached(key: String): String? = readableDatabase.rawQuery("SELECT payload_json FROM app_cache WHERE cache_key=?", arrayOf(scopedCacheKey(key))).use { if (it.moveToFirst()) it.getString(0) else null }
     fun onboardingDone() = preferences.getBoolean("onboarding_done", false)
     fun setOnboardingDone(done: Boolean = true) = preferences.edit().putBoolean("onboarding_done", done).apply()
-    fun demoMode() = preferences.getBoolean("demo_mode", false)
-    fun setDemoMode(enabled: Boolean) = preferences.edit().putBoolean("demo_mode", enabled).apply()
+    fun demoMode() = preferences.getBoolean("qa_demo_authorized", false) && preferences.getBoolean("demo_mode", false)
+    fun setDemoModeForQa(enabled: Boolean) = preferences.edit().putBoolean("qa_demo_authorized", enabled).putBoolean("demo_mode", enabled).apply()
+    fun exitDemoModeAfterMerchantAuth() = preferences.edit().putBoolean("qa_demo_authorized", false).putBoolean("demo_mode", false).apply()
 
     data class PendingMutation(val id: String, val method: String, val path: String, val body: String, val key: String)
     fun enqueueMutation(method: String, path: String, body: String, key: String): String {

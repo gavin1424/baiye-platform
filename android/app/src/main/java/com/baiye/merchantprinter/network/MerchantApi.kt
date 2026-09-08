@@ -66,6 +66,7 @@ class MerchantApi(
         if (!cookieJar.hasMerchantSession()) throw ApiException(response.status, "SESSION_COOKIE_MISSING", "登入成功但未收到商家 Session，請稍後再試。")
         val csrf = response.body.optString("csrf_token")
         val merchant = response.body.getJSONObject("merchant")
+        store.exitDemoModeAfterMerchantAuth()
         store.saveSession("cookie-jar", csrf, merchant.getString("id"), merchant.getString("name"))
         return merchant.getString("name")
     }
@@ -74,6 +75,7 @@ class MerchantApi(
         val response = request(AUTH_SESSION_PATH).body
         val csrf = response.optString("csrf_token", store.csrf())
         val merchant = response.getJSONObject("merchant")
+        store.exitDemoModeAfterMerchantAuth()
         store.saveSession("cookie-jar", csrf, merchant.getString("id"), merchant.getString("name"))
         return merchant.getString("name")
     }

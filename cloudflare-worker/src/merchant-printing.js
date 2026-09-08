@@ -45,6 +45,50 @@ export function buildKitchenPayload({ merchantName, orderCode, tableLabel, order
   };
 }
 
+// A printer may be registered shortly after a store receives its first order
+// (for example, when an existing Android-only LAN setting is first synced).
+// Reconcile only recent, still-active canonical orders. The partial unique index
+// on original jobs makes this safe under retries and concurrent device saves.
+async function reconcileRecentCanonicalOrders(db, merchantId, printer, actorId) {
+  if (!printer || Number(printer.enabled) !== 1) return 0;
+  const result = await db.prepare(`SELECT o.*,s.display_name merchant_name
+    FROM merchant_food_orders o
+    JOIN merchant_ordering_settings s ON s.merchant_id=o.merchant_id
+    WHERE o.merchant_id=? AND o.demo_reset_at IS NULL
+      AND o.status IN('submitted','accepted','preparing','ready')
+      AND datetime(o.created_at)>=datetime('now','-24 hours')
+      AND NOT EXISTS(SELECT 1 FROM print_jobs j WHERE j.merchant_id=o.merchant_id AND j.order_code=o.order_code AND j.printer_id=? AND j.print_type='kitchen' AND j.reprint_sequence=0)
+    ORDER BY datetime(o.created_at) LIMIT 50`).bind(merchantId, printer.id).all();
+  let created = 0;
+  for (const order of rows(result)) {
+    const itemResult = await db.prepare(`SELECT id,name_snapshot,quantity,note FROM merchant_food_order_items
+      WHERE order_id=? ORDER BY datetime(created_at),id`).bind(order.id).all();
+    const items = [];
+    for (const item of rows(itemResult)) {
+      const optionResult = await db.prepare(`SELECT group_name_snapshot,value_name_snapshot FROM merchant_food_order_item_options
+        WHERE merchant_id=? AND order_id=? AND order_item_id=? ORDER BY datetime(created_at),id`).bind(merchantId, order.id, item.id).all();
+      items.push({ ...item, options: rows(optionResult) });
+    }
+    const payload = buildKitchenPayload({
+      merchantName: order.merchant_name,
+      orderCode: order.order_code,
+      tableLabel: order.table_label,
+      orderType: order.order_type,
+      paymentMethod: order.payment_method || "counter",
+      totalMinor: order.total_minor,
+      createdAt: order.created_at,
+      customerNote: order.customer_note,
+      items,
+    });
+    const inserted = await db.prepare(`INSERT OR IGNORE INTO print_jobs
+      (id,merchant_id,order_id,order_code,printer_id,print_type,status,copies,payload_json,available_at,created_by,idempotency_key)
+      VALUES(?,?,?,?,?,'kitchen','pending',?,?,CURRENT_TIMESTAMP,?,?)`)
+      .bind(uid("printjob"), merchantId, order.id, order.order_code, printer.id, Number(printer.copies || 1), JSON.stringify(payload), actorId, `${order.id}:${printer.id}:kitchen:original`).run();
+    created += Number(inserted.meta?.changes || 0);
+  }
+  return created;
+}
+
 async function requireClaim(db, merchantId, jobId, suppliedToken) {
   if (!suppliedToken) return null;
   const claimHash = await sha(suppliedToken);
@@ -69,7 +113,8 @@ async function handlePrinters(request, db, url, merchantId, actorId, cors) {
     ON CONFLICT(merchant_id,id) DO UPDATE SET name=excluded.name,host=excluded.host,port=excluded.port,enabled=excluded.enabled,auto_print=excluded.auto_print,copies=excluded.copies,updated_at=CURRENT_TIMESTAMP`)
     .bind(id, merchantId, name, host, port, input.enabled === false ? 0 : 1, input.auto_print === true ? 1 : 0, copies).run();
   const saved = await db.prepare("SELECT * FROM printers WHERE merchant_id=? AND id=?").bind(merchantId, id).first();
-  return json({ printer: publicPrinter(saved), saved_by: actorId }, match[1] ? 200 : 201, cors);
+  const reconciledJobs = await reconcileRecentCanonicalOrders(db, merchantId, saved, actorId);
+  return json({ printer: publicPrinter(saved), saved_by: actorId, reconciled_jobs: reconciledJobs }, match[1] ? 200 : 201, cors);
 }
 
 async function claimJob(request, db, merchantId, jobId, cors) {

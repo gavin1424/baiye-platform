@@ -4,6 +4,10 @@
 package com.baiye.merchantprinter
 
 import android.content.Intent
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
 import android.graphics.Bitmap
 import android.provider.MediaStore
 import androidx.compose.foundation.background
@@ -62,24 +66,34 @@ import com.baiye.merchantprinter.service.PrintService
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 
 private enum class MainTab(val label: String) { HOME("首頁"), ORDERS("訂單"), POS("開單"), MENU("菜單"), MORE("更多") }
 private enum class MorePage(val title: String) { ROOT("更多"), TABLES("桌位與 QR"), KDS("廚房看板"), MEMBERS("會員中心"), REPORTS("營運報表"), STORE("店舖設定"), PRINTER("印表機"), PRINT_HISTORY("列印紀錄"), PROMOTIONS("優惠與折扣"), CALLING("叫號"), STAFF("員工權限"), INTEGRATIONS("整合服務"), ABOUT("關於點餐靈") }
-private enum class NetworkState { ONLINE, OFFLINE, SYNCING }
+private enum class OrderingState { ONLINE, OFFLINE, SYNCING }
+private enum class ReportsState { FRESH, STALE, ERROR }
 
 @Composable
 fun DiningSpiritApp(store: LocalStore, api: MerchantApi) {
     DiningSpiritTheme {
+        val context = LocalContext.current
         var loggedIn by remember { mutableStateOf(store.hasSession()) }
         LaunchedEffect(loggedIn) {
-            if (loggedIn) try { withContext(Dispatchers.IO) { api.validateSession() } }
-            catch (error: ApiException) { if (error.status == 401) { api.clearSession(); loggedIn = false } }
+            if (loggedIn) try {
+                withContext(Dispatchers.IO) { api.validateSession() }
+                if (store.printer()?.autoPrint == true) PrintService.start(context)
+            } catch (error: ApiException) { if (error.status == 401) { api.clearSession(); loggedIn = false } }
         }
         if (!loggedIn) { SpiritLogin(api) { loggedIn=true }; return@DiningSpiritTheme }
         if (!store.onboardingDone()) { Onboarding(store) { store.setOnboardingDone() }; return@DiningSpiritTheme }
@@ -108,38 +122,55 @@ fun DiningSpiritApp(store: LocalStore, api: MerchantApi) {
 private fun OperationsShell(store: LocalStore, api: MerchantApi, onLogout: () -> Unit) {
     var tab by remember { mutableStateOf(MainTab.HOME) }
     var more by remember { mutableStateOf(MorePage.ROOT) }
-    var overview by remember { mutableStateOf(api.cachedOverview() ?: demoOverview()) }
+    var overview by remember { mutableStateOf(api.cachedOverview() ?: emptyOverview()) }
     var dashboard by remember { mutableStateOf(store.cached("dashboard")?.jsonOrNull() ?: JSONObject()) }
-    var report by remember { mutableStateOf(store.cached("reports_today")?.jsonOrNull() ?: demoReport()) }
-    var network by remember { mutableStateOf(NetworkState.SYNCING) }
+    var report by remember { mutableStateOf(store.cached("reports_today")?.jsonOrNull() ?: JSONObject()) }
+    var ordering by remember { mutableStateOf(OrderingState.SYNCING) }
+    var reportsState by remember { mutableStateOf(if (store.cached("reports_today") == null) ReportsState.ERROR else ReportsState.STALE) }
     var message by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    suspend fun refreshNow() {
+        if (store.demoMode()) {
+            overview = demoOverview(); dashboard = demoDashboard(); report = demoReport()
+            ordering = OrderingState.ONLINE; reportsState = ReportsState.FRESH; message = ""
+            return
+        }
+        ordering = OrderingState.SYNCING
+        try {
+            val nextOverview = withContext(Dispatchers.IO) {
+                runCatching { api.syncPending() }
+                api.overviewJson()
+            }
+            val responseMerchantId = nextOverview.optString("merchant_id")
+            if (responseMerchantId != store.merchantId()) throw ApiException(403, "MERCHANT_SCOPE_MISMATCH", "訂單所屬商家與登入商家不一致，已停止同步。")
+            overview = nextOverview
+            nextOverview.array("orders").filter { it.text("status") == "submitted" && it.isRecent() }.forEach { notifyNewOrder(context, store, it) }
+            store.setLastSync(System.currentTimeMillis())
+            ordering = OrderingState.ONLINE
+            message = ""
+        } catch (error: Exception) {
+            ordering = OrderingState.OFFLINE
+            message = error.message.orEmpty()
+        }
+        runCatching { withContext(Dispatchers.IO) { api.dashboard() } }.onSuccess { dashboard = it }
+        runCatching { withContext(Dispatchers.IO) { api.reports() } }
+            .onSuccess { report = it; reportsState = ReportsState.FRESH }
+            .onFailure { reportsState = if (store.cached("reports_today") == null) ReportsState.ERROR else ReportsState.STALE }
+    }
 
     fun refresh() {
-        scope.launch {
-            network = NetworkState.SYNCING
-            try {
-                if (store.demoMode()) {
-                    overview = demoOverview(); dashboard = demoDashboard(); report = demoReport()
-                } else withContext(Dispatchers.IO) {
-                    api.syncPending()
-                    val nextOverview = api.overviewJson()
-                    val nextDashboard = api.dashboard()
-                    val nextReport = api.reports()
-                    withContext(Dispatchers.Main) {
-                        overview = nextOverview; dashboard = nextDashboard; report = nextReport
-                    }
-                }
-                message = ""
-                network = NetworkState.ONLINE
-            } catch (error: Exception) {
-                network = NetworkState.OFFLINE
-                message = error.message.orEmpty()
-            }
+        scope.launch { refreshNow() }
+    }
+
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            refreshNow()
+            delay(3_000)
         }
     }
 
-    LaunchedEffect(Unit) { refresh() }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tablet = maxWidth >= 720.dp
         val selectTab: (MainTab) -> Unit = { selected -> tab = selected; if (selected != MainTab.MORE) more = MorePage.ROOT }
@@ -151,7 +182,7 @@ private fun OperationsShell(store: LocalStore, api: MerchantApi, onLogout: () ->
                         NavigationRailItem(tab == item, { selectTab(item) }, icon = { NavigationIcon(item) }, label = { Text(item.label) })
                     }
                 }
-                ContentArea(tab, more, { more = it }, selectTab, overview, dashboard, report, network, message, store, api, ::refresh, onLogout, Modifier.weight(1f))
+                ContentArea(tab, more, { more = it }, selectTab, overview, dashboard, report, ordering, reportsState, message, store, api, ::refresh, onLogout, Modifier.weight(1f))
             }
         } else {
             Scaffold(
@@ -165,7 +196,7 @@ private fun OperationsShell(store: LocalStore, api: MerchantApi, onLogout: () ->
                     }
                 }
             ) { innerPadding ->
-                ContentArea(tab, more, { more = it }, selectTab, overview, dashboard, report, network, message, store, api, ::refresh, onLogout, Modifier.padding(innerPadding))
+                ContentArea(tab, more, { more = it }, selectTab, overview, dashboard, report, ordering, reportsState, message, store, api, ::refresh, onLogout, Modifier.padding(innerPadding))
             }
         }
     }
@@ -186,15 +217,15 @@ private fun NavigationIcon(tab: MainTab) {
 @Composable
 private fun ContentArea(
     tab: MainTab, more: MorePage, setMore: (MorePage) -> Unit, setTab: (MainTab) -> Unit,
-    overview: JSONObject, dashboard: JSONObject, report: JSONObject, network: NetworkState, message: String,
+    overview: JSONObject, dashboard: JSONObject, report: JSONObject, ordering: OrderingState, reportsState: ReportsState, message: String,
     store: LocalStore, api: MerchantApi, refresh: () -> Unit, onLogout: () -> Unit, modifier: Modifier
 ) {
     Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        TopBrand(store.merchantName(), network, store.pendingCount(), refresh)
-        if (network == NetworkState.OFFLINE) OfflineBanner(store.lastSync(), message, refresh)
+        TopBrand(store.merchantName(), ordering, store.pendingCount(), refresh)
+        if (ordering == OrderingState.OFFLINE) OfflineBanner(store.lastSync(), message, refresh)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (tab) {
-                MainTab.HOME -> DashboardScreen(overview, report, store, network) { action ->
+                MainTab.HOME -> DashboardScreen(overview, report, store, ordering) { action ->
                     when (action) {
                         "POS" -> setTab(MainTab.POS)
                         "MENU" -> setTab(MainTab.MENU)
@@ -203,27 +234,27 @@ private fun ContentArea(
                     }
                 }
                 MainTab.ORDERS -> OrderCenter(overview, api, refresh)
-                MainTab.POS -> PosScreen(overview, api, refresh, network)
+                MainTab.POS -> PosScreen(overview, api, refresh, ordering)
                 MainTab.MENU -> MenuScreen(overview, api, refresh, store.demoMode())
-                MainTab.MORE -> MoreHost(more, setMore, overview, dashboard, report, store, api, refresh, onLogout)
+                MainTab.MORE -> MoreHost(more, setMore, overview, dashboard, report, reportsState, store, api, refresh, onLogout)
             }
         }
     }
 }
 
 @Composable
-private fun TopBrand(merchant: String, network: NetworkState, pending: Int, refresh: () -> Unit) {
+private fun TopBrand(merchant: String, ordering: OrderingState, pending: Int, refresh: () -> Unit) {
     var showMerchant by remember { mutableStateOf(false) }
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
         BoxWithConstraints(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
             val stacked = maxWidth < 360.dp || LocalDensity.current.fontScale >= 1.7f
             Column(Modifier.fillMaxWidth()) {
                 val status: @Composable () -> Unit = {
-                    val online = network == NetworkState.ONLINE
+                    val online = ordering == OrderingState.ONLINE
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(if (online) Icons.Default.CloudDone else Icons.Default.CloudOff, contentDescription = null, tint = if (online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(4.dp))
-                        Text(when (network) { NetworkState.ONLINE -> "連線"; NetworkState.OFFLINE -> "離線"; NetworkState.SYNCING -> "同步中" }, style = MaterialTheme.typography.labelLarge)
+                        Text(when (ordering) { OrderingState.ONLINE -> "訂單連線"; OrderingState.OFFLINE -> "訂單離線"; OrderingState.SYNCING -> "訂單同步中" }, style = MaterialTheme.typography.labelLarge)
                         IconButton(refresh, Modifier.size(48.dp)) { Icon(Icons.Default.Refresh, contentDescription = "重新整理") }
                     }
                 }
@@ -265,7 +296,7 @@ private fun OfflineBanner(lastSync: Long, detail: String, retry: () -> Unit) {
 }
 
 @Composable
-private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, network: NetworkState, navigate: (String) -> Unit) {
+private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, network: OrderingState, navigate: (String) -> Unit) {
     val orders = o.array("orders")
     val settings = o.obj("settings")
     val k = r.obj("kpis")
@@ -279,7 +310,7 @@ private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, net
         item {
             SectionTitle("營業狀態")
             ResponsiveRows(columns = if (fontScale >= 1.7f) 1 else 2) {
-                StatusCard(if (settings.bool("accepting_orders")) "營業中" else "暫停接單", if (network == NetworkState.OFFLINE) "上次同步狀態" else "目前接單狀態", settings.bool("accepting_orders"))
+                StatusCard(if (settings.bool("accepting_orders")) "營業中" else "暫停接單", if (network == OrderingState.OFFLINE) "上次同步狀態" else "目前接單狀態", settings.bool("accepting_orders"))
                 StatusCard(if (settings.bool("auto_accept_orders")) "自動接單" else "人工接單", "接單模式", true)
             }
         }
@@ -335,7 +366,7 @@ private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, net
 @Composable private fun OrderDetail(order:JSONObject,api:MerchantApi,onChanged:()->Unit,onClose:()->Unit){var cancel by remember{mutableStateOf(false)};var reason by remember{mutableStateOf("")};var paying by remember{mutableStateOf(false)};var received by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")};val scope=rememberCoroutineScope();fun transition(status:String){busy=true;scope.launch{try{withContext(Dispatchers.IO){api.updateOrder(order.text("order_code"),status,if(status=="cancelled")reason else "","app-${UUID.randomUUID()}")};onChanged()}catch(e:Exception){error=e.message.orEmpty()}finally{busy=false}}};AlertDialog(onDismissRequest=onClose,title={Text("訂單 ${order.text("order_code")}")},text={LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("${order.text("table_label").ifBlank{typeLabel(order.text("order_type"))}}・${order.text("source").ifBlank{"QR"}}");Text("會員：${order.text("customer_name").ifBlank{"散客"}}");Text("付款：${paymentLabel(order.text("payment_status"))}")};items(order.array("items")){i->Column{Text("${i.int("quantity")} × ${i.text("name")}",fontWeight=FontWeight.Bold);i.array("options").forEach{x->Text("　${x.text("group_name")}：${x.text("value_name")}")};if(i.text("note").isNotBlank())Text("※※ ${i.text("note")} ※※",color=MaterialTheme.colorScheme.error)}};item{HorizontalDivider();Text("總額 ${money(order.int("total_minor"))}",fontSize=22.sp,fontWeight=FontWeight.Black);if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error)}}},confirmButton={Column{val next=nextStatus(order.text("status"));if(next!=null)Button({transition(next)},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(statusAction(next))};if(order.text("payment_status")=="unpaid")OutlinedButton({paying=true},Modifier.fillMaxWidth()){Text("現金結帳")};if(order.text("status") !in listOf("completed","cancelled"))TextButton({cancel=true},Modifier.fillMaxWidth()){Text("取消訂單",color=MaterialTheme.colorScheme.error)}}},dismissButton={TextButton(onClose){Text("關閉")}});if(cancel)AlertDialog(onDismissRequest={cancel=false},title={Text("確認取消訂單")},text={OutlinedTextField(reason,{reason=it},label={Text("取消理由（必填）")})},confirmButton={Button({cancel=false;transition("cancelled")},enabled=reason.isNotBlank()){Text("確認取消")}},dismissButton={TextButton({cancel=false}){Text("返回")}});if(paying){val due=order.int("total_minor")/100;val got=received.toIntOrNull()?:0;AlertDialog(onDismissRequest={paying=false},title={Text("現金結帳")},text={Column{Text("應收 NT$ $due",fontSize=24.sp,fontWeight=FontWeight.Bold);OutlinedTextField(received,{received=it.filter(Char::isDigit)},label={Text("實收金額")});Text("找零 NT$ ${(got-due).coerceAtLeast(0)}")}},confirmButton={Button({scope.launch{busy=true;try{withContext(Dispatchers.IO){api.confirmPayment(order.text("order_code"),"cash","pay-${UUID.randomUUID()}")};paying=false;onChanged()}catch(e:Exception){error=e.message.orEmpty()}finally{busy=false}}},enabled=got>=due){Text("確認收款")}},dismissButton={TextButton({paying=false}){Text("取消")}})}}
 
 @Composable
-private fun PosScreen(o: JSONObject, api: MerchantApi, refresh: () -> Unit, network: NetworkState) {
+private fun PosScreen(o: JSONObject, api: MerchantApi, refresh: () -> Unit, network: OrderingState) {
     val products = o.array("items").filter { it.text("status") == "active" && it.bool("available", true) }
     val categories = o.array("categories")
     var category by remember { mutableStateOf(categories.firstOrNull()?.text("id").orEmpty()) }
@@ -435,7 +466,7 @@ private fun CartSummaryBar(cart: List<Pair<JSONObject, Int>>, onOpen: () -> Unit
 @Composable
 private fun CartPane(
     cart: MutableList<Pair<JSONObject, Int>>, note: String, setNote: (String) -> Unit, submit: () -> Unit,
-    busy: Boolean, modifier: Modifier, network: NetworkState, sheet: Boolean = false
+    busy: Boolean, modifier: Modifier, network: OrderingState, sheet: Boolean = false
 ) {
     Surface(modifier, color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -462,7 +493,7 @@ private fun CartPane(
             }
             Spacer(Modifier.height(10.dp))
             Text("總計 ${money(cart.sumOf { it.first.int("price_minor") * it.second })}", style = MaterialTheme.typography.headlineMedium)
-            if (network == NetworkState.OFFLINE) Text("目前離線；送單後會標示待同步，不會顯示為已送達廚房。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            if (network == OrderingState.OFFLINE) Text("目前離線；送單後會標示待同步，不會顯示為已送達廚房。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             Button(submit, enabled = cart.isNotEmpty() && !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(if (busy) "送單中…" else "送單") }
         }
     }
@@ -557,7 +588,7 @@ private fun MenuProductCard(product: JSONObject, toggleSoldOut: () -> Unit) {
 @Composable private fun NewProductDialog(categories:List<JSONObject>,api:MerchantApi,done:()->Unit,cancel:()->Unit){var name by remember{mutableStateOf("")};var price by remember{mutableStateOf("")};var category by remember{mutableStateOf(categories.firstOrNull()?.text("id").orEmpty())};var expanded by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")};val scope=rememberCoroutineScope();AlertDialog(onDismissRequest=cancel,title={Text("新增商品")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(name,{name=it},label={Text("商品名稱")});OutlinedTextField(price,{price=it.filter(Char::isDigit)},label={Text("售價")});Box{OutlinedButton({expanded=true}){Text(categories.firstOrNull{it.text("id")==category}?.text("name")?:"選分類")};DropdownMenu(expanded,{expanded=false}){categories.forEach{c->DropdownMenuItem({Text(c.text("name"))},{category=c.text("id");expanded=false})}}};if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error)}},confirmButton={Button({scope.launch{try{withContext(Dispatchers.IO){api.createMenuItem(JSONObject().put("category_id",category).put("name",name).put("price_minor",(price.toIntOrNull()?:0)*100).put("status","active"))};done()}catch(e:Exception){error=e.message.orEmpty()}}},enabled=name.isNotBlank()&&category.isNotBlank()&&(price.toIntOrNull()?:0)>0){Text("建立")}},dismissButton={TextButton(cancel){Text("取消")}})}
 
 @Composable
-private fun MoreHost(page: MorePage, setPage: (MorePage) -> Unit, o: JSONObject, d: JSONObject, r: JSONObject, store: LocalStore, api: MerchantApi, refresh: () -> Unit, onLogout: () -> Unit) {
+private fun MoreHost(page: MorePage, setPage: (MorePage) -> Unit, o: JSONObject, d: JSONObject, r: JSONObject, reportsState: ReportsState, store: LocalStore, api: MerchantApi, refresh: () -> Unit, onLogout: () -> Unit) {
     if (page != MorePage.ROOT) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -570,7 +601,7 @@ private fun MoreHost(page: MorePage, setPage: (MorePage) -> Unit, o: JSONObject,
                     MorePage.TABLES -> TablesScreen(o, api, refresh)
                     MorePage.KDS -> KdsScreen(o, api, refresh)
                     MorePage.MEMBERS -> MembersScreen(api, store)
-                    MorePage.REPORTS -> ReportsScreen(r, api, showTitle = false)
+                    MorePage.REPORTS -> ReportsScreen(r, api, reportsState, showTitle = false)
                     MorePage.STORE -> StoreScreen(o, api, refresh)
                     MorePage.PRINTER -> PrinterScreen(store, api)
                     MorePage.PRINT_HISTORY -> PrintHistoryScreen(api)
@@ -604,14 +635,15 @@ private fun MoreHost(page: MorePage, setPage: (MorePage) -> Unit, o: JSONObject,
 
 @Composable private fun KdsScreen(o:JSONObject,api:MerchantApi,refresh:()->Unit){val scope=rememberCoroutineScope();val columns=listOf("submitted" to "新單","preparing" to "製作中","ready" to "待出餐");BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp)){val horizontal=maxWidth>=720.dp;val content:@Composable (Pair<String,String>)->Unit={c->Column(Modifier.then(if(horizontal)Modifier.width((maxWidth-32.dp)/3)else Modifier.fillMaxWidth()).background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp)){Text(c.second,fontSize=23.sp,fontWeight=FontWeight.Black);o.array("orders").filter{if(c.first=="preparing")it.text("status") in listOf("accepted","preparing")else it.text("status")==c.first}.forEach{order->Card(Modifier.fillMaxWidth().padding(vertical=5.dp)){Column(Modifier.padding(12.dp)){Text(order.text("table_label").ifBlank{"外帶"},fontSize=30.sp,fontWeight=FontWeight.Black);Text("#${order.text("order_code").takeLast(6)}");order.array("items").forEach{Text("${it.int("quantity")}× ${it.text("name")}",fontSize=19.sp,fontWeight=FontWeight.Bold)};nextStatus(order.text("status"))?.let{next->Button({scope.launch{runCatching{withContext(Dispatchers.IO){api.updateOrder(order.text("order_code"),next,key="kds-${UUID.randomUUID()}")};refresh()}}},Modifier.fillMaxWidth()){Text(statusAction(next))}}}}}}};if(horizontal)Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){for(c in columns)content(c)}else LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){items(columns){content(it)}}}}
 
-@Composable private fun MembersScreen(api:MerchantApi,store:LocalStore){var payload by remember{mutableStateOf(store.cached("members")?.jsonOrNull()?:demoMembers())};var query by remember{mutableStateOf("")};var loading by remember{mutableStateOf(true)};var error by remember{mutableStateOf("")};LaunchedEffect(Unit){try{if(!store.demoMode())payload=withContext(Dispatchers.IO){api.members()}}catch(e:Exception){error=e.message.orEmpty()}finally{loading=false}};Column(Modifier.fillMaxSize().padding(16.dp)){Text("會員中心",fontSize=28.sp,fontWeight=FontWeight.Bold);OutlinedTextField(query,{query=it},label={Text("搜尋姓名、手機、會員編號")},modifier=Modifier.fillMaxWidth());if(loading)LinearProgressIndicator(Modifier.fillMaxWidth());if(error.isNotBlank())Text("離線：顯示上次同步會員資料");LazyColumn{items(payload.array("members").filter{query.isBlank()||it.text("display_name").contains(query,true)||it.text("name").contains(query,true)||it.text("phone_masked").contains(query)||it.text("membership_no").contains(query,true)}){m->ListItem(headlineContent={Text(m.text("display_name").ifBlank{m.text("name").ifBlank{"未命名會員"}})},supportingContent={Text("${m.text("phone_masked").ifBlank{m.text("phone")}}・消費 ${m.int("order_count")} 次")})}}}}
+@Composable private fun MembersScreen(api:MerchantApi,store:LocalStore){var payload by remember{mutableStateOf(store.cached("members")?.jsonOrNull() ?: if(store.demoMode()) demoMembers() else JSONObject().put("members",JSONArray()))};var query by remember{mutableStateOf("")};var loading by remember{mutableStateOf(true)};var error by remember{mutableStateOf("")};LaunchedEffect(Unit){try{if(!store.demoMode())payload=withContext(Dispatchers.IO){api.members()}}catch(e:Exception){error=e.message.orEmpty()}finally{loading=false}};Column(Modifier.fillMaxSize().padding(16.dp)){Text("會員中心",fontSize=28.sp,fontWeight=FontWeight.Bold);OutlinedTextField(query,{query=it},label={Text("搜尋姓名、手機、會員編號")},modifier=Modifier.fillMaxWidth());if(loading)LinearProgressIndicator(Modifier.fillMaxWidth());if(error.isNotBlank())Text("會員資料暫時無法更新") ;LazyColumn{items(payload.array("members").filter{query.isBlank()||it.text("display_name").contains(query,true)||it.text("name").contains(query,true)||it.text("phone_masked").contains(query)||it.text("membership_no").contains(query,true)}){m->ListItem(headlineContent={Text(m.text("display_name").ifBlank{m.text("name").ifBlank{"未命名會員"}})},supportingContent={Text("${m.text("phone_masked").ifBlank{m.text("phone")}}・消費 ${m.int("order_count")} 次")})}}}}
 
 @Composable
-private fun ReportsScreen(initial: JSONObject, api: MerchantApi, showTitle: Boolean = true) {
+private fun ReportsScreen(initial: JSONObject, api: MerchantApi, initialState: ReportsState, showTitle: Boolean = true) {
     var report by remember { mutableStateOf(initial) }
     var period by remember { mutableStateOf("today") }
     var error by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+    var freshness by remember { mutableStateOf(initialState) }
     val scope = rememberCoroutineScope()
     val fontScale = LocalDensity.current.fontScale
     val periods = listOf("today" to "今天", "yesterday" to "昨天", "7d" to "7 日", "30d" to "30 日")
@@ -627,8 +659,8 @@ private fun ReportsScreen(initial: JSONObject, api: MerchantApi, showTitle: Bool
                     FilterChip(period == value, {
                         period = value; loading = true; error = ""
                         scope.launch {
-                            try { report = withContext(Dispatchers.IO) { api.reports(value) } }
-                            catch (cause: Exception) { error = cause.message.orEmpty() }
+                            try { report = withContext(Dispatchers.IO) { api.reports(value) }; freshness = ReportsState.FRESH }
+                            catch (cause: Exception) { error = cause.message.orEmpty(); freshness = if (report.has("kpis")) ReportsState.STALE else ReportsState.ERROR }
                             finally { loading = false }
                         }
                     }, label = { Text(label) }, modifier = Modifier.fillMaxWidth())
@@ -637,6 +669,8 @@ private fun ReportsScreen(initial: JSONObject, api: MerchantApi, showTitle: Bool
         }
         if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         if (error.isNotBlank()) item { ErrorState("報表載入失敗，請稍後重試") }
+        if (freshness == ReportsState.STALE) item { Text("報表暫時無法更新，顯示上次同步資料", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (freshness == ReportsState.ERROR && error.isBlank()) item { ErrorState("報表資料暫時無法取得") }
         item {
             ResponsiveRows(columns = if (fontScale >= 1.7f) 1 else 2) {
                 MetricCard("營業額", money(k.int("revenue_minor")), Modifier.fillMaxWidth())
@@ -692,7 +726,7 @@ private fun ReportProductRow(rank: Int, product: JSONObject) {
 
 @Composable private fun IntegrationsScreen(api:MerchantApi){var p by remember{mutableStateOf(JSONObject())};LaunchedEffect(Unit){runCatching{p=withContext(Dispatchers.IO){api.integrations()}}};val cards=listOf("LINE OA" to if(p.obj("line").bool("connected"))"已連線" else "需要設定","XP-N160II" to if(p.array("printers").isNotEmpty())"已連線" else "需要設定","Google" to "尚未支援","LINE Pay / 信用卡" to "未設定","電子發票" to "尚未啟用","Uber Eats" to "尚未連線","foodpanda" to "尚未連線","第三方物流" to "尚未支援");LazyColumn(Modifier.fillMaxSize().padding(16.dp)){item{Text("整合服務",fontSize=28.sp,fontWeight=FontWeight.Bold)};items(cards){(name,status)->ListItem(headlineContent={Text(name,fontWeight=FontWeight.Bold)},trailingContent={StatusBadge(status,status=="已連線")})};item{Text("外送平台不使用爬蟲或逆向工程；取得正式授權與 credentials 後才會啟用。",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 
-@Composable private fun AboutScreen(store:LocalStore,onLogout:()->Unit){Column(Modifier.fillMaxSize().padding(20.dp).testTag("history-screen"),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("點餐靈",fontSize=38.sp,fontWeight=FontWeight.Black);Text("創百業智慧餐飲管理系統",fontSize=18.sp);Text("版本 ${BuildConfig.VERSION_NAME}");SettingSwitch("Demo Mode（資料只在本機）",store.demoMode()){store.setDemoMode(it)};Button(onLogout,Modifier.fillMaxWidth()){Text("登出")}}}
+@Composable private fun AboutScreen(store:LocalStore,onLogout:()->Unit){Column(Modifier.fillMaxSize().padding(20.dp).testTag("history-screen"),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("點餐靈",fontSize=38.sp,fontWeight=FontWeight.Black);Text("創百業智慧餐飲管理系統",fontSize=18.sp);Text("版本 ${BuildConfig.VERSION_NAME}");Text("正式登入只顯示目前商家的雲端資料。",color=MaterialTheme.colorScheme.onSurfaceVariant);Button(onLogout,Modifier.fillMaxWidth()){Text("登出")}}}
 
 @Composable private fun SettingSwitch(label:String,checked:Boolean,onChange:(Boolean)->Unit){Row(Modifier.fillMaxWidth().heightIn(min=52.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Text(label,fontWeight=FontWeight.SemiBold,modifier=Modifier.weight(1f));Switch(checked,onChange)}}
 
@@ -794,6 +828,47 @@ private fun paymentLabel(s:String)=when(s){"paid"->"已付款";"unpaid"->"未付
 private fun nextStatus(s:String)=when(s){"submitted"->"accepted";"accepted"->"preparing";"preparing"->"ready";"ready"->"served";"served"->"completed";else->null}
 private fun statusAction(s:String)=when(s){"accepted"->"接單";"preparing"->"開始製作";"ready"->"餐點完成";"served"->"待取餐 / 出餐";"completed"->"完成";else->s}
 private fun qrBitmap(value:String):Bitmap?=runCatching{val matrix=MultiFormatWriter().encode(value,BarcodeFormat.QR_CODE,600,600);Bitmap.createBitmap(600,600,Bitmap.Config.RGB_565).apply{for(y in 0 until 600)for(x in 0 until 600)setPixel(x,y,if(matrix[x,y])android.graphics.Color.BLACK else android.graphics.Color.WHITE)}}.getOrNull()
+
+private fun emptyOverview() = JSONObject()
+    .put("merchant_id", "")
+    .put("settings", JSONObject())
+    .put("categories", JSONArray())
+    .put("items", JSONArray())
+    .put("orders", JSONArray())
+    .put("qrs", JSONArray())
+    .put("dining_sessions", JSONArray())
+    .put("option_groups", JSONArray())
+
+private fun JSONObject.isRecent(): Boolean {
+    val value = text("created_at")
+    val created = runCatching {
+        if (value.endsWith("Z") || value.contains("+")) Instant.parse(value)
+        else LocalDateTime.parse(value.replace(' ', 'T')).toInstant(ZoneOffset.UTC)
+    }.getOrNull() ?: return false
+    return Duration.between(created, Instant.now()).abs() <= Duration.ofHours(2)
+}
+
+private fun notifyNewOrder(context: Context, store: LocalStore, order: JSONObject) {
+    val orderCode = order.text("order_code")
+    if (orderCode.isBlank() || !store.markNotified(orderCode)) return
+    val channelId = "baiye_new_orders_v1"
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        manager.createNotificationChannel(NotificationChannel(channelId, "點餐靈新訂單", NotificationManager.IMPORTANCE_HIGH))
+    }
+    val intent = Intent(context, MainActivity::class.java).putExtra("order_code", orderCode)
+    val pendingIntent = PendingIntent.getActivity(context, orderCode.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    val table = order.text("table_label").ifBlank { typeLabel(order.text("order_type")) }
+    val notification = androidx.core.app.NotificationCompat.Builder(context, channelId)
+        .setSmallIcon(android.R.drawable.stat_notify_more)
+        .setContentTitle("$table 新訂單 ${money(order.int("total_minor"))}")
+        .setContentText("訂單 $orderCode")
+        .setContentIntent(pendingIntent)
+        .setAutoCancel(true)
+        .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+        .build()
+    manager.notify(orderCode.hashCode(), notification)
+}
 
 private fun demoOverview():JSONObject{val cats=JSONArray().put(JSONObject().put("id","cat-noodle").put("name","麵食")).put(JSONObject().put("id","cat-side").put("name","小菜"));val products=JSONArray();repeat(20){i->products.put(JSONObject().put("id","item-$i").put("category_id",if(i<12)"cat-noodle" else "cat-side").put("name",if(i<12)"招牌牛肉麵 ${i+1}" else "精選小菜 ${i-11}").put("price_minor",(100+i*10)*100).put("status",if(i==4)"sold_out" else "active").put("available",i!=4))};val orders=JSONArray();repeat(10){i->orders.put(JSONObject().put("order_code","A1-%04d".format(88-i)).put("table_label","A${i%5+1}").put("source",listOf("QR","LINE","WEB","COUNTER")[i%4]).put("order_type",if(i%3==0)"takeaway" else "dine_in").put("status",listOf("submitted","accepted","preparing","ready","completed")[i%5]).put("payment_status",if(i%2==0)"paid" else "unpaid").put("total_minor",(320+i*25)*100).put("pickup_number","A${88-i}").put("items",JSONArray().put(JSONObject().put("name","招牌紅燒牛肉麵").put("quantity",i%3+1).put("options",JSONArray()))))};return JSONObject().put("settings",JSONObject().put("accepting_orders",true).put("auto_accept_orders",false).put("dine_in_enabled",true).put("takeaway_enabled",true)).put("categories",cats).put("items",products).put("orders",orders).put("qrs",JSONArray().put(JSONObject().put("code","demo-secure-token-a1").put("label","桌號 A1").put("table_label","A1"))).put("dining_sessions",JSONArray()).put("option_groups",JSONArray().put(JSONObject().put("name","麵條")).put(JSONObject().put("name","辣度")))}
 private fun demoDashboard()=JSONObject().put("ok",true)
