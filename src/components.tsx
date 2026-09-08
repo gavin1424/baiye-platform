@@ -143,7 +143,7 @@ export function Header() {
               <Link to="/merchant/login" className="btn btn-ghost btn-sm header-login">
                 商家登入
               </Link>
-              <Link to="/pricing" className="btn btn-primary btn-sm header-register">
+              <Link to="/join" className="btn btn-primary btn-sm header-register">
                 商家加入
               </Link>
             </>
@@ -193,7 +193,7 @@ export function Header() {
               <Link to="/merchant/login" className="btn btn-outline">
                 商家登入
               </Link>
-              <Link to="/pricing" className="btn btn-primary">
+              <Link to="/join" className="btn btn-primary">
                 商家加入
               </Link>
             </div>

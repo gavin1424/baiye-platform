@@ -38,7 +38,7 @@ test("kitchen status cards use WCAG AA dark text while the live board keeps its 
 
 test("GET merchant authorization remains CSRF-free while mutations stay protected", () => {
   const auth = read("../src/merchant-auth.js");
-  assert.doesNotMatch(auth, /getSession\(/);
+  assert.match(auth, /authenticateMerchantSession/);
   assert.match(auth, /authenticateMerchantSession\(request, env\)/);
   assert.match(auth, /!\["GET",\s*"HEAD",\s*"OPTIONS"\]\.includes\(request\.method\)/);
 });

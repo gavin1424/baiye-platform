@@ -10,7 +10,7 @@ type Dashboard = any;
 const money = (minor = 0) => `NT$${Math.round(Number(minor) / 100).toLocaleString("zh-TW")}`;
 const message = (error: unknown) => error instanceof Error ? error.message : "商家管理服務暫時無法使用。";
 
-function Shell({ children, title = "商家管理中心" }: { children: React.ReactNode; title?: string }) {
+function Shell({ children, title = "商家管理中心｜管理者權限" }: { children: React.ReactNode; title?: string }) {
   return <main className="merchant-admin-shell is-demo-merchant"><header className="merchant-admin-top"><div><p>百工牛肉麵</p><h1>{title}</h1></div><Link className="merchant-admin-account-link" to="/merchant/account"><UserCircle size={24} />管理者帳戶</Link></header>{children}<nav className="merchant-demo-bottom-nav" aria-label="商家管理導覽"><Link to="/merchant/dashboard"><House size={24} weight="duotone" />首頁</Link><Link to={orderingSectionPath("menu")}><Package size={24} weight="duotone" />商品</Link><Link to={orderingSectionPath("orders")}><Receipt size={24} weight="duotone" />訂單</Link><Link to="/merchant/members"><UsersThree size={24} weight="duotone" />會員</Link><Link to="/merchant/account"><DotsThree size={24} weight="duotone" />更多</Link></nav></main>;
 }
 

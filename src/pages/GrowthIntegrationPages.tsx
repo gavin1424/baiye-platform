@@ -1,4 +1,4 @@
-import { ArrowRight, ChartLineUp, CreditCard, HandCoins, Motorcycle, Users } from "@phosphor-icons/react";
+import { ArrowRight, ChartLineUp, CreditCard, Gift, HandCoins, Motorcycle, Users } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PublicLayout, SectionHeading } from "../components";

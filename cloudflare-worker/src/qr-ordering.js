@@ -212,12 +212,13 @@ async function memberSession(db, request, merchantId) {
 }
 
 async function audit(db, merchantId, actorType, actorId, action, resourceType, resourceId, metadata = {}) {
+  const persistedActorType = actorType === "merchant" ? "admin" : actorType;
   await db.prepare(`
     INSERT INTO merchant_ordering_audit_logs
       (id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata)
     VALUES (?,?,?,?,?,?,?,?)
   `).bind(
-    uid("ordaudit"), merchantId, actorType, actorId || null, action,
+    uid("ordaudit"), merchantId, persistedActorType, actorId || null, action,
     resourceType, resourceId || null, JSON.stringify(metadata),
   ).run();
 }

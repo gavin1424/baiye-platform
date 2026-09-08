@@ -12,6 +12,9 @@ import { isProductionDemoMerchant, resetBeefNoodleDemo } from "./demo-merchant.j
 import { handleMerchantProductAsset, serveMerchantProductAsset } from "./merchant-assets.js";
 import { handleMerchantAdmin } from "./merchant-admin.js";
 import { handleMerchantInventory } from "./inventory.js";
+import { handleGoogleMapsBookingAdmin, handleMerchantGoogleMapsBooking } from "./google-maps-booking.js";
+import { handleMerchantPlans, handleMerchantPlansPublic, merchantPlanEntitlements } from "./merchant-plan-catalog.js";
+import { handleMerchantStandardAddons, handleMerchantStandardAddonsAdmin } from "./merchant-standard-addons.js";
 import {
   handleMerchantContractAdmin,
   handleMerchantContractPublic,
@@ -20,6 +23,7 @@ import {
 } from "./merchant-contracts.js";
 import { handlePlatformMemberRequest } from "./platform-membership.js";
 import { handleCommercialCatalog } from "./commercial-catalog.js";
+import { handleSharedQrMembershipCompatibility } from "./membership-compat.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -218,7 +222,13 @@ export default {
       return (await handleAdminAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
-    if (url.pathname.startsWith("/api/merchant-auth/")) {
+    if (url.pathname === "/api/public/merchant-plans") {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleMerchantPlansPublic(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname.startsWith("/api/merchant-auth/") || url.pathname === "/api/merchant/register") {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       return (await handleMerchantAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
@@ -236,6 +246,12 @@ export default {
       return (await handlePlatformMemberRequest(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
+    if (url.pathname.startsWith("/api/join/") || ["/api/member/register", "/api/member/login"].includes(url.pathname)) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleSharedQrMembershipCompatibility(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
     if (url.pathname.startsWith("/api/merchant/contracts/invite/") || url.pathname === "/api/merchant/contracts/accept-invite") {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
@@ -250,13 +266,34 @@ export default {
       return (await handleMerchantContractRequest(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
 
+    if (url.pathname.startsWith("/api/merchant/plans")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const authorization = await authorizeMerchant(request, env);
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      return (await handleMerchantPlans(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname.startsWith("/api/merchant/google-maps-booking")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const authorization = await authorizeMerchant(request, env);
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      return (await handleMerchantGoogleMapsBooking(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
+    }
+
     if (url.pathname.startsWith("/api/merchant-admin/ordering")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const permission = permissionForOrderingRequest(url.pathname, request.method);
       const authorization = await authorizeMerchant(request, env, permission);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
-      if (!await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id, env.APP_MODE === "staging")) return json({ code: "MERCHANT_ACTIVATION_REQUIRED" }, 423, cors);
+      const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
+      if (!operationGate.ok) return json({ error: "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error, onboarding_state: operationGate.state }, operationGate.status, cors);
+      if (permission === "ordering.menu.manage") {
+        const entitlements = await merchantPlanEntitlements(env.FINANCE_DB, authorization.session.merchant_id);
+        if (!entitlements.merchant_product_edit) return json({ error: "此方案未啟用商城商品自行編輯權限。", code: "MERCHANT_PRODUCT_EDIT_PLAN_REQUIRED" }, 403, cors);
+      }
       const scopedUrl = new URL(url);
       scopedUrl.pathname = scopedUrl.pathname.replace(/^\/api\/merchant-admin\/ordering/, "/api/admin/ordering");
       scopedUrl.searchParams.set("merchant_id", authorization.session.merchant_id);
@@ -272,12 +309,16 @@ export default {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const authorization = await authorizeMerchant(request, env);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
-      if (!await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id, env.APP_MODE === "staging")) return json({ code: "MERCHANT_ACTIVATION_REQUIRED" }, 423, cors);
+      const operationGate = await merchantOperationsAllowed(env.FINANCE_DB, authorization.session.merchant_id);
+      if (!operationGate.ok) return json({ error: "完成商家平台服務契約後，才能使用正式營運功能。", code: operationGate.error, onboarding_state: operationGate.state }, operationGate.status, cors);
       if (/^\/api\/merchant-admin\/products\/[^/]+\/image$/.test(url.pathname)) return (await handleMerchantProductAsset(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
       if (url.pathname.startsWith("/api/merchant-admin/inventory")) return (await handleMerchantInventory(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
       if (url.pathname === "/api/merchant-admin/demo/reset") {
         if (!await isProductionDemoMerchant(env, authorization.session.merchant_id)) return json({ code: "DEMO_RESET_FORBIDDEN" }, 403, cors);
         return resetBeefNoodleDemo(env, request, authorization.session, cors);
+      }
+      if (url.pathname.startsWith("/api/merchant-admin/addon") || url.pathname.startsWith("/api/merchant-admin/addenda") || url.pathname.startsWith("/api/merchant-admin/content-change-requests")) {
+        return (await handleMerchantStandardAddons(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
       }
       return (await handleMerchantAdmin(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
@@ -307,9 +348,13 @@ export default {
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       const adminSession = url.pathname.startsWith("/api/admin/") ? await requireAdmin(request, env) : null;
       if (url.pathname.startsWith("/api/admin/") && !adminSession) return json({ error: "需要正式管理員授權。" }, 401, cors);
-      if (url.pathname.startsWith("/api/admin/merchant-credentials/")) return (await handleMerchantCredentialAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
       if (url.pathname.startsWith("/api/admin/ai")) return handleAiAdminRequest(request, env, url, cors, true);
-      if (url.pathname.startsWith("/api/admin/merchant-contract") || /^\/api\/admin\/merchants\/[^/]+\/commercial-terms$/.test(url.pathname)) {
+      if (url.pathname.startsWith("/api/admin/addon") || url.pathname.startsWith("/api/admin/addenda") || url.pathname.startsWith("/api/admin/content-change-requests")) {
+        return (await handleMerchantStandardAddonsAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
+      }
+      if (url.pathname.startsWith("/api/admin/google-maps-booking")) return (await handleGoogleMapsBookingAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
+      if (url.pathname.startsWith("/api/admin/merchant-credentials/")) return (await handleMerchantCredentialAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
+      if (url.pathname.startsWith("/api/admin/merchant-contract") || /^\/api\/admin\/merchants\/[^/]+\/(?:commercial-terms|commerce-ai-45000-plan)$/.test(url.pathname)) {
         return (await handleMerchantContractAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
       }
       if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors, true);

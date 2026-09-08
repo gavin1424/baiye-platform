@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { handlePartnerRequest, partnerWorkflowStatus } from "../src/partner.js";
 import { ensurePlatformMember, normalizeTaiwanMobile } from "../src/platform-membership.js";
+import { isValidTaiwanIdNumber } from "../src/partner-identity.js";
 
 class Statement {
   constructor(statement) { this.statement = statement; this.values = []; }
@@ -22,8 +23,9 @@ class D1 {
   async batch(statements) { const results = []; for (const statement of statements) results.push(await statement.run()); return results; }
 }
 const cors = { "access-control-allow-origin": "https://staging.example" };
-const env = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://staging.example", CONTRACT_SIGNING_MODE: "staging" });
-const payload = (suffix = "01", overrides = {}) => ({ legal_name: `測試夥伴${suffix}`, display_name: `夥伴${suffix}`, email: `auto-${suffix}@example.test`, phone: `09123456${suffix}`, company_name: "", tax_id: "", note: "", consent: true, ...overrides });
+const env = (db) => ({ FINANCE_DB: db, PUBLIC_SITE_URL: "https://staging.example", CONTRACT_SIGNING_MODE: "staging", PARTNER_ID_FIELD_ENCRYPTION_KEY: "test-encryption-key-at-least-32-bytes", PARTNER_ID_HASH_SECRET: "test-hmac-secret-at-least-32-bytes" });
+function testId(suffix = "01") { const base = `A1${String(Number(suffix)).padStart(7, "0")}`; for (let digit = 0; digit <= 9; digit += 1) if (isValidTaiwanIdNumber(`${base}${digit}`)) return `${base}${digit}`; throw new Error("cannot make test id"); }
+const payload = (suffix = "01", overrides = {}) => ({ legal_name: `測試夥伴${suffix}`, id_number: testId(suffix), email: `auto-${suffix}@example.test`, phone: `09123456${suffix}`, company_name: "", tax_id: "", note: "", consent: true, ...overrides });
 function request(path, data, headers = {}) { return new Request(`https://worker.test${path}`, { method: "POST", headers: { "content-type": "application/json", "CF-Connecting-IP": "203.0.113.9", ...headers }, body: JSON.stringify(data) }); }
 async function apply(db, data) { const req = request("/api/partner/apply", data); const response = await handlePartnerRequest(req, env(db), new URL(req.url), cors); return { response, data: await response.json() }; }
 
@@ -46,12 +48,12 @@ test("A16 Platform Member Created", async () => { const db = new D1(); await app
 test("A17 Existing Platform Member Reused", async () => { const db = new D1(); await ensurePlatformMember(db, { phone: "0912345601", source: "phone", privacyConsentVersion: "test", issueSession: false }); await apply(db, payload()); assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_members").get().n, 1); });
 test("A18 Welcome Coupon Issuance Disabled", async () => { const db = new D1(); await apply(db, payload()); assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_member_coupons").get().n, 0); });
 test("A19 Reapply 仍不發 Coupon", async () => { const db = new D1(); await apply(db, payload()); await apply(db, payload()); assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_member_coupons").get().n, 0); });
-test("A20 Welcome Response", async () => { const db = new D1(); const result = await apply(db, payload()); assert.equal(result.data.welcome.show, true); assert.match(result.data.welcome.message, /會員經營功能已連結/); assert.equal(result.data.coupon, null); });
+test("A20 Welcome Response", async () => { const db = new D1(); const result = await apply(db, payload()); assert.equal(result.data.welcome.show, true); assert.match(result.data.welcome.message, /NT\$100/); });
 test("A21 Admin 單筆人工核准已移除", async () => { const db = new D1(); const first = await apply(db, payload()); const req = request(`/api/admin/partners/${first.data.id}`, { action: "approve" }); req.method; const patch = new Request(req.url, { method: "PATCH", headers: req.headers, body: JSON.stringify({ action: "approve" }) }); const response = await handlePartnerRequest(patch, env(db), new URL(patch.url), cors, true); assert.equal(response.status, 410); });
 test("A22 Suspended 不可重新申請", async () => { const db = new D1(); const first = await apply(db, payload()); db.sqlite.prepare("UPDATE partners SET status='suspended' WHERE id=?").run(first.data.id); const second = await apply(db, payload()); assert.equal(second.data.code, "PARTNER_SUSPENDED"); });
 test("A23 Terminated 不可自動復活", async () => { const db = new D1(); const first = await apply(db, payload()); db.sqlite.prepare("UPDATE partners SET status='terminated' WHERE id=?").run(first.data.id); const second = await apply(db, payload()); assert.equal(second.data.code, "PARTNER_TERMINATED"); assert.equal(db.sqlite.prepare("SELECT status FROM partners WHERE id=?").get(first.data.id).status, "terminated"); });
 test("A24 Audit 完整且不保存手機", async () => { const db = new D1(); const result = await apply(db, payload()); const actions = db.sqlite.prepare("SELECT action,metadata FROM audit_logs WHERE entity_id=? ORDER BY action").all(result.data.id); assert.deepEqual(actions.map((x) => x.action), ["partner.activation_invite_created", "partner.application_submitted", "partner.auto_approved"]); assert.equal(actions.some((x) => String(x.metadata).includes("0912345601")), false); });
-test("A25 Contract Legal Review 仍 Locked", async () => { const db = new D1(); const result = await apply(db, payload()); assert.equal(result.data.contract.signing_available, false); assert.equal(result.data.contract.legal_review_status, "pending_review"); });
+test("A25 Contract Legal Review 仍 Locked", async () => { const db = new D1(); const result = await apply(db, payload()); assert.equal(result.data.contract.version, "v1.5"); assert.equal(result.data.contract.legal_review_status, "pending_review"); const contract=db.sqlite.prepare("SELECT is_active FROM contract_versions WHERE id='contractor_partner_v1_5'").get(); assert.equal(contract.is_active,0); });
 test("A26 Partner Operation Gate 判定未簽署", () => { const state = partnerWorkflowStatus({ status: "active", contract_status: "unsigned", approved_at: new Date().toISOString() }); assert.equal(state.code, "PARTNER_CONTRACT_REQUIRED"); });
 test("A27 Phone 正規化後防重", async () => { const db = new D1(); await apply(db, payload()); const second = await apply(db, payload("02", { phone: "+886912345601" })); assert.equal(second.data.code, "PARTNER_PHONE_ALREADY_REGISTERED"); });
 test("A28 平台會員不因申請發出可接管舊帳戶 Session", async () => { const db = new D1(); await ensurePlatformMember(db, { phone: "0912345601", source: "phone", privacyConsentVersion: "test", issueSession: false }); const result = await apply(db, payload()); assert.equal(result.data.member_session, undefined); assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM platform_member_sessions").get().n, 0); });

@@ -45,7 +45,7 @@ test("merchant dashboard presents normal merchant language and 出餐看板", ()
   assert.doesNotMatch(`${read("src/pages/HomePage.tsx")}\n${read("src/pages/PosComparisonPage.tsx")}`, /KDS|Kitchen Display System/);
 });
 
-test("all merchant-visible frontend source excludes legacy meal-board names", () => {
+test("merchant-visible frontend excludes legacy meal-board names while retaining SoftPOS KDS", () => {
   const sourceRoot = new URL("../../src/", import.meta.url);
   const sourceFiles = [];
   const visit = (directory) => {
@@ -57,12 +57,12 @@ test("all merchant-visible frontend source excludes legacy meal-board names", ()
   };
   visit(sourceRoot);
   const frontend = sourceFiles.map((path) => readFileSync(path, "utf8")).join("\n");
-  assert.doesNotMatch(frontend, /KDS|Kitchen Display System|廚房 KDS|KDS 廚房看板|廚房看板/);
+  assert.doesNotMatch(frontend, /Kitchen Display System|廚房 KDS|KDS 廚房看板|廚房看板/);
 });
 
-test("latest additive D1 migration preserves internal safety flags", () => {
+test("additive D1 migrations preserve internal safety flags", () => {
   const migrations = readdirSync(new URL("../migrations/", import.meta.url)).filter((name) => /^\d+.*\.sql$/.test(name));
-  assert.equal(migrations.at(-1), "0026_beef_noodle_general_ordering_entry_v1.sql");
+  assert.ok(migrations.includes("0026_beef_noodle_general_ordering_entry_v1.sql"));
   const login = read("cloudflare-worker/src/demo-merchant.js");
   const admin = read("cloudflare-worker/src/merchant-admin.js");
   assert.match(login, /official_demo/);

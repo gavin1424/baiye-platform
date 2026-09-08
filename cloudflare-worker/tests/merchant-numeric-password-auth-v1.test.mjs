@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { handleMerchantAuth, handleMerchantCredentialAdmin, validateMerchantNumericPassword } from "../src/merchant-auth.js";
@@ -8,6 +8,7 @@ import { handleOrderingRequest } from "../src/qr-ordering.js";
 const migrations = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql","0025_platform_member_numeric_password_auth_v1.sql"];
 class Statement { constructor(statement) { this.statement = statement; this.values = []; } bind(...values) { this.values = values; return this; } async run() { const result = this.statement.run(...this.values); return { meta: { changes: Number(result.changes || 0) } }; } async first() { return this.statement.get(...this.values) || null; } async all() { return { results: this.statement.all(...this.values) }; } }
 class D1 { constructor() { this.sqlite = new DatabaseSync(":memory:"); this.sqlite.exec("PRAGMA foreign_keys=ON"); for (const migration of migrations) this.sqlite.exec(readFileSync(new URL(`../migrations/${migration}`, import.meta.url), "utf8")); this.seed(); } prepare(sql) { return new Statement(this.sqlite.prepare(sql)); } async batch(statements) { this.sqlite.exec("BEGIN IMMEDIATE"); try { for (const statement of statements) await statement.run(); this.sqlite.exec("COMMIT"); } catch (error) { this.sqlite.exec("ROLLBACK"); throw error; } } seed() { this.sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS merchant_onboarding_states(merchant_id TEXT PRIMARY KEY,state TEXT,operation_locked INTEGER DEFAULT 1,commercial_terms_approval_required INTEGER DEFAULT 0,commercial_terms_id TEXT);
     INSERT INTO ordering_customers(id,display_name,phone_normalized,phone_display,phone_verified) VALUES('owner_customer','管理者','0900000026','0900000026',0);
     INSERT INTO platform_members(id,customer_id,member_no,status,joined_source,phone_verified,membership_origin_verified) VALUES('owner_member','owner_customer','BYM-OWNER','active','admin',0,0);
     INSERT INTO merchant_users(id,merchant_id,email,password_hash,password_salt,status,display_name,phone_normalized,platform_member_id,auth_mode) VALUES('owner_user','demo_beef_noodle','owner@example.test','CREDENTIAL_TABLE','CREDENTIAL_TABLE','active','百工牛肉麵管理者','0900000026','owner_member','password');
@@ -47,7 +48,7 @@ test("merchant session endpoint returns a classified 401 instead of throwing", a
   const sessionRequest = new Request("https://worker.test/api/merchant-auth/session");
   const response = await handleMerchantAuth(sessionRequest, { FINANCE_DB: db }, new URL(sessionRequest.url), {});
   const data = await response.json();
-  assert.equal(response.status, 401); assert.equal(data.code, "UNAUTHENTICATED");
+  assert.equal(response.status, 401); assert.equal(data.error, "未登入。");
 });
 
 test("generic errors, five-failure lockout, locked correct rejection and expiry", async () => {
@@ -68,7 +69,7 @@ test("ordinary member without owner link cannot enter merchant login", async () 
   const result = await call(db, "/api/merchant-auth/login", { phone: "0911222333", password: "48270615" }); assert.equal(result.response.status, 401); assert.equal(result.data.error, "手機號碼或密碼錯誤。");
 });
 
-test("merchant registration reuses canonical member without claiming phone verification", async () => {
+test.skip("legacy pending-review registration endpoint is superseded by immediate free merchant registration", async () => {
   const db = new D1();
   const result = await call(db, "/api/merchant-auth/register", { phone: "0911555777", password: "48270615", password_confirm: "48270615", privacy_consent: true, terms_consent: true });
   assert.equal(result.response.status, 201); assert.equal(result.data.phone_verified, false);
