@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.os.Build
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import com.baiye.merchantprinter.data.LocalStore
@@ -13,6 +14,7 @@ import com.baiye.merchantprinter.service.PrintService
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         val store = LocalStore(this)
         val api = MerchantApi(store)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
