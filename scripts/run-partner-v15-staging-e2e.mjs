@@ -3,8 +3,14 @@ import { dirname, resolve } from "node:path";
 
 const workerUrl = process.env.CONTRACT_STAGING_WORKER_URL;
 const origin = process.env.CONTRACT_STAGING_ORIGIN;
-if (!workerUrl?.includes("contract-signing-staging") || !origin?.includes("contract-signing-staging.pages.dev")) {
-  throw new Error("Staging-only guard rejected target");
+const targetEnvironment = process.env.CONTRACT_E2E_ENV || "staging";
+const isStagingTarget = workerUrl?.includes("contract-signing-staging") && origin?.includes("contract-signing-staging.pages.dev");
+const isProductionTarget = workerUrl === "https://chuang-baiye-ai.baiye-platform.workers.dev"
+  && origin === "https://baiyeconnect.com";
+if ((targetEnvironment === "staging" && !isStagingTarget)
+  || (targetEnvironment === "production" && !isProductionTarget)
+  || !["staging", "production"].includes(targetEnvironment)) {
+  throw new Error(`${targetEnvironment} guard rejected target`);
 }
 
 const runId = Date.now().toString(36);
@@ -42,11 +48,11 @@ const post = (path, body, headers = {}) => api(path, { method: "POST", body: JSO
 const applied = await post("/api/partner/apply", {
   legal_name: legalName,
   id_number: idNumber,
-  email: `partner-v15-${runId}@staging.invalid`,
+  email: `partner-v15-${runId}@example.invalid`,
   phone,
   company_name: "",
   tax_id: "",
-  note: "STAGING V1.5 E2E｜NOT A REAL CONTRACT",
+  note: `${targetEnvironment.toUpperCase()} V1.5 E2E｜QA CONTRACT`,
   consent: true,
 });
 const activationToken = decodeURIComponent(new URL(applied.value.activation_url).hash.split("token=")[1] || "");
@@ -94,7 +100,9 @@ const result = {
   public_verification_no_id: !serializedVerification.includes(idNumber) && !serializedVerification.includes(idNumber.slice(-4)),
 };
 
-if (!result.application_masked || !result.membership_created || !result.welcome_coupon_absent || result.contract_version !== "v1.5" || result.legal_review_status !== "pending_review" || result.is_active !== 0 || !result.preview_masked || result.preview_term_months !== 3 || !result.signed || !result.idempotency_replay || result.pdf_bytes < 1000 || !result.document_hash || !result.pdf_hash || result.dashboard_term_months !== 3 || !result.public_verification_no_id) {
+const expectedReviewStatus = targetEnvironment === "production" ? "approved" : "pending_review";
+const expectedIsActive = targetEnvironment === "production" ? 1 : 0;
+if (!result.application_masked || !result.membership_created || !result.welcome_coupon_absent || result.contract_version !== "v1.5" || result.legal_review_status !== expectedReviewStatus || result.is_active !== expectedIsActive || !result.preview_masked || result.preview_term_months !== 3 || !result.signed || !result.idempotency_replay || result.pdf_bytes < 1000 || !result.document_hash || !result.pdf_hash || result.dashboard_term_months !== 3 || !result.public_verification_no_id) {
   throw new Error(`Partner v1.5 Staging E2E failed: ${JSON.stringify(result)}`);
 }
 console.log(JSON.stringify({ ok: true, ...result }));

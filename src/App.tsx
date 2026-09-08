@@ -106,6 +106,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
   "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
   "/merchant/google-maps-booking": "Google 地圖預約開通申請｜創百業智慧鏈",
+  "/join": "加入創百業智慧鏈｜統一加入與簽約中心",
   "/member/join": "手機一鍵加入會員｜創百業智慧鏈",
   "/member/welcome": "歡迎成為創百業會員｜創百業智慧鏈",
   "/member": "我的會員｜創百業智慧鏈",
