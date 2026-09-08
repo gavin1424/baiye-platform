@@ -26,6 +26,7 @@ import { MerchantKitchenDisplayPage } from "./pages/MerchantKitchenDisplayPage";
 import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, MerchantGoogleBookingPage, MerchantInventoryPage, MerchantInvoicePage, MerchantLinePage, MerchantMembersPage, MerchantPaymentsPage, MerchantProfilePage } from "./pages/MerchantAdminPages";
 import { BeefNoodleBookingPage } from "./pages/BeefNoodleBookingPage";
 import { GeneralOrderingEntryPage } from "./pages/GeneralOrderingEntryPage";
+import { PlanContractPage } from "./pages/PlanContractPage";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -54,6 +55,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/messages": "私訊中心｜創百業智慧鏈",
   "/notifications": "通知中心｜創百業智慧鏈",
   "/pricing": "商家網站、AI 智慧商城與免 POS 點餐方案｜創百業智慧鏈",
+  "/plans": "方案合作契約｜創百業智慧鏈",
   "/features": "全部功能總覽｜創百業智慧鏈",
   "/pos-comparison": "Web-POS 效益與成本比較｜創百業智慧鏈",
   "/demo-sites": "五大產業示範網站｜創百業智慧鏈",
@@ -110,6 +112,8 @@ function ScrollAndMetadata() {
       PAGE_TITLES[path] ||
       (path.startsWith("/q/")
         ? "掃碼加入會員與手機點餐｜創百業智慧鏈"
+        : path.startsWith("/plans/")
+          ? "方案合作契約｜創百業智慧鏈"
         : path.startsWith("/verify-contract/")
           ? "契約文件驗證｜創百業智慧鏈"
         : path.startsWith("/business/")
@@ -128,7 +132,7 @@ function ScrollAndMetadata() {
                       ? "行業分類｜創百業智慧鏈"
                       : path.startsWith("/dashboard/")
                         ? "商家後台｜創百業智慧鏈"
-                        : "找不到頁面｜創百業智慧鏈");
+      : "找不到頁面｜創百業智慧鏈");
     const demoTitle = path.startsWith("/q/")
       ? "百工牛肉麵手機點餐｜創百業智慧鏈 QR 點餐示範"
       : "QR 手機點餐示範｜百工牛肉麵｜創百業智慧鏈";
@@ -270,6 +274,7 @@ export function App() {
         <Route path="/messages" element={<MerchantAccessUnavailablePage />} />
         <Route path="/notifications" element={<MerchantAccessUnavailablePage />} />
         <Route path="/pricing" element={<PricingPageV13 />} />
+        <Route path="/plans/:planSlug/contract" element={<PlanContractPage />} />
         <Route path="/features" element={<FeaturesPage />} />
         <Route path="/pos-comparison" element={<PosComparisonPage />} />
         <Route path="/services/deposit-settlement" element={<DepositSettlementPage />} />

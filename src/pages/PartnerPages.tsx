@@ -4,7 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import { MarketingHero, PublicLayout } from "../components";
 import { adminApi as secureAdminApi } from "../admin-auth-client";
-import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
+import { ContractSignatureCanvas, hasUsableSignature, type SignatureValue } from "../components/ContractSignatureCanvas";
 import { savePlatformMemberToken } from "../qr-ordering-client";
 
 const API = (
@@ -672,54 +672,92 @@ export function PartnerContract() {
   const [signature, setSignature] = useState<SignatureValue>({ strokes: [] });
   const [preview, setPreview] = useState<any>();
   const [memberWelcome, setMemberWelcome] = useState<any>();
+  const [busy, setBusy] = useState(false);
+  const signingIntent = useRef(sessionStorage.getItem("partner_contract_signing_intent") || crypto.randomUUID());
+  const load = () => api("/api/partner/contract/current").then(setContract);
   useEffect(() => {
-    api("/api/partner/contract/current")
-      .then(setContract)
-      .catch((error) => setMessage(errorText(error)));
+    sessionStorage.setItem("partner_contract_signing_intent", signingIntent.current);
+    load().catch((error) => setMessage(errorText(error)));
   }, []);
+  const payload = { legal_name: name, read: checks[0], electronic: checks[1], independent: checks[2], signature };
+  const ready = name.trim().length > 0 && checks.every(Boolean) && hasUsableSignature(signature);
   const openPreview = async () => {
     setMessage("");
+    if (!name.trim()) return setMessage("請輸入法定姓名");
+    if (!checks.every(Boolean)) return setMessage("請完成所有必要確認項目");
+    if (!signature.strokes.length) return setMessage("請完成手寫簽名");
+    if (!hasUsableSignature(signature)) return setMessage("簽名尚未完成，請重新簽名");
+    setBusy(true);
     try {
-      setPreview(await api("/api/partner/contract/sign-preview", { method: "POST", body: JSON.stringify({ legal_name: name }) }));
+      setPreview(await api("/api/partner/contract/sign-preview", { method: "POST", body: JSON.stringify(payload) }));
     } catch (error) { setMessage(errorText(error)); }
+    finally { setBusy(false); }
   };
   const sign = async () => {
     setMessage("");
+    if (busy || !ready) return;
+    setBusy(true);
     try {
       const result = await api("/api/partner/contract/sign", {
         method: "POST",
-        headers: { "idempotency-key": crypto.randomUUID() },
-        body: JSON.stringify({
-          legal_name: name,
-          read: checks[0],
-          electronic: checks[1],
-          independent: checks[2],
-          signature,
-        }),
+        headers: { "idempotency-key": signingIntent.current },
+        body: JSON.stringify(payload),
       });
       if (result.member_session?.token) savePlatformMemberToken(result.member_session.token);
       if (result.welcome?.show) setMemberWelcome(result.welcome);
-      setMessage(
-        `承攬夥伴合作契約已簽署並保存私有 PDF。文件雜湊：${result.document_hash}`,
-      );
+      await load();
+      setPreview(undefined);
+      setMessage(`正式契約已簽署。契約編號：${result.contract_id || result.public_id}`);
     } catch (error) {
       setMessage(errorText(error));
+    } finally { setBusy(false); }
+  };
+  const openPdf = async (download: boolean) => {
+    if (!contract?.signature?.signature_id) return;
+    const viewer = download ? null : window.open("about:blank", "_blank", "noopener");
+    setBusy(true);
+    try {
+      const response = await fetch(`${API}/api/partner/contracts/${encodeURIComponent(contract.signature.signature_id)}/pdf?view=${download ? "0" : "1"}`, { credentials: "include" });
+      if (!response.ok) throw new Error("無法讀取正式契約 PDF。");
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      if (download) anchor.download = `創百業智慧鏈-承攬夥伴合作契約-${contract.signature.contract_id}.pdf`;
+      if (viewer) viewer.location.href = url;
+      else {
+        if (!download) { anchor.target = "_blank"; anchor.rel = "noopener"; }
+        anchor.click();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      viewer?.close();
+      setMessage(errorText(error));
     }
+    finally { setBusy(false); }
   };
   return (
     <main className="partner-shell partner-contract">
-      <h1>線上承攬夥伴合作契約</h1>
+      <style>{"body:has(.partner-contract) .ai-chat{display:none}"}</style>
+      <p className="partner-eyebrow">正式電子契約</p>
+      <h1>創百業智慧鏈｜承攬夥伴合作契約</h1>
       {contract && (
         <>
-          {contract.legal_review_status !== "approved" && (
-            <section className="partner-status warning"><strong>契約法律審閱 Gate 已鎖定</strong><span>此版本目前為 {contract.legal_review_status || "pending_review"}；Production 不可簽署。僅隔離 Staging 可標示測試簽署。</span></section>
-          )}
-          <article
-            dangerouslySetInnerHTML={{ __html: contract.content_html }}
-          />
+          <article className="contract-document" dangerouslySetInnerHTML={{ __html: contract.content_html }} />
+          {contract.signature ? (
+            <section className="partner-status success contract-signed-actions">
+              <strong>正式契約已完成簽署</strong>
+              <span>{formatDate(contract.signature.signed_at)} · PDF SHA-256：{contract.signature.pdf_hash}</span>
+              <div className="partner-workflow-actions">
+                <button className="btn btn-primary" disabled={busy} onClick={() => void openPdf(false)}>查看正式契約</button>
+                <button className="btn btn-outline" disabled={busy} onClick={() => void openPdf(true)}>下載已簽署 PDF</button>
+              </div>
+            </section>
+          ) : contract.production_signing_enabled ? <>
           <label>
-            重新輸入法定姓名
+            法定姓名
             <input
+              required
+              autoComplete="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
@@ -747,17 +785,22 @@ export function PartnerContract() {
           <p><strong>手寫簽署證據</strong></p>
           <ContractSignatureCanvas onChange={setSignature} />
           <p className="partner-guidance-note">手寫簽名軌跡與系統紀錄作為線上契約查驗證據；不宣稱為憑證式數位簽章或政府認證電子簽章。</p>
-          <button className="btn btn-primary" onClick={() => void openPreview()}>
-            預覽最後確認
+          <button className="btn btn-primary" disabled={!ready || busy} onClick={() => void openPreview()}>
+            {busy ? "處理中…" : "進行最終確認"}
           </button>
-          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最後確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" onClick={() => void sign()}>確認簽署</button></div></div></div>}
+          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最終確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" disabled={busy} onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" disabled={busy} onClick={() => void sign()}>{busy ? "正式簽署中…" : "同意契約並正式簽署"}</button></div></div></div>}
+          </> : (
+            <section className="partner-status warning">
+              <span>此契約版本目前尚未開放正式簽署，請稍後再試。</span>
+            </section>
+          )}
           {memberWelcome && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>{memberWelcome.title}</h2><p>您的會員資格已建立，可前往會員中心查看資料與消費歷程。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">前往會員中心</Link><Link className="btn btn-outline" to="/partner/dashboard">繼續前往承攬夥伴中心</Link></div></div></div>}
         </>
       )}
       {message && (
         <section className="partner-message">
           <p>{message}</p>
-          {message.includes("已簽署") && (
+          {contract?.signature && (
             <Link className="btn btn-primary btn-sm" to="/partner/dashboard">
               返回承攬夥伴儀表板
             </Link>

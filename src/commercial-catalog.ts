@@ -1,5 +1,8 @@
 export type CommercialPlan = {
   plan_id: string;
+  plan_slug: string;
+  contract_template_id: string;
+  plan_contract_version: string;
   display_name: string;
   short_name: string;
   price_minor: number;

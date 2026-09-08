@@ -3,11 +3,26 @@ import { useEffect, useRef, useState } from "react";
 export type SignaturePoint = [number, number];
 export type SignatureValue = { strokes: SignaturePoint[][] };
 
+export function signatureEvidenceMetrics(value?: SignatureValue) {
+  const strokes = value?.strokes?.filter((stroke) => stroke.length >= 2) || [];
+  const points = strokes.flat();
+  let distance = 0;
+  for (const stroke of strokes) for (let index = 1; index < stroke.length; index += 1) distance += Math.hypot(stroke[index][0] - stroke[index - 1][0], stroke[index][1] - stroke[index - 1][1]);
+  const width = points.length ? Math.max(...points.map(([x]) => x)) - Math.min(...points.map(([x]) => x)) : 0;
+  const height = points.length ? Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y)) : 0;
+  return { points: points.length, distance, span: Math.max(width, height) };
+}
+
+export function hasUsableSignature(value?: SignatureValue) {
+  const metrics = signatureEvidenceMetrics(value);
+  return metrics.points >= 2 && metrics.distance >= 8 && metrics.span >= 6;
+}
+
 export function ContractSignatureCanvas({ onChange }: { onChange: (value: SignatureValue) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const strokesRef = useRef<SignaturePoint[][]>([]);
   const activeStroke = useRef<SignaturePoint[] | null>(null);
-  const [pointCount, setPointCount] = useState(0);
+  const [recorded, setRecorded] = useState(false);
 
   const redraw = () => {
     const canvas = canvasRef.current;
@@ -49,8 +64,9 @@ export function ContractSignatureCanvas({ onChange }: { onChange: (value: Signat
     return [Math.round((event.clientX - rect.left) * 100) / 100, Math.round((event.clientY - rect.top) * 100) / 100];
   };
   const emit = () => {
-    setPointCount(strokesRef.current.reduce((sum, stroke) => sum + stroke.length, 0));
-    onChange({ strokes: strokesRef.current.map((stroke) => [...stroke]) });
+    const value = { strokes: strokesRef.current.map((stroke) => [...stroke]) };
+    setRecorded(hasUsableSignature(value));
+    onChange(value);
   };
   const clear = () => {
     strokesRef.current = [];
@@ -81,7 +97,7 @@ export function ContractSignatureCanvas({ onChange }: { onChange: (value: Signat
         onPointerCancel={() => { activeStroke.current = null; emit(); }}
       />
       <div className="contract-signature-actions">
-        <span>{pointCount >= 6 ? "簽名已記錄" : "請以完整筆劃簽名（不可只點一下）"}</span>
+        <span>{recorded ? "簽名已記錄" : "請完成手寫簽名"}</span>
         <button type="button" className="btn btn-outline btn-sm" onClick={clear}>清除並重簽</button>
       </div>
     </div>

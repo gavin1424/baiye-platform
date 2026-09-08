@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { merchantOrderingApi, savePlatformMemberToken } from "../qr-ordering-client";
-import { ContractSignatureCanvas, type SignatureValue } from "../components/ContractSignatureCanvas";
+import { ContractSignatureCanvas, hasUsableSignature, type SignatureValue } from "../components/ContractSignatureCanvas";
 
 const API = (import.meta.env.VITE_PLATFORM_API_URL || "https://chuang-baiye-ai.baiye-platform.workers.dev").replace(/\/$/, "");
 const money = (minor: number) => new Intl.NumberFormat("zh-TW", { style: "currency", currency: "TWD", maximumFractionDigits: 0 }).format(Number(minor || 0) / 100);
@@ -42,7 +42,11 @@ export function MerchantContractPage() {
   useEffect(() => { void merchantOrderingApi<any>("/api/merchant-auth/session").then(() => load()).catch(() => setNotice("請先登入商家後台，再進行契約簽署。")); }, []);
   const previewSign = async () => {
     setNotice("");
-    try { setPreview(await merchantOrderingApi("/api/merchant/contracts/sign-preview", { method: "POST", body: JSON.stringify(form) })); }
+    if (!form.signatory_legal_name.trim()) return setNotice("請輸入法定姓名");
+    if (![form.read,form.electronic,form.commercial_terms,form.authority,form.signature_evidence].every(Boolean)) return setNotice("請完成所有必要確認項目");
+    if (!signature.strokes.length) return setNotice("請完成手寫簽名");
+    if (!hasUsableSignature(signature)) return setNotice("簽名尚未完成，請重新簽名");
+    try { setPreview(await merchantOrderingApi("/api/merchant/contracts/sign-preview", { method: "POST", body: JSON.stringify({ ...form, signature }) })); }
     catch (error) { setNotice(message(error)); }
   };
   const sign = async () => {

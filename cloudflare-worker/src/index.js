@@ -21,6 +21,7 @@ import {
 import { handlePlatformMemberRequest } from "./platform-membership.js";
 import { handleCommercialCatalog } from "./commercial-catalog.js";
 import { handleMerchantPrinting } from "./merchant-printing.js";
+import { handlePlanContractAdmin, handlePlanContractPublic, handlePlanContractRequest } from "./plan-contracts.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -213,6 +214,12 @@ export default {
       return handleCommercialCatalog(request, cors);
     }
 
+    if (url.pathname.startsWith("/api/public/plan-contracts/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handlePlanContractPublic(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
     if (url.pathname.startsWith("/api/admin/auth/")) {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
@@ -267,6 +274,14 @@ export default {
       const authorization = await authorizeMerchant(request, env);
       if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
       return (await handleMerchantContractRequest(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname.startsWith("/api/merchant/plan-contracts")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const authorization = await authorizeMerchant(request, env);
+      if (!authorization.ok) return json({ error: authorization.error }, authorization.status, cors);
+      return (await handlePlanContractRequest(request, env, url, cors, authorization)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname.startsWith("/api/merchant-admin/ordering")) {
@@ -336,6 +351,7 @@ export default {
       if (url.pathname.startsWith("/api/admin/merchant-contract") || /^\/api\/admin\/merchants\/[^/]+\/commercial-terms$/.test(url.pathname)) {
         return (await handleMerchantContractAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
       }
+      if (url.pathname.startsWith("/api/admin/plan-contracts")) return (await handlePlanContractAdmin(request, env, url, cors, adminSession)) || json({ error: "Not found" }, 404, cors);
       if (url.pathname.startsWith("/api/admin/booking")) return handleBookingAdminRequest(request, env, url, cors, true);
       if (url.pathname.startsWith("/api/admin/ordering") || url.pathname.startsWith("/api/admin/financing")) {
         const integrationResponse = await handleMemberIntegrationsAdmin(request, env, url, cors, adminSession);

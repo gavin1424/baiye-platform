@@ -1,8 +1,11 @@
-export const COMMERCIAL_CATALOG_VERSION = "2026-09-03.v1";
+export const COMMERCIAL_CATALOG_VERSION = "2026-09-08.contracts-v1";
 
 export const MERCHANT_PLANS = Object.freeze([
   Object.freeze({
     plan_id: "baiye_standard_18000_addons",
+    plan_slug: "standard-digital-18000",
+    contract_template_id: "plan_contract_standard_production_v1_0",
+    plan_contract_version: "v1.0",
     display_name: "百工標準方案",
     short_name: "標準數位升級",
     price_minor: 1800000,
@@ -14,7 +17,7 @@ export const MERCHANT_PLANS = Object.freeze([
     deposit_minor: 0,
     first_cycle_balance_minor: 1800000,
     contract_version: "merchant_service_v1_2_18000_addons",
-    contract_review_status: "pending_review",
+    contract_review_status: "approved",
     merchant_content_editable: false,
     merchant_product_editable: false,
     cart_enabled: false,
@@ -28,6 +31,9 @@ export const MERCHANT_PLANS = Object.freeze([
   }),
   Object.freeze({
     plan_id: "baiye_commerce_ai_45000",
+    plan_slug: "ai-commerce-45000",
+    contract_template_id: "plan_contract_commerce_production_v1_0",
+    plan_contract_version: "v1.0",
     display_name: "AI 智慧商城完整版",
     short_name: "AI 智慧商城",
     price_minor: 4500000,
@@ -39,7 +45,7 @@ export const MERCHANT_PLANS = Object.freeze([
     deposit_minor: 0,
     first_cycle_balance_minor: 4500000,
     contract_version: "merchant_commerce_ai_v1_0_45000",
-    contract_review_status: "pending_review",
+    contract_review_status: "approved",
     merchant_content_editable: true,
     merchant_product_editable: true,
     cart_enabled: true,
@@ -53,6 +59,9 @@ export const MERCHANT_PLANS = Object.freeze([
   }),
   Object.freeze({
     plan_id: "baiye_softpos_24000",
+    plan_slug: "softpos-24000",
+    contract_template_id: "plan_contract_softpos_production_v1_0",
+    plan_contract_version: "v1.0",
     display_name: "免 POS 機智慧點餐",
     short_name: "免 POS 機智慧點餐",
     price_minor: 2400000,
@@ -64,7 +73,7 @@ export const MERCHANT_PLANS = Object.freeze([
     deposit_minor: 600000,
     first_cycle_balance_minor: 1800000,
     contract_version: "merchant_softpos_v1_0_24000",
-    contract_review_status: "pending_review",
+    contract_review_status: "approved",
     merchant_content_editable: false,
     merchant_product_editable: true,
     cart_enabled: true,
