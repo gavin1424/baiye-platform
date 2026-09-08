@@ -9,6 +9,7 @@ import {
   hashCanonical,
   parseAndValidateSignature,
   publicVerificationRecord,
+  replayCompletedContractOperation,
   sessionEvidenceHash,
   storePrivateAgreementArtifacts,
   validateExplicitConsents,
@@ -327,9 +328,13 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
       return json({ version: context.contract.version, company_name: context.merchant.name, signatory: String(input.signatory_legal_name || session.display_name), signatory_role: input.signatory_role, legal_representative_name: input.legal_representative_name, plan_name: context.terms.plan_name, total_minor: context.plan?.first_cycle_balance ?? context.terms.discount_price_minor, payment_plan: context.terms.payment_plan, term_months: Number(context.terms.contract_term_months), period: { start: context.terms.start_date, end: context.terms.service_period_end }, plan: context.plan, legal_entity: legalEntity ? { legal_name: legalEntity.legal_name, tax_id: legalEntity.tax_id } : null, attachments: commercialAttachments(context.terms, context.contract, context.plan) }, 200, cors);
     }
     if (url.pathname === "/api/merchant/contracts/sign" && request.method === "POST") {
-      const input = await body(request); const context = await merchantContractContext(db, session, env);
+      const input = await body(request);
+      const operationInput = { partyType: "merchant", partyId: session.merchant_id, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" };
+      const completed = await replayCompletedContractOperation(db, operationInput);
+      if (completed) return json({ ...completed.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
+      const context = await merchantContractContext(db, session, env);
       if (!normalizeTaiwanMobile(context.merchant.phone)) throw new ContractError("MERCHANT_CONTACT_PHONE_REQUIRED", "商家聯絡手機資料不完整，請先聯絡平台更新後再簽署。", 422);
-      const operation = await beginContractOperation(db, { partyType: "merchant", partyId: session.merchant_id, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
+      const operation = await beginContractOperation(db, operationInput);
       if (operation.replay) return json({ ...operation.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
       const existing = await db.prepare("SELECT id,public_id,document_hash FROM merchant_contract_signatures WHERE merchant_id=? AND contract_version_id=?").bind(session.merchant_id, context.contract.id).first();
       if (existing) {

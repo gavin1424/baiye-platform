@@ -165,10 +165,21 @@ export function publicVerificationRecord(row, type, version) {
   };
 }
 
-export async function beginContractOperation(db, { partyType, partyId, operationType, idempotencyKey }) {
+function validateIdempotencyKey(idempotencyKey) {
   if (!idempotencyKey || idempotencyKey.length < 12 || idempotencyKey.length > 160) {
     throw new ContractError("IDEMPOTENCY_KEY_REQUIRED", "缺少有效的 Idempotency-Key。", 400);
   }
+}
+
+export async function replayCompletedContractOperation(db, { partyType, partyId, operationType, idempotencyKey }) {
+  validateIdempotencyKey(idempotencyKey);
+  const existing = await db.prepare("SELECT * FROM contract_sign_operations WHERE party_type=? AND party_id=? AND operation_type=? AND idempotency_key=? AND status='completed'")
+    .bind(partyType, partyId, operationType, idempotencyKey).first();
+  return existing ? { operation: existing, result: JSON.parse(existing.result_json || "{}") } : null;
+}
+
+export async function beginContractOperation(db, { partyType, partyId, operationType, idempotencyKey }) {
+  validateIdempotencyKey(idempotencyKey);
   const existing = await db.prepare("SELECT * FROM contract_sign_operations WHERE party_type=? AND party_id=? AND operation_type=? AND idempotency_key=?")
     .bind(partyType, partyId, operationType, idempotencyKey).first();
   if (existing?.status === "completed") return { replay: true, operation: existing, result: JSON.parse(existing.result_json || "{}") };

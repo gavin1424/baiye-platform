@@ -157,9 +157,9 @@ async function passwordLogin(request, env, cors) {
 
 function merchantCredentialStatement(db, merchantId, userId, material) {
   return db.prepare(`INSERT INTO merchant_login_credentials(id,merchant_user_id,merchant_id,credential_type,password_hash,password_salt,password_algorithm,password_iterations,reset_required,password_updated_at)
-    VALUES(?,?,?,'numeric_password_8',?,?,'pbkdf2-sha256-segmented-v1',600000,0,CURRENT_TIMESTAMP)
+    VALUES(?,?,?,'numeric_password_8',?,?,?,?,0,CURRENT_TIMESTAMP)
     ON CONFLICT(merchant_id,merchant_user_id,credential_type) DO UPDATE SET password_hash=excluded.password_hash,password_salt=excluded.password_salt,password_algorithm=excluded.password_algorithm,password_iterations=excluded.password_iterations,failed_attempts=0,locked_until=NULL,reset_required=0,status='active',password_updated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP`)
-    .bind(uid("merchantcredential"), userId, merchantId, material.password_hash, material.password_salt);
+    .bind(uid("merchantcredential"), userId, merchantId, material.password_hash, material.password_salt, material.password_algorithm, material.password_iterations);
 }
 
 async function setupMerchantPassword(request, env, cors) {

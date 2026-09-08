@@ -10,23 +10,35 @@ def contract_corpus_codepoints(root: Path) -> set[int]:
     codepoints: set[int] = set()
     required = "創百業智慧鏈商家服務合作契約承攬夥伴合作契約智慧商務智慧點餐免 POS三個月試用正式服務保證金抵約契約簽署法定姓名簽署時間電子簽名文件驗證資訊葉耀仁陳靈有限公司～"
     codepoints.update(map(ord, required))
-    for directory in (root / "cloudflare-worker" / "migrations", root / "cloudflare-worker" / "src"):
-        for path in directory.rglob("*"):
-            if path.suffix.lower() not in {".sql", ".js", ".json", ".html"}:
-                continue
-            codepoints.update(map(ord, path.read_text(encoding="utf-8", errors="ignore")))
-    return codepoints
-
-
-def baseline_codepoints(path: Path) -> set[int]:
-    font = TTFont(path)
-    codepoints = set(font.getBestCmap())
-    font.close()
+    relative_paths = [
+        "cloudflare-worker/src/contract-pdf-v2.js",
+        "cloudflare-worker/src/commerce-ai-contract.js",
+        "cloudflare-worker/src/commercial-catalog.js",
+        "cloudflare-worker/src/merchant-contracts.js",
+        "cloudflare-worker/src/merchant-softpos-plan.js",
+        "cloudflare-worker/src/merchant-standard-terms.js",
+        "cloudflare-worker/src/partner.js",
+        "cloudflare-worker/migrations/0018_partner_contract_v15_identity_term.sql",
+        "cloudflare-worker/migrations/0023_contract_commerce_ai_45000.sql",
+        "cloudflare-worker/migrations/0024_contract_softpos_24000.sql",
+        "cloudflare-worker/migrations/0025_contract_standard_addons.sql",
+        "cloudflare-worker/migrations/0026_unified_registration_contract_center.sql",
+        "cloudflare-worker/migrations/production_0032_unified_contract_center_approval.sql",
+    ]
+    for relative_path in relative_paths:
+        path = root / relative_path
+        codepoints.update(map(ord, path.read_text(encoding="utf-8", errors="ignore")))
     return codepoints
 
 
 def build(source: Path, output: Path, weight: int, codepoints: set[int]) -> None:
     font = instantiateVariableFont(TTFont(source), {"wght": weight}, inplace=False)
+    style = "Bold" if weight >= 700 else "Regular"
+    family = "Noto Sans TC Contract"
+    postscript = f"NotoSansTCContract-{style}"
+    for name_id, value in ((1, family), (2, style), (4, f"{family} {style}"), (6, postscript)):
+        font["name"].setName(value, name_id, 3, 1, 0x409)
+        font["name"].setName(value, name_id, 1, 0, 0)
     options = subset.Options()
     options.layout_features = ["*"]
     options.name_IDs = [0, 1, 2, 3, 4, 5, 6]
@@ -48,10 +60,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     fixtures = args.root / "cloudflare-worker" / "tests" / "fixtures"
     corpus = contract_corpus_codepoints(args.root)
-    # Signatory names and other user-entered Traditional Chinese are rendered in
-    # Regular. Keep the proven broad Taiwan glyph repertoire for that face.
-    regular = baseline_codepoints(fixtures / "NotoSansTC-Regular.subset.ttf") | corpus
-    # Bold is only used for fixed contract titles/headings/labels, so its static,
-    # build-time corpus can remain compact without runtime glyph collection.
-    build(args.source, fixtures / "NotoSansTC-Regular.subset.ttf", 400, regular)
+    # Both faces are immutable, build-time contract fonts. The corpus is taken
+    # from every Worker contract source/migration plus the explicit regression
+    # names, so runtime PDF generation never performs CJK glyph collection.
+    build(args.source, fixtures / "NotoSansTC-Regular.subset.ttf", 400, corpus)
     build(args.source, fixtures / "NotoSansTC-Bold.subset.ttf", 700, corpus)

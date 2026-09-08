@@ -5,7 +5,9 @@ const SEGMENT = 100000;
 const b64 = (bytes) => btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 
 function randomSalt() {
-  return b64(crypto.getRandomValues(new Uint8Array(32)));
+  // v2 salts select one native PBKDF2 operation. Legacy salts retain the
+  // segmented derivation exactly, so no existing credential is rehashed.
+  return `v2.${b64(crypto.getRandomValues(new Uint8Array(32)))}`;
 }
 
 async function pbkdf2(input, salt, iterations) {
@@ -14,6 +16,15 @@ async function pbkdf2(input, salt, iterations) {
 }
 
 export async function deriveNumericPassword(password, salt, iterations = ITERATIONS) {
+  if (String(salt).startsWith("v2.")) {
+    const input = E.encode(String(password));
+    const blocks = await Promise.all(Array.from({ length: Math.ceil(iterations / SEGMENT) }, (_, index) =>
+      pbkdf2(input, `${salt}:${index}`, Math.min(SEGMENT, iterations - index * SEGMENT))));
+    const combined = new Uint8Array(blocks.reduce((size, block) => size + block.length, 0));
+    let offset = 0;
+    for (const block of blocks) { combined.set(block, offset); offset += block.length; }
+    return b64(new Uint8Array(await crypto.subtle.digest("SHA-256", combined)));
+  }
   let material = E.encode(String(password));
   for (let index = 0; index < Math.ceil(iterations / SEGMENT); index += 1) {
     material = await pbkdf2(material, `${salt}:${index}`, Math.min(SEGMENT, iterations - index * SEGMENT));

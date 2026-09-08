@@ -124,10 +124,11 @@ export async function createSignedAgreementPdfV2(input) {
   const documentHash = input.documentHash || await sha256(JSON.stringify({ contractId: input.documentId, version: input.version, contentHash: input.contractHash, signatureHash: input.signatureHash, legalName: input.signatory, signedAt: input.signedAt }));
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
-  const subset = false;
-  const regular = await pdfDoc.embedFont(input.fontAssets.regularBytes, { subset });
-  const bold = await pdfDoc.embedFont(input.fontAssets.boldBytes, { subset });
-  const mono = await pdfDoc.embedFont(input.fontAssets.monoBytes, { subset });
+  // Regular and Bold are fixed build-time contract corpora. Embed both complete
+  // faces to avoid the CJK CID remapping defect seen during runtime subsetting.
+  const regular = await pdfDoc.embedFont(input.fontAssets.regularBytes, { subset: false });
+  const bold = await pdfDoc.embedFont(input.fontAssets.boldBytes, { subset: false });
+  const mono = await pdfDoc.embedFont(input.fontAssets.monoBytes, { subset: true });
   const signedAt = safePdfDate(input.signedAt);
   pdfDoc.setTitle(input.title || "創百業智慧鏈｜線上契約");
   pdfDoc.setAuthor("創百業智慧鏈");
@@ -154,12 +155,14 @@ export async function createSignedAgreementPdfV2(input) {
   const drawKeyValue = (label, value, { size = 8.4, lineHeight = 11.8, after = 2, labelFont = regular, valueFont = mono } = {}) => {
     if (y - lineHeight < MARGIN.bottom + 18) newPage();
     const labelText = String(label).replace(/：$/, ": ");
+    const renderedValue = String(value || "—");
+    const renderedValueFont = /[\u3400-\u9fff]/u.test(renderedValue) ? regular : valueFont;
     const labelWidth = labelFont.widthOfTextAtSize(labelText, size);
     page.drawText(labelText, { x: MARGIN.left, y, size, font: labelFont, color: rgb(0.12, 0.12, 0.14) });
-    const lines = wrapByWidth(String(value || "—"), valueFont, size, CONTENT_WIDTH - labelWidth);
+    const lines = wrapByWidth(renderedValue, renderedValueFont, size, CONTENT_WIDTH - labelWidth);
     for (let index = 0; index < lines.length; index += 1) {
       if (index && y - lineHeight < MARGIN.bottom + 18) newPage();
-      page.drawText(lines[index], { x: MARGIN.left + (index ? 12 : labelWidth), y, size, font: valueFont, color: rgb(0.12, 0.12, 0.14) });
+      page.drawText(lines[index], { x: MARGIN.left + (index ? 12 : labelWidth), y, size, font: renderedValueFont, color: rgb(0.12, 0.12, 0.14) });
       y -= lineHeight;
     }
     y -= after;

@@ -273,7 +273,7 @@ async function memberCredential(db, memberId) {
 }
 
 async function upsertMemberCredential(db, platformMemberId, password) {
-  const salt = randomToken(24);
+  const salt = `v2.${randomToken(24)}`;
   const passwordHash = await deriveNumericPassword(password, salt, 600000);
   return db.prepare(`INSERT INTO platform_member_login_credentials
     (id,platform_member_id,credential_type,password_hash,password_salt,password_algorithm,password_iterations,password_updated_at)
