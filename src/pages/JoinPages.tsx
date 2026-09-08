@@ -66,7 +66,7 @@ export function JoinPage() {
       await merchantOrderingApi("/api/merchant-auth/session");
       navigate(`/merchant/select-plan?plan=${encodeURIComponent(plan.plan_id)}`);
     } catch (error: any) {
-      if (error?.status === 401 || error?.code === "UNAUTHENTICATED") navigate(`/merchant/register?plan=${encodeURIComponent(plan.plan_id)}`);
+      if (error?.status === 401 || error?.code === "UNAUTHENTICATED") navigate(`/merchant/login?plan=${encodeURIComponent(plan.plan_id)}`);
       else setNotice(errorText(error));
     } finally { setBusy(""); }
   };
@@ -92,7 +92,7 @@ export function MerchantPlanSelectorPage() {
       setData(result);
       setSelected((value) => value || result.intended_plan_id || result.selected_plan?.plan_id || "");
     }).catch((error: any) => {
-      if (error?.status === 401) navigate(`/merchant/register${requested ? `?plan=${encodeURIComponent(requested)}` : ""}`, { replace: true });
+      if (error?.status === 401) navigate(`/merchant/login${requested ? `?plan=${encodeURIComponent(requested)}` : ""}`, { replace: true });
       else setNotice(errorText(error));
     });
   }, [navigate, requested]);
