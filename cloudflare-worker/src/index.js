@@ -225,14 +225,6 @@ export default {
       return (await handleMerchantAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
     }
 
-    // Native Android clients do not send a browser Origin. They still use the
-    // existing merchant credentials, HttpOnly session cookie and CSRF token.
-    if (url.pathname.startsWith("/api/merchant-app/auth/")) {
-      const scopedUrl = new URL(url);
-      scopedUrl.pathname = scopedUrl.pathname.replace("/api/merchant-app/auth/", "/api/merchant-auth/");
-      return (await handleMerchantAuth(request, env, scopedUrl, {})) || json({ error: "Not found" }, 404);
-    }
-
     if (url.pathname.startsWith("/api/merchant-app/ordering")) {
       const mappedPath = url.pathname.replace(/^\/api\/merchant-app\/ordering/, "/api/merchant-admin/ordering");
       const permission = permissionForOrderingRequest(mappedPath, request.method);

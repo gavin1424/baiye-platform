@@ -2,34 +2,49 @@ package com.baiye.merchantprinter.network
 
 import com.baiye.merchantprinter.BuildConfig
 import com.baiye.merchantprinter.data.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.concurrent.TimeUnit
 
 class ApiException(val status: Int, val code: String, message: String) : Exception(message)
 class MerchantSelectionRequired(val selectionToken: String, val merchants: List<Pair<String, String>>) : Exception("請選擇商家")
 
-class MerchantApi(private val store: LocalStore, private val baseUrl: String = BuildConfig.API_BASE_URL) {
-    data class Response(val status: Int, val body: JSONObject, val headers: Map<String, List<String>>)
+class MerchantApi(
+    private val store: LocalStore,
+    private val baseUrl: String = BuildConfig.API_BASE_URL,
+    private val cookieJar: PersistentCookieJar = PersistentCookieJar(store.applicationContext),
+) {
+    data class Response(val status: Int, val body: JSONObject)
+
+    private val client = OkHttpClient.Builder()
+        .cookieJar(cookieJar)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
+        .build()
 
     private fun request(path: String, method: String = "GET", body: JSONObject? = null, idempotencyKey: String = ""): Response {
-        val connection = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
-        connection.requestMethod = method; connection.connectTimeout = 15_000; connection.readTimeout = 20_000
-        connection.setRequestProperty("Accept", "application/json")
-        if (store.cookie().isNotBlank()) connection.setRequestProperty("Cookie", store.cookie())
-        if (method !in listOf("GET", "HEAD") && store.csrf().isNotBlank()) connection.setRequestProperty("X-CSRF-Token", store.csrf())
-        if (idempotencyKey.isNotBlank()) connection.setRequestProperty("Idempotency-Key", idempotencyKey)
-        if (body != null) { connection.doOutput = true; connection.setRequestProperty("Content-Type", "application/json"); connection.outputStream.use { it.write(body.toString().toByteArray()) } }
-        val status = connection.responseCode
-        val text = (if (status in 200..299) connection.inputStream else connection.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
-        val json = try { JSONObject(text.ifBlank { "{}" }) } catch (_: Exception) { JSONObject().put("error", text) }
-        if (status !in 200..299) throw ApiException(status, json.optString("code"), json.optString("error", "連線失敗 ($status)"))
-        return Response(status, json, connection.headerFields.filterKeys { it != null })
+        val requestBody = body?.toString()?.toRequestBody(JSON)
+        val builder = Request.Builder().url(baseUrl.trimEnd('/') + path).header("Accept", "application/json")
+        if (path.startsWith("/api/merchant-auth/")) builder.header("Origin", BuildConfig.MERCHANT_AUTH_ORIGIN)
+        if (method !in listOf("GET", "HEAD") && store.csrf().isNotBlank()) builder.header("X-CSRF-Token", store.csrf())
+        if (idempotencyKey.isNotBlank()) builder.header("Idempotency-Key", idempotencyKey)
+        builder.method(method, if (method in listOf("GET", "HEAD")) null else requestBody ?: EMPTY_JSON)
+
+        client.newCall(builder.build()).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            val json = runCatching { JSONObject(text.ifBlank { "{}" }) }.getOrElse { JSONObject().put("error", text) }
+            if (!response.isSuccessful) throw ApiException(response.code, json.optString("code"), json.optString("error", "連線失敗 (${response.code})"))
+            return Response(response.code, json)
+        }
     }
 
     fun login(phone: String, password: String): String {
-        val response = request("/api/merchant-app/auth/login", "POST", JSONObject().put("phone", phone).put("password", password))
+        val response = request(AUTH_LOGIN_PATH, "POST", JSONObject().put("phone", phone).put("password", password))
         val resolution = response.body.optJSONObject("merchant_resolution")
         if (resolution?.optBoolean("requires_selection") == true) {
             val merchants = resolution.optJSONArray("merchants").toList().map { value -> val item = value as JSONObject; item.getString("id") to item.getString("name") }
@@ -39,26 +54,27 @@ class MerchantApi(private val store: LocalStore, private val baseUrl: String = B
     }
 
     fun selectMerchant(selectionToken: String, merchantId: String): String {
-        val response = request("/api/merchant-app/auth/select", "POST", JSONObject().put("selection_token", selectionToken).put("merchant_id", merchantId))
+        val response = request(AUTH_SELECT_PATH, "POST", JSONObject().put("selection_token", selectionToken).put("merchant_id", merchantId))
         return saveLoginResponse(response)
     }
 
     private fun saveLoginResponse(response: Response): String {
-        val setCookie = response.headers.entries.firstOrNull { it.key.equals("Set-Cookie", true) }?.value?.firstOrNull().orEmpty()
-        val cookie = setCookie.substringBefore(';')
+        if (!cookieJar.hasMerchantSession()) throw ApiException(response.status, "SESSION_COOKIE_MISSING", "登入成功但未收到商家 Session，請稍後再試。")
         val csrf = response.body.optString("csrf_token")
         val merchant = response.body.getJSONObject("merchant")
-        store.saveSession(cookie, csrf, merchant.getString("id"), merchant.getString("name"))
+        store.saveSession("cookie-jar", csrf, merchant.getString("id"), merchant.getString("name"))
         return merchant.getString("name")
     }
 
     fun validateSession(): String {
-        val response = request("/api/merchant-app/auth/session").body
+        val response = request(AUTH_SESSION_PATH).body
         val csrf = response.optString("csrf_token", store.csrf())
         val merchant = response.getJSONObject("merchant")
-        store.saveSession(store.cookie(), csrf, merchant.getString("id"), merchant.getString("name"))
+        store.saveSession("cookie-jar", csrf, merchant.getString("id"), merchant.getString("name"))
         return merchant.getString("name")
     }
+
+    fun clearSession() { cookieJar.clear(); store.clearSession() }
 
     fun printers(): List<PrinterConfig> = request("/api/merchant-app/printers").body.optJSONArray("printers").toList().map { value ->
         val p = value as JSONObject
@@ -92,6 +108,14 @@ class MerchantApi(private val store: LocalStore, private val baseUrl: String = B
     })
     private fun parseJob(j: JSONObject): PrintJob = PrintJob(j.getString("id"), j.getString("order_code"), j.getString("printer_id"), j.optString("status"), j.optInt("copies", 1), j.optInt("attempt_count"), j.optJSONObject("payload")?.toString() ?: "{}", deliveryOutcome = j.optString("delivery_outcome"), lastError = j.optString("last_error"))
     private fun enc(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
+
+    companion object {
+        const val AUTH_LOGIN_PATH = "/api/merchant-auth/login"
+        const val AUTH_SELECT_PATH = "/api/merchant-auth/select"
+        const val AUTH_SESSION_PATH = "/api/merchant-auth/session"
+        private val JSON = "application/json; charset=utf-8".toMediaType()
+        private val EMPTY_JSON = "{}".toRequestBody(JSON)
+    }
 }
 
 private fun JSONArray?.toList(): List<Any> = if (this == null) emptyList() else (0 until length()).map { get(it) }
