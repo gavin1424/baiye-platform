@@ -131,10 +131,9 @@ private fun OperationsShell(store: LocalStore, api: MerchantApi, onLogout: () ->
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    suspend fun refreshNow() {
+    suspend fun refreshOrdering() {
         if (store.demoMode()) {
-            overview = demoOverview(); dashboard = demoDashboard(); report = demoReport()
-            ordering = OrderingState.ONLINE; reportsState = ReportsState.FRESH; message = ""
+            overview = demoOverview(); ordering = OrderingState.ONLINE; message = ""
             return
         }
         ordering = OrderingState.SYNCING
@@ -154,10 +153,22 @@ private fun OperationsShell(store: LocalStore, api: MerchantApi, onLogout: () ->
             ordering = OrderingState.OFFLINE
             message = error.message.orEmpty()
         }
+    }
+
+    suspend fun refreshSecondary() {
+        if (store.demoMode()) {
+            dashboard = demoDashboard(); report = demoReport(); reportsState = ReportsState.FRESH
+            return
+        }
         runCatching { withContext(Dispatchers.IO) { api.dashboard() } }.onSuccess { dashboard = it }
         runCatching { withContext(Dispatchers.IO) { api.reports() } }
             .onSuccess { report = it; reportsState = ReportsState.FRESH }
             .onFailure { reportsState = if (store.cached("reports_today") == null) ReportsState.ERROR else ReportsState.STALE }
+    }
+
+    suspend fun refreshNow() {
+        refreshOrdering()
+        refreshSecondary()
     }
 
     fun refresh() {
@@ -165,9 +176,10 @@ private fun OperationsShell(store: LocalStore, api: MerchantApi, onLogout: () ->
     }
 
     LaunchedEffect(Unit) {
+        refreshNow()
         while (isActive) {
-            refreshNow()
             delay(3_000)
+            refreshOrdering()
         }
     }
 
