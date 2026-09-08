@@ -712,6 +712,7 @@ export function PartnerContract() {
   };
   const openPdf = async (download: boolean) => {
     if (!contract?.signature?.signature_id) return;
+    const viewer = download ? null : window.open("about:blank", "_blank", "noopener");
     setBusy(true);
     try {
       const response = await fetch(`${API}/api/partner/contracts/${encodeURIComponent(contract.signature.signature_id)}/pdf?view=${download ? "0" : "1"}`, { credentials: "include" });
@@ -720,10 +721,16 @@ export function PartnerContract() {
       const anchor = document.createElement("a");
       anchor.href = url;
       if (download) anchor.download = `創百業智慧鏈-承攬夥伴合作契約-${contract.signature.contract_id}.pdf`;
-      else { anchor.target = "_blank"; anchor.rel = "noopener"; }
-      anchor.click();
+      if (viewer) viewer.location.href = url;
+      else {
+        if (!download) { anchor.target = "_blank"; anchor.rel = "noopener"; }
+        anchor.click();
+      }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (error) { setMessage(errorText(error)); }
+    } catch (error) {
+      viewer?.close();
+      setMessage(errorText(error));
+    }
     finally { setBusy(false); }
   };
   return (
@@ -732,8 +739,8 @@ export function PartnerContract() {
       <h1>創百業智慧鏈｜承攬夥伴合作契約</h1>
       {contract && (
         <>
-          <section className="partner-status success">
-            <strong>本契約已完成審閱並正式啟用</strong>
+          <section className={`partner-status ${contract.production_signing_enabled ? "success" : "warning"}`}>
+            <strong>{contract.production_signing_enabled ? "本契約已完成審閱並正式啟用" : "此契約版本尚未開放簽署"}</strong>
             <span>契約版本 {contract.version} · 生效日期 {contract.effective_date}</span>
             {contract.signature && <span>契約編號：{contract.signature.contract_id}</span>}
           </section>
@@ -747,7 +754,7 @@ export function PartnerContract() {
                 <button className="btn btn-outline" disabled={busy} onClick={() => void openPdf(true)}>下載已簽署 PDF</button>
               </div>
             </section>
-          ) : <>
+          ) : contract.production_signing_enabled ? <>
           <label>
             法定姓名
             <input
@@ -784,7 +791,11 @@ export function PartnerContract() {
             {busy ? "處理中…" : "進行最終確認"}
           </button>
           {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最終確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" disabled={busy} onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" disabled={busy} onClick={() => void sign()}>{busy ? "正式簽署中…" : "同意契約並正式簽署"}</button></div></div></div>}
-          </>}
+          </> : (
+            <section className="partner-status warning">
+              <span>此契約版本目前尚未開放正式簽署，請稍後再試。</span>
+            </section>
+          )}
           {memberWelcome && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>{memberWelcome.title}</h2><p>您的會員資格已建立，可前往會員中心查看資料與消費歷程。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">前往會員中心</Link><Link className="btn btn-outline" to="/partner/dashboard">繼續前往承攬夥伴中心</Link></div></div></div>}
         </>
       )}
