@@ -5,8 +5,10 @@ import {
   beginContractOperation,
   buildSignedAgreement,
   completeContractOperation,
+  parseAndValidateSignature,
   sessionEvidenceHash,
   storePrivateAgreementArtifacts,
+  validateExplicitConsents,
 } from "./contract-engine.js";
 import { ensurePlatformMember, finalizePlatformMembershipBatch, normalizeTaiwanMobile, preparePlatformMembershipBatch } from "./platform-membership.js";
 
@@ -25,6 +27,12 @@ async function hmac(value, secret) {
 async function hash(value) { return b64(await crypto.subtle.digest("SHA-256", E.encode(value))); }
 async function body(request) { try { return await request.json(); } catch { return {}; } }
 const clientIp = (request) => request.headers.get("CF-Connecting-IP") || null;
+function deviceMetadata(request) {
+  const userAgent = request.headers.get("user-agent") || "";
+  const platform = /Android/i.test(userAgent) ? "Android" : /iPhone|iPad|iPod/i.test(userAgent) ? "iOS" : /Windows/i.test(userAgent) ? "Windows" : /Macintosh|Mac OS X/i.test(userAgent) ? "macOS" : /Linux/i.test(userAgent) ? "Linux" : "unknown";
+  const browser = /Line\//i.test(userAgent) ? "LINE" : /Edg\//i.test(userAgent) ? "Edge" : /CriOS|Chrome\//i.test(userAgent) ? "Chrome" : /Safari\//i.test(userAgent) ? "Safari" : "unknown";
+  return { platform, browser, mobile: /Mobile|Android|iPhone|iPad|iPod/i.test(userAgent) };
+}
 function validSignature(value) {
   try {
     const signature = JSON.parse(value);
@@ -88,6 +96,10 @@ function activationUrl(raw, env) {
 function auditInsert(db, actorType, actorId, action, entityType, entityId, metadata = {}) {
   return db.prepare("INSERT INTO audit_logs (id,actor_type,actor_id,action,entity_type,entity_id,metadata) VALUES (?,?,?,?,?,?,?)")
     .bind(id("audit"), actorType, actorId, action, entityType, entityId, JSON.stringify(metadata));
+}
+function contractAuditInsert(db, request, partnerId, action, entityId, metadata = {}) {
+  return db.prepare("INSERT INTO audit_logs (id,actor_type,actor_id,action,entity_type,entity_id,metadata,ip_address) VALUES (?,?,?,?,?,?,?,?)")
+    .bind(id("audit"), "partner", partnerId, action, "contract_signature", entityId, JSON.stringify({ ...metadata, user_agent: request.headers.get("user-agent") || null }), clientIp(request));
 }
 function randomToken() {
   return b64(crypto.getRandomValues(new Uint8Array(32)));
@@ -891,12 +903,31 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
   if (!partner || partner.status !== "active") return json({ error: "承攬夥伴帳號目前尚未啟用或已終止。" }, 403, cors);
 
   if (path === "/api/partner/me") return json({ id: partner.id, partner_code: partner.partner_code, legal_name: partner.legal_name, display_name: partner.display_name, status: partner.status, referral_code: partner.referral_code }, 200, cors);
-  if (path === "/api/partner/contract/current" && request.method === "GET") return json(await activeContract(db), 200, cors);
+  if (path === "/api/partner/contract/current" && request.method === "GET") {
+    const contract = await activeContract(db);
+    const signature = contract ? await db.prepare("SELECT id,public_id,signed_at,status,pdf_hash,document_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=? AND status='VALID' LIMIT 1").bind(partnerId, contract.id).first() : null;
+    await audit(db, request, "partner", partnerId, "partner.contract.opened", "contract_version", contract?.id || "none", { version: contract?.version || null, signed: Boolean(signature) });
+    return json({
+      ...contract,
+      contract_name: contract?.title,
+      contract_status: contract?.legal_review_status,
+      legal_review_approved: contract?.legal_review_status === "approved" && contract?.approved_content_hash === contract?.content_hash,
+      production_signing_enabled: contract?.is_active === 1 && contract?.legal_review_status === "approved" && contract?.approved_content_hash === contract?.content_hash,
+      signature: signature ? { contract_id: signature.public_id, signature_id: signature.id, signed_at: signature.signed_at, status: signature.status, pdf_hash: signature.pdf_hash, document_hash: signature.document_hash } : null,
+    }, 200, { ...cors, "cache-control": "no-store" });
+  }
   if (path === "/api/partner/contract/sign-preview" && request.method === "POST") {
     try {
       const input = await body(request), contract = await activeContract(db);
       assertContractSignable(contract, env);
       if (String(input.legal_name || "").trim() !== partner.legal_name) throw new ContractError("SIGNATORY_NAME_MISMATCH", "簽署姓名與承攬夥伴法定姓名不一致。", 422);
+      const consents = validateExplicitConsents({ read: input.read, electronic: input.electronic, independent: input.independent }, "partner");
+      const validatedSignature = parseAndValidateSignature(input.signature);
+      await db.batch([
+        contractAuditInsert(db, request, partnerId, "partner.contract.consent_accepted", contract.id, { version: contract.version, consents }),
+        contractAuditInsert(db, request, partnerId, "partner.contract.signature_completed", contract.id, { version: contract.version, point_count: validatedSignature.pointCount }),
+        contractAuditInsert(db, request, partnerId, "partner.contract.final_confirmation", contract.id, { version: contract.version }),
+      ]);
       return json({ version: contract.version, party_a: "平台契約正式設定法律主體", party_b: partner.legal_name, signatory: partner.legal_name, relationship: "獨立承攬／居間合作，非僱傭關係", signed_at: now(), important_terms: ["有效成交與五級獎勵", "每月合作資格維持", "退款與佣金沖回", "禁止私收款、假交易與未授權承諾", "線上簽署證據不等同憑證式數位簽章"] }, 200, cors);
     } catch (error) { return contractFailure(error, cors); }
   }
@@ -909,29 +940,33 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       const cookieToken = (request.headers.get("cookie") || "").match(/(?:^|;\s*)partner_session=([^;]+)/)?.[1] || "unknown";
       const operation = await beginContractOperation(db, { partyType: "partner", partyId: partnerId, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
       if (operation.replay) return json({ ...operation.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
-      const existing = await db.prepare("SELECT id,public_id,document_hash,pdf_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
+      const existing = await db.prepare("SELECT id,public_id,signed_at,document_hash,pdf_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=?").bind(partnerId, contract.id).first();
       if (existing) {
         const membership = await ensurePlatformMember(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract", issueSession: true });
-        const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, replay: true };
+        const replay = { ok: true, contract_id: existing.public_id, contract_version: contract.version, signature_id: existing.id, public_id: existing.public_id, signed_at: existing.signed_at, document_hash: existing.document_hash, pdf_hash: existing.pdf_hash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, replay: true };
         await completeContractOperation(db, operation.operation.id, replay); return json(replay, 200, cors);
       }
       const signatureId = id("sign"), publicId = `BYPC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
       const sessionHash = await sessionEvidenceHash(cookieToken);
-      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：平台契約正式設定法律主體　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", signature: input.signature, consents: { read: input.read, electronic: input.electronic, independent: input.independent }, consentVersion: "partner-contract-consent-v1.4", ip: clientIp(request), userAgent: request.headers.get("user-agent"), sessionEvidence: sessionHash, staging });
+      const submittedAt = now(), metadata = deviceMetadata(request), consents = { read: input.read, electronic: input.electronic, independent: input.independent };
+      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：陳靈有限公司　乙方：${partner.legal_name}`, signatory: partner.legal_name, signatoryRole: "承攬夥伴", signature: input.signature, consents, consentVersion: "partner-contract-consent-v1.0", ip: clientIp(request), userAgent: request.headers.get("user-agent"), deviceMetadata: metadata, timezone: "Asia/Taipei", finalConfirmedAt: submittedAt, submittedAt, sessionEvidence: sessionHash, staging });
       const prefix = `contracts/partners/${partnerId}/${contract.version}/${signatureId}`;
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
       const membershipBatch = await preparePlatformMembershipBatch(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract" });
       try {
         await db.batch([
-          db.prepare("INSERT INTO contract_signatures(id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version,signature_assurance_level,public_id,evidence_object_key,session_id_hash,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-            .bind(signatureId, partnerId, contract.id, partner.legal_name, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.4", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID"),
+          db.prepare("INSERT INTO contract_signatures(id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version,signature_assurance_level,public_id,evidence_object_key,session_id_hash,status,contract_name,contract_version_snapshot,contract_snapshot,timezone,consents_json,device_metadata_json,final_confirmed_at,submitted_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            .bind(signatureId, partnerId, contract.id, partner.legal_name, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.0", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID", contract.title, contract.version, contract.content_html, "Asia/Taipei", JSON.stringify(agreement.consents), JSON.stringify(metadata), submittedAt, submittedAt),
           db.prepare("UPDATE partners SET contract_status='signed',contract_version=?,contract_signed_at=?,updated_at=? WHERE id=?").bind(contract.version, agreement.signedAt, now(), partnerId),
           ...membershipBatch.statements,
+          contractAuditInsert(db, request, partnerId, "partner.contract.submit_requested", signatureId, { version: contract.version, idempotency_key_present: true }),
+          contractAuditInsert(db, request, partnerId, "partner.contract.signed", signatureId, { version: contract.version, document_hash: agreement.documentHash }),
+          contractAuditInsert(db, request, partnerId, "partner.contract.pdf_generated", signatureId, { version: contract.version, pdf_hash: agreement.pdfHash }),
         ]);
       } catch (error) { await stored.cleanup(); throw error; }
       await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE });
       const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
-      const result = { ok: true, signature_id: signatureId, public_id: publicId, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome };
+      const result = { ok: true, contract_id: publicId, contract_version: contract.version, signature_id: signatureId, public_id: publicId, signed_at: agreement.signedAt, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome };
       await completeContractOperation(db, operation.operation.id, result);
       return json(result, 201, cors);
     } catch (error) { return contractFailure(error, cors); }
@@ -944,7 +979,8 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
     const object = await env.CONTRACTS_BUCKET.get(signature.pdf_object_key);
     if (!object) return json({ error: "找不到已簽契約 PDF。" }, 404, cors);
     await audit(db, request, "partner", partnerId, "contract_downloaded", "contract_signature", signature.id);
-    return new Response(object.body, { headers: { ...cors, "content-type": "application/pdf", "content-disposition": `attachment; filename=contract-${signature.id}.pdf`, "x-pdf-sha256": signature.pdf_hash } });
+    const disposition = url.searchParams.get("view") === "1" ? "inline" : "attachment";
+    return new Response(object.body, { headers: { ...cors, "content-type": "application/pdf", "content-disposition": `${disposition}; filename=contract-${signature.public_id || signature.id}.pdf`, "x-pdf-sha256": signature.pdf_hash, "cache-control": "private, no-store" } });
   }
 
   if (path === "/api/partner/dashboard") return json(await partnerDashboard(db, partnerId), 200, cors);

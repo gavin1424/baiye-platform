@@ -70,6 +70,7 @@ export async function buildSignedAgreement(input) {
   const signedAt = input.signedAt || new Date().toISOString();
   const canonicalDocument = {
     document_id: documentId,
+    contract_name: input.contract.title || input.title,
     contract_version: input.contract.version,
     contract_content_hash: input.contract.content_hash,
     commercial_terms_hash: input.commercialTermsHash || null,
@@ -82,6 +83,7 @@ export async function buildSignedAgreement(input) {
     consents,
     consent_version: input.consentVersion,
     signature_assurance_level: STANDARD_ASSURANCE,
+    timezone: input.timezone || "Asia/Taipei",
   };
   const documentHash = await hashCanonical(canonicalDocument);
   const pdf = await createSignedAgreementPdf({
@@ -108,9 +110,13 @@ export async function buildSignedAgreement(input) {
   const evidence = {
     ...canonicalDocument,
     public_id: input.publicId,
+    contract_snapshot: input.contract.content_html,
     pdf_hash: pdf.pdfHash,
     ip: input.ip || null,
     user_agent: input.userAgent || null,
+    device_metadata: input.deviceMetadata || null,
+    final_confirmed_at: input.finalConfirmedAt || signedAt,
+    submitted_at: input.submittedAt || signedAt,
     session_evidence: input.sessionEvidence || null,
     invite_evidence: input.inviteEvidence || null,
     signature_point_count: signature.pointCount,
