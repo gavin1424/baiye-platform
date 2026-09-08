@@ -1,4 +1,4 @@
-# 創百業商家出單 App Android v1
+# 點餐靈 Android App（創百業智慧餐飲管理系統）
 
 ## Architecture
 

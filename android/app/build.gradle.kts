@@ -11,8 +11,8 @@ android {
         applicationId = "com.baiye.merchantprinter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "2.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"https://chuang-baiye-ai.baiye-platform.workers.dev\"")
         buildConfigField("String", "MERCHANT_AUTH_ORIGIN", "\"https://baiyeconnect.com\"")
@@ -37,6 +37,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.1")
     implementation("androidx.work:work-runtime-ktx:2.10.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.zxing:core:3.5.3")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.06.01"))

@@ -33,3 +33,4 @@ AGENTS.md
 android/.gradle/
 android/local.properties
 android/app/build/
+artifacts/*.apk

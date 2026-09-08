@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import java.util.UUID
 
-class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "baiye_printer_v1.db", null, 1) {
+class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "baiye_printer_v1.db", null, 2) {
     val applicationContext: Context = context.applicationContext
     private val preferences = context.getSharedPreferences("baiye_session_v1", Context.MODE_PRIVATE)
 
@@ -15,8 +15,16 @@ class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext
         db.execSQL("""CREATE TABLE local_print_jobs(id TEXT PRIMARY KEY,order_code TEXT NOT NULL,printer_id TEXT NOT NULL,status TEXT NOT NULL,copies INTEGER NOT NULL,attempt_count INTEGER NOT NULL,payload_json TEXT NOT NULL,claim_token TEXT NOT NULL,local_state TEXT NOT NULL,delivery_outcome TEXT NOT NULL,last_error TEXT NOT NULL,updated_at INTEGER NOT NULL,claim_request_id TEXT NOT NULL)""")
         db.execSQL("""CREATE TABLE local_print_attempts(id INTEGER PRIMARY KEY AUTOINCREMENT,job_id TEXT NOT NULL,state TEXT NOT NULL,detail TEXT NOT NULL,created_at INTEGER NOT NULL)""")
         db.execSQL("CREATE INDEX idx_local_jobs_state ON local_print_jobs(local_state,updated_at)")
+        createOperationsTables(db)
     }
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) { if (oldVersion < 2) createOperationsTables(db) }
+
+    private fun createOperationsTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS app_cache(cache_key TEXT PRIMARY KEY,payload_json TEXT NOT NULL,updated_at INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS pending_mutations(id TEXT PRIMARY KEY,method TEXT NOT NULL,path TEXT NOT NULL,body_json TEXT NOT NULL,idempotency_key TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',last_error TEXT NOT NULL DEFAULT '',created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS notified_orders(order_code TEXT PRIMARY KEY,notified_at INTEGER NOT NULL)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_pending_mutations ON pending_mutations(state,created_at)")
+    }
 
     fun deviceId(): String {
         var value = preferences.getString("device_id", null)
@@ -31,6 +39,24 @@ class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext
     fun clearSession() = preferences.edit().remove("cookie").remove("csrf").remove("merchant_id").remove("merchant_name").apply()
     fun setLastSync(epochMs: Long) = preferences.edit().putLong("last_sync", epochMs).apply()
     fun lastSync() = preferences.getLong("last_sync", 0)
+    fun cache(key: String, json: String) = writableDatabase.insertWithOnConflict("app_cache", null, ContentValues().apply { put("cache_key", key); put("payload_json", json); put("updated_at", System.currentTimeMillis()) }, SQLiteDatabase.CONFLICT_REPLACE)
+    fun cached(key: String): String? = readableDatabase.rawQuery("SELECT payload_json FROM app_cache WHERE cache_key=?", arrayOf(key)).use { if (it.moveToFirst()) it.getString(0) else null }
+    fun onboardingDone() = preferences.getBoolean("onboarding_done", false)
+    fun setOnboardingDone(done: Boolean = true) = preferences.edit().putBoolean("onboarding_done", done).apply()
+    fun demoMode() = preferences.getBoolean("demo_mode", false)
+    fun setDemoMode(enabled: Boolean) = preferences.edit().putBoolean("demo_mode", enabled).apply()
+
+    data class PendingMutation(val id: String, val method: String, val path: String, val body: String, val key: String)
+    fun enqueueMutation(method: String, path: String, body: String, key: String): String {
+        val id = key.ifBlank { UUID.randomUUID().toString() }
+        writableDatabase.insertWithOnConflict("pending_mutations", null, ContentValues().apply { put("id", id); put("method", method); put("path", path); put("body_json", body); put("idempotency_key", key); put("state", "pending"); put("created_at", System.currentTimeMillis()); put("updated_at", System.currentTimeMillis()) }, SQLiteDatabase.CONFLICT_IGNORE)
+        return id
+    }
+    fun pendingMutations(): List<PendingMutation> = readableDatabase.rawQuery("SELECT id,method,path,body_json,idempotency_key FROM pending_mutations WHERE state='pending' ORDER BY created_at", null).use { cursor -> buildList { while(cursor.moveToNext()) add(PendingMutation(cursor.getString(0),cursor.getString(1),cursor.getString(2),cursor.getString(3),cursor.getString(4))) } }
+    fun mutationSynced(id: String) = writableDatabase.delete("pending_mutations", "id=?", arrayOf(id))
+    fun mutationFailed(id: String, error: String) = writableDatabase.update("pending_mutations", ContentValues().apply { put("last_error", error.take(300)); put("updated_at", System.currentTimeMillis()) }, "id=?", arrayOf(id))
+    fun pendingCount(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM pending_mutations WHERE state='pending'", null).use { it.moveToFirst(); it.getInt(0) }
+    fun markNotified(orderCode: String): Boolean = writableDatabase.insertWithOnConflict("notified_orders", null, ContentValues().apply { put("order_code",orderCode); put("notified_at",System.currentTimeMillis()) }, SQLiteDatabase.CONFLICT_IGNORE) != -1L
 
     fun savePrinter(config: PrinterConfig) {
         writableDatabase.insertWithOnConflict("printer_config", null, ContentValues().apply {

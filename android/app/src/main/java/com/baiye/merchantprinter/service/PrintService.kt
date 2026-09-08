@@ -13,6 +13,7 @@ import com.baiye.merchantprinter.printer.LanEscPosPrinter
 import com.baiye.merchantprinter.printer.PrinterIoException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import org.json.JSONObject
 
 class PrintService : Service() {
     private val executor = Executors.newSingleThreadScheduledExecutor()
@@ -32,11 +33,13 @@ class PrintService : Service() {
         if (syncing || !store.hasSession()) return
         syncing = true
         try {
+            api.syncPending()
             val printer = store.printer() ?: return
             updateNotification("${printer.name} • ${if (printer.autoPrint) "自動出單 ON" else "自動出單 OFF"}")
             recover(printer)
             if (!printer.autoPrint || !printer.enabled) return
             api.pendingJobs().forEach { discovered ->
+                notifyNewOrder(discovered)
                 if (store.jobsIn(LocalJobState.PRINTED_ACKED, LocalJobState.AMBIGUOUS).none { it.id == discovered.id }) {
                     val requestId = "claim-${java.util.UUID.randomUUID()}"
                     store.saveJob(discovered.copy(claimRequestId = requestId))
@@ -48,6 +51,17 @@ class PrintService : Service() {
             store.setLastSync(System.currentTimeMillis())
         } catch (_: Exception) { /* transient backend failures are retried by the next bounded poll */ }
         finally { syncing = false }
+    }
+
+    private fun notifyNewOrder(job: PrintJob) {
+        if (!store.markNotified(job.orderCode)) return
+        val payload = runCatching { JSONObject(job.payloadJson) }.getOrNull()
+        val table = payload?.optString("table_label").orEmpty().ifBlank { "外帶" }
+        val total = (payload?.optInt("total_minor") ?: 0) / 100
+        val intent = PendingIntent.getActivity(this, job.orderCode.hashCode(), Intent(this, MainActivity::class.java).putExtra("order_code", job.orderCode), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val message = "$table 新訂單 NT$ $total"
+        val notification = NotificationCompat.Builder(this, ORDER_CHANNEL_ID).setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("點餐靈・新訂單").setContentText(message).setAutoCancel(true).setContentIntent(intent).setPriority(NotificationCompat.PRIORITY_HIGH).setDefaults(NotificationCompat.DEFAULT_ALL).build()
+        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(job.orderCode.hashCode(), notification)
     }
 
     private fun recover(printer: PrinterConfig) {
@@ -86,15 +100,15 @@ class PrintService : Service() {
         }
     }
 
-    private fun createChannel() { (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(NotificationChannel(CHANNEL_ID, "創百業出單服務", NotificationManager.IMPORTANCE_LOW)) }
+    private fun createChannel() { (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).apply { createNotificationChannel(NotificationChannel(CHANNEL_ID, "點餐靈營運服務", NotificationManager.IMPORTANCE_LOW)); createNotificationChannel(NotificationChannel(ORDER_CHANNEL_ID, "點餐靈新訂單", NotificationManager.IMPORTANCE_HIGH).apply { enableVibration(true) }) } }
     private fun notification(text: String): Notification {
         val intent = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        return NotificationCompat.Builder(this, CHANNEL_ID).setSmallIcon(android.R.drawable.stat_notify_sync).setContentTitle("創百業出單服務運作中").setContentText("${store.merchantName().ifBlank { "百工牛肉麵" }} • $text").setOngoing(true).setContentIntent(intent).build()
+        return NotificationCompat.Builder(this, CHANNEL_ID).setSmallIcon(android.R.drawable.stat_notify_sync).setContentTitle("點餐靈營運服務運作中").setContentText("${store.merchantName().ifBlank { "商家" }} • $text").setOngoing(true).setContentIntent(intent).build()
     }
     private fun updateNotification(text: String) { (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification(text)) }
 
     companion object {
-        private const val CHANNEL_ID = "baiye_print_service_v1"; private const val NOTIFICATION_ID = 1602
+        private const val CHANNEL_ID = "baiye_print_service_v1"; private const val ORDER_CHANNEL_ID = "baiye_new_orders_v1"; private const val NOTIFICATION_ID = 1602
         fun start(context: Context) { context.startForegroundService(Intent(context, PrintService::class.java)) }
     }
 }

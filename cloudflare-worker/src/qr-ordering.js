@@ -133,6 +133,10 @@ function publicOrder(row, items = []) {
     subtotal_minor: Number(row.subtotal_minor),
     total_minor: Number(row.total_minor),
     customer_note: row.customer_note || "",
+    source: row.order_source || row.source || "QR",
+    scheduled_for: row.scheduled_for || "",
+    pickup_number: row.pickup_number || "",
+    fulfillment_status: row.fulfillment_status || "immediate",
     created_at: row.created_at,
     updated_at: row.updated_at,
     items: items.map((item) => ({
@@ -873,10 +877,11 @@ async function adminOverview(db, merchantId) {
     db.prepare(`SELECT * FROM merchant_menu_item_option_groups WHERE merchant_id=? ORDER BY sort_order`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_dining_sessions WHERE merchant_id=? ORDER BY datetime(opened_at) DESC LIMIT 200`).bind(merchantId).all(),
     db.prepare(`
-      SELECT o.*,c.display_name customer_name,c.phone_normalized
+      SELECT o.*,c.display_name customer_name,c.phone_normalized,f.source order_source,f.scheduled_for,f.pickup_number,f.fulfillment_status
       FROM merchant_food_orders o
       JOIN merchant_ordering_memberships m ON m.merchant_id=o.merchant_id AND m.id=o.membership_id
       JOIN ordering_customers c ON c.id=m.customer_id
+      LEFT JOIN merchant_order_fulfillment f ON f.merchant_id=o.merchant_id AND f.order_id=o.id
       WHERE o.merchant_id=? AND o.demo_reset_at IS NULL ORDER BY datetime(o.created_at) DESC LIMIT 200
     `).bind(merchantId).all(),
     db.prepare(`SELECT COUNT(*) total FROM merchant_ordering_memberships WHERE merchant_id=? AND status='active'`).bind(merchantId).first(),
@@ -962,6 +967,71 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
   try {
     if (url.pathname === "/api/admin/ordering/overview" && request.method === "GET") {
       return json({ merchant_id: merchantId, ...(await adminOverview(db, merchantId)) }, 200, cors);
+    }
+
+    if (url.pathname === "/api/admin/ordering/orders" && request.method === "POST") {
+      const input = await request.json().catch(() => ({}));
+      const idempotencyKey = clean(request.headers.get("idempotency-key") || input.idempotency_key, 120);
+      if (!idempotencyKey) return json({ error: "櫃台開單需要 Idempotency-Key。" }, 400, cors);
+      const settings = await requireSettings(db, merchantId);
+      if (!settings?.enabled) return json({ error: "點餐功能尚未啟用。" }, 409, cors);
+      const requestedType = clean(input.order_type, 20);
+      if (!["dine_in","takeaway","delivery"].includes(requestedType)) return json({ error: "請選擇內用、外帶或外送。" }, 422, cors);
+      const orderType = requestedType === "delivery" ? "takeaway" : requestedType;
+      const tableLabel = orderType === "dine_in" ? clean(input.table_label, 80) : "";
+      if (orderType === "dine_in" && !tableLabel) return json({ error: "內用訂單必須選擇桌號。" }, 422, cors);
+
+      const systemCustomerId = `counter_customer_${merchantId}`;
+      const systemMembershipId = `counter_membership_${merchantId}`;
+      const systemQrId = `counter_qr_${merchantId}`;
+      await db.batch([
+        db.prepare("INSERT OR IGNORE INTO ordering_customers(id,display_name,phone_normalized,phone_display) VALUES(?,'櫃台散客',?,?)").bind(systemCustomerId, `counter:${merchantId}`, "櫃台散客"),
+        db.prepare("INSERT OR IGNORE INTO merchant_ordering_qr_codes(id,merchant_id,code,label,purpose,active) VALUES(?,?,?,'櫃台 POS 系統入口','takeaway',0)").bind(systemQrId, merchantId, `POS_${randomCode(28)}`),
+        db.prepare("INSERT OR IGNORE INTO merchant_ordering_memberships(id,merchant_id,customer_id,membership_no,status,consent_version,consented_at) VALUES(?,?,?,?,'active','counter-pos-v1',CURRENT_TIMESTAMP)").bind(systemMembershipId, merchantId, systemCustomerId, `POS-${merchantId}`),
+      ]);
+      const replay = await db.prepare("SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id=? AND idempotency_key=? LIMIT 1").bind(merchantId, systemMembershipId, idempotencyKey).first();
+      if (replay) return json({ order: await orderWithItems(db, merchantId, systemMembershipId, replay.order_code), replayed: true }, 200, cors);
+
+      const ids = [...new Set((Array.isArray(input.items) ? input.items : []).map((item) => clean(item?.item_id, 120)).filter(Boolean))];
+      if (!ids.length) return json({ error: "請至少選擇一項餐點。" }, 422, cors);
+      const placeholders = ids.map(() => "?").join(",");
+      const [catalog, groups, values, links] = await Promise.all([
+        db.prepare(`SELECT m.* FROM merchant_menu_items m LEFT JOIN merchant_inventory_items i ON i.merchant_id=m.merchant_id AND i.menu_item_id=m.id AND i.reset_at IS NULL WHERE m.merchant_id=? AND m.id IN(${placeholders}) AND m.status='active' AND m.available=1 AND (i.id IS NULL OR i.inventory_enabled=0 OR i.stock_on_hand>0)`).bind(merchantId, ...ids).all(),
+        db.prepare("SELECT * FROM merchant_menu_option_groups WHERE merchant_id=? AND active=1 AND archived_at IS NULL").bind(merchantId).all(),
+        db.prepare("SELECT * FROM merchant_menu_option_values WHERE merchant_id=? AND active=1 AND archived_at IS NULL").bind(merchantId).all(),
+        db.prepare("SELECT * FROM merchant_menu_item_option_groups WHERE merchant_id=?").bind(merchantId).all(),
+      ]);
+      const calculation = calculateOrderLines(input.items, catalog.results || [], groups.results || [], values.results || [], links.results || []);
+      if (!calculation.ok) return json({ error: calculation.error }, 422, cors);
+
+      const orderId = uid("foodorder");
+      const code = `${clean(settings.order_number_prefix || "BY", 8).replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "BY"}-${new Date().toISOString().slice(0,10).replaceAll("-","")}-${randomCode(6).toUpperCase()}`;
+      const createdAt = new Date().toISOString();
+      let diningSessionId = null;
+      if (orderType === "dine_in" && Number(settings.table_session_enabled ?? 1) === 1) {
+        await db.prepare("INSERT OR IGNORE INTO merchant_dining_sessions(id,merchant_id,table_label,status,last_order_at) VALUES(?,?,?,'open',CURRENT_TIMESTAMP)").bind(uid("dining"), merchantId, tableLabel).run();
+        diningSessionId = (await db.prepare("SELECT id FROM merchant_dining_sessions WHERE merchant_id=? AND table_label=? AND status='open'").bind(merchantId, tableLabel).first())?.id || null;
+      }
+      const printerResult = await db.prepare("SELECT id,copies FROM printers WHERE merchant_id=? AND enabled=1").bind(merchantId).all();
+      const kitchenPayload = buildKitchenPayload({ merchantName: settings.display_name, orderCode: code, tableLabel, orderType: requestedType, paymentMethod: "counter", totalMinor: calculation.total_minor, createdAt, customerNote: clean(input.customer_note, 500), items: calculation.lines });
+      const statements = [
+        db.prepare(`INSERT INTO merchant_food_orders(id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,accepted_at) VALUES(?,?,?,?,?,?,?,'accepted','unpaid','counter','counter',?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(orderId, code, merchantId, systemMembershipId, systemQrId, tableLabel || null, orderType, calculation.subtotal_minor, calculation.total_minor, clean(input.customer_note,500) || null, idempotencyKey, diningSessionId),
+        db.prepare(`INSERT INTO merchant_order_fulfillment(merchant_id,order_id,source,scheduled_for,pickup_number,fulfillment_status,delivery_address,delivery_contact,delivery_fee_minor) VALUES(?,?,'COUNTER',?,?,?,?,?,0)`).bind(merchantId, orderId, clean(input.scheduled_for,40) || null, `A${code.slice(-4)}`, input.scheduled_for ? "scheduled" : requestedType === "delivery" ? "delivery_pending" : "immediate", requestedType === "delivery" ? clean(input.delivery_address,500) || null : null, requestedType === "delivery" ? clean(input.delivery_contact,120) || null : null),
+        ...calculation.lines.map((line) => { line.order_item_id = uid("fooditem"); return db.prepare("INSERT INTO merchant_food_order_items(id,order_id,menu_item_id,name_snapshot,unit_price_minor,quantity,line_total_minor,note,base_price_minor,option_delta_minor,unit_total_minor) VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(line.order_item_id, orderId, line.menu_item_id, line.name_snapshot, line.unit_price_minor, line.quantity, line.line_total_minor, line.note, line.base_price_minor, line.option_delta_minor, line.unit_total_minor); }),
+        ...calculation.lines.flatMap((line) => line.options.map((option) => db.prepare("INSERT INTO merchant_food_order_item_options(id,merchant_id,order_id,order_item_id,option_group_id,option_value_id,group_name_snapshot,value_name_snapshot,price_delta_minor) VALUES(?,?,?,?,?,?,?,?,?)").bind(uid("foodoption"),merchantId,orderId,line.order_item_id,option.option_group_id,option.option_value_id,option.group_name_snapshot,option.value_name_snapshot,option.price_delta_minor))),
+        ...deductionStatements(db, merchantId, orderId, calculation.lines, actorId),
+        db.prepare("INSERT INTO merchant_order_pricing(order_id,merchant_id,gross_subtotal_minor,coupon_discount_minor,payable_total_minor,merchant_funded_minor) VALUES(?,?,?,0,?,0)").bind(orderId,merchantId,calculation.subtotal_minor,calculation.total_minor),
+        db.prepare("UPDATE merchant_ordering_memberships SET order_count=order_count+1,last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?").bind(merchantId,systemMembershipId),
+        db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,'counter_order_created','order',?,?)").bind(uid("ordaudit"),merchantId,actorType,actorId,actorRole,orderId,JSON.stringify({ source:"COUNTER",requested_type:requestedType })),
+        ...(printerResult.results || []).map((printer) => db.prepare("INSERT OR IGNORE INTO print_jobs(id,merchant_id,order_id,order_code,printer_id,print_type,status,copies,payload_json,available_at,created_by,idempotency_key) VALUES(?,?,?,?,?,'kitchen','pending',?,?,CURRENT_TIMESTAMP,'counter_commit',?)").bind(uid("printjob"),merchantId,orderId,code,printer.id,Number(printer.copies||1),JSON.stringify(kitchenPayload),`${orderId}:${printer.id}:kitchen:original`)),
+      ];
+      try { await db.batch(statements); } catch (error) {
+        const duplicate = await db.prepare("SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id=? AND idempotency_key=? LIMIT 1").bind(merchantId,systemMembershipId,idempotencyKey).first();
+        if (duplicate) return json({ order: await orderWithItems(db,merchantId,systemMembershipId,duplicate.order_code), replayed:true },200,cors);
+        if (String(error).includes("ORDERING_DAILY_LIMIT_REACHED")) return json({ error:"部分餐點今日限量已售完，請重新確認。" },409,cors);
+        throw error;
+      }
+      return json({ order: await orderWithItems(db,merchantId,systemMembershipId,code), replayed:false },201,cors);
     }
 
     if (url.pathname === "/api/admin/ordering/settings" && request.method === "PATCH") {
