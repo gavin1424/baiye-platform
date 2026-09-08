@@ -6,10 +6,8 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 
 
-def repository_codepoints(root: Path, baseline: Path) -> set[int]:
-    baseline_font = TTFont(baseline)
-    codepoints = set(baseline_font.getBestCmap())
-    baseline_font.close()
+def contract_corpus_codepoints(root: Path) -> set[int]:
+    codepoints: set[int] = set()
     required = "創百業智慧鏈商家服務合作契約承攬夥伴合作契約智慧商務智慧點餐免 POS三個月試用正式服務保證金抵約契約簽署法定姓名簽署時間電子簽名文件驗證資訊葉耀仁陳靈有限公司～"
     codepoints.update(map(ord, required))
     for directory in (root / "cloudflare-worker" / "migrations", root / "cloudflare-worker" / "src"):
@@ -17,6 +15,13 @@ def repository_codepoints(root: Path, baseline: Path) -> set[int]:
             if path.suffix.lower() not in {".sql", ".js", ".json", ".html"}:
                 continue
             codepoints.update(map(ord, path.read_text(encoding="utf-8", errors="ignore")))
+    return codepoints
+
+
+def baseline_codepoints(path: Path) -> set[int]:
+    font = TTFont(path)
+    codepoints = set(font.getBestCmap())
+    font.close()
     return codepoints
 
 
@@ -42,6 +47,11 @@ if __name__ == "__main__":
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     args = parser.parse_args()
     fixtures = args.root / "cloudflare-worker" / "tests" / "fixtures"
-    codepoints = repository_codepoints(args.root, fixtures / "NotoSansTC-Regular.subset.ttf")
-    build(args.source, fixtures / "NotoSansTC-Regular.subset.ttf", 400, codepoints)
-    build(args.source, fixtures / "NotoSansTC-Bold.subset.ttf", 700, codepoints)
+    corpus = contract_corpus_codepoints(args.root)
+    # Signatory names and other user-entered Traditional Chinese are rendered in
+    # Regular. Keep the proven broad Taiwan glyph repertoire for that face.
+    regular = baseline_codepoints(fixtures / "NotoSansTC-Regular.subset.ttf") | corpus
+    # Bold is only used for fixed contract titles/headings/labels, so its static,
+    # build-time corpus can remain compact without runtime glyph collection.
+    build(args.source, fixtures / "NotoSansTC-Regular.subset.ttf", 400, regular)
+    build(args.source, fixtures / "NotoSansTC-Bold.subset.ttf", 700, corpus)

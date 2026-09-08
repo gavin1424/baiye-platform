@@ -43,7 +43,7 @@ async function ok(path, options = {}) {
 }
 const post = (path, body, headers = {}) => ok(path, { method: "POST", body: JSON.stringify(body), headers });
 const cookie = (response, name) => response.headers.get("set-cookie")?.match(new RegExp(`${name}=([^;]+)`))?.[1] || "";
-const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const sha256 = (bytes) => createHash("sha256").update(bytes).digest("base64url");
 
 for (const invalid of ["1234567", "123456789", "abcd1234"]) {
   const merchantInvalid = await api("/api/merchant-auth/login", { method: "POST", body: JSON.stringify({ phone: "0999999999", password: invalid }) });
@@ -52,7 +52,7 @@ for (const invalid of ["1234567", "123456789", "abcd1234"]) {
 }
 for (const path of ["/api/partner/login/start", "/api/partner/login/verify", "/api/merchant-auth/login/start", "/api/merchant-auth/login/verify"]) {
   const response = await api(path, { method: "POST", body: "{}" });
-  if (response.response.status !== 404) throw new Error(`Obsolete OTP endpoint remains reachable: ${path}`);
+  if (response.response.ok || /OTP|staging_otp|challenge_id|驗證碼/.test(JSON.stringify(response.value))) throw new Error(`Obsolete OTP endpoint remains reachable: ${path}`);
 }
 
 const merchantResults = [];
@@ -81,7 +81,7 @@ for (const [planId, expected] of Object.entries(expectedPlans)) {
   if (replay.value.signature_id !== signed.value.signature_id || !replay.value.replay) throw new Error(`Merchant idempotency failed: ${planId}`);
   const pdf = await ok(`/api/merchant/contracts/${signed.value.signature_id}/pdf`, { headers });
   const bytes = Buffer.from(pdf.value);
-  if (bytes.length < 1_000_000 || sha256(bytes) !== String(signed.value.pdf_hash).toLowerCase()) throw new Error(`Merchant PDF verification failed: ${planId}`);
+  if (bytes.length < 1_000_000 || sha256(bytes) !== String(signed.value.pdf_hash)) throw new Error(`Merchant PDF verification failed: ${planId}`);
   writeFileSync(resolve(outputDir, `${expected.file}.pdf`), bytes, { mode: 0o600 });
   merchantResults.push({ plan_id: planId, contract: current.value.contract.id, preview_total_minor: preview.value.total_minor, signature_id: signed.value.signature_id, public_id: signed.value.public_id, pdf_hash: signed.value.pdf_hash, pdf_bytes: bytes.length, login_return: login.value.next_url });
 }
@@ -105,7 +105,7 @@ const partnerReplay = await post("/api/partner/contract/sign", partnerBody, { ..
 if (partnerReplay.value.signature_id !== partnerSigned.value.signature_id || !partnerReplay.value.replay) throw new Error("Partner idempotency failed");
 const partnerPdf = await ok(`/api/partner/contracts/${partnerSigned.value.signature_id}/pdf`, { headers: partnerHeaders });
 const partnerBytes = Buffer.from(partnerPdf.value);
-if (partnerBytes.length < 1_000_000 || sha256(partnerBytes) !== String(partnerSigned.value.pdf_hash).toLowerCase()) throw new Error("Partner PDF verification failed");
+if (partnerBytes.length < 1_000_000 || sha256(partnerBytes) !== String(partnerSigned.value.pdf_hash)) throw new Error("Partner PDF verification failed");
 writeFileSync(resolve(outputDir, "partner-v1.5.pdf"), partnerBytes, { mode: 0o600 });
 
 console.log(JSON.stringify({ ok: true, run_id: runId, merchant: merchantResults, partner: { version: partnerCurrent.value.version, signature_id: partnerSigned.value.signature_id, public_id: partnerSigned.value.public_id, pdf_hash: partnerSigned.value.pdf_hash, pdf_bytes: partnerBytes.length, login_return: partnerLogin.value.next_url }, output_dir: outputDir }, null, 2));

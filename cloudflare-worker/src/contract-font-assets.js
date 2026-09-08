@@ -1,8 +1,8 @@
-const REGULAR_KEY = "contract-assets/fonts/NotoSansTC-Regular-Static.ttf";
-const BOLD_KEY = "contract-assets/fonts/NotoSansTC-Bold-Static.ttf";
+const REGULAR_KEY = "contract-assets/fonts/NotoSansTC-Regular-Static-v2.ttf";
+const BOLD_KEY = "contract-assets/fonts/NotoSansTC-Bold-ContractCorpus-v2.ttf";
 const MONO_KEY = "contract-assets/fonts/NotoSansMono-Regular.ttf";
-const REGULAR_SHA256 = "d7e23312fdafbd22e3a10fd4d8b482e68b92bdff2fb7bc109e5d79e88dcb2c5b";
-const BOLD_SHA256 = "ab1620703d43d5f66c24f24a7345728bef3037de968c2fef087d95b49312cc87";
+const REGULAR_SHA256 = "23b6963461eb279faa8f8b215f300be725efb3d729928b85034ba95680d6f93c";
+const BOLD_SHA256 = "fcfb737e1c28799fd2e81210d29bc45ebe494a2427743f7888d876242f972451";
 const MONO_SHA256 = "b4563af6f013732c8f40d206a05ff2ffc4eaeac0020d39393e59d0cf8a3ffeed";
 
 let cachedContractFontAssets;
@@ -38,9 +38,9 @@ export async function loadContractFontAssets(bucket) {
   if (regularSha256 !== REGULAR_SHA256 || boldSha256 !== BOLD_SHA256 || monoSha256 !== MONO_SHA256) {
     throw new Error("CONTRACT_FONT_ASSET_INTEGRITY_MISMATCH");
   }
-  // These immutable R2 assets already contain the complete Traditional Chinese
-  // glyph collection approved for contracts. Dynamic re-subsetting is disabled:
-  // complete legal text takes priority over artifact size.
+  // Immutable Regular contains the broad Taiwan signatory-name repertoire; the
+  // real Bold face contains every fixed contract title/heading/label collected
+  // at build time. Runtime glyph collection and per-document subsetting stay off.
   cachedContractFontAssets = { regularBytes, boldBytes, monoBytes, regularSha256, boldSha256, monoSha256, subsetSafe: false };
   return cachedContractFontAssets;
 }
