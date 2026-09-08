@@ -6,7 +6,7 @@ const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "
 
 test("unified join center exposes only the five public choices plus two logins", () => {
   const join = read("src/pages/JoinPages.tsx");
-  for (const label of ["商家免費註冊", "承攬夥伴簽約", "選擇 NT$18,000 方案", "選擇 NT$45,000 商城", "申請免 POS 機方案"]) assert.match(join, new RegExp(label.replaceAll("$", "\\$")));
+  for (const label of ["商家免費註冊", "承攬夥伴簽約", "方案簽署合約", "baiye_standard_18000_addons", "baiye_commerce_ai_45000", "baiye_softpos_24000"]) assert.match(join, new RegExp(label.replaceAll("$", "\\$")));
   for (const route of ["/partner/apply", "/merchant/register", "/partner/login", "/merchant/login"]) assert.match(join, new RegExp(route.replaceAll("/", "\\/")));
   assert.doesNotMatch(join, /to="\/merchant\/contract"|contract-18|contract-45|contract-pos/);
 });

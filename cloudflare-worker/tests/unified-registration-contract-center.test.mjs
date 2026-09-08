@@ -102,7 +102,8 @@ test("UNIFIED-07 historical evidence tables and legacy versions remain present",
 
 test("UNIFIED-08 UI has one join center, selector and no split merchant contract routes", () => {
   const app=readFileSync(new URL("../../src/App.tsx",import.meta.url),"utf8"),join=readFileSync(new URL("../../src/pages/JoinPages.tsx",import.meta.url),"utf8");
-  for(const phrase of ["加入創百業智慧鏈","商家免費註冊","承攬夥伴簽約","前 3 個月免費","選擇 NT\\$18,000 方案","選擇 NT\\$45,000 商城","申請免 POS 機方案"])assert.match(join,new RegExp(phrase));
+  for(const phrase of ["加入創百業智慧鏈","商家免費註冊","承攬夥伴簽約","前 3 個月免費","方案簽署合約"])assert.match(join,new RegExp(phrase));
+  assert.doesNotMatch(join,/QR Ordering Core/);
   assert.match(app,/path="\/join" element={<JoinPage/);assert.match(app,/path="\/merchant\/contract"/);assert.doesNotMatch(app,/contract-(?:18|45|pos)/);
 });
 

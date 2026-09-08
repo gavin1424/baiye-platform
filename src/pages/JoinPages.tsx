@@ -33,7 +33,7 @@ function PlanCard({ plan, onChoose, busy }: { plan: Plan; onChoose: (plan: Plan)
     ? "適合需要品牌官網、LINE、AI 客服、會員、預約及基本數位營運服務的商家。"
     : plan.plan_id === "baiye_commerce_ai_45000"
       ? "完整商城＋AI＋商品管理後台＋購物車＋訂單管理＋標準金流串接能力。"
-      : "免專用 POS 主機，沿用既有 QR Ordering Core 管理菜單、點餐、KDS 與訂單。";
+      : "免專用 POS 主機，以 QR 掃碼點餐管理菜單、點餐、出餐看板與訂單。";
   return <article className={`join-plan-card ${softpos ? "join-plan-softpos" : ""}`}>
     <span className="join-plan-tag">{softpos ? "前 3 個月免費" : plan.tagline}</span>
     <h2>{plan.name}</h2>
@@ -51,8 +51,8 @@ function PlanCard({ plan, onChoose, busy }: { plan: Plan; onChoose: (plan: Plan)
       <div><dt>平均概念</dt><dd>NT$1,000／月</dd></div>
     </dl>}
     <p className="join-installment-note">可申請信用卡 24 期零利率。實際分期方案仍依合作銀行／金流服務商審核及實際提供條件為準。</p>
-    <button className="btn btn-primary" type="button" disabled={busy} onClick={() => onChoose(plan)}>
-      {plan.plan_id === "baiye_standard_18000_addons" ? "選擇 NT$18,000 方案" : plan.plan_id === "baiye_commerce_ai_45000" ? "選擇 NT$45,000 商城" : "申請免 POS 機方案"}
+    <button className="btn btn-primary" type="button" aria-label={`${plan.name}：方案簽署合約`} disabled={busy} onClick={() => onChoose(plan)}>
+      方案簽署合約
     </button>
   </article>;
 }
