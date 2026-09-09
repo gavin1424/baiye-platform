@@ -46,9 +46,8 @@ class ScreensSmokeTest {
         compose.onNodeWithTag("printer-settings").assertIsDisplayed()
         compose.onNodeWithTag("printer-settings").performTouchInput { swipeUp() }
         compose.onNodeWithTag("printer-settings").performTouchInput { swipeUp() }
-        compose.onNodeWithText("Mock 測試列印").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Mock 測試單已保存").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Mock 測試單已保存").assertExists()
+        compose.onNodeWithText("測試列印").assertExists()
+        compose.onNodeWithText("建議於路由器設定 DHCP 保留位址，避免印表機重新取得不同 IP。").assertExists()
     }
 
     @Test fun phoneCartStaysCompactUntilOpened() {

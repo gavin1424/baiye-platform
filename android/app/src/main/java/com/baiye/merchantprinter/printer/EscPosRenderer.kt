@@ -62,10 +62,10 @@ class EscPosRenderer(private val mode: ChineseRenderMode = ChineseRenderMode.BIT
         return raster(listOf(
             Line("==============================", 25f, Paint.Align.CENTER, true),
             Line("點餐靈", 42f, Paint.Align.CENTER, true),
-            Line("創百業智慧餐飲管理系統", 28f, Paint.Align.CENTER, true),
+            Line("百工牛肉麵", 38f, Paint.Align.CENTER, true),
             Line("==============================", 25f, Paint.Align.CENTER, true),
             Line("", 24f), Line("Xprinter XP-N160II", 30f, Paint.Align.CENTER, true),
-            Line("連線測試成功", 34f, Paint.Align.CENTER, true), Line("", 24f),
+            Line("測試列印成功", 34f, Paint.Align.CENTER, true), Line("", 24f),
             Line("時間：", 28f), Line(SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.TAIWAN).format(now), 28f),
             Line("==============================", 25f, Paint.Align.CENTER, true), Line("", 24f), Line("", 24f),
         ))
