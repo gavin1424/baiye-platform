@@ -30,11 +30,13 @@ test("customer UI exposes a general order entry, join and login without camera U
   const storefront = readFileSync(new URL("../src/pages/BeefNoodleDemoPage.tsx", import.meta.url), "utf8");
   assert.match(app, /path="\/scan" element=\{<GeneralOrderingEntryPage \/>\}/);
   for (const copy of ["百工牛肉麵", "手機點餐", "開始點餐", "不用下載 App"]) assert.match(entry, new RegExp(copy));
-  assert.match(entry, /\/q\/\$\{GENERAL_ORDERING_CODE\}/);
+  assert.match(entry, /GENERAL_ORDERING_URL/);
+  assert.match(entry, /baiye-beef-noodle-demo\.pages\.dev/);
   assert.doesNotMatch(entry, /BarcodeDetector|@zxing\/browser|getUserMedia|相機|Camera Preview|<video/);
   for (const copy of ["新會員加入", "已有會員登入", "會員登入並開始點餐", "已進入線上點餐", "已掃描此桌 QR Code"]) assert.match(qr, new RegExp(copy));
-  assert.doesNotMatch(storefront, /to=\{`\/q\/\$\{A1_CODE\}`\}/);
-  assert.ok((storefront.match(/to="\/scan"/g) || []).length >= 4);
+  assert.match(storefront, /GENERAL_ORDERING_PATH/);
+  assert.equal((storefront.match(/to=\{GENERAL_ORDERING_PATH\}/g) || []).length, 5);
+  assert.doesNotMatch(storefront, /to="\/scan"/);
   assert.doesNotMatch(`${qr}\n${entry}`, /Provider 尚未啟用|手機或 LINE 身分驗證|Platform Member canonical identity/);
 });
 
