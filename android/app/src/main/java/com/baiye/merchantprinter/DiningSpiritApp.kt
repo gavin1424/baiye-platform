@@ -61,7 +61,6 @@ import com.baiye.merchantprinter.network.MerchantSelectionRequired
 import com.baiye.merchantprinter.network.ApiException
 import com.baiye.merchantprinter.printer.EscPosRenderer
 import com.baiye.merchantprinter.printer.LanEscPosPrinter
-import com.baiye.merchantprinter.printer.MockPrinter
 import com.baiye.merchantprinter.service.PrintService
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
@@ -728,7 +727,118 @@ private fun ReportProductRow(rank: Int, product: JSONObject) {
 
 @Composable private fun StoreScreen(o:JSONObject,api:MerchantApi,refresh:()->Unit){val s=o.obj("settings");var accepting by remember{mutableStateOf(s.bool("accepting_orders"))};var auto by remember{mutableStateOf(s.bool("auto_accept_orders"))};var dine by remember{mutableStateOf(s.bool("dine_in_enabled",true))};var take by remember{mutableStateOf(s.bool("takeaway_enabled",true))};var prep by remember{mutableStateOf(s.int("estimated_prep_minutes").coerceAtLeast(15).toString())};var message by remember{mutableStateOf("")};val scope=rememberCoroutineScope();LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){item{Text("店舖設定",fontSize=28.sp,fontWeight=FontWeight.Bold)};item{SettingSwitch("營業中 / 接受新訂單",accepting){accepting=it}};item{SettingSwitch("自動接單",auto){auto=it}};item{SettingSwitch("內用",dine){dine=it}};item{SettingSwitch("外帶",take){take=it}};item{OutlinedTextField(prep,{prep=it.filter(Char::isDigit)},label={Text("預估備餐分鐘")})};item{Button({scope.launch{try{withContext(Dispatchers.IO){api.saveOrderingSettings(JSONObject().put("accepting_orders",accepting).put("auto_accept_orders",auto).put("dine_in_enabled",dine).put("takeaway_enabled",take).put("estimated_prep_minutes",prep.toIntOrNull()?:15))};message="設定已儲存";refresh()}catch(e:Exception){message=e.message.orEmpty()}}},Modifier.fillMaxWidth().heightIn(min=50.dp)){Text("儲存")};if(message.isNotBlank())Text(message)}}}
 
-@Composable private fun PrinterScreen(store:LocalStore,api:MerchantApi){val current=store.printer();var name by remember{mutableStateOf(current?.name?:"XP-N160II Kitchen")};var host by remember{mutableStateOf(current?.host?:"")};var port by remember{mutableStateOf((current?.port?:9100).toString())};var auto by remember{mutableStateOf(current?.autoPrint?:false)};var copies by remember{mutableIntStateOf(current?.copies?:1)};var message by remember{mutableStateOf("")};val context=LocalContext.current;val scope=rememberCoroutineScope();val config={PrinterConfig(current?.id?:"local-primary",name,"Xprinter XP-N160II",host,port.toIntOrNull()?:9100,80,true,auto,copies)};LazyColumn(Modifier.fillMaxSize().padding(16.dp).testTag("printer-settings"),verticalArrangement=Arrangement.spacedBy(10.dp)){item{Text("印表機",fontSize=28.sp,fontWeight=FontWeight.Bold);Text("Xprinter XP-N160II・LAN・80mm")};item{OutlinedTextField(name,{name=it},label={Text("名稱")},modifier=Modifier.fillMaxWidth());OutlinedTextField(host,{host=it},label={Text("IP Address")},modifier=Modifier.fillMaxWidth());OutlinedTextField(port,{port=it.filter(Char::isDigit)},label={Text("Port（可修改）")},modifier=Modifier.fillMaxWidth())};item{SettingSwitch("自動出單",auto){auto=it};Row(verticalAlignment=Alignment.CenterVertically){Text("份數 $copies");Slider(copies.toFloat(),{copies=it.toInt().coerceIn(1,5)},valueRange=1f..5f,steps=3)}};item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton({scope.launch{message=runCatching{withContext(Dispatchers.IO){LanEscPosPrinter().test(config())};"Network reachable"}.getOrElse{"無法連線：${it.message}"}}}){Text("測試連線")};OutlinedButton({scope.launch{message=runCatching{withContext(Dispatchers.IO){MockPrinter(context).print(config(),EscPosRenderer().testReceipt())};"Mock 測試單已保存"}.getOrElse{it.message.orEmpty()}}}){Text("Mock 測試列印")}};Button({scope.launch{try{val saved=withContext(Dispatchers.IO){api.savePrinter(config())};store.savePrinter(saved);if(saved.autoPrint)PrintService.start(context);message="已儲存"}catch(e:Exception){message=e.message.orEmpty()}}},Modifier.fillMaxWidth()){Text("儲存")};Text(message)}}}
+@Composable
+private fun PrinterScreen(store: LocalStore, api: MerchantApi) {
+    val current = store.printer()
+    var name by remember { mutableStateOf(current?.name ?: "百工牛肉麵出單機") }
+    var host by remember { mutableStateOf(current?.host ?: "") }
+    var port by remember { mutableStateOf((current?.port ?: 9100).toString()) }
+    var auto by remember { mutableStateOf(current?.autoPrint ?: false) }
+    var copies by remember { mutableIntStateOf(current?.copies ?: 1) }
+    var message by remember { mutableStateOf("") }
+    var testReceiptWritten by remember { mutableStateOf(false) }
+    var physicalTestConfirmed by remember { mutableStateOf(current?.autoPrint == true) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val resetTestGate = {
+        testReceiptWritten = false
+        physicalTestConfirmed = false
+        if (current?.autoPrint != true) auto = false
+    }
+    val config = {
+        PrinterConfig(
+            current?.id ?: "local-primary",
+            name,
+            "Xprinter XP-N160II",
+            host,
+            port.toIntOrNull() ?: 9100,
+            80,
+            true,
+            auto,
+            copies,
+        )
+    }
+    LazyColumn(
+        Modifier.fillMaxSize().padding(16.dp).testTag("printer-settings"),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Text("印表機", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text("Xprinter XP-N160II・LAN・80mm")
+        }
+        item {
+            OutlinedTextField(name, { name = it }, label = { Text("名稱") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(host, { host = it; resetTestGate() }, label = { Text("IP Address") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(port, { port = it.filter(Char::isDigit); resetTestGate() }, label = { Text("Port（可修改）") }, modifier = Modifier.fillMaxWidth())
+            Text(
+                "建議於路由器設定 DHCP 保留位址，避免印表機重新取得不同 IP。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
+            SettingSwitch("自動出單", auto) { requested ->
+                if (!requested) auto = false
+                else if (physicalTestConfirmed) auto = true
+                else message = "請先完成測試列印，並確認實體紙本的繁體中文、80mm 排版與切紙。"
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("份數 $copies")
+                Slider(copies.toFloat(), { copies = it.toInt().coerceIn(1, 5) }, valueRange = 1f..5f, steps = 3)
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton({
+                    scope.launch {
+                        message = runCatching {
+                            withContext(Dispatchers.IO) { LanEscPosPrinter().test(config()) }
+                            "TCP ${config().host}:${config().port} 連線成功"
+                        }.getOrElse { "無法連線：${it.message}" }
+                    }
+                }) { Text("測試連線") }
+                OutlinedButton({
+                    scope.launch {
+                        message = runCatching {
+                            withContext(Dispatchers.IO) {
+                                LanEscPosPrinter().print(config(), EscPosRenderer().testReceipt())
+                            }
+                            testReceiptWritten = true
+                            physicalTestConfirmed = false
+                            "測試單已傳送，請確認實體紙本與切紙。"
+                        }.getOrElse {
+                            testReceiptWritten = false
+                            physicalTestConfirmed = false
+                            "測試列印失敗：${it.message}"
+                        }
+                    }
+                }) { Text("測試列印") }
+            }
+            if (testReceiptWritten) {
+                OutlinedButton({
+                    physicalTestConfirmed = true
+                    message = "已確認實體測試單；現在可以開啟自動出單。"
+                }, Modifier.fillMaxWidth()) { Text("確認測試單已正確吐紙與切紙") }
+            }
+            Button({
+                scope.launch {
+                    try {
+                        if (auto && !physicalTestConfirmed) {
+                            message = "尚未確認實體測試單，無法開啟自動出單。"
+                            return@launch
+                        }
+                        val saved = withContext(Dispatchers.IO) { api.savePrinter(config()) }
+                        store.savePrinter(saved)
+                        if (saved.autoPrint) PrintService.start(context)
+                        message = "已儲存"
+                    } catch (e: Exception) {
+                        message = e.message.orEmpty()
+                    }
+                }
+            }, Modifier.fillMaxWidth()) { Text("儲存") }
+            Text(message)
+        }
+    }
+}
 
 @Composable private fun PromotionsScreen(api:MerchantApi){var payload by remember{mutableStateOf(JSONObject())};var error by remember{mutableStateOf("")};LaunchedEffect(Unit){try{payload=withContext(Dispatchers.IO){api.promotions()}}catch(e:Exception){error=e.message.orEmpty()}};LazyColumn(Modifier.fillMaxSize().padding(16.dp)){item{Text("優惠與折扣",fontSize=28.sp,fontWeight=FontWeight.Bold);Text("價格由伺服器重新計算，App 不自行決定折扣。")};items(payload.array("campaigns")){p->ListItem(headlineContent={Text(p.text("name"))},supportingContent={Text(p.text("status"))})};item{Text("滿件折、百分比、買 N 送 M 等進階規則尚未啟用。",color=MaterialTheme.colorScheme.onSurfaceVariant);if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error)}}}
 

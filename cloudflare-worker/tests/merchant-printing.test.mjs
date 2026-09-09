@@ -25,12 +25,10 @@ test("new order and print job are committed in the same D1 batch", () => {
   assert.ok(ordering.indexOf("INSERT INTO merchant_food_orders") < batch);
 });
 
-test("first printer sync reconciles recent canonical orders without duplicating originals", () => {
-  assert.match(worker, /reconcileRecentCanonicalOrders/);
-  assert.match(worker, /merchant_food_orders/);
-  assert.match(worker, /datetime\(o\.created_at\)>=datetime\('now','-24 hours'\)/);
-  assert.match(worker, /NOT EXISTS\(SELECT 1 FROM print_jobs/);
-  assert.match(worker, /INSERT OR IGNORE INTO print_jobs/);
+test("printer registration never backfills old orders", () => {
+  assert.doesNotMatch(worker, /reconcileRecentCanonicalOrders/);
+  assert.doesNotMatch(worker, /reconciled_jobs/);
+  assert.doesNotMatch(worker, /datetime\(o\.created_at\)>=datetime\('now','-24 hours'\)/);
 });
 
 test("retry schedule is bounded", () => {
