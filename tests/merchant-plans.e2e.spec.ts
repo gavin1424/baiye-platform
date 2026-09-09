@@ -38,8 +38,9 @@ test("Production 未登入訪客取得真實三方案並保留各自登入導向
   expect(payload.plans.map((plan: { plan_id: string }) => plan.plan_id)).toEqual(requiredPlans.map((plan) => plan.id));
 
   for (const plan of requiredPlans) {
-    await expect(page.getByRole("heading", { name: plan.name })).toBeVisible();
-    await expect(page.getByText(plan.price, { exact: false })).toBeVisible();
+    const card = page.locator(".join-plan-card").filter({ has: page.getByRole("heading", { name: plan.name }) });
+    await expect(card).toBeVisible();
+    await expect(card.locator(".join-plan-price")).toContainText(plan.price);
   }
   await expect(page.getByRole("button", { name: /方案簽署合約/ })).toHaveCount(3);
 
