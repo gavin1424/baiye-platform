@@ -20,7 +20,6 @@ class PrintService : Service() {
     private lateinit var store: LocalStore
     private lateinit var api: MerchantApi
     @Volatile private var syncing = false
-    @Volatile private var backendPrinterSynced = false
 
     override fun onCreate() {
         super.onCreate(); store = LocalStore(this); api = MerchantApi(store); createChannel(); startForeground(NOTIFICATION_ID, notification("正在連線列印佇列…"))
@@ -35,14 +34,17 @@ class PrintService : Service() {
         syncing = true
         try {
             api.syncPending()
-            var printer = store.printer() ?: return
-            if (!backendPrinterSynced) {
-                printer = api.savePrinter(printer)
-                backendPrinterSynced = true
-            }
+            val localPrinter = store.printer() ?: return
+            // The backend setting is authoritative. A stale local ON value must never
+            // overwrite a remotely disabled printer or claim a new pending job.
+            val printer = api.printers().firstOrNull { it.id == localPrinter.id } ?: return
+            store.savePrinter(printer)
             updateNotification("${printer.name} • ${if (printer.autoPrint) "自動出單 ON" else "自動出單 OFF"}")
+            if (!printer.canAutoClaim) {
+                store.setLastSync(System.currentTimeMillis())
+                return
+            }
             recover(printer)
-            if (!printer.autoPrint || !printer.enabled) return
             api.pendingJobs().forEach { discovered ->
                 notifyNewOrder(discovered)
                 if (store.jobsIn(LocalJobState.PRINTED_ACKED, LocalJobState.AMBIGUOUS).none { it.id == discovered.id }) {
