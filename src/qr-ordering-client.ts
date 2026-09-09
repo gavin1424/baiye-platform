@@ -41,6 +41,8 @@ export type OrderingContext = {
   estimated_prep_minutes: number;
   show_sold_out_items: boolean;
   customer_cancel_before_accept: boolean;
+  storefront_url: string;
+  ordering_url: string;
   line: {
     configured: boolean;
     display_name: string;
@@ -209,6 +211,8 @@ export type OrderingQrAdmin = {
   active: boolean;
   expires_at?: string | null;
   created_at?: string;
+  storefront_url?: string;
+  ordering_url?: string;
 };
 
 export type OrderingSettingsAdmin = {
@@ -233,6 +237,7 @@ export type OrderingSettingsAdmin = {
   show_sold_out_items: boolean;
   last_order_time?: string | null;
   timezone: string;
+  storefront_url?: string;
 };
 
 export type OrderingAdminOverview = {
@@ -470,4 +475,8 @@ export function publicOrderingUrl(code: string) {
     import.meta.env.VITE_PUBLIC_SITE_URL || "https://baiyeconnect.com"
   ).replace(/\/$/, "");
   return `${site}/#/q/${encodeURIComponent(code)}`;
+}
+
+export function merchantOrderingUrl(qr: OrderingQrAdmin) {
+  return qr.ordering_url || publicOrderingUrl(qr.code);
 }

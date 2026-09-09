@@ -22,7 +22,7 @@ import { useSearchParams } from "react-router-dom";
 import { adminApi } from "../admin-auth-client";
 import { AdminModuleNav } from "../components/AdminModuleNav";
 import {
-  publicOrderingUrl,
+  merchantOrderingUrl,
   merchantOrderingApi,
   type OrderingAdminOverview,
   type OrderingOrderStatus,
@@ -1056,7 +1056,7 @@ export function AdminQrOrderingPage({
         ) : (
           <div className="ordering-qr-grid">
             {qrs.map((qr) => {
-              const url = publicOrderingUrl(qr.code);
+              const url = merchantOrderingUrl(qr);
               return (
                 <article
                   className={`ordering-qr-card ${qr.active ? "" : "is-inactive"}`}

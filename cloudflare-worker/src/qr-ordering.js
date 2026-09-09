@@ -81,8 +81,26 @@ function validImageUrl(value) {
   }
 }
 
+function publicStorefrontUrl(value) {
+  const raw = clean(value, 600).replace(/\/+$/, "");
+  if (!raw) return "";
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.search || parsed.hash) return "";
+    return `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}`;
+  } catch {
+    return "";
+  }
+}
+
+function storefrontOrderingUrl(storefrontUrl, code) {
+  const storefront = publicStorefrontUrl(storefrontUrl);
+  return storefront ? `${storefront}/#/q/${encodeURIComponent(code)}` : "";
+}
+
 function publicContext(row) {
   const purpose = row.purpose;
+  const storefrontUrl = publicStorefrontUrl(row.storefront_url);
   return {
     merchant_id: row.merchant_id,
     display_name: row.display_name,
@@ -98,6 +116,8 @@ function publicContext(row) {
     estimated_prep_minutes: Number(row.estimated_prep_minutes || 20),
     show_sold_out_items: Boolean(row.show_sold_out_items ?? 1),
     customer_cancel_before_accept: Boolean(row.customer_cancel_before_accept ?? 1),
+    storefront_url: storefrontUrl,
+    ordering_url: storefrontOrderingUrl(storefrontUrl, row.code),
     qr: {
       id: row.id,
       code: row.code,
@@ -156,7 +176,7 @@ async function qrContext(db, code) {
            s.require_member,s.consent_version,s.ordering_open,s.accepting_orders,
            s.temporary_closed_message,s.estimated_prep_minutes,s.show_sold_out_items,
            s.customer_cancel_before_accept,s.table_session_enabled,s.max_items_per_order,
-           s.auto_accept_orders,s.last_order_time,s.timezone,s.order_number_prefix
+           s.auto_accept_orders,s.last_order_time,s.timezone,s.order_number_prefix,s.storefront_url
     FROM merchant_ordering_qr_codes q
     JOIN merchant_ordering_settings s ON s.merchant_id=q.merchant_id
     WHERE q.code=? AND q.active=1
@@ -908,6 +928,7 @@ async function adminOverview(db, merchantId) {
     if (!itemsByOrder.has(item.order_id)) itemsByOrder.set(item.order_id, []);
     itemsByOrder.get(item.order_id).push({ ...item, quantity: Number(item.quantity), line_total_minor: Number(item.line_total_minor), options: optionsByOrderItem.get(item.id) || [] });
   }
+  const storefrontUrl = publicStorefrontUrl(settings?.storefront_url);
   return {
     settings: settings ? {
       ...settings,
@@ -923,7 +944,12 @@ async function adminOverview(db, merchantId) {
       table_session_enabled: Boolean(settings.table_session_enabled),
       show_sold_out_items: Boolean(settings.show_sold_out_items),
     } : null,
-    qrs: (qrs.results || []).map((row) => ({ ...row, active: Boolean(row.active) })),
+    qrs: (qrs.results || []).map((row) => ({
+      ...row,
+      active: Boolean(row.active),
+      storefront_url: storefrontUrl,
+      ordering_url: storefrontOrderingUrl(storefrontUrl, row.code),
+    })),
     categories: (categories.results || []).map((row) => ({ ...row, active: Boolean(row.active) })),
     items: (items.results || []).map((row) => ({ ...row, available: Boolean(row.available), allow_customer_note: Boolean(row.allow_customer_note), price_minor: Number(row.price_minor) })),
     option_groups: (groups.results || []).map((row) => ({ ...row, required: Boolean(row.required), active: Boolean(row.active) })),
@@ -1040,14 +1066,16 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       const current = await requireSettings(db, merchantId);
       const displayName = clean(input.display_name ?? current?.display_name, 120);
       const consentVersion = clean(input.consent_version ?? current?.consent_version ?? "2026-08-27", 60);
+      const storefrontUrl = publicStorefrontUrl(input.storefront_url ?? current?.storefront_url);
       if (!displayName || !consentVersion) return json({ error: "請填寫商家顯示名稱與同意書版本。" }, 400, cors);
+      if (hasOwn(input, "storefront_url") && clean(input.storefront_url, 600) && !storefrontUrl) return json({ error: "商家點餐網站必須是有效的 HTTPS 網址。" }, 400, cors);
       await db.prepare(`
         INSERT INTO merchant_ordering_settings
           (merchant_id,display_name,enabled,currency,dine_in_enabled,takeaway_enabled,require_member,consent_version,
            ordering_open,accepting_orders,temporary_closed_message,auto_accept_orders,order_number_prefix,
            max_items_per_order,customer_cancel_before_accept,estimated_prep_minutes,new_order_sound_enabled,
-           table_session_enabled,show_sold_out_items,last_order_time,timezone)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           table_session_enabled,show_sold_out_items,last_order_time,timezone,storefront_url)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(merchant_id) DO UPDATE SET
           display_name=excluded.display_name,
           enabled=excluded.enabled,
@@ -1069,6 +1097,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
           show_sold_out_items=excluded.show_sold_out_items,
           last_order_time=excluded.last_order_time,
           timezone=excluded.timezone,
+          storefront_url=excluded.storefront_url,
           updated_at=CURRENT_TIMESTAMP
       `).bind(
         merchantId, displayName,
@@ -1091,6 +1120,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         boolValue(input, "show_sold_out_items", current?.show_sold_out_items ?? true),
         clean(input.last_order_time ?? current?.last_order_time, 5) || null,
         "Asia/Taipei",
+        storefrontUrl || null,
       ).run();
       await audit(db, merchantId, actorType, actorId, "ordering_settings_saved", "settings", merchantId, { actor_role: actorRole });
       return json({ ok: true }, current ? 200 : 201, cors);
@@ -1118,11 +1148,13 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         VALUES (?,?,?,?,?,?,1,?)
       `).bind(row.id, merchantId, row.code, label, purpose, tableLabel, expiresAt).run();
       await audit(db, merchantId, "admin", "admin", "qr_created", "qr", row.id, { purpose, table_label: tableLabel });
-      return json({ ok: true, qr: { ...row, merchant_id: merchantId, label, purpose, table_label: tableLabel, active: true, expires_at: expiresAt } }, 201, cors);
+      const storefrontUrl = publicStorefrontUrl(settings.storefront_url);
+      return json({ ok: true, qr: { ...row, merchant_id: merchantId, label, purpose, table_label: tableLabel, active: true, expires_at: expiresAt, storefront_url: storefrontUrl, ordering_url: storefrontOrderingUrl(storefrontUrl, row.code) } }, 201, cors);
     }
 
     if (url.pathname === "/api/admin/ordering/qrs/batch" && request.method === "POST") {
-      if (!(await requireSettings(db, merchantId))) return json({ error: "請先儲存商家掃碼系統設定。" }, 409, cors);
+      const settings = await requireSettings(db, merchantId);
+      if (!settings) return json({ error: "請先儲存商家掃碼系統設定。" }, 409, cors);
       const input = await request.json();
       const prefix = clean(input.prefix, 20);
       const suffix = clean(input.suffix, 20);
@@ -1137,7 +1169,8 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         ...rows.map((row) => db.prepare("INSERT INTO merchant_ordering_qr_codes(id,merchant_id,code,label,purpose,table_label,active) VALUES(?,?,?,?,'dine_in',?,1)").bind(row.id, merchantId, row.code, row.label, row.table)),
         db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,'qr_batch_created','qr_batch',?,?)").bind(uid("ordaudit"), merchantId, actorType, actorId, actorRole, `${prefix}${start}-${end}${suffix}`, JSON.stringify({ count: rows.length })),
       ]);
-      return json({ ok: true, items: rows }, 201, cors);
+      const storefrontUrl = publicStorefrontUrl(settings.storefront_url);
+      return json({ ok: true, items: rows.map((row) => ({ ...row, storefront_url: storefrontUrl, ordering_url: storefrontOrderingUrl(storefrontUrl, row.code) })) }, 201, cors);
     }
 
     const qrRegenerate = url.pathname.match(/^\/api\/admin\/ordering\/qrs\/([^/]+)\/regenerate$/);
@@ -1149,7 +1182,9 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         db.prepare("UPDATE merchant_ordering_qr_codes SET code=?,previous_code_hash=?,regenerated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?").bind(nextCode, await hash(current.code), merchantId, current.id),
         db.prepare("INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type,resource_id) VALUES(?,?,?,?,?,'qr_regenerated','qr',?)").bind(uid("ordaudit"), merchantId, actorType, actorId, actorRole, current.id),
       ]);
-      return json({ ok: true, qr: { ...current, code: nextCode } }, 200, cors);
+      const settings = await requireSettings(db, merchantId);
+      const storefrontUrl = publicStorefrontUrl(settings?.storefront_url);
+      return json({ ok: true, qr: { ...current, code: nextCode, storefront_url: storefrontUrl, ordering_url: storefrontOrderingUrl(storefrontUrl, nextCode) } }, 200, cors);
     }
 
     const qrMatch = url.pathname.match(/^\/api\/admin\/ordering\/qrs\/([^/]+)$/);

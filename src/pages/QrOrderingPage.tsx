@@ -102,8 +102,8 @@ function statusTone(status: OrderingOrderStatus) {
   return "info";
 }
 
-function OrderingTopbar() {
-  if (IS_BEEF_NOODLE_DEMO) return null;
+function OrderingTopbar({ branded = IS_BEEF_NOODLE_DEMO }: { branded?: boolean }) {
+  if (branded) return null;
   return (
     <header className="ordering-topbar">
       <PlatformLogo />
@@ -815,13 +815,15 @@ function QrOrderingView({ code }: { code: string }) {
   const generalOrderingEntry =
     context.qr.purpose === "member_order" && !context.qr.table_label;
   const officialProductionDemo = context.merchant_id === "demo_beef_noodle";
-  const storefrontName =
-    IS_BEEF_NOODLE_DEMO || officialProductionDemo
-      ? context.display_name.split("｜")[0]
-      : context.display_name;
-  const serviceLabel = generalOrderingEntry
-    ? "線上點餐｜手機點餐"
-    : context.qr.purpose === "takeaway"
+  const storefrontMode =
+    Boolean(context.storefront_url) || IS_BEEF_NOODLE_DEMO || officialProductionDemo;
+  const storefrontName = storefrontMode
+    ? context.display_name.split("｜")[0]
+    : context.display_name;
+  const serviceLabel =
+    generalOrderingEntry
+      ? "線上點餐｜手機點餐"
+      : context.qr.purpose === "takeaway"
       ? "外帶｜手機點餐"
       : `${(context.qr.table_label || context.qr.label).endsWith("桌") ? context.qr.table_label || context.qr.label : `${context.qr.table_label || context.qr.label} 桌`}｜手機點餐`;
 
@@ -999,35 +1001,20 @@ function QrOrderingView({ code }: { code: string }) {
 
   return (
     <main className="ordering-page">
-      <OrderingTopbar />
-      <section
-        className={`ordering-merchant-hero ${IS_BEEF_NOODLE_DEMO ? "ordering-storefront-hero" : ""}`}
-      >
+      <OrderingTopbar branded={storefrontMode} />
+      <section className={`ordering-merchant-hero ${storefrontMode ? "ordering-storefront-hero" : ""}`}>
         <div className="ordering-storefront-brand">
-          {IS_BEEF_NOODLE_DEMO && (
-            <span className="ordering-storefront-logo" aria-hidden="true">
-              <CookingPot weight="fill" />
-            </span>
-          )}
+          {storefrontMode && <span className="ordering-storefront-logo" aria-hidden="true"><CookingPot weight="fill" /></span>}
           <div>
-            {!IS_BEEF_NOODLE_DEMO && (
+            {!storefrontMode && (
               <span className="ordering-purpose">
                 <QrCode weight="fill" /> {purposeLabels[context.qr.purpose]}
               </span>
             )}
             <h1>{storefrontName}</h1>
-            <p className="ordering-storefront-meta">
-              <span>營業中</span>
-              {serviceLabel}
-            </p>
-            <p className="ordering-qr-confirmed">
-              <Check weight="bold" />{" "}
-              {generalOrderingEntry ? "已進入線上點餐" : "已掃描此桌 QR Code"}
-            </p>
-            <Link className="btn btn-outline ordering-rescan" to="/scan">
-              <QrCode />
-              {generalOrderingEntry ? "返回點餐入口" : "改用線上點餐"}
-            </Link>
+            <p className="ordering-storefront-meta"><span>營業中</span>{serviceLabel}</p>
+            <p className="ordering-qr-confirmed"><Check weight="bold" /> {generalOrderingEntry ? "已進入線上點餐" : "已掃描此桌 QR Code"}</p>
+            {!storefrontMode && <Link className="btn btn-outline ordering-rescan" to="/scan"><QrCode />{generalOrderingEntry ? "返回點餐入口" : "改用線上點餐"}</Link>}
           </div>
         </div>
         {member && (
@@ -1066,27 +1053,11 @@ function QrOrderingView({ code }: { code: string }) {
         </div>
       )}
 
-      {IS_BEEF_NOODLE_DEMO &&
-        (context.line?.configured ? (
-          <section
-            className="ordering-line-banner"
-            aria-label="店家 LINE 官方帳號"
-          >
-            <div>
-              <strong>
-                加入{context.line.display_name || "百工牛肉麵 LINE"}
-              </strong>
-              <span>加入後方便接收優惠與店家消息</span>
-            </div>
-            <a
-              className="btn btn-outline"
-              href={context.line.add_friend_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => recordLineClick("menu_banner")}
-            >
-              加入 LINE
-            </a>
+      {storefrontMode && (
+        context.line?.configured ? (
+          <section className="ordering-line-banner" aria-label="店家 LINE 官方帳號">
+            <div><strong>加入{context.line.display_name || "百工牛肉麵 LINE"}</strong><span>加入後方便接收優惠與店家消息</span></div>
+            <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("menu_banner")}>加入 LINE</a>
           </section>
         ) : (
           <p className="ordering-line-unconfigured">LINE 官方帳號尚未設定</p>
@@ -1193,19 +1164,9 @@ function QrOrderingView({ code }: { code: string }) {
               >
                 再加點
               </button>
-              {IS_BEEF_NOODLE_DEMO &&
-                context.line?.configured &&
-                !lineClicked && (
-                  <a
-                    className="btn btn-outline"
-                    href={context.line.add_friend_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => recordLineClick("order_success")}
-                  >
-                    加入店家 LINE
-                  </a>
-                )}
+              {storefrontMode && context.line?.configured && !lineClicked && (
+                <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("order_success")}>加入店家 LINE</a>
+              )}
               {order.status === "submitted" &&
                 context.customer_cancel_before_accept && (
                   <button
@@ -1264,48 +1225,46 @@ function QrOrderingView({ code }: { code: string }) {
         </section>
       ) : (
         <>
-          {!IS_BEEF_NOODLE_DEMO && (
-            <section className="ordering-controls-card">
-              <div>
-                <span>本次用餐方式</span>
-                <strong>{orderType === "dine_in" ? "內用" : "外帶"}</strong>
-                {context.qr.table_label && (
-                  <small>桌號：{context.qr.table_label}</small>
-                )}
-              </div>
-              {context.qr.purpose === "member_order" &&
-                context.dine_in_enabled &&
-                context.takeaway_enabled && (
-                  <div className="ordering-segmented">
-                    <button
-                      type="button"
-                      className={orderType === "dine_in" ? "active" : ""}
-                      onClick={() => setOrderType("dine_in")}
-                    >
-                      內用
-                    </button>
-                    <button
-                      type="button"
-                      className={orderType === "takeaway" ? "active" : ""}
-                      onClick={() => setOrderType("takeaway")}
-                    >
-                      外帶
-                    </button>
-                  </div>
-                )}
-              {showTableInput && (
-                <label>
-                  桌號
-                  <input
-                    value={tableLabel}
-                    onChange={(event) => setTableLabel(event.target.value)}
-                    placeholder="例如 A3、12 桌"
-                  />
-                </label>
+          {!storefrontMode && <section className="ordering-controls-card">
+            <div>
+              <span>本次用餐方式</span>
+              <strong>{orderType === "dine_in" ? "內用" : "外帶"}</strong>
+              {context.qr.table_label && (
+                <small>桌號：{context.qr.table_label}</small>
               )}
-            </section>
-          )}
-          {!IS_BEEF_NOODLE_DEMO && deliveryLinks.length > 0 && (
+            </div>
+            {context.qr.purpose === "member_order" &&
+              context.dine_in_enabled &&
+              context.takeaway_enabled && (
+                <div className="ordering-segmented">
+                  <button
+                    type="button"
+                    className={orderType === "dine_in" ? "active" : ""}
+                    onClick={() => setOrderType("dine_in")}
+                  >
+                    內用
+                  </button>
+                  <button
+                    type="button"
+                    className={orderType === "takeaway" ? "active" : ""}
+                    onClick={() => setOrderType("takeaway")}
+                  >
+                    外帶
+                  </button>
+                </div>
+              )}
+            {showTableInput && (
+              <label>
+                桌號
+                <input
+                  value={tableLabel}
+                  onChange={(event) => setTableLabel(event.target.value)}
+                  placeholder="例如 A3、12 桌"
+                />
+              </label>
+            )}
+          </section>}
+          {!storefrontMode && deliveryLinks.length > 0 && (
             <section className="ordering-controls-card">
               <div>
                 <span>外送訂購</span>
@@ -1329,16 +1288,14 @@ function QrOrderingView({ code }: { code: string }) {
           )}
 
           <section className="ordering-menu-section">
-            {!IS_BEEF_NOODLE_DEMO && (
-              <div className="ordering-section-heading">
-                <ForkKnife weight="duotone" />
-                <div>
-                  <span>手機菜單</span>
-                  <h2>選擇餐點</h2>
-                  <p>價格與供應狀態以送單當下的店家資料為準。</p>
-                </div>
+            {storefrontMode ? <div className="ordering-storefront-menu-title"><span>{storefrontName}</span><h2>今日菜單</h2></div> : <div className="ordering-section-heading">
+              <ForkKnife weight="duotone" />
+              <div>
+                <span>手機菜單</span>
+                <h2>選擇餐點</h2>
+                <p>價格與供應狀態以送單當下的店家資料為準。</p>
               </div>
-            )}
+            </div>}
             {!context.accepting_orders && (
               <div className="ordering-closed-notice" role="status">
                 <strong>店家目前暫停接單</strong>
@@ -1951,9 +1908,7 @@ function QrOrderingView({ code }: { code: string }) {
           </section>
         </div>
       )}
-      {IS_BEEF_NOODLE_DEMO && (
-        <footer className="ordering-powered">Powered by 創百業智慧鏈</footer>
-      )}
+      {storefrontMode && <footer className="ordering-powered">點餐服務由創百業智慧鏈提供</footer>}
     </main>
   );
 }
