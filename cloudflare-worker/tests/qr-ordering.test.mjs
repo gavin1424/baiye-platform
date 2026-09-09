@@ -29,6 +29,28 @@ test("recalculates authoritative prices from the menu catalog", () => {
   assert.deepEqual(result.lines.map((line) => line.line_total_minor), [9000, 8000]);
 });
 
+test("beef noodle approved prices remain cents and total to NT$580", () => {
+  const result = calculateOrderLines(
+    [
+      { item_id: "clear-broth", quantity: 1, price_minor: 1 },
+      { item_id: "tendon", quantity: 1, price_minor: 1 },
+      { item_id: "dry-noodle", quantity: 1, price_minor: 1 },
+    ],
+    [
+      { id: "clear-broth", name: "清燉牛肉麵", price_minor: 19000 },
+      { id: "tendon", name: "牛筋麵", price_minor: 23000 },
+      { id: "dry-noodle", name: "紅油牛肉乾拌麵", price_minor: 16000 },
+    ],
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.total_minor, 58000);
+  assert.deepEqual(
+    result.lines.map((line) => line.unit_price_minor),
+    [19000, 23000, 16000],
+  );
+});
+
 test("combines duplicate lines but enforces quantity limits", () => {
   const result = calculateOrderLines(
     [

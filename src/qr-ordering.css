@@ -351,8 +351,21 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-.ordering-menu-copy strong {
+.ordering-menu-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ordering-menu-price > span {
+  color: var(--ordering-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.ordering-menu-price strong {
   color: var(--ordering-brand-dark);
+  font-size: 17px;
+  white-space: nowrap;
 }
 .ordering-quantity {
   display: inline-flex;
