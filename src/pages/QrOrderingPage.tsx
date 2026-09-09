@@ -87,6 +87,18 @@ function money(minor: number, currency = "TWD") {
   }).format(Number(minor || 0) / 100);
 }
 
+function inventoryEnabled(item: OrderingMenuItem) {
+  return item.inventory_enabled === true || Number(item.inventory_enabled) === 1;
+}
+
+function menuItemSoldOut(item: OrderingMenuItem) {
+  return (
+    item.status === "sold_out" ||
+    item.available === false ||
+    (inventoryEnabled(item) && Number(item.stock_on_hand) === 0)
+  );
+}
+
 function errorMessage(error: unknown, fallback = "操作失敗，請稍後再試。") {
   return error instanceof Error ? error.message : fallback;
 }
@@ -469,12 +481,7 @@ function QrOrderingView({ code }: { code: string }) {
       .filter((group): group is OrderingOptionGroup => Boolean(group?.active));
 
   const openItem = (item: OrderingMenuItem) => {
-    if (
-      item.status === "sold_out" ||
-      item.available === false ||
-      (item.inventory_enabled && Number(item.stock_on_hand) === 0)
-    )
-      return;
+    if (menuItemSoldOut(item)) return;
     setDraftSelection(
       itemSelections[item.id] || { option_value_ids: [], note: "" },
     );
@@ -1359,11 +1366,7 @@ function QrOrderingView({ code }: { code: string }) {
                   <div className="ordering-menu-grid">
                     {categoryItems.map((item) => {
                       const quantity = Number(cart[item.id] || 0);
-                      const soldOut =
-                        item.status === "sold_out" ||
-                        item.available === false ||
-                        (item.inventory_enabled &&
-                          Number(item.stock_on_hand) === 0);
+                      const soldOut = menuItemSoldOut(item);
                       return (
                         <article
                           className={`ordering-menu-item ${soldOut ? "is-sold-out" : ""}`}
@@ -1379,9 +1382,16 @@ function QrOrderingView({ code }: { code: string }) {
                           <div className="ordering-menu-copy">
                             <h4>{item.name}</h4>
                             {item.description && <p>{item.description}</p>}
-                            <strong>
-                              {money(item.price_minor, context.currency)}
-                            </strong>
+                            <div
+                              className="ordering-menu-price"
+                              aria-label={`單價 ${context.currency} ${Number(item.price_minor || 0) / 100}`}
+                            >
+                              <span>單價</span>
+                              <strong>
+                                {context.currency === "TWD" ? "NT" : ""}
+                                {money(item.price_minor, context.currency)}
+                              </strong>
+                            </div>
                             {soldOut && (
                               <span className="ordering-soldout">售完</span>
                             )}
@@ -1518,10 +1528,7 @@ function QrOrderingView({ code }: { code: string }) {
                           ? openItem(item)
                           : changeQuantity(item.id, 1)
                       }
-                      disabled={
-                        item.inventory_enabled &&
-                        item.quantity >= Number(item.stock_on_hand || 0)
-                      }
+                      disabled={inventoryEnabled(item) && item.quantity >= Number(item.stock_on_hand || 0)}
                     >
                       <Plus />
                     </button>
