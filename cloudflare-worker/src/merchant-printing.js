@@ -36,8 +36,9 @@ function publicJob(row, includePayload = false) {
 }
 
 export function buildKitchenPayload({ merchantName, orderCode, tableLabel, orderType, paymentMethod, totalMinor, createdAt, items, customerNote }) {
+  const printMerchantName = clean(merchantName, 120).replace(/｜完整功能試用店$/, "").trim();
   return {
-    schema_version: 1, print_type: "kitchen", merchant_name: merchantName,
+    schema_version: 1, print_type: "kitchen", merchant_name: printMerchantName,
     order_code: orderCode, table_label: tableLabel || "", order_type: orderType,
     payment_method: paymentMethod, total_minor: Number(totalMinor), created_at: createdAt,
     customer_note: customerNote || "",
