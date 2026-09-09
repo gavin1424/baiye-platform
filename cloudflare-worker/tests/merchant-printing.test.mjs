@@ -54,6 +54,12 @@ test("kitchen payload snapshots Chinese, options, notes, quantities and takeaway
   assert.equal(payload.items[0].quantity, 20); assert.equal(payload.items[0].options.length, 2); assert.equal(payload.order_type, "takeaway"); assert.equal(payload.customer_note, "\u4e0d\u8981\u8471");
 });
 
+test("kitchen payload removes the official trial qualifier from physical receipts", () => {
+  const payload = buildKitchenPayload({ merchantName: "百工牛肉麵｜完整功能試用店", orderCode: "A1-0087", tableLabel: "A1", orderType: "dine_in", paymentMethod: "counter", totalMinor: 2000, createdAt: "2026-09-09T11:35:27Z", customerNote: "", items: [] });
+  assert.equal(payload.merchant_name, "百工牛肉麵");
+  assert.doesNotMatch(JSON.stringify(payload), /Demo|完整功能試用店|測試 Fixture/);
+});
+
 test("LAN v1 does not claim unsupported hardware status", () => {
   assert.match(worker, /reachability: row\.last_seen_at \? "UNKNOWN" : "UNKNOWN"/);
   assert.doesNotMatch(worker, /PAPER_OUT|COVER_OPEN|CUTTER_ERROR/);
