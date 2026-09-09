@@ -134,15 +134,15 @@ function ScrollAndMetadata() {
                         ? "商家後台｜創百業智慧鏈"
       : "找不到頁面｜創百業智慧鏈");
     const demoTitle = path.startsWith("/q/")
-      ? "百工牛肉麵手機點餐｜創百業智慧鏈 QR 點餐示範"
-      : "QR 手機點餐示範｜百工牛肉麵｜創百業智慧鏈";
+      ? "百工牛肉麵｜桌邊點餐"
+      : "百工牛肉麵｜今日菜單";
     const activeTitle = IS_BEEF_NOODLE_DEMO ? demoTitle : title;
     document.title = activeTitle;
     const publicDescription = path === "/pricing"
       ? "比較百工標準網站、AI 智慧商城與免 POS 機智慧點餐方案，清楚了解價格、服務期間、加購、試用與保證金。"
       : "創百業智慧鏈整合商家網站、AI 智能客服、LINE、會員、預約、智慧商城與免 POS 機點餐，協助百業完成數位升級。";
     const description = IS_BEEF_NOODLE_DEMO
-      ? "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。"
+      ? "百工牛肉麵桌邊 QR 點餐：查看今日菜單、選擇規格與加料並送出訂單。"
       : publicDescription;
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
     document.querySelector('meta[name="robots"]')?.setAttribute("content", IS_BEEF_NOODLE_DEMO || IS_STAGING ? "noindex,nofollow" : "index,follow");
@@ -196,9 +196,6 @@ export function App() {
     return (
       <>
         <ScrollAndMetadata />
-        <div className="beef-demo-env-banner" role="status">
-          創百業智慧鏈 QR 點餐示範店｜此為功能展示環境，非實際營業店家
-        </div>
         <Routes>
           <Route path="/" element={<BeefNoodleDemoPage />} />
           <Route path="/q/:code" element={<QrOrderingPage />} />

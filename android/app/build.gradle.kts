@@ -11,8 +11,8 @@ android {
         applicationId = "com.baiye.merchantprinter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "2.1.2"
+        versionCode = 7
+        versionName = "2.1.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"https://chuang-baiye-ai.baiye-platform.workers.dev\"")
         buildConfigField("String", "MERCHANT_AUTH_ORIGIN", "\"https://baiyeconnect.com\"")

@@ -1260,6 +1260,9 @@
 .ordering-storefront-hero ~ .ordering-menu-section .ordering-menu-search { margin-top: 0; }
 .ordering-join-after-menu { margin-top: 22px; margin-bottom: 18px; }
 .ordering-powered { width: min(100% - 32px, 960px); margin: 22px auto 10px; color: #7b8492; font-size: 11px; text-align: center; }
+.ordering-storefront-menu-title { margin: 0 0 14px; }
+.ordering-storefront-menu-title span { color: #9a5a35; font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+.ordering-storefront-menu-title h2 { margin: 3px 0 0; color: #4d1712; font-size: clamp(24px, 6vw, 32px); }
 @media (max-width: 640px) {
   .ordering-storefront-hero { flex-direction: row; justify-content: space-between; gap: 10px; width: min(100% - 28px, 960px); padding: 14px 0 8px; }
   .ordering-storefront-logo { flex-basis: 42px; width: 42px; height: 42px; border-radius: 14px; }
