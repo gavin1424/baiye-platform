@@ -5,7 +5,8 @@ import { HomePage } from "./pages/HomePage";
 import { AdminLoginPage } from "./pages/AuthPages";
 import { AdminFinancePage } from "./pages/AdminFinance";
 import { AdminBookings } from "./pages/AdminBookings";
-import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin, PartnerReferralJoin } from "./pages/PartnerPages";
+import { AdminPartners, PartnerActivate, PartnerApply, PartnerContract, PartnerDashboard, PartnerLanding, PartnerLogin } from "./pages/PartnerPages";
+import { JoinPage } from "./pages/JoinPages";
 import { AiChatWidget } from "./components/AiChatWidget";
 import { FaqPageV13, HowItWorksPageV13, MerchantPlanSelectPage, PricingPageV13, TermsPageV13 } from "./pages/CommercialV13Pages";
 import { AccountUnavailablePage, CatalogUnavailablePage, EmptyCollaborationPage, MerchantAccessUnavailablePage, ProductionContactPage, ProductionNotFoundPage, ProductionPrivacyPage, VerifiedBusinessesPage } from "./pages/ProductionPublicPages";
@@ -55,6 +56,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/messages": "私訊中心｜創百業智慧鏈",
   "/notifications": "通知中心｜創百業智慧鏈",
   "/pricing": "商家網站、AI 智慧商城與免 POS 點餐方案｜創百業智慧鏈",
+  "/join": "加入創百業智慧鏈｜商家方案與承攬夥伴簽約中心",
   "/plans": "方案合作契約｜創百業智慧鏈",
   "/features": "全部功能總覽｜創百業智慧鏈",
   "/pos-comparison": "Web-POS 效益與成本比較｜創百業智慧鏈",
@@ -298,7 +300,7 @@ export function App() {
         <Route path="/merchant/contract" element={<MerchantContractPage />} />
         <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
         <Route path="/verify-contract/:publicId" element={<VerifyContractPage />} />
-        <Route path="/join" element={<PartnerReferralJoin />} />
+        <Route path="/join" element={<JoinPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin" element={<AdminRoute><ProductionAdminOverview /></AdminRoute>} />
         <Route path="/admin/finance" element={<AdminRoute><AdminFinancePage /></AdminRoute>} />
