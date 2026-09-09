@@ -5,7 +5,9 @@ data class PrinterConfig(
     val model: String = "Xprinter XP-N160II", val host: String = "192.168.1.200",
     val port: Int = 9100, val paperWidthMm: Int = 80,
     val enabled: Boolean = true, val autoPrint: Boolean = false, val copies: Int = 1,
-)
+) {
+    val canAutoClaim: Boolean get() = enabled && autoPrint
+}
 
 data class OrderOption(val group: String, val value: String)
 data class OrderItem(val name: String, val quantity: Int, val note: String = "", val options: List<OrderOption> = emptyList())
