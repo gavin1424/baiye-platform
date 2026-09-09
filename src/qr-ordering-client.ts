@@ -294,6 +294,64 @@ export function merchantProtectedResourceState(error: unknown): MerchantProtecte
   return "unavailable";
 }
 
+async function readApiJson(response: Response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("application/json")) {
+    throw Object.assign(new Error("服務回應格式不正確。"), {
+      status: response.status,
+      code: "INVALID_RESPONSE_CONTENT_TYPE",
+    });
+  }
+  const text = await response.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw Object.assign(new Error("服務回應不是有效的 JSON。"), {
+      status: response.status,
+      code: "INVALID_JSON_RESPONSE",
+    });
+  }
+  if (!response.ok) {
+    const error = new Error(
+      typeof data?.error === "string" ? data.error : "服務暫時無法使用。",
+    );
+    Object.assign(error, { status: response.status, code: data?.code || "" });
+    throw error;
+  }
+  return data;
+}
+
+/** Public catalog reads must not depend on a merchant session or stale cookies. */
+export async function merchantPublicCatalogApi<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(`${API}${path}`, {
+      ...init,
+      method: "GET",
+      credentials: "omit",
+      cache: "no-store",
+      headers: { accept: "application/json", ...(init.headers || {}) },
+      signal: init.signal || controller.signal,
+    });
+    return (await readApiJson(response)) as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw Object.assign(new Error("連線逾時，請重新載入後再試。"), {
+        status: 0,
+        code: "NETWORK_TIMEOUT",
+      });
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 export async function merchantOrderingApi<T>(
   path: string,
   init: RequestInit = {},
@@ -316,12 +374,7 @@ export async function merchantOrderingApi<T>(
       headers,
       signal: init.signal || controller.signal,
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(data.error || "商家點餐管理服務暫時無法使用。");
-      Object.assign(error, { status: response.status, code: data.code || "" });
-      throw error;
-    }
+    const data = await readApiJson(response);
     if (typeof data.csrf_token === "string") merchantCsrfToken = data.csrf_token;
     return data as T;
   } catch (error) {

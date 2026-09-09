@@ -7,8 +7,12 @@ dist/
 .cache/
 coverage/
 tests/
+!tests/
+!tests/*.e2e.spec.ts
 !cloudflare-worker/tests/
 !cloudflare-worker/tests/*.test.mjs
+test-results/
+production-evidence/
 screenshots/
 tmp/
 .codex-remote-attachments/

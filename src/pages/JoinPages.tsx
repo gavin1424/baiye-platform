@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Handshake, SignIn, Storefront, UserPlus } from "@phosphor-icons/react";
-import { merchantOrderingApi } from "../qr-ordering-client";
+import { merchantOrderingApi, merchantPublicCatalogApi } from "../qr-ordering-client";
 import { userFacingError } from "../user-facing-error";
 
 type Plan = {
@@ -26,6 +26,31 @@ type Plan = {
 
 const money = (minor = 0) => `NT$${Math.trunc(Number(minor) / 100).toLocaleString("zh-TW")}`;
 const errorText = (error: unknown) => userFacingError(error, "目前無法載入方案，請重新整理或稍後再試。");
+const requiredPlanIds = ["baiye_standard_18000_addons", "baiye_commerce_ai_45000", "baiye_softpos_24000"] as const;
+type CatalogState = "loading" | "success" | "empty" | "error" | "stale";
+
+function validatedPlans(data: unknown): Plan[] {
+  const plans = (data as { plans?: unknown } | null)?.plans;
+  if (!Array.isArray(plans)) throw Object.assign(new Error("方案回應缺少 plans 陣列。"), { code: "INVALID_PLAN_CATALOG" });
+  if (plans.length === 0) return [];
+  const valid = plans.every((plan) => {
+    const item = plan as Partial<Plan> | null;
+    return item && typeof item.plan_id === "string" && typeof item.name === "string"
+      && Number.isFinite(item.price_minor) && typeof item.currency === "string"
+      && Number.isFinite(item.term_months);
+  });
+  const ids = plans.map((plan) => String(plan.plan_id));
+  if (!valid || ids.length !== requiredPlanIds.length || new Set(ids).size !== ids.length
+    || requiredPlanIds.some((id) => !ids.includes(id))) {
+    throw Object.assign(new Error("公開方案資料不完整。"), { code: "INVALID_PLAN_CATALOG" });
+  }
+  return plans as Plan[];
+}
+
+function retryableCatalogError(error: unknown) {
+  const status = Number((error as { status?: number } | null)?.status || 0);
+  return status === 0 || status === 408 || status === 429 || status >= 500;
+}
 
 function PlanCard({ plan, onChoose, busy }: { plan: Plan; onChoose: (plan: Plan) => void; busy?: boolean }) {
   const softpos = plan.plan_id === "baiye_softpos_24000";
@@ -59,8 +84,25 @@ function PlanCard({ plan, onChoose, busy }: { plan: Plan; onChoose: (plan: Plan)
 
 export function JoinPage() {
   const navigate = useNavigate();
-  const [plans, setPlans] = useState<Plan[]>([]), [notice, setNotice] = useState(""), [busy, setBusy] = useState("");
-  useEffect(() => { void merchantOrderingApi<any>("/api/public/merchant-plans").then((data) => setPlans(data.plans || [])).catch((error) => setNotice(errorText(error))); }, []);
+  const [plans, setPlans] = useState<Plan[]>([]), [notice, setNotice] = useState(""), [busy, setBusy] = useState(""), [catalogState, setCatalogState] = useState<CatalogState>("loading");
+  const loadPlans = useCallback(async (allowAutomaticRetry = true) => {
+    setCatalogState((state) => plans.length && state !== "loading" ? "stale" : "loading");
+    setNotice("");
+    try {
+      const data = await merchantPublicCatalogApi<unknown>("/api/public/merchant-plans");
+      const nextPlans = validatedPlans(data);
+      setPlans(nextPlans);
+      setCatalogState(nextPlans.length ? "success" : "empty");
+    } catch (error) {
+      if (allowAutomaticRetry && retryableCatalogError(error)) {
+        window.setTimeout(() => { void loadPlans(false); }, 600);
+        return;
+      }
+      setNotice(errorText(error));
+      setCatalogState(plans.length ? "stale" : "error");
+    }
+  }, [plans.length]);
+  useEffect(() => { void loadPlans(); }, []); // The initial load owns its one bounded automatic retry.
   const choose = async (plan: Plan) => {
     setBusy(plan.plan_id); setNotice("");
     try {
@@ -77,7 +119,12 @@ export function JoinPage() {
       <article className="join-identity-card join-free-card"><UserPlus size={34} weight="duotone" /><span>NT$0</span><h2>商家免費註冊</h2><p>先免費建立商家帳號，確認適合的服務方案後再完成簽約。</p><Link className="btn btn-primary" to="/merchant/register">免費註冊商家</Link></article>
       <article className="join-identity-card"><Handshake size={34} weight="duotone" /><h2>承攬夥伴簽約</h2><p>加入創百業承攬合作，完成資料與承攬合作契約後即可開始合作。</p><Link className="btn btn-primary" to="/partner/apply">成為承攬夥伴</Link></article>
     </section>
-    <section className="join-plan-section"><div className="join-section-heading"><Storefront size={30} weight="duotone" /><div><h2>商家服務方案</h2><p>免費註冊帳號後，再確認方案內容並完成契約簽署。</p></div></div><div className="join-plan-grid">{plans.map((plan) => <PlanCard key={plan.plan_id} plan={plan} onChoose={choose} busy={busy === plan.plan_id} />)}</div>{!plans.length && <p className="join-loading">{notice || "正在載入方案…"}</p>}</section>
+    <section className="join-plan-section"><div className="join-section-heading"><Storefront size={30} weight="duotone" /><div><h2>商家服務方案</h2><p>免費註冊帳號後，再確認方案內容並完成契約簽署。</p></div></div><div className="join-plan-grid">{plans.map((plan) => <PlanCard key={plan.plan_id} plan={plan} onChoose={choose} busy={busy === plan.plan_id} />)}</div>
+      {catalogState === "loading" && <p className="join-loading" role="status">正在載入方案…</p>}
+      {catalogState === "empty" && <div className="join-catalog-status" role="status"><p>目前沒有可簽署的方案。</p><button className="btn btn-outline" type="button" onClick={() => void loadPlans(false)}>重新載入</button></div>}
+      {catalogState === "error" && <div className="join-catalog-status" role="alert"><p>{notice || "目前無法載入方案，請稍後再試。"}</p><button className="btn btn-primary" type="button" onClick={() => void loadPlans(false)}>重新載入</button></div>}
+      {catalogState === "stale" && <div className="join-catalog-status join-catalog-stale" role="status"><p>{notice || "正在重新確認方案是否仍可簽署…"}</p>{notice && <button className="btn btn-outline" type="button" onClick={() => void loadPlans(false)}>重新載入</button>}</div>}
+    </section>
     <footer className="join-login-footer"><h2>已經有帳號？</h2><div><Link className="btn btn-outline" to="/merchant/login"><SignIn />商家登入</Link><Link className="btn btn-outline" to="/partner/login"><SignIn />承攬夥伴登入</Link></div></footer>
     {notice && plans.length > 0 && <p className="partner-message">{notice}</p>}
   </main>;
