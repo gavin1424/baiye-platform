@@ -2,6 +2,12 @@ import { BowlFood, CheckCircle, ShoppingCart } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 import { PlatformLogo } from "../components";
 
+const GENERAL_ORDERING_CODE =
+  import.meta.env.VITE_BEEF_NOODLE_GENERAL_ORDERING_CODE ||
+  "TlTgDC3Wh5xo61yT1WWbPnJK9GZt_o4y";
+const BEEF_NOODLE_STOREFRONT = "https://baiye-beef-noodle-demo.pages.dev";
+const GENERAL_ORDERING_URL = `${BEEF_NOODLE_STOREFRONT}/#/q/${GENERAL_ORDERING_CODE}`;
+
 export function GeneralOrderingEntryPage() {
   return (
     <main className="ordering-scan-page ordering-order-entry-page">
@@ -12,7 +18,7 @@ export function GeneralOrderingEntryPage() {
         <h1>百工牛肉麵</h1>
         <strong className="ordering-order-entry-subtitle">手機點餐</strong>
         <p>線上查看菜單、選擇餐點並送出訂單</p>
-        <a className="btn btn-primary btn-lg ordering-order-entry-cta" href="https://baiye-beef-noodle-demo.pages.dev/">
+        <a className="btn btn-primary btn-lg ordering-order-entry-cta" href={GENERAL_ORDERING_URL}>
           <ShoppingCart weight="fill" />開始點餐
         </a>
         <p className="ordering-order-entry-detail">點選後即可查看完整菜單並開始點餐。</p>
