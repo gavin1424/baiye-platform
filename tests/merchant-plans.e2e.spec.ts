@@ -55,6 +55,23 @@ test("Production 未登入訪客取得真實三方案並保留各自登入導向
   await context.close();
 });
 
+test("Production 過期商家 Cookie 不影響公開方案展示", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await context.addCookies([{
+    name: "baiye_merchant_session",
+    value: "expired-production-e2e-cookie",
+    domain: "chuang-baiye-ai.baiye-platform.workers.dev",
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "None",
+  }]);
+  const page = await context.newPage();
+  await page.goto("https://baiyeconnect.com/#/join", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: /方案簽署合約/ })).toHaveCount(3);
+  await context.close();
+});
+
 test("初次請求失敗後按重新載入可恢復三張方案卡", async ({ page }) => {
   let requests = 0;
   await page.route("**/api/public/merchant-plans", async (route) => {
