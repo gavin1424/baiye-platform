@@ -1,8 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 const api = process.env.STAGING_API_URL;
 const origin = process.env.STAGING_ORIGIN;
 if (!api || !origin) throw new Error("STAGING_API_URL and STAGING_ORIGIN are required");
+const expectedQrHash = process.env.STAGING_PAYMENT_QR_SHA256?.toLowerCase();
+const outputDirectory = process.env.STAGING_SMOKE_OUTPUT_DIR;
+if (outputDirectory) await mkdir(outputDirectory, { recursive: true });
 
 const plans = [
   ["baiye_standard_18000_addons", 1800000, 0],
@@ -52,6 +57,11 @@ for (let index = 0; index < plans.length; index += 1) {
   const signed = await request("/api/merchant/contracts/sign", { method: "POST", body: signBody, cookie, csrf, idempotencyKey: `staging-${planId}-${randomUUID()}` });
   if (signed.data.lifecycle_status !== "SIGNED_PENDING_PAYMENT" || signed.data.payment.amount_due_minor !== signatureDue) throw new Error(`Signing payment mismatch for ${planId}`);
   const paymentId = signed.data.payment.id;
+  const qrResponse = await fetch(`${api}/api/merchant/contract-payments/${paymentId}/qr`, { headers: { origin, cookie } });
+  if (!qrResponse.ok) throw new Error(`Payment QR download failed for ${planId}: ${qrResponse.status}`);
+  const qrBytes = Buffer.from(await qrResponse.arrayBuffer());
+  const qrHash = createHash("sha256").update(qrBytes).digest("hex");
+  if (expectedQrHash && qrHash !== expectedQrHash) throw new Error(`Payment QR hash mismatch for ${planId}`);
   const submitted = await request(`/api/merchant/contract-payments/${paymentId}/submit`, { method: "POST", body: { payment_at: new Date().toISOString(), transaction_reference: `STAGING-${index + 1}`, note: "隔離測試，無真實交易" }, cookie, csrf });
   if (submitted.data.payment.status !== "submitted") throw new Error(`Submission failed for ${planId}`);
   let confirmed = null;
@@ -64,7 +74,8 @@ for (let index = 0; index < plans.length; index += 1) {
   const pdfBytes = Buffer.from(await pdfResponse.arrayBuffer());
   const pdfHash = createHash("sha256").update(pdfBytes).digest("base64url");
   if (pdfHash !== signed.data.pdf_hash) throw new Error(`PDF hash mismatch for ${planId}`);
-  results.push({ plan_id: planId, contract_version: current.data.contract.id, signature_due_minor: signatureDue, remaining_amount_minor: remaining, signature_id: signed.data.signature_id, payment_request_id: paymentId, payment_status: confirmed ? "confirmed" : "submitted", lifecycle_status: confirmed?.data.payment.lifecycle_status || signed.data.lifecycle_status, pdf_hash: pdfHash });
+  if (outputDirectory) await writeFile(join(outputDirectory, `${planId}.pdf`), pdfBytes);
+  results.push({ plan_id: planId, contract_version: current.data.contract.id, signature_due_minor: signatureDue, remaining_amount_minor: remaining, signature_id: signed.data.signature_id, payment_request_id: paymentId, payment_status: confirmed ? "confirmed" : "submitted", lifecycle_status: confirmed?.data.payment.lifecycle_status || signed.data.lifecycle_status, payment_qr_sha256: qrHash, pdf_hash: pdfHash });
 }
 
 console.log(JSON.stringify(results, null, 2));

@@ -85,3 +85,28 @@ Production migration and deployment remain blocked until:
 2. the supplied JKOPAY recipient is confirmed and the asset is registered by an authorized admin;
 3. the integrated baseline is redeployed and fully retested on Staging;
 4. historical PDF and artifact hashes remain unchanged.
+
+## Drift-integrated Staging verification
+
+- integrated baseline: `9b49f2e693fa423b7c9c066840b3088389c81ae1`
+- Staging Worker version: `6e01c8cc-c3e2-40a0-a91e-98628ee410ab`
+- Staging Pages deployment: `749ba7e0-4745-443d-a539-c4797bb66ef8`
+- Staging Pages source: `9b49f2e`
+- private QR asset key: `platform-payment-assets/jkopay_manual_qr/official-d6nGNKaDZyRIGDnV2hooO34L9_dPvc18PpWVpVbNM3k.jpg`
+- R2 upload/download SHA-256: `77A9C634A6836724481839D5DA1A283B7E0BF7F74FBDCD7C3E9595A556CD3379` (exact match)
+- provider status: enabled in Staging; deep link absent and not inferred
+- three-plan live smoke: passed through signed/pending-payment, QR retrieval,
+  evidence/PDF generation, and payment-evidence submission
+- live signature dues: standard `1800000`, commerce AI `5000000`, SoftPOS `600000`
+- SoftPOS remaining after three-month trial: `1800000`
+- drift-integrated PDF hashes:
+  - standard: `0pfGcRw7xb5Ek2nNa2EhEbfYdX0u171EP4MtZNzAOMc`
+  - commerce AI: `HRFjkanLLFUUni6fhm0XKuZP43qFzZhfiwLePHD3D-M`
+  - SoftPOS: `dAOUoPFtNDKHQ82ajrJ6TLexnIa_hx4CcF405NPRTtw`
+- visual PDF review: every generated page was rasterized; titles, bold Traditional
+  Chinese, payment schedules, signature pages, and verification sections rendered correctly
+- automated checks: typecheck and production build passed; Worker 699 passed,
+  1 skipped, 0 failed; contractor policy 5/5; commerce 11/11; ordering UI 1/1
+
+This verification does not satisfy the genuine legal-approval requirement and
+does not authorize a Production migration or deployment.
