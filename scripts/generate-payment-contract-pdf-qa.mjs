@@ -11,6 +11,13 @@ const root = new URL("../", import.meta.url);
 const migrationDirectory = new URL("../cloudflare-worker/migrations/", import.meta.url);
 const outputDirectory = new URL("../output/pdf/merchant-payment-v1/", import.meta.url);
 await mkdir(outputDirectory, { recursive: true });
+const fontAssets = process.env.CONTRACT_FONT_REGULAR && process.env.CONTRACT_FONT_BOLD
+  ? {
+      ...testContractFontAssets,
+      regularBytes: await readFile(process.env.CONTRACT_FONT_REGULAR),
+      boldBytes: await readFile(process.env.CONTRACT_FONT_BOLD),
+    }
+  : testContractFontAssets;
 
 const db = new DatabaseSync(":memory:");
 for (const name of (await readdir(migrationDirectory)).filter((item) => /^\d+.*\.sql$/.test(item)).sort()) {
@@ -63,7 +70,7 @@ for (const plan of plans) {
     attachments: plan.attachments(plan.terms),
     signedAt,
     staging: true,
-    fontAssets: testContractFontAssets,
+    fontAssets,
   });
   const name = `${plan.slug}.pdf`;
   await writeFile(new URL(name, outputDirectory), agreement.bytes);

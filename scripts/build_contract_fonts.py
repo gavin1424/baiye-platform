@@ -8,7 +8,7 @@ from fontTools.varLib.instancer import instantiateVariableFont
 
 def contract_corpus_codepoints(root: Path) -> set[int]:
     codepoints: set[int] = set()
-    required = "創百業智慧鏈商家服務合作契約承攬夥伴合作契約智慧商務智慧點餐免 POS三個月試用正式服務保證金抵約契約簽署法定姓名簽署時間電子簽名文件驗證資訊葉耀仁陳靈有限公司～"
+    required = "創百業智慧鏈商家服務合作契約承攬夥伴合作契約智慧商務智慧點餐免 POS三個月試用正式服務保證金抵約契約簽署法定姓名簽署時間電子簽名文件驗證資訊葉耀仁陳靈有限公司104臺北市中山區江山里民生東路三段57號～"
     codepoints.update(map(ord, required))
     relative_paths = [
         "cloudflare-worker/src/contract-pdf-v2.js",
@@ -23,6 +23,7 @@ def contract_corpus_codepoints(root: Path) -> set[int]:
         "cloudflare-worker/migrations/0024_contract_softpos_24000.sql",
         "cloudflare-worker/migrations/0025_contract_standard_addons.sql",
         "cloudflare-worker/migrations/0026_unified_registration_contract_center.sql",
+        "cloudflare-worker/migrations/0035_merchant_contract_payment_activation_v1.sql",
         "cloudflare-worker/migrations/production_0032_unified_contract_center_approval.sql",
     ]
     for relative_path in relative_paths:
@@ -32,7 +33,7 @@ def contract_corpus_codepoints(root: Path) -> set[int]:
 
 
 def build(source: Path, output: Path, weight: int, codepoints: set[int]) -> None:
-    font = instantiateVariableFont(TTFont(source), {"wght": weight}, inplace=False)
+    font = instantiateVariableFont(TTFont(source, recalcTimestamp=False), {"wght": weight}, inplace=False)
     style = "Bold" if weight >= 700 else "Regular"
     family = "Noto Sans TC Contract"
     postscript = f"NotoSansTCContract-{style}"
@@ -49,6 +50,8 @@ def build(source: Path, output: Path, weight: int, codepoints: set[int]) -> None
     subsetter = subset.Subsetter(options=options)
     subsetter.populate(unicodes=codepoints)
     subsetter.subset(font)
+    font["head"].created = 3786912000
+    font["head"].modified = 3786912000
     output.parent.mkdir(parents=True, exist_ok=True)
     font.save(output)
 
@@ -57,6 +60,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build immutable Traditional Chinese contract fonts.")
     parser.add_argument("source", type=Path, help="Noto Sans TC variable font")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--common-output-dir", type=Path, help="Also emit a static Regular face covering CP950 level-one common ideographs.")
     args = parser.parse_args()
     fixtures = args.root / "cloudflare-worker" / "tests" / "fixtures"
     corpus = contract_corpus_codepoints(args.root)
@@ -65,3 +69,13 @@ if __name__ == "__main__":
     # names, so runtime PDF generation never performs CJK glyph collection.
     build(args.source, fixtures / "NotoSansTC-Regular.subset.ttf", 400, corpus)
     build(args.source, fixtures / "NotoSansTC-Bold.subset.ttf", 700, corpus)
+    if args.common_output_dir:
+        common_codepoints = set(corpus)
+        for lead in range(0xA4, 0xC7):
+            for trail in (*range(0x40, 0x7F), *range(0xA1, 0xFF)):
+                try:
+                    decoded = bytes((lead, trail)).decode("cp950")
+                    common_codepoints.update(map(ord, decoded))
+                except UnicodeDecodeError:
+                    pass
+        build(args.source, args.common_output_dir / "NotoSansTC-Regular-Common-v3.ttf", 400, common_codepoints)

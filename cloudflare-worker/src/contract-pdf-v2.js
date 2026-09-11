@@ -124,8 +124,8 @@ export async function createSignedAgreementPdfV2(input) {
   const documentHash = input.documentHash || await sha256(JSON.stringify({ contractId: input.documentId, version: input.version, contentHash: input.contractHash, signatureHash: input.signatureHash, legalName: input.signatory, signedAt: input.signedAt }));
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
-  // Regular and Bold are fixed build-time contract corpora. Embed both complete
-  // faces to avoid the CJK CID remapping defect seen during runtime subsetting.
+  // Both are fixed-weight static Noto Sans TC contract-corpus faces. Embed
+  // without per-document subsetting to avoid the CJK CID remapping bug.
   const regular = await pdfDoc.embedFont(input.fontAssets.regularBytes, { subset: false });
   const bold = await pdfDoc.embedFont(input.fontAssets.boldBytes, { subset: false });
   const mono = await pdfDoc.embedFont(input.fontAssets.monoBytes, { subset: true });

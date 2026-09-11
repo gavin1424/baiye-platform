@@ -120,6 +120,6 @@ test("UNIFIED-09 ordering writes are entitlement-gated instead of globally block
 test("UNIFIED-10 runtime Noto Sans TC assets disable runtime CJK subsetting", () => {
   const source = readFileSync(new URL("../src/contract-font-assets.js", import.meta.url), "utf8");
   assert.match(source, /subsetSafe: false/);
-  assert.match(source, /NotoSansTC-Regular-Static-v2\.ttf/);
-  assert.match(source, /NotoSansTC-Bold-ContractCorpus-v2\.ttf/);
+  assert.match(source, /NotoSansTC-Regular-Common-v3\.ttf/);
+  assert.match(source, /NotoSansTC-Bold-ContractCorpus-v3\.ttf/);
 });
