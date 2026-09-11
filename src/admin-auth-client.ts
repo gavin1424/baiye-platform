@@ -15,8 +15,9 @@ function requestTimeout(path: string, method: string) {
 
 async function request(path: string, init: RequestInit = {}) {
   const method = String(init.method || "GET").toUpperCase();
+  const multipart = typeof FormData !== "undefined" && init.body instanceof FormData;
   const headers: Record<string, string> = {
-    ...(init.body ? { "content-type": "application/json" } : {}),
+    ...(init.body && !multipart ? { "content-type": "application/json" } : {}),
     ...(csrfToken && !["GET", "HEAD", "OPTIONS"].includes(method) ? { "x-csrf-token": csrfToken } : {}),
     ...((init.headers || {}) as Record<string, string>),
   };

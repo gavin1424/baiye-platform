@@ -17,7 +17,7 @@ function seedMerchant(db,id="merchant-unified",userId="owner-unified") {
 async function seedSignedPlan(db, merchant, planId = "baiye_standard_18000_addons") {
   const assigned=await assignMerchantPlan(db,merchant.id,merchant.userId,planId,24);
   const invite=db.sqlite.prepare("SELECT id FROM merchant_contract_invites WHERE merchant_id=? AND commercial_terms_id=?").get(merchant.id,assigned.commercial_terms_id);
-  const contractVersion=planId === "baiye_standard_18000_addons" ? "merchant_service_v1_2_18000_addons" : planId === "baiye_commerce_ai_45000" ? "merchant_commerce_ai_v1_0_45000" : "merchant_softpos_v1_0_24000";
+  const contractVersion=planId === "baiye_standard_18000_addons" ? "merchant_service_v1_3_18000_payment" : planId === "baiye_commerce_ai_50000" ? "merchant_commerce_ai_v1_1_50000" : "merchant_softpos_v1_1_24000_payment";
   const signatureId=`signed-${merchant.id}`;
   db.sqlite.prepare(`INSERT INTO merchant_contract_signatures(id,public_id,merchant_id,merchant_user_id,contract_version_id,commercial_terms_id,signatory_legal_name,signatory_role,legal_representative_name,company_name,signed_at,contract_content_hash,commercial_terms_hash,signature_hash,signature_data,document_hash,pdf_hash,consent_version,invite_id,session_id_hash,r2_key,evidence_object_key,status)
     VALUES(?,?,?, ?,?,?,'管理者','legal_representative','管理者','整合測試商家',CURRENT_TIMESTAMP,'content','terms','signature','{}','document','pdf','consent',?,'session','signed.pdf','signed.json','VALID')`)
@@ -32,9 +32,10 @@ test("UNIFIED-01 migrations are unique and ordered 0023 commerce, 0024 SoftPOS, 
 
 test("UNIFIED-02 public server catalog exposes exactly the three immutable plans", async () => {
   const db=new D1(),plans=await listMerchantPlans(db);
-  assert.deepEqual(plans.map((plan)=>plan.plan_id),["baiye_standard_18000_addons","baiye_commerce_ai_45000","baiye_softpos_24000"]);
-  assert.deepEqual(plans.map((plan)=>plan.contract_version),["merchant_service_v1_2_18000_addons","merchant_commerce_ai_v1_0_45000","merchant_softpos_v1_0_24000"]);
-  assert.deepEqual(plans.map((plan)=>plan.price_minor),[1800000,4500000,2400000]);
+  assert.deepEqual(plans.map((plan)=>plan.plan_id),["baiye_standard_18000_addons","baiye_commerce_ai_50000","baiye_softpos_24000"]);
+  assert.deepEqual(plans.map((plan)=>plan.contract_version),["merchant_service_v1_3_18000_payment","merchant_commerce_ai_v1_1_50000","merchant_softpos_v1_1_24000_payment"]);
+  assert.deepEqual(plans.map((plan)=>plan.price_minor),[1800000,5000000,2400000]);
+  assert.deepEqual(plans.map((plan)=>plan.payment_due_at_signature_minor),[1800000,5000000,600000]);
 });
 
 test("UNIFIED-02A public plan API omits internal contract and provider fields", async () => {
@@ -42,31 +43,34 @@ test("UNIFIED-02A public plan API omits internal contract and provider fields", 
   const response=await handleMerchantPlansPublic(new Request("https://worker.test/api/public/merchant-plans"),{FINANCE_DB:db},new URL("https://worker.test/api/public/merchant-plans"),{});
   const body=await response.json();
   assert.equal(response.status,200);
-  for(const plan of body.plans){assert.equal("contract_version" in plan,false);assert.equal("features" in plan,false);assert.equal("payment_provider_ready" in plan,false);}
+  for(const plan of body.plans){
+    assert.equal("contract_version" in plan,false);assert.equal("features" in plan,false);assert.equal("payment_provider_ready" in plan,false);
+    for(const legacy of ["activation_fee_minor","deposit_minor","cycle_fee_minor","first_cycle_credit_minor","first_cycle_balance_minor","renewal_fee_minor"]) assert.equal(legacy in plan,false);
+  }
 });
 
 test("UNIFIED-03 assignment ignores tampered client prices and uses server values", async () => {
   const db=new D1(),merchant=seedMerchant(db);
   const authorization={session:{merchant_id:merchant.id,user_id:merchant.userId}};
-  const request=new Request("https://worker.test/api/merchant/plans/select",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({plan_id:"baiye_commerce_ai_45000",plan_price:1,discount:4499999,deposit:1,cycle_fee:1,installment_plan_requested:24})});
+  const request=new Request("https://worker.test/api/merchant/plans/select",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({plan_id:"baiye_commerce_ai_50000",plan_price:1,discount:1,deposit:1,cycle_fee:1,payment_due_at_signature_minor:1,installment_plan_requested:24})});
   const response=await handleMerchantPlans(request,{FINANCE_DB:db},new URL(request.url),{},authorization);const data=await response.json();
-  assert.equal(response.status,201);assert.equal(data.plan.price_minor,4500000);assert.equal(data.payment_transaction_created,false);
+  assert.equal(response.status,201);assert.equal(data.plan.price_minor,5000000);assert.equal(data.plan.payment_due_at_signature_minor,5000000);assert.equal(data.payment_transaction_created,false);
   const terms=db.sqlite.prepare("SELECT * FROM merchant_contract_commercial_terms WHERE id=?").get(data.commercial_terms_id);
-  assert.deepEqual([terms.list_price_minor,terms.discount_price_minor,terms.installment_plan_requested],[4500000,4500000,24]);
+  assert.deepEqual([terms.list_price_minor,terms.discount_price_minor,terms.payment_due_at_signature_minor,terms.installment_plan_requested],[5000000,5000000,5000000,24]);
 });
 
 test("UNIFIED-04 SoftPOS math is integer minor-unit data and Trial is outside paid cycle", async () => {
   const db=new D1(),merchant=seedMerchant(db,"merchant-softpos-unified","owner-softpos-unified");
   const result=await assignMerchantPlan(db,merchant.id,merchant.userId,"baiye_softpos_24000",24);
   const plan=result.plan;
-  assert.deepEqual([plan.activation_fee_minor,plan.deposit_minor,plan.trial_months,plan.term_months,plan.cycle_fee_minor,plan.first_cycle_credit_minor,plan.first_cycle_balance_minor,plan.renewal_fee_minor],[300000,600000,3,24,2400000,600000,1800000,2400000]);
-  assert.equal(plan.activation_fee_minor+plan.deposit_minor,900000);assert.equal(plan.cycle_fee_minor-plan.first_cycle_credit_minor,plan.first_cycle_balance_minor);assert.equal(plan.cycle_fee_minor/plan.term_months,100000);
+  assert.deepEqual([plan.contract_total_amount_minor,plan.payment_due_at_signature_minor,plan.trial_period_months,plan.post_trial_payment_minor,plan.remaining_amount_minor],[2400000,600000,3,1800000,1800000]);
+  assert.equal(plan.payment_due_at_signature_minor+plan.post_trial_payment_minor,plan.contract_total_amount_minor);
   const terms=db.sqlite.prepare("SELECT start_date,service_period_end,attachments_json FROM merchant_contract_commercial_terms WHERE id=?").get(result.commercial_terms_id);
   assert.equal(JSON.parse(terms.attachments_json).trial_months,3);
 });
 
 test("UNIFIED-05 entitlements distinguish standard, commerce and SoftPOS", async () => {
-  for (const [index,planId] of ["baiye_standard_18000_addons","baiye_commerce_ai_45000","baiye_softpos_24000"].entries()) {
+  for (const [index,planId] of ["baiye_standard_18000_addons","baiye_commerce_ai_50000","baiye_softpos_24000"].entries()) {
     const db=new D1(),merchant=seedMerchant(db,`merchant-ent-${index}`,`owner-ent-${index}`);await assignMerchantPlan(db,merchant.id,merchant.userId,planId,24);const flags=await merchantPlanEntitlements(db,merchant.id);
     if (index===0) assert.deepEqual([flags.merchant_content_editable,flags.merchant_product_editable,flags.base_product_limit],[false,false,20]);
     if (index===1) assert.deepEqual([flags.merchant_content_editable,flags.merchant_product_editable,flags.commerce_full,flags.cart_enabled],[true,true,true,true]);
@@ -76,19 +80,19 @@ test("UNIFIED-05 entitlements distinguish standard, commerce and SoftPOS", async
 
 test("UNIFIED-06 signed plan cannot be overwritten by another plan", async () => {
   const db=new D1(),merchant=seedMerchant(db,"merchant-signed-unified","owner-signed-unified");await seedSignedPlan(db,merchant);
-  await assert.rejects(()=>assignMerchantPlan(db,merchant.id,merchant.userId,"baiye_commerce_ai_45000",24),(error)=>error.code==="ACTIVE_PLAN_EXISTS");
+  await assert.rejects(()=>assignMerchantPlan(db,merchant.id,merchant.userId,"baiye_commerce_ai_50000",24),(error)=>error.code==="ACTIVE_PLAN_EXISTS");
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_contract_signatures WHERE merchant_id=?").get(merchant.id).count,1);
 });
 
 test("UNIFIED-06A plan change request is idempotent and preserves the active plan and signature", async () => {
   const db=new D1(),merchant=seedMerchant(db,"merchant-change-unified","owner-change-unified");await seedSignedPlan(db,merchant);
   const before=await merchantPlanState(db,merchant.id);
-  const first=await requestMerchantPlanChange(db,merchant.id,merchant.userId,"baiye_commerce_ai_45000","plan-change-unified-0001");
-  const replay=await requestMerchantPlanChange(db,merchant.id,merchant.userId,"baiye_commerce_ai_45000","plan-change-unified-0001");
+  const first=await requestMerchantPlanChange(db,merchant.id,merchant.userId,"baiye_commerce_ai_50000","plan-change-unified-0001");
+  const replay=await requestMerchantPlanChange(db,merchant.id,merchant.userId,"baiye_commerce_ai_50000","plan-change-unified-0001");
   const after=await merchantPlanState(db,merchant.id);
   assert.equal(first.code,"PLAN_CHANGE_SUBMITTED");assert.equal(replay.code,"PLAN_CHANGE_ALREADY_SUBMITTED");
   assert.equal(first.request.id,replay.request.id);assert.equal(after.active_plan.plan_id,before.active_plan.plan_id);
-  assert.equal(after.signed_contract.id,before.signed_contract.id);assert.equal(after.pending_plan_change.requested_plan_id,"baiye_commerce_ai_45000");
+  assert.equal(after.signed_contract.id,before.signed_contract.id);assert.equal(after.pending_plan_change.requested_plan_id,"baiye_commerce_ai_50000");
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_plan_change_requests WHERE merchant_id=?").get(merchant.id).count,1);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_contract_signatures WHERE merchant_id=?").get(merchant.id).count,1);
 });
@@ -102,7 +106,7 @@ test("UNIFIED-07 historical evidence tables and legacy versions remain present",
 
 test("UNIFIED-08 UI has one join center, selector and no split merchant contract routes", () => {
   const app=readFileSync(new URL("../../src/App.tsx",import.meta.url),"utf8"),join=readFileSync(new URL("../../src/pages/JoinPages.tsx",import.meta.url),"utf8");
-  for(const phrase of ["加入創百業智慧鏈","商家免費註冊","承攬夥伴簽約","前 3 個月免費","方案簽署合約"])assert.match(join,new RegExp(phrase));
+  for(const phrase of ["加入創百業智慧鏈","商家免費註冊","承攬夥伴簽約","3 個月試用","方案簽署合約"])assert.match(join,new RegExp(phrase));
   assert.doesNotMatch(join,/QR Ordering Core/);
   assert.match(app,/path="\/join" element={<JoinPage/);assert.match(app,/path="\/merchant\/contract"/);assert.doesNotMatch(app,/contract-(?:18|45|pos)/);
 });

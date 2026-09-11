@@ -1,8 +1,8 @@
 import { ContractError, hashCanonical } from "./contract-engine.js";
 
 export const SOFTPOS_PLAN_ID = "baiye_softpos_24000";
-export const SOFTPOS_CONTRACT_VERSION_ID = "merchant_softpos_v1_0_24000";
-export const SOFTPOS_CONTRACT_VERSION = "merchant_softpos_v1_0_24000";
+export const SOFTPOS_CONTRACT_VERSION_ID = "merchant_softpos_v1_1_24000_payment";
+export const SOFTPOS_CONTRACT_VERSION = "merchant_softpos_v1_1_24000_payment";
 export const SOFTPOS_FORMAL_NAME = "創百業智慧鏈｜免 POS 機智慧點餐系統";
 export const INSTALLMENT_DISCLOSURE = "24 期零利率須依合作金融／支付機構核准與實際可用方案為準。";
 
@@ -32,14 +32,20 @@ export function softposCommercialTermsSnapshot(now = new Date()) {
     plan_code: SOFTPOS_PLAN_ID,
     plan_name: SOFTPOS_FORMAL_NAME,
     list_price_minor: 2400000,
-    discount_price_minor: 1800000,
+    discount_price_minor: 2400000,
     currency: "TWD",
     contract_term_months: 24,
     payment_plan: "upfront_18000",
-    upfront_amount_minor: 1800000,
+    upfront_amount_minor: 600000,
     offset_target_amount_minor: 0,
     tax_reserve_enabled: 0,
     withholding_enabled: 0,
+    contract_total_amount_minor: 2400000,
+    payment_due_at_signature_minor: 600000,
+    remaining_amount_minor: 1800000,
+    trial_period_months: 3,
+    post_trial_payment_minor: 1800000,
+    payment_schedule_type: "SIGNATURE_AND_AFTER_TRIAL",
     included_services: [
       "QR Ordering（沿用現有 Ordering Core）",
       "Booking / Ordering Core、KDS、Browser Print 與 Order State Machine",
@@ -56,15 +62,13 @@ export function softposCommercialTermsSnapshot(now = new Date()) {
       third_party: INSTALLMENT_DISCLOSURE,
       trial_start: trialStart,
       trial_months: 3,
-      activation_fee_minor: 300000,
-      deposit_minor: 600000,
-      cycle_fee_minor: 2400000,
-      first_cycle_credit_minor: 600000,
-      first_cycle_balance_minor: 1800000,
+      payment_due_at_signature_minor: 600000,
+      post_trial_payment_minor: 1800000,
+      contract_total_amount_minor: 2400000,
     },
     start_date: formalStart,
     service_period_end: addMonths(formalStart, 24, true),
-    renewal_terms: "後續每 24 個月建立新週期，標準續約費 NT$24,000；不再收取保證金，不修改前期 Evidence。",
+    renewal_terms: "本契約期滿後如需續用，由雙方依屆時有效方案與書面約定辦理；不修改前期已簽文件或證據。",
     custom_quote_reference: null,
   };
 }
@@ -72,10 +76,16 @@ export function softposCommercialTermsSnapshot(now = new Date()) {
 export function isSoftposCommercialTerms(terms) {
   return terms?.plan_code === SOFTPOS_PLAN_ID
     && Number(terms?.list_price_minor) === 2400000
-    && Number(terms?.discount_price_minor) === 1800000
+    && Number(terms?.discount_price_minor) === 2400000
     && Number(terms?.contract_term_months) === 24
-    && Number(terms?.upfront_amount_minor) === 1800000
+    && Number(terms?.upfront_amount_minor) === 600000
     && Number(terms?.offset_target_amount_minor) === 0
+    && Number(terms?.contract_total_amount_minor) === 2400000
+    && Number(terms?.payment_due_at_signature_minor) === 600000
+    && Number(terms?.post_trial_payment_minor) === 1800000
+    && Number(terms?.remaining_amount_minor) === 1800000
+    && Number(terms?.trial_period_months) === 3
+    && terms?.payment_schedule_type === "SIGNATURE_AND_AFTER_TRIAL"
     && terms?.currency === "TWD"
     && terms?.service_plan_version_id === SOFTPOS_PLAN_ID;
 }
@@ -92,37 +102,41 @@ export async function ensureSoftposCommercialTerms(db, merchantId, now = new Dat
       contract_term_months,payment_plan,upfront_amount_minor,offset_target_amount_minor,
       tax_reserve_enabled,withholding_enabled,included_services_json,excluded_services_json,
       attachments_json,start_date,service_period_end,renewal_terms,custom_quote_reference,
-      status,created_by,approved_by,approved_at,terms_hash,source_preset_id,service_plan_version_id
-    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved','platform_softpos_terms','platform_softpos_terms',CURRENT_TIMESTAMP,?,?,?)`)
+      status,created_by,approved_by,approved_at,terms_hash,source_preset_id,service_plan_version_id,
+      contract_total_amount_minor,payment_due_at_signature_minor,remaining_amount_minor,
+      trial_period_months,post_trial_payment_minor,payment_schedule_type
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved','platform_softpos_terms','platform_softpos_terms',CURRENT_TIMESTAMP,?,?,?,?,?,?,?,?,?)`)
     .bind(id, merchantId, snapshot.plan_code, snapshot.plan_name, snapshot.list_price_minor,
       snapshot.discount_price_minor, snapshot.currency, snapshot.contract_term_months,
       snapshot.payment_plan, snapshot.upfront_amount_minor, snapshot.offset_target_amount_minor,
       snapshot.tax_reserve_enabled, snapshot.withholding_enabled,
       JSON.stringify(snapshot.included_services), JSON.stringify(snapshot.excluded_services),
       JSON.stringify(snapshot.attachments), snapshot.start_date, snapshot.service_period_end,
-      snapshot.renewal_terms, snapshot.custom_quote_reference, termsHash, SOFTPOS_PLAN_ID, SOFTPOS_PLAN_ID).run();
+      snapshot.renewal_terms, snapshot.custom_quote_reference, termsHash, SOFTPOS_PLAN_ID, SOFTPOS_PLAN_ID,
+      snapshot.contract_total_amount_minor, snapshot.payment_due_at_signature_minor,
+      snapshot.remaining_amount_minor, snapshot.trial_period_months,
+      snapshot.post_trial_payment_minor, snapshot.payment_schedule_type).run();
   return { terms: await db.prepare("SELECT * FROM merchant_contract_commercial_terms WHERE id=?").bind(id).first(), created: true };
 }
 
 export async function softposPlanSummary(db) {
-  const plan = await db.prepare("SELECT * FROM merchant_service_plan_versions WHERE plan_id=?").bind(SOFTPOS_PLAN_ID).first();
+  const plan = await db.prepare("SELECT * FROM merchant_plan_catalog WHERE plan_id=? AND is_selectable=1").bind(SOFTPOS_PLAN_ID).first();
   if (!plan) throw new ContractError("SOFTPOS_PLAN_MISSING", "SoftPOS 方案設定不完整。", 500);
   const capability = await db.prepare("SELECT provider_code,installment_count,zero_interest_enabled,production_verified FROM merchant_contract_payment_provider_capabilities WHERE plan_id=? AND zero_interest_enabled=1 AND production_verified=1 LIMIT 1")
     .bind(SOFTPOS_PLAN_ID).first();
   return {
     plan_id: plan.plan_id,
-    contract_version: plan.contract_version,
-    formal_name: plan.formal_name,
-    public_hardware_claim: plan.public_hardware_claim,
-    activation_fee: Number(plan.activation_fee),
-    deposit: Number(plan.deposit),
-    trial_months: Number(plan.trial_months),
-    cycle_months: Number(plan.cycle_months),
-    cycle_fee: Number(plan.cycle_fee),
-    first_cycle_credit: Number(plan.first_cycle_credit),
-    first_cycle_balance: Number(plan.first_cycle_balance),
-    renewal_fee: Number(plan.cycle_fee),
-    legal_status: plan.legal_status,
+    contract_version: plan.contract_version_id,
+    formal_name: plan.name,
+    public_hardware_claim: "不強制購買專用 POS 主機；商家仍需自備相容裝置與網路。",
+    activation_fee: Number(plan.activation_fee_minor),
+    deposit: Number(plan.deposit_minor),
+    trial_months: Number(plan.trial_period_months),
+    cycle_months: Number(plan.term_months),
+    cycle_fee: Number(plan.contract_total_amount_minor),
+    first_cycle_credit: 0,
+    first_cycle_balance: Number(plan.remaining_amount_minor),
+    renewal_fee: Number(plan.renewal_fee_minor),
     payment_terms: { installment_count: 24, interest_rate_bps: 0 },
     payment_provider: {
       ready: Boolean(capability),
@@ -138,18 +152,8 @@ const money = (minor) => `NT$${Math.trunc(Number(minor || 0) / 100).toLocaleStri
 export function softposAttachmentA(terms, plan) {
   return [{
     title: "附件 A｜SoftPOS 商業條件與付款排程",
-    contentHtml: `<h2>附件 A｜商業條件</h2><p>方案：${plan.formal_name}</p><p>開通費：${money(plan.activation_fee)}（獨立收取，不抵服務費）</p><p>履約／服務保證金：${money(plan.deposit)}（僅首次收取）</p><p>前 ${plan.trial_months} 個月系統服務費：NT$0；Trial 期間不建立服務費應收。</p><p>正式計價：${money(plan.cycle_fee)}／${plan.cycle_months} 個月（平均等值 NT$1,000／月，非逐月短約）</p><p>第一週期：${money(plan.cycle_fee)} - 保證金抵充 ${money(plan.first_cycle_credit)} = 尚應支付 ${money(plan.first_cycle_balance)}</p><p>後續週期：${money(plan.renewal_fee)}／${plan.cycle_months} 個月，不再收取保證金。</p><p>${INSTALLMENT_DISCLOSURE}</p><p>實際 Provider 就緒：${plan.payment_provider.ready ? "是" : "否；不會產生假交易"}</p><p>正式服務期間：${terms.start_date} 至 ${terms.service_period_end}</p>`,
+    contentHtml: `<h2>附件 A｜商業條件與付款排程</h2><p>方案：${plan.formal_name}</p><p>契約總額：${money(terms.contract_total_amount_minor)}</p><p>簽約首期款：${money(terms.payment_due_at_signature_minor)}</p><p>試用期間：${terms.trial_period_months} 個月</p><p>三個月試用期結束後應支付之尾款：${money(terms.post_trial_payment_minor)}</p><p>本次實際付款：${money(terms.payment_due_at_signature_minor)}</p><p>${INSTALLMENT_DISCLOSURE}</p><p>正式服務期間：${terms.start_date} 至 ${terms.service_period_end}</p>`,
   }];
-}
-
-export function softposTrialStatement(db, { merchantId, signatureId, signedAt }) {
-  const trialStart = taipeiDate(new Date(signedAt));
-  const trialEnd = addMonths(trialStart, 3, true);
-  return db.prepare(`INSERT INTO merchant_service_subscriptions(
-      id,merchant_id,plan_id,initial_contract_signature_id,renewal_state,trial_started_at,
-      trial_ends_at,activation_fee_minor,deposit_minor,deposit_collected_once,current_cycle_number
-    ) VALUES(?,?,? ,?,'TRIAL',?,?,300000,600000,0,0)`)
-    .bind(uid("softpos_subscription"), merchantId, SOFTPOS_PLAN_ID, signatureId, trialStart, trialEnd);
 }
 
 function daysBetween(from, to) {

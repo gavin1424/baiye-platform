@@ -34,6 +34,12 @@ export function standardCommercialTermsSnapshot(now = new Date()) {
     offset_target_amount_minor: 0,
     tax_reserve_enabled: 0,
     withholding_enabled: 0,
+    contract_total_amount_minor: 1800000,
+    payment_due_at_signature_minor: 1800000,
+    remaining_amount_minor: 0,
+    trial_period_months: 0,
+    post_trial_payment_minor: 0,
+    payment_schedule_type: "SIGNATURE_FULL",
     included_services: [
       "標準規格網站基礎建置（NT$0）",
       "百工協助建立與維護網站",
@@ -66,6 +72,10 @@ export function isStandardCommercialTerms(terms) {
     && terms?.payment_plan === "upfront_18000"
     && Number(terms?.upfront_amount_minor) === 1800000
     && Number(terms?.offset_target_amount_minor) === 0
+    && Number(terms?.contract_total_amount_minor) === 1800000
+    && Number(terms?.payment_due_at_signature_minor) === 1800000
+    && Number(terms?.remaining_amount_minor) === 0
+    && terms?.payment_schedule_type === "SIGNATURE_FULL"
     && !terms?.custom_quote_reference;
 }
 
@@ -82,8 +92,10 @@ export async function ensureStandardCommercialTerms(db, merchantId, now = new Da
       contract_term_months,payment_plan,upfront_amount_minor,offset_target_amount_minor,
       tax_reserve_enabled,withholding_enabled,included_services_json,excluded_services_json,
       attachments_json,start_date,service_period_end,renewal_terms,custom_quote_reference,
-      status,created_by,approved_by,approved_at,terms_hash,source_preset_id
-    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved','platform_standard_terms','platform_standard_terms',CURRENT_TIMESTAMP,?,?)`)
+      status,created_by,approved_by,approved_at,terms_hash,source_preset_id,
+      contract_total_amount_minor,payment_due_at_signature_minor,remaining_amount_minor,
+      trial_period_months,post_trial_payment_minor,payment_schedule_type
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved','platform_standard_terms','platform_standard_terms',CURRENT_TIMESTAMP,?,?,?,?,?,?,?,?)`)
     .bind(
       id, merchantId, snapshot.plan_code, snapshot.plan_name, snapshot.list_price_minor,
       snapshot.discount_price_minor, snapshot.currency, snapshot.contract_term_months,
@@ -93,6 +105,9 @@ export async function ensureStandardCommercialTerms(db, merchantId, now = new Da
       JSON.stringify(snapshot.attachments), snapshot.start_date, snapshot.service_period_end,
       snapshot.renewal_terms, snapshot.custom_quote_reference, termsHash,
       STANDARD_MERCHANT_TERMS_PRESET_ID,
+      snapshot.contract_total_amount_minor, snapshot.payment_due_at_signature_minor,
+      snapshot.remaining_amount_minor, snapshot.trial_period_months,
+      snapshot.post_trial_payment_minor, snapshot.payment_schedule_type,
     ).run();
   return { terms: await db.prepare("SELECT * FROM merchant_contract_commercial_terms WHERE id=? AND merchant_id=?").bind(id, merchantId).first(), created: true };
 }

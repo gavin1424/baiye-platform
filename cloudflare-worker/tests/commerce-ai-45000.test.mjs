@@ -60,8 +60,8 @@ async function seed() {
   return db;
 }
 
-async function assign(db, key = "assign-commerce-ai-45000") {
-  const req = request(`/api/admin/merchants/${merchantId}/commerce-ai-45000-plan`, "POST", { plan_id: COMMERCE_AI_PLAN_ID, confirm_fixed_price: true }, { "idempotency-key": key });
+async function assign(db, key = "assign-commerce-ai-50000") {
+  const req = request(`/api/admin/merchants/${merchantId}/commerce-ai-50000-plan`, "POST", { plan_id: COMMERCE_AI_PLAN_ID, confirm_fixed_price: true }, { "idempotency-key": key });
   return handleMerchantContractAdmin(req, { FINANCE_DB: db }, new URL(req.url), cors, admin);
 }
 
@@ -70,60 +70,60 @@ async function contractCall(db, path, method = "GET", body, headers = {}, extra 
   return handleMerchantContractRequest(req, { FINANCE_DB: db, CONTRACT_SIGNING_MODE: "staging", ...extra }, new URL(req.url), cors, auth);
 }
 
-test("CA45-01 migration creates immutable fixed plan and keeps v1.1 unchanged", async () => {
+test("CA50-01 migration creates a new immutable catalog plan and preserves historical 45k", async () => {
   const db = new D1();
-  const plan = db.sqlite.prepare("SELECT * FROM merchant_service_plans WHERE plan_id=?").get(COMMERCE_AI_PLAN_ID);
+  const plan = db.sqlite.prepare("SELECT * FROM merchant_plan_catalog WHERE plan_id=?").get(COMMERCE_AI_PLAN_ID);
   const contract = db.sqlite.prepare("SELECT * FROM merchant_contract_versions WHERE id=?").get(COMMERCE_AI_CONTRACT_ID);
-  assert.equal(plan.fixed_price_minor, 4500000);
-  assert.equal(plan.pricing_model, "fixed_complete_package");
-  assert.equal(contract.version, "merchant_commerce_ai_v1_0_45000");
-  assert.equal(contract.content_html, COMMERCE_AI_CONTRACT_CONTENT_HTML);
-  assert.equal(contract.content_hash, await sha256(COMMERCE_AI_CONTRACT_CONTENT_HTML));
+  assert.equal(plan.price_minor, 5000000);
+  assert.equal(plan.payment_due_at_signature_minor, 5000000);
+  assert.equal(contract.version, "merchant_commerce_ai_v1_1_50000");
+  assert.equal(contract.content_hash, "eIyetnwARQTc6fldFnS4NQJktKGJ_OzACpYVUYrX6r0");
   assert.equal(contract.legal_review_status, "pending_review");
   assert.equal(contract.staging_signing_enabled, 1);
   assert.equal(contract.is_active, 0);
   assert.ok(db.sqlite.prepare("SELECT id FROM merchant_contract_versions WHERE id=?").get(MERCHANT_SERVICE_V11_ID));
-  assert.throws(() => db.sqlite.prepare("UPDATE merchant_service_plans SET fixed_price_minor=1 WHERE plan_id=?").run(COMMERCE_AI_PLAN_ID), /IMMUTABLE/);
+  assert.equal(db.sqlite.prepare("SELECT is_selectable FROM merchant_plan_catalog WHERE plan_id='baiye_commerce_ai_45000'").get().is_selectable, 0);
+  assert.throws(() => db.sqlite.prepare("UPDATE merchant_plan_catalog SET price_minor=1 WHERE plan_id=?").run(COMMERCE_AI_PLAN_ID), /IMMUTABLE/);
 });
 
-test("CA45-02 body and Attachment A are fixed-price with no legacy line-item quote", () => {
+test("CA50-02 body and Attachment A are fixed-price with no legacy line-item quote", () => {
   for (const phrase of ["契約雙方","商城建置","商家管理者後台","AI 功能","訂單與購物車","第三方金流","第三方費用","商家資料義務","資料安全","個人資料","智慧財產權","維護","電子簽署","契約終止","準據法"]) assert.match(COMMERCE_AI_CONTRACT_CONTENT_HTML, new RegExp(phrase));
-  assert.match(COMMERCE_AI_CONTRACT_CONTENT_HTML, /NT\$45,000/);
+  assert.match(COMMERCE_AI_CONTRACT_CONTENT_HTML, /NT\$50,000/);
   assert.match(COMMERCE_AI_CONTRACT_CONTENT_HTML, /不適用「每修改一項 NT\$200」/);
   assert.match(COMMERCE_AI_CONTRACT_CONTENT_HTML, /包含標準金流串接建置；實際啟用仍依第三方支付服務商審核、帳號申請及技術可用性為準/);
   assert.doesNotMatch(COMMERCE_AI_CONTRACT_CONTENT_HTML, /NT\$(?:30,000|8,000|22,000|12,800)/);
-  const [attachment] = commerceAiAttachmentA({ discount_price_minor: 4500000 });
-  assert.match(attachment.contentHtml, /總價：NT\$45,000/);
+  const [attachment] = commerceAiAttachmentA({ discount_price_minor: 5000000, contract_total_amount_minor: 5000000, payment_due_at_signature_minor: 5000000, remaining_amount_minor: 0 });
+  assert.match(attachment.contentHtml, /契約總額：NT\$50,000/);
   assert.match(attachment.contentHtml, /不產生細項報價/);
   assert.doesNotMatch(attachment.contentHtml, /NT\$(?:30,000|8,000|22,000|12,800)/);
 });
 
-test("CA45-03 assignment is idempotent and grants only the explicit commerce flags", async () => {
+test("CA50-03 assignment is idempotent and grants only the explicit commerce flags", async () => {
   const db = await seed();
   let response = await assign(db); const first = await response.json();
   assert.equal(response.status, 201);
   assert.equal(first.plan_id, COMMERCE_AI_PLAN_ID);
-  assert.equal(first.fixed_price_minor, 4500000);
+  assert.equal(first.fixed_price_minor, 5000000);
   assert.equal(first.payment_enabled, false);
   response = await assign(db); const replay = await response.json();
   assert.equal(response.status, 200);
   assert.equal(replay.assignment_id, first.assignment_id);
-  assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_plan_assignments WHERE merchant_id=?").get(merchantId).count, 1);
-  const flags = await commerceEntitlements(db, merchantId);
-  assert.deepEqual(flags, { plan_id: COMMERCE_AI_PLAN_ID, commerce_full: true, cart: true, merchant_product_edit: true, merchant_content_editable: true, merchant_product_editable: true });
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_plan_selections WHERE merchant_id=?").get(merchantId).count, 1);
+  assert.equal(first.entitlements.commerce_full, true);
   const terms = db.sqlite.prepare("SELECT * FROM merchant_contract_commercial_terms WHERE id=?").get(first.commercial_terms_id);
-  assert.equal(terms.list_price_minor, 4500000);
-  assert.equal(terms.discount_price_minor, 4500000);
+  assert.equal(terms.list_price_minor, 5000000);
+  assert.equal(terms.discount_price_minor, 5000000);
+  assert.equal(terms.payment_due_at_signature_minor, 5000000);
   assert.deepEqual(JSON.parse(terms.included_services_json), ["AI 智慧商城完整版（固定完整方案）"]);
 });
 
-test("CA45-04 contract renders 45,000 in Staging while Production legal gate stays locked", async () => {
+test("CA50-04 contract renders 50,000 in Staging while Production legal gate stays locked", async () => {
   const db = await seed(); const assigned = await (await assign(db)).json();
   db.sqlite.prepare("INSERT INTO merchant_contract_invites(id,merchant_id,commercial_terms_id,email,token_hash,expires_at,used_at,created_by) VALUES('commerce-invite',?,?,?,'hash','2099-01-01',CURRENT_TIMESTAMP,'test')").run(merchantId,assigned.commercial_terms_id,"commerce@example.test");
   let response = await contractCall(db, "/api/merchant/contracts/current"); const current = await response.json();
   assert.equal(response.status, 200);
   assert.equal(current.contract.id, COMMERCE_AI_CONTRACT_ID);
-  assert.equal(current.terms.discount_price_minor, 4500000);
+  assert.equal(current.terms.discount_price_minor, 5000000);
   assert.equal(current.attachments.length, 1);
   const prodReq = request("/api/merchant/contracts/current");
   response = await handleMerchantContractRequest(prodReq, { FINANCE_DB: db, CONTRACT_SIGNING_MODE: "production" }, new URL(prodReq.url), cors, auth);
@@ -131,19 +131,21 @@ test("CA45-04 contract renders 45,000 in Staging while Production legal gate sta
   assert.equal((await response.json()).code, "LEGAL_REVIEW_REQUIRED");
 });
 
-test("CA45-05 preview/sign/PDF/Evidence activate merchant without faking payment", async () => {
+test("CA50-05 preview/sign/PDF/Evidence remain pending payment without faking payment", async () => {
   const db = await seed(); const assigned = await (await assign(db)).json();
   db.sqlite.prepare("INSERT INTO merchant_contract_invites(id,merchant_id,commercial_terms_id,email,token_hash,expires_at,used_at,created_by) VALUES('commerce-invite',?,?,?,'hash','2099-01-01',CURRENT_TIMESTAMP,'test')").run(merchantId,assigned.commercial_terms_id,"commerce@example.test");
   let response = await contractCall(db, "/api/merchant/contracts/sign-preview", "POST", signBody); const preview = await response.json();
-  assert.equal(response.status, 200); assert.equal(preview.total_minor, 4500000); assert.equal(preview.version, "merchant_commerce_ai_v1_0_45000");
+  assert.equal(response.status, 200); assert.equal(preview.total_minor, 5000000); assert.equal(preview.payment_due_at_signature_minor, 5000000); assert.equal(preview.version, "merchant_commerce_ai_v1_1_50000");
   const r2 = new R2(); const headers = { "idempotency-key": "commerce-ai-sign-once" };
   response = await contractCall(db, "/api/merchant/contracts/sign", "POST", signBody, headers, { CONTRACTS_BUCKET: r2, ...testContractFontEnv }); const signed = await response.json();
   assert.equal(response.status, 201); assert.ok(signed.pdf_hash); assert.ok(signed.document_hash); assert.equal(r2.objects.size, 2);
   const evidenceObject = [...r2.objects.entries()].find(([key]) => key.includes("/evidence-"));
   const evidence = JSON.parse(new TextDecoder().decode(evidenceObject[1].body));
-  assert.equal(evidence.contract_version, "merchant_commerce_ai_v1_0_45000");
+  assert.equal(evidence.contract_version, "merchant_commerce_ai_v1_1_50000");
   assert.equal(evidence.environment, "STAGING_NOT_A_REAL_CONTRACT");
-  assert.equal(db.sqlite.prepare("SELECT state FROM merchant_onboarding_states WHERE merchant_id=?").get(merchantId).state, "active");
+  assert.equal(db.sqlite.prepare("SELECT state FROM merchant_onboarding_states WHERE merchant_id=?").get(merchantId).state, "contract_signed");
+  assert.equal(signed.lifecycle_status, "SIGNED_PENDING_PAYMENT");
+  assert.equal(signed.payment.amount_due_minor, 5000000);
   const readiness = await paymentReadiness(db, merchantId);
   assert.equal(readiness.production_payment_enabled, false);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM payments WHERE merchant_id=? AND status='paid'").get(merchantId).count, 0);
@@ -169,7 +171,7 @@ test("CA45-06 active merchant can edit product fields and dashboard reports cart
   req = request("/api/merchant-admin/dashboard");
   response = await handleMerchantAdmin(req, { FINANCE_DB: db }, new URL(req.url), cors, auth);
   const dashboard = await response.json();
-  assert.equal(dashboard.plan.discount_price_minor, 4500000);
+  assert.equal(dashboard.plan.discount_price_minor, 5000000);
   assert.equal(dashboard.entitlements.cart, true);
   assert.equal(dashboard.entitlements.merchant_product_editable, true);
   assert.equal(dashboard.payment_readiness.production_payment_enabled, false);

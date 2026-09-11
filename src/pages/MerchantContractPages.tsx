@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   getPlatformDeviceId,
   merchantOrderingApi,
@@ -180,6 +180,7 @@ const requiredConsentKeys = [
 ] as const;
 
 export function MerchantContractPage() {
+  const navigate = useNavigate();
   const [context, setContext] = useState<any>();
   const [notice, setNotice] = useState("");
   const [authRequired, setAuthRequired] = useState(false);
@@ -279,8 +280,9 @@ export function MerchantContractPage() {
       if (result.welcome?.show) setMemberWelcome(result.welcome);
       setPreview(undefined);
       setSignature({ strokes: [] });
-      setNotice(`商家平台服務契約已完成簽署。文件識別碼：${result.public_id}`);
-      await load();
+      setNotice("簽署已完成，請繼續完成付款。");
+      if (result.next_url) navigate(result.next_url, { replace: true });
+      else await load();
     } catch (error) {
       signIdempotencyKey.current = null;
       setNotice(message(error));
@@ -339,10 +341,17 @@ export function MerchantContractPage() {
   if (context.signed)
     return (
       <main className="partner-shell contract-shell">
-        <h1>商家平台服務契約已完成簽署</h1>
+        <h1>{context.signature.lifecycle_status === "EFFECTIVE" ? "商家平台服務契約已生效" : "商家平台服務契約已完成簽署"}</h1>
         <p>
           版本 {context.contract.version} · {context.signature.signed_at}
         </p>
+        {context.signature.lifecycle_status !== "EFFECTIVE" && context.payment_next_url && (
+          <section className="contract-summary-card">
+            <strong>契約已簽署，尚待完成付款</strong>
+            <span>平台確認簽約應付款項入帳後，契約才會正式生效並啟用服務。</span>
+            <Link className="btn btn-primary" to={context.payment_next_url}>前往付款</Link>
+          </section>
+        )}
         {context.renewal && (
           <section className="contract-summary-card">
             <strong>
@@ -423,22 +432,22 @@ export function MerchantContractPage() {
     );
 
   const consentLabels: Record<(typeof requiredConsentKeys)[number], string> =
-    context.plan
+    context.terms.plan_code === "baiye_softpos_24000"
       ? {
           read: "我已完整閱讀本契約及附件 A。",
           commercial_terms:
-            "我確認開通費 NT$3,000、保證金 NT$6,000，第一週期抵充後尚付 NT$18,000。",
+            "我確認本方案契約總額 NT$24,000，簽約首期款 NT$6,000。",
           authority:
-            "我確認免費試用 3 個月，正式計價為 NT$24,000／24 個月，非逐月短約。",
+            "我確認自服務啟用日起試用 3 個月，試用期屆滿後應支付尾款 NT$18,000。",
           signature_evidence:
             "我了解 24 期零利率仍須依實際金融／支付機構核准與當時提供條件為準。",
           electronic:
             "我同意以電子形式完成契約簽署，並保存 PDF、驗證值與簽署紀錄。",
         }
-      : context.terms.plan_code === "baiye_commerce_ai_45000"
+      : context.terms.plan_code === "baiye_commerce_ai_50000"
         ? {
             read: "我已完整閱讀本契約及附件 A。",
-            commercial_terms: "我確認 AI 智慧商城完整版固定總價為 NT$45,000。",
+            commercial_terms: "我確認 AI 智慧商城完整版契約總額及簽約應付款均為 NT$50,000。",
             authority:
               "我確認服務期間為 24 個月，商城與管理功能依方案內容開通。",
             signature_evidence:
@@ -448,8 +457,8 @@ export function MerchantContractPage() {
           }
         : {
             read: "我已完整閱讀本契約及附件 A。",
-            commercial_terms: "我確認本方案總價為 NT$18,000。",
-            authority: "我確認服務期間為 24 個月。",
+          commercial_terms: "我確認本方案總價為 NT$18,000。",
+            authority: "我確認簽約時一次支付 NT$18,000，簽約後餘額為 NT$0。",
             signature_evidence: "我了解客製服務及第三方費用不包含於本方案。",
             electronic: "我同意使用電子形式完成本契約簽署。",
           };
@@ -465,28 +474,20 @@ export function MerchantContractPage() {
         <>
           <section className="contract-summary-grid">
             <article>
-              <span>開通費</span>
-              <strong>{money(context.plan.activation_fee)}</strong>
+              <span>契約總額</span>
+              <strong>{money(context.terms.contract_total_amount_minor)}</strong>
             </article>
             <article>
-              <span>保證金</span>
-              <strong>{money(context.plan.deposit)}</strong>
+              <span>簽約首期款</span>
+              <strong>{money(context.terms.payment_due_at_signature_minor)}</strong>
             </article>
             <article>
-              <span>前三個月</span>
-              <strong>免費</strong>
+              <span>試用期間</span>
+              <strong>{context.terms.trial_period_months} 個月</strong>
             </article>
             <article>
-              <span>正式方案</span>
-              <strong>{money(context.plan.cycle_fee)}／24 個月</strong>
-            </article>
-            <article>
-              <span>第一週期抵充後</span>
-              <strong>尚需 {money(context.plan.first_cycle_balance)}</strong>
-            </article>
-            <article>
-              <span>後續週期</span>
-              <strong>{money(context.plan.renewal_fee)}／24 個月</strong>
+              <span>試用期結束尾款</span>
+              <strong>{money(context.terms.post_trial_payment_minor)}</strong>
             </article>
           </section>
           <section className="contract-summary-card">
@@ -532,6 +533,10 @@ export function MerchantContractPage() {
         </section>
       )}
       <section className="contract-summary-card">
+        <strong>付款與生效</strong>
+        <span>本契約完成電子簽署並經平台確認簽約應付款項入帳後正式生效。</span>
+      </section>
+      <section className="contract-summary-card">
         <strong>契約雙方</strong>
         {legalEntityMissing ? (
           <span>甲方資料設定尚未完成，簽署功能暫時鎖定。</span>
@@ -544,6 +549,11 @@ export function MerchantContractPage() {
             <span>乙方：{context.merchant.name}</span>
           </>
         )}
+      </section>
+      <section className="contract-summary-card" aria-label="付款生效條件">
+        <strong>付款與生效條件</strong>
+        <span>本契約於雙方完成簽署並經平台確認應付款項入帳後正式生效。</span>
+        <span>完成簽署不等同服務已生效；簽署後將前往付款頁。</span>
       </section>
       <article
         className="contract-document"

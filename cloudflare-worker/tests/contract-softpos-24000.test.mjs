@@ -78,18 +78,19 @@ test("SP01 migration keeps the unique 0023-0026 integration sequence and immutab
   for (const expected of ["0023_contract_commerce_ai_45000.sql","0024_contract_softpos_24000.sql","0025_contract_standard_addons.sql","0026_unified_registration_contract_center.sql"]) assert.equal(migrations.filter((name) => name === expected).length, 1);
 });
 
-test("SP02 contract body hash, legal gate and precise deposit clauses are present", async () => {
+test("SP02 new contract body keeps legal gate and states the 6k + 18k schedule", async () => {
   const db = new D1(); const row = db.sqlite.prepare("SELECT * FROM merchant_contract_versions WHERE id=?").get(SOFTPOS_CONTRACT_VERSION_ID);
-  assert.equal(row.version, "merchant_softpos_v1_0_24000"); assert.equal(row.legal_review_status, "pending_review"); assert.equal(row.is_active, 0); assert.equal(row.staging_signing_enabled, 1);
-  assert.equal(row.content_hash, await sha256(row.content_html));
-  for (const phrase of ["保證金用於","才依前條抵充","不進行前述服務費抵充","終止結算完成後 30 日內","未履行義務","免專用 POS 主機"]) assert.match(row.content_html, new RegExp(phrase));
+  assert.equal(row.version, "merchant_softpos_v1_1_24000_payment"); assert.equal(row.legal_review_status, "pending_review"); assert.equal(row.is_active, 0); assert.equal(row.staging_signing_enabled, 1);
+  assert.equal(row.content_hash, "D_jCMCLkfs_bnEDyrUumImJPKjZpWLCZlvWtAyRX2_0");
+  for (const phrase of ["契約總額為新臺幣 24,000 元","簽約時支付首期款新臺幣 6,000 元","三個月為試用期間","剩餘尾款新臺幣 18,000 元","免專用 POS 主機"]) assert.match(row.content_html, new RegExp(phrase));
+  assert.doesNotMatch(row.content_html, /開通費新臺幣 3,000 元|保證金新臺幣 6,000 元/);
   assert.doesNotMatch(row.content_html, /完全零硬體。/);
 });
 
 test("SP03 payment schedule snapshot uses integers and a 3-month trial before the 24-month cycle", () => {
   const snapshot = softposCommercialTermsSnapshot(new Date("2026-09-02T00:00:00+08:00"));
   assert.equal(snapshot.plan_code, SOFTPOS_PLAN_ID); assert.equal(snapshot.start_date, "2026-12-02"); assert.equal(snapshot.service_period_end, "2028-12-01");
-  assert.equal(snapshot.attachments.trial_months, 3); assert.equal(snapshot.attachments.cycle_fee_minor, 2400000); assert.equal(snapshot.attachments.first_cycle_balance_minor, 1800000);
+  assert.equal(snapshot.trial_period_months, 3); assert.equal(snapshot.contract_total_amount_minor, 2400000); assert.equal(snapshot.payment_due_at_signature_minor, 600000); assert.equal(snapshot.post_trial_payment_minor, 1800000);
   for (const value of [snapshot.list_price_minor,snapshot.discount_price_minor,snapshot.upfront_amount_minor,...Object.values(snapshot.attachments).filter(Number.isInteger)]) assert.equal(Number.isInteger(value), true);
 });
 
@@ -101,7 +102,7 @@ test("SP04 Provider capability is separate and no installment transaction is fak
 
 test("SP05 staging contract homepage exposes all required amounts and existing Core integrations", async () => {
   const db = await seed(); const response = await call(db, "/api/merchant/contracts/current"); const data = await response.json();
-  assert.equal(response.status, 200); assert.equal(data.contract.id, SOFTPOS_CONTRACT_VERSION_ID); assert.equal(data.plan.activation_fee, 300000); assert.equal(data.plan.deposit, 600000); assert.equal(data.plan.trial_months, 3); assert.equal(data.plan.cycle_fee, 2400000); assert.equal(data.plan.first_cycle_balance, 1800000); assert.equal(data.plan.renewal_fee, 2400000);
+  assert.equal(response.status, 200); assert.equal(data.contract.id, SOFTPOS_CONTRACT_VERSION_ID); assert.equal(data.terms.contract_total_amount_minor, 2400000); assert.equal(data.terms.payment_due_at_signature_minor, 600000); assert.equal(data.terms.trial_period_months, 3); assert.equal(data.terms.post_trial_payment_minor, 1800000);
   assert.match(JSON.stringify(data.terms), /QR Ordering/); assert.match(JSON.stringify(data.terms), /KDS/); assert.match(JSON.stringify(data.terms), /Merchant Admin/);
 });
 
@@ -111,12 +112,13 @@ test("SP06 Production remains blocked while legal review is pending", async () =
   assert.equal(response.status, 423); assert.equal((await response.json()).code, "LEGAL_REVIEW_REQUIRED");
 });
 
-test("SP07 Common Contract Engine signs once, stores PDF/Evidence and starts Trial without service receivable", async () => {
+test("SP07 Common Contract Engine signs once, stores PDF/Evidence and creates only the 6k request", async () => {
   const db = await seed(), r2 = new R2();
   const response = await call(db, "/api/merchant/contracts/sign", "POST", signBody, { "idempotency-key": "softpos-sign-0001" }, { CONTRACTS_BUCKET: r2, ...testContractFontEnv }); const data = await response.json();
   assert.equal(response.status, 201); assert.ok(data.document_hash); assert.ok(data.pdf_hash); assert.equal(r2.objects.size, 2);
-  const subscription = db.sqlite.prepare("SELECT * FROM merchant_service_subscriptions WHERE merchant_id='merchant-softpos'").get(); assert.equal(subscription.renewal_state, "TRIAL"); assert.equal(subscription.activation_fee_minor, 300000); assert.equal(subscription.deposit_minor, 600000); assert.equal(subscription.current_cycle_number, 0);
-  assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_service_cycles").get().count, 0);
+  assert.equal(data.lifecycle_status, "SIGNED_PENDING_PAYMENT"); assert.equal(data.payment.amount_due_minor, 600000);
+  const schedules = db.sqlite.prepare("SELECT phase,amount_due_minor FROM merchant_contract_payment_schedules ORDER BY sequence_number").all(); assert.deepEqual(schedules.map((item) => [item.phase,item.amount_due_minor]), [["SIGNATURE",600000],["AFTER_TRIAL",1800000]]);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_service_subscriptions").get().count, 0);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_contract_artifacts").get().count, 2);
 });
 
@@ -126,37 +128,31 @@ test("SP08 renewal state covers all six required states", () => {
   assert.equal(deriveRenewalState(base, { status:"ACTIVE",service_period_end:"2028-12-01" }, "2027-01-01"), "ACTIVE"); assert.equal(deriveRenewalState(base, { status:"ACTIVE",service_period_end:"2028-12-01" }, "2028-11-15"), "EXPIRING"); assert.equal(deriveRenewalState(base, { status:"EXPIRED",service_period_end:"2028-12-01" }, "2028-12-02"), "EXPIRED");
 });
 
-test("SP09 first cycle credits deposit once and returns 18,000 without creating a payment", async () => {
+test("SP09 post-trial tail is scheduled as 18,000 and no fake paid transaction is created", async () => {
   const db = await seed(), r2 = new R2(); const signed = await call(db, "/api/merchant/contracts/sign", "POST", signBody, { "idempotency-key": "softpos-sign-0002" }, { CONTRACTS_BUCKET: r2, ...testContractFontEnv }); assert.equal(signed.status, 201);
-  db.sqlite.prepare("UPDATE merchant_service_subscriptions SET trial_ends_at='2026-01-01' WHERE merchant_id='merchant-softpos'").run();
-  const cycle = await prepareSoftposRenewal(db, "merchant-softpos", new Date("2026-09-02T00:00:00+08:00"));
-  assert.equal(cycle.cycle_number, 1); assert.equal(cycle.cycle_fee_minor, 2400000); assert.equal(cycle.deposit_credit_minor, 600000); assert.equal(cycle.balance_due_minor, 1800000); assert.equal(cycle.deposit_charge_minor, 0); assert.equal(cycle.status, "PAYMENT_REQUIRED");
+  const tail = db.sqlite.prepare("SELECT * FROM merchant_contract_payment_schedules WHERE phase='AFTER_TRIAL'").get();
+  assert.equal(tail.amount_due_minor, 1800000); assert.equal(tail.trial_period_months, 3); assert.equal(tail.status, "pending");
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM payments WHERE merchant_id='merchant-softpos'").get().count, 0);
 });
 
-test("SP10 subsequent renewal is a new 24-month cycle for 24,000 with no second deposit", async () => {
+test("SP10 signing replay preserves one signature and one two-phase schedule", async () => {
   const db = await seed(), r2 = new R2(); await call(db, "/api/merchant/contracts/sign", "POST", signBody, { "idempotency-key": "softpos-sign-0003" }, { CONTRACTS_BUCKET: r2, ...testContractFontEnv });
-  db.sqlite.prepare("UPDATE merchant_service_subscriptions SET trial_ends_at='2026-01-01' WHERE merchant_id='merchant-softpos'").run();
-  const first = await prepareSoftposRenewal(db, "merchant-softpos", new Date("2026-09-02T00:00:00+08:00"));
-  db.sqlite.prepare("UPDATE merchant_service_cycles SET status='EXPIRED',service_period_start='2026-01-01',service_period_end='2026-08-31' WHERE id=?").run(first.id);
-  db.sqlite.prepare("UPDATE merchant_service_subscriptions SET current_cycle_number=1,renewal_state='EXPIRED' WHERE merchant_id='merchant-softpos'").run();
-  const second = await prepareSoftposRenewal(db, "merchant-softpos", new Date("2026-09-02T00:00:00+08:00"));
-  assert.equal(second.cycle_number, 2); assert.equal(second.cycle_months, 24); assert.equal(second.cycle_fee_minor, 2400000); assert.equal(second.deposit_credit_minor, 0); assert.equal(second.balance_due_minor, 2400000); assert.equal(second.deposit_charge_minor, 0);
+  await call(db, "/api/merchant/contracts/sign", "POST", signBody, { "idempotency-key": "softpos-sign-0003" }, { CONTRACTS_BUCKET: r2, ...testContractFontEnv });
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_contract_payment_schedules").get().count, 2);
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_contract_payment_requests").get().count, 1);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_contract_signatures WHERE merchant_id='merchant-softpos'").get().count, 1);
 });
 
-test("SP11 UI includes the legal commercial labels and never claims zero hardware", () => {
+test("SP11 UI includes the new payment labels and never claims zero hardware", () => {
   const page = readFileSync(new URL("../../src/pages/MerchantContractPages.tsx", import.meta.url), "utf8");
-  for (const phrase of ["開通費","保證金","前三個月","正式方案","第一週期抵充後","後續週期","是否續用免 POS 機智慧點餐系統","分期方式須由合作銀行／金流服務商確認後提供"]) assert.match(page, new RegExp(phrase));
+  for (const phrase of ["契約總額","簽約首期款","試用期間","試用期結束尾款","分期方式須由合作銀行／金流服務商確認後提供"]) assert.match(page, new RegExp(phrase));
   assert.doesNotMatch(page, /假交易|Provider 實際 24 期能力/);
   assert.doesNotMatch(page, />完全零硬體</);
 });
 
-test("SP12 Trial expiry locks operations and decline preserves evidence", async () => {
+test("SP12 signed but unpaid locks operations and preserves evidence", async () => {
   const db = await seed(), r2 = new R2(); await call(db, "/api/merchant/contracts/sign", "POST", signBody, { "idempotency-key": "softpos-sign-0004" }, { CONTRACTS_BUCKET: r2, ...testContractFontEnv });
-  db.sqlite.prepare("UPDATE merchant_service_subscriptions SET trial_ends_at='2026-01-01' WHERE merchant_id='merchant-softpos'").run();
-  const gate = await merchantOperationsAllowed(db, "merchant-softpos"); assert.equal(gate.ok, false); assert.equal(gate.error, "SOFTPOS_RENEWAL_REQUIRED");
-  const declined = await declineSoftposRenewal(db, "merchant-softpos", new Date("2026-09-02T00:00:00+08:00")); assert.equal(declined.operation_locked, true); assert.match(declined.data_retention, /PDF.*Evidence.*Hash.*Audit/);
+  const gate = await merchantOperationsAllowed(db, "merchant-softpos"); assert.equal(gate.ok, false); assert.equal(gate.error, "MERCHANT_PAYMENT_REQUIRED");
   assert.equal(db.sqlite.prepare("SELECT operation_locked FROM merchant_onboarding_states WHERE merchant_id='merchant-softpos'").get().operation_locked, 1);
   assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM merchant_contract_artifacts").get().count, 2);
 });

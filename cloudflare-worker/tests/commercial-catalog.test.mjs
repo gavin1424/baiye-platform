@@ -8,7 +8,7 @@ test("public catalog exposes exactly the three approved commercial definitions",
   assert.equal(response.status, 200);
   assert.deepEqual(data.plans.map((plan) => [plan.plan_id, plan.price_minor, plan.term_months]), [
     ["baiye_standard_18000_addons", 1800000, 24],
-    ["baiye_commerce_ai_45000", 4500000, 24],
+    ["baiye_commerce_ai_50000", 5000000, 24],
     ["baiye_softpos_24000", 2400000, 24],
   ]);
   assert.equal(data.server_authoritative, true);
@@ -17,17 +17,19 @@ test("public catalog exposes exactly the three approved commercial definitions",
 
 test("catalog values stay consistent with immutable contract commercial definitions", () => {
   const [standard, commerce, softpos] = MERCHANT_PLANS;
-  assert.equal(standard.contract_version, "merchant_service_v1_2_18000_addons");
+  assert.equal(standard.contract_version, "merchant_service_v1_3_18000_payment");
+  assert.equal(standard.payment_due_at_signature_minor, 1800000);
   assert.equal(standard.base_product_limit, 20);
   assert.equal(standard.merchant_content_editable, false);
-  assert.equal(commerce.contract_version, "merchant_commerce_ai_v1_0_45000");
+  assert.equal(commerce.contract_version, "merchant_commerce_ai_v1_1_50000");
+  assert.equal(commerce.payment_due_at_signature_minor, 5000000);
   assert.equal(commerce.merchant_product_editable, true);
   assert.equal(commerce.commerce_full, true);
-  assert.equal(softpos.contract_version, "merchant_softpos_v1_0_24000");
+  assert.equal(softpos.contract_version, "merchant_softpos_v1_1_24000_payment");
   assert.equal(softpos.trial_months, 3);
-  assert.equal(softpos.activation_fee_minor, 300000);
-  assert.equal(softpos.deposit_minor, 600000);
-  assert.equal(softpos.first_cycle_balance_minor, 1800000);
+  assert.equal(softpos.payment_due_at_signature_minor, 600000);
+  assert.equal(softpos.post_trial_payment_minor, 1800000);
+  assert.equal(softpos.contract_total_amount_minor, 2400000);
 });
 
 test("standard add-ons retain pricing configuration and quote gate", () => {

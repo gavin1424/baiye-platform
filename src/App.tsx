@@ -59,6 +59,7 @@ import {
   MerchantRegisterPage,
 } from "./pages/MerchantAccessPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
+import { AdminMerchantPaymentsPage, MerchantContractPaymentPage } from "./pages/MerchantContractPaymentPages";
 import { AdminAddonsPage } from "./pages/AdminAddonsPage";
 import {
   PlatformMemberCenterPage,
@@ -169,6 +170,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/merchant/addons": "加購與補充協議｜創百業智慧鏈",
   "/merchant/contract": "商家平台服務契約｜創百業智慧鏈",
   "/merchant/contracts": "我的商家服務契約｜創百業智慧鏈",
+  "/admin/merchant-payments": "商家付款確認｜創百業智慧鏈",
   "/merchant/google-maps-booking": "Google 地圖預約開通申請｜創百業智慧鏈",
   "/join": "加入創百業智慧鏈｜統一加入與簽約中心",
   "/member/join": "手機一鍵加入會員｜創百業智慧鏈",
@@ -189,7 +191,9 @@ function ScrollAndMetadata() {
     const path = location.pathname;
     const title =
       PAGE_TITLES[path] ||
-      (path.startsWith("/partner/contracts/") && path.endsWith("/view")
+      (path.startsWith("/merchant/payment/")
+        ? "完成契約付款｜創百業智慧鏈"
+        : path.startsWith("/partner/contracts/") && path.endsWith("/view")
         ? "查看已簽承攬夥伴契約｜創百業智慧鏈"
         : path.startsWith("/booking/")
           ? "商家線上預約｜創百業智慧鏈"
@@ -221,7 +225,7 @@ function ScrollAndMetadata() {
     document.title = activeTitle;
     const publicDescription =
       path === "/pricing"
-        ? "比較百工標準網站、AI 智慧商城與免 POS 機智慧點餐方案，清楚了解價格、服務期間、加購、試用與保證金。"
+        ? "比較百工標準網站、AI 智慧商城與免 POS 機智慧點餐方案，清楚了解價格、服務期間、加購、試用與付款條件。"
         : "創百業智慧鏈整合商家網站、AI 智能客服、LINE、會員、預約、智慧商城與免 POS 機點餐，協助百業完成數位升級。";
     const description = IS_BEEF_NOODLE_DEMO
       ? "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。"
@@ -498,6 +502,7 @@ export function App() {
         <Route path="/merchant/addons" element={<MerchantAddonsPage />} />
         <Route path="/merchant/contract" element={<MerchantContractPage />} />
         <Route path="/merchant/contracts" element={<MerchantContractsPage />} />
+        <Route path="/merchant/payment/:paymentRequestId" element={<MerchantContractPaymentPage />} />
         <Route
           path="/verify-contract/:publicId"
           element={<VerifyContractPage />}
@@ -557,6 +562,14 @@ export function App() {
           element={
             <AdminRoute>
               <AdminContractsPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/merchant-payments"
+          element={
+            <AdminRoute>
+              <AdminMerchantPaymentsPage />
             </AdminRoute>
           }
         />

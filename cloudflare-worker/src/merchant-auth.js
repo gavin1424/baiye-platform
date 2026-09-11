@@ -1,6 +1,7 @@
 import { authenticatePlatformMember, ensurePlatformMember, normalizeTaiwanMobile } from "./platform-membership.js";
 import { getSoftposRenewal } from "./merchant-softpos-plan.js";
 import { findMerchantPlan, merchantPlanState, saveMerchantPlanIntent } from "./merchant-plan-catalog.js";
+import { paymentRequiredForMerchant } from "./merchant-contract-payments.js";
 import {
   createNumericCredentialMaterial,
   deriveNumericPassword,
@@ -36,6 +37,8 @@ export async function authorizeMerchant(request, env, permission = "") {
 }
 
 export async function merchantOperationsAllowed(db, merchantId) {
+  const payment = await paymentRequiredForMerchant(db, merchantId);
+  if (payment) return { ok: false, status: 423, error: "MERCHANT_PAYMENT_REQUIRED", state: payment.status, payment_next_url: payment.payment_next_url };
   const softpos = await getSoftposRenewal(db, merchantId);
   if (softpos && ["RENEWAL_REQUIRED", "EXPIRED"].includes(softpos.subscription.renewal_state)) {
     return { ok: false, status: 423, error: "SOFTPOS_RENEWAL_REQUIRED", state: softpos.subscription.renewal_state };

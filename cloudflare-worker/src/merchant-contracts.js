@@ -19,8 +19,9 @@ import { sha256 } from "./contract-pdf.js";
 import { ensurePlatformMember, finalizePlatformMembershipBatch, normalizeTaiwanMobile, preparePlatformMembershipBatch } from "./platform-membership.js";
 import { ensureStandardCommercialTerms, isStandardCommercialTerms } from "./merchant-standard-terms.js";
 import { MERCHANT_SERVICE_V11_ID, MERCHANT_SERVICE_V11_TITLE, merchantServiceV11AttachmentA } from "./merchant-contract-v11.js";
-import { COMMERCE_AI_CONTRACT_ID, COMMERCE_AI_PLAN_ID, buildCommerceAiAssignment, commerceAiAttachmentA } from "./commerce-ai-contract.js";
-import { findMerchantPlan } from "./merchant-plan-catalog.js";
+import { COMMERCE_AI_CONTRACT_ID, COMMERCE_AI_PLAN_ID, commerceAiAttachmentA } from "./commerce-ai-contract.js";
+import { assignMerchantPlan, findMerchantPlan } from "./merchant-plan-catalog.js";
+import { prepareSignaturePayment } from "./merchant-contract-payments.js";
 import {
   SOFTPOS_CONTRACT_VERSION_ID,
   declineSoftposRenewal,
@@ -30,7 +31,6 @@ import {
   prepareSoftposRenewal,
   softposAttachmentA,
   softposPlanSummary,
-  softposTrialStatement,
 } from "./merchant-softpos-plan.js";
 
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=UTF-8", "cache-control": "no-store", ...headers } });
@@ -39,11 +39,12 @@ const ip = (request) => request.headers.get("CF-Connecting-IP") || null;
 const body = (request) => request.json().catch(() => ({}));
 const tokenHash = (value) => sha256(`merchant-contract-invite-v1:${value}`);
 const merchantConsentVersion = (contractId) => contractId === SOFTPOS_CONTRACT_VERSION_ID
-  ? "merchant-softpos-consent-v1.0"
+  ? "merchant-softpos-consent-v1.1"
   : contractId === COMMERCE_AI_CONTRACT_ID
-    ? "merchant-commerce-ai-consent-v1.0"
-    : "merchant-standard-addons-consent-v1.2";
-const requiresConfiguredLegalEntity = (contractId) => [MERCHANT_SERVICE_V11_ID, "merchant_service_v1_2_18000_addons", COMMERCE_AI_CONTRACT_ID, SOFTPOS_CONTRACT_VERSION_ID].includes(contractId);
+    ? "merchant-commerce-ai-consent-v1.1"
+    : "merchant-standard-addons-consent-v1.3";
+const STANDARD_PAYMENT_CONTRACT_ID = "merchant_service_v1_3_18000_payment";
+const requiresConfiguredLegalEntity = (contractId) => [MERCHANT_SERVICE_V11_ID, "merchant_service_v1_2_18000_addons", STANDARD_PAYMENT_CONTRACT_ID, COMMERCE_AI_CONTRACT_ID, SOFTPOS_CONTRACT_VERSION_ID].includes(contractId);
 
 function errorResponse(error, cors) {
   if (error instanceof ContractError) return json({ error: error.message, code: error.code, details: error.details }, error.status, cors);
@@ -109,9 +110,9 @@ function commercialAttachments(terms, contract, plan = null) {
   const excluded = JSON.parse(terms.excluded_services_json || "[]");
   const configured = JSON.parse(terms.attachments_json || "{}");
   const money = (minor) => `NT$${Math.round(Number(minor || 0) / 100).toLocaleString("en-US")}`;
-  if (contract?.id === "merchant_service_v1_2_18000_addons") {
+  if (["merchant_service_v1_2_18000_addons", STANDARD_PAYMENT_CONTRACT_ID].includes(contract?.id)) {
     return [
-      { title: "附件 A｜標準方案商業條件", content: `方案：${terms.plan_name}\n固定價格：${money(1800000)}\n服務期間：24 個月\n基礎商品／服務：20 項\n網站主要內容、商品主要建檔與版型由百工協助修改\nmerchant_content_editable：false\n服務期間：${terms.start_date} 至 ${terms.service_period_end}` },
+      { title: "附件 A｜標準方案商業條件", content: `方案：${terms.plan_name}\n契約總額：${money(terms.contract_total_amount_minor)}\n簽約時應付：${money(terms.payment_due_at_signature_minor)}\n簽約後餘額：${money(terms.remaining_amount_minor)}\n服務期間：24 個月\n基礎商品／服務：20 項\n網站主要內容、商品主要建檔與版型由百工協助修改\n服務期間：${terms.start_date} 至 ${terms.service_period_end}` },
       { title: "加購說明", content: "本次主契約沒有加購時，不產生附件 B。日後加購須另經百工報價、商家接受及補充協議簽署。" },
     ];
   }
@@ -183,6 +184,12 @@ function commercialTermsSnapshot(terms) {
     service_period_end: terms.service_period_end,
     renewal_terms: terms.renewal_terms,
     custom_quote_reference: terms.custom_quote_reference || null,
+    contract_total_amount_minor: Number(terms.contract_total_amount_minor),
+    payment_due_at_signature_minor: Number(terms.payment_due_at_signature_minor),
+    remaining_amount_minor: Number(terms.remaining_amount_minor),
+    trial_period_months: Number(terms.trial_period_months),
+    post_trial_payment_minor: Number(terms.post_trial_payment_minor),
+    payment_schedule_type: terms.payment_schedule_type,
   };
   if (terms.installment_plan_requested != null) snapshot.installment_plan_requested = Number(terms.installment_plan_requested);
   return snapshot;
@@ -192,7 +199,8 @@ async function currentMerchantContract(db, env, planCode = null) {
   const contractIds = {
     AI_DIGITAL_PROMOTION_2026: "merchant_service_v1_0",
     baiye_standard_18000: MERCHANT_SERVICE_V11_ID,
-    baiye_standard_18000_addons: "merchant_service_v1_2_18000_addons",
+    baiye_standard_18000_addons: STANDARD_PAYMENT_CONTRACT_ID,
+    baiye_commerce_ai_45000: "merchant_commerce_ai_v1_0_45000",
     [COMMERCE_AI_PLAN_ID]: COMMERCE_AI_CONTRACT_ID,
     baiye_softpos_24000: SOFTPOS_CONTRACT_VERSION_ID,
   };
@@ -226,7 +234,7 @@ async function merchantContractContext(db, session, env) {
   }
   const contract = await currentMerchantContract(db, env, terms.plan_code);
   if (!contract) {
-    const latest = await db.prepare("SELECT * FROM merchant_contract_versions WHERE id IN ('merchant_service_v1_2_18000_addons','merchant_commerce_ai_v1_0_45000','merchant_softpos_v1_0_24000') ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
+    const latest = await db.prepare("SELECT * FROM merchant_contract_versions WHERE id IN ('merchant_service_v1_3_18000_payment','merchant_commerce_ai_v1_1_50000','merchant_softpos_v1_1_24000_payment') ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
     if (latest?.legal_review_status !== "approved" && env.CONTRACT_SIGNING_MODE !== "staging") throw new ContractError("LEGAL_REVIEW_REQUIRED", "此契約版本尚未完成正式法律審閱，目前不可簽署。", 423);
     throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的商家服務契約。", 409);
   }
@@ -234,7 +242,7 @@ async function merchantContractContext(db, session, env) {
   const softpos = contract.id === SOFTPOS_CONTRACT_VERSION_ID;
   if (softpos && !isSoftposCommercialTerms(terms)) throw new ContractError("SOFTPOS_TERMS_MISMATCH", "SoftPOS 方案商業條件不一致，已停止簽署。", 409);
   if (terms.plan_code === "baiye_standard_18000_addons" && !isStandardCommercialTerms(terms)) throw new ContractError("STANDARD_TERMS_MISMATCH", "標準方案商業條件不一致，已停止簽署。", 409);
-  if (terms.plan_code === COMMERCE_AI_PLAN_ID && (Number(terms.discount_price_minor) !== 4500000 || Number(terms.list_price_minor) !== 4500000)) throw new ContractError("COMMERCE_TERMS_MISMATCH", "AI 智慧商城方案商業條件不一致，已停止簽署。", 409);
+  if (terms.plan_code === COMMERCE_AI_PLAN_ID && (Number(terms.contract_total_amount_minor) !== 5000000 || Number(terms.payment_due_at_signature_minor) !== 5000000)) throw new ContractError("COMMERCE_TERMS_MISMATCH", "AI 智慧商城方案商業條件不一致，已停止簽署。", 409);
   const catalogPlan = await findMerchantPlan(db, terms.plan_code);
   if (["baiye_standard_18000_addons", COMMERCE_AI_PLAN_ID, "baiye_softpos_24000"].includes(terms.plan_code) && (!catalogPlan || catalogPlan.contract_version !== contract.id)) throw new ContractError("PLAN_CONTRACT_MISMATCH", "方案與契約版本不一致，已停止簽署。", 409);
   const merchant = await db.prepare("SELECT id,name,merchant_code,contact_name,phone,email,status FROM merchants WHERE id=?").bind(session.merchant_id).first();
@@ -298,9 +306,13 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
     const session = auth.session;
     if (url.pathname === "/api/merchant/contracts/current" && request.method === "GET") {
       const context = await merchantContractContext(db, session, env);
-      const signature = await db.prepare("SELECT id,public_id,signed_at,status,pdf_hash FROM merchant_contract_signatures WHERE merchant_id=? AND contract_version_id=? AND status='VALID'").bind(session.merchant_id, context.contract.id).first();
+      const signature = await db.prepare(`SELECT s.id,s.public_id,s.signed_at,s.status,s.pdf_hash,
+        COALESCE(ls.lifecycle_status,s.lifecycle_status) lifecycle_status,COALESCE(ls.effective_at,s.effective_at) effective_at
+        FROM merchant_contract_signatures s LEFT JOIN merchant_contract_lifecycle_states ls ON ls.contract_signature_id=s.id
+        WHERE s.merchant_id=? AND s.contract_version_id=? AND s.status='VALID'`).bind(session.merchant_id, context.contract.id).first();
+      const payment = signature ? await db.prepare("SELECT id,payment_reference,amount_due_minor,status,submitted_at,confirmed_at FROM merchant_contract_payment_requests WHERE contract_signature_id=? ORDER BY created_at LIMIT 1").bind(signature.id).first() : null;
       const renewal = context.plan ? await getSoftposRenewal(db, session.merchant_id) : null;
-      return json({ contract: context.contract, terms: context.terms, merchant: context.merchant, legal_entity: context.legal_entity, catalog_plan: context.catalog_plan, plan: context.plan, renewal, attachments: commercialAttachments(context.terms, context.contract, context.plan), staging: env.CONTRACT_SIGNING_MODE === "staging", signed: Boolean(signature), signature }, 200, cors);
+      return json({ contract: context.contract, terms: context.terms, merchant: context.merchant, legal_entity: context.legal_entity, catalog_plan: context.catalog_plan, plan: context.plan, renewal, payment, payment_next_url: payment ? `/merchant/payment/${payment.id}` : null, attachments: commercialAttachments(context.terms, context.contract, context.plan), staging: env.CONTRACT_SIGNING_MODE === "staging", signed: Boolean(signature), signature }, 200, cors);
     }
     if (url.pathname === "/api/merchant/contracts/renewal" && request.method === "GET") {
       const renewal = await getSoftposRenewal(db, session.merchant_id);
@@ -335,7 +347,7 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
       validateExplicitConsents(consents, "merchant", merchantConsentVersion(context.contract.id));
       parseAndValidateSignature(input.signature, { minimumStrokes: 2, minimumPoints: 12 });
       // Preview validates the exact signing payload but never creates an artifact.
-      return json({ version: context.contract.version, company_name: context.merchant.name, signatory: String(input.signatory_legal_name || session.display_name), signatory_role: input.signatory_role, legal_representative_name: input.legal_representative_name, plan_name: context.terms.plan_name, total_minor: context.plan?.first_cycle_balance ?? context.terms.discount_price_minor, payment_plan: context.terms.payment_plan, term_months: Number(context.terms.contract_term_months), period: { start: context.terms.start_date, end: context.terms.service_period_end }, plan: context.plan, legal_entity: legalEntity ? { legal_name: legalEntity.legal_name, tax_id: legalEntity.tax_id } : null, attachments: commercialAttachments(context.terms, context.contract, context.plan) }, 200, cors);
+      return json({ version: context.contract.version, company_name: context.merchant.name, signatory: String(input.signatory_legal_name || session.display_name), signatory_role: input.signatory_role, legal_representative_name: input.legal_representative_name, plan_name: context.terms.plan_name, total_minor: Number(context.terms.contract_total_amount_minor), payment_due_at_signature_minor: Number(context.terms.payment_due_at_signature_minor), remaining_amount_minor: Number(context.terms.remaining_amount_minor), trial_period_months: Number(context.terms.trial_period_months), post_trial_payment_minor: Number(context.terms.post_trial_payment_minor), payment_schedule_type: context.terms.payment_schedule_type, payment_plan: context.terms.payment_plan, term_months: Number(context.terms.contract_term_months), period: { start: context.terms.start_date, end: context.terms.service_period_end }, plan: context.plan, legal_entity: legalEntity ? { legal_name: legalEntity.legal_name, tax_id: legalEntity.tax_id } : null, attachments: commercialAttachments(context.terms, context.contract, context.plan) }, 200, cors);
     }
     if (url.pathname === "/api/merchant/contracts/sign" && request.method === "POST") {
       const input = await body(request);
@@ -348,8 +360,9 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
       if (operation.replay) return json({ ...operation.result, member_session: null, welcome: { show: false }, replay: true }, 200, cors);
       const existing = await db.prepare("SELECT id,public_id,document_hash FROM merchant_contract_signatures WHERE merchant_id=? AND contract_version_id=?").bind(session.merchant_id, context.contract.id).first();
       if (existing) {
+        const payment = await db.prepare("SELECT id,payment_reference,amount_due_minor,status FROM merchant_contract_payment_requests WHERE contract_signature_id=? ORDER BY created_at LIMIT 1").bind(existing.id).first();
         const membership = await ensurePlatformMember(db, { phone: context.merchant.phone, source: "merchant_contract", originVerified: true, deviceId: session.session_id, issueSession: true });
-        const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, replay: true };
+        const replay = { ok: true, signature_id: existing.id, public_id: existing.public_id, document_hash: existing.document_hash, payment, next_url: payment ? `/merchant/payment/${payment.id}` : "/merchant/contracts", membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, replay: true };
         await completeContractOperation(db, operation.operation.id, replay); return json(replay, 200, cors);
       }
       const legalEntity = requiresConfiguredLegalEntity(context.contract.id) ? assertLegalEntityConfigured(context.legal_entity) : null;
@@ -378,24 +391,26 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
       const prefix = `contracts/merchants/${session.merchant_id}/${context.contract.version}/${signatureId}`;
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
       const membershipBatch = await preparePlatformMembershipBatch(db, { phone: context.merchant.phone, source: "merchant_contract", originVerified: true, deviceId: session.session_id });
+      const payment = await prepareSignaturePayment(db, { merchantId: session.merchant_id, signatureId, contractVersion: context.contract.id, planId: context.terms.plan_code, terms: context.terms, signedAt: agreement.signedAt });
       try {
         await db.batch([
-          db.prepare("INSERT INTO merchant_contract_signatures(id,public_id,merchant_id,merchant_user_id,contract_version_id,commercial_terms_id,signatory_legal_name,signatory_role,legal_representative_name,company_name,tax_id,authorization_declaration_version,signed_at,ip_address,user_agent,contract_content_hash,commercial_terms_hash,signature_hash,signature_data,document_hash,pdf_hash,consent_version,signature_assurance_level,invite_id,session_id_hash,r2_key,evidence_object_key,party_snapshot_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+          db.prepare("INSERT INTO merchant_contract_signatures(id,public_id,merchant_id,merchant_user_id,contract_version_id,commercial_terms_id,signatory_legal_name,signatory_role,legal_representative_name,company_name,tax_id,authorization_declaration_version,signed_at,ip_address,user_agent,contract_content_hash,commercial_terms_hash,signature_hash,signature_data,document_hash,pdf_hash,consent_version,signature_assurance_level,invite_id,session_id_hash,r2_key,evidence_object_key,party_snapshot_json,lifecycle_status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'SIGNED_PENDING_PAYMENT')")
             .bind(signatureId, publicId, session.merchant_id, session.user_id, context.contract.id, context.terms.id, String(input.signatory_legal_name).trim(), input.signatory_role, String(input.legal_representative_name || input.signatory_legal_name).trim(), context.merchant.name, input.tax_id || null, input.signatory_role === "authorized_representative" ? "merchant-authorization-v1" : null, agreement.signedAt, ip(request), request.headers.get("user-agent"), context.contract.content_hash, termsHash, agreement.signatureHash, agreement.signatureData, agreement.documentHash, agreement.pdfHash, merchantConsentVersion(context.contract.id), STANDARD_ASSURANCE, context.invite.id, sessionHash, stored.pdfKey, stored.evidenceKey, JSON.stringify(partySnapshot || {})),
           db.prepare("INSERT INTO merchant_contract_artifacts(id,merchant_id,signature_id,artifact_type,object_key,sha256,content_type) VALUES(?,?,?,?,?,?,?)").bind(makeId("mcart"), session.merchant_id, signatureId, "signed_pdf", stored.pdfKey, agreement.pdfHash, "application/pdf"),
           db.prepare("INSERT INTO merchant_contract_artifacts(id,merchant_id,signature_id,artifact_type,object_key,sha256,content_type) VALUES(?,?,?,?,?,?,?)").bind(makeId("mcart"), session.merchant_id, signatureId, "evidence_json", stored.evidenceKey, stored.evidenceHash, "application/json"),
-          db.prepare("UPDATE merchants SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(session.merchant_id),
-          db.prepare("UPDATE merchant_applications SET status='activated',updated_at=CURRENT_TIMESTAMP WHERE merchant_id=?").bind(session.merchant_id),
-          db.prepare("INSERT INTO merchant_onboarding_states(merchant_id,registration_mode,state,operation_locked,commercial_terms_approval_required,commercial_terms_id,contract_signed_at) VALUES(?,'custom_quote','active',0,1,?,?) ON CONFLICT(merchant_id) DO UPDATE SET state='active',operation_locked=0,commercial_terms_id=excluded.commercial_terms_id,contract_signed_at=excluded.contract_signed_at,updated_at=CURRENT_TIMESTAMP")
+          db.prepare("INSERT INTO merchant_contract_lifecycle_states(contract_signature_id,merchant_id,lifecycle_status) VALUES(?,?,'SIGNED_PENDING_PAYMENT')").bind(signatureId, session.merchant_id),
+          db.prepare("UPDATE merchants SET status='pending_payment',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(session.merchant_id),
+          db.prepare("INSERT INTO merchant_onboarding_states(merchant_id,registration_mode,state,operation_locked,commercial_terms_approval_required,commercial_terms_id,contract_signed_at) VALUES(?,'custom_quote','contract_signed',1,1,?,?) ON CONFLICT(merchant_id) DO UPDATE SET state='contract_signed',operation_locked=1,commercial_terms_id=excluded.commercial_terms_id,contract_signed_at=excluded.contract_signed_at,updated_at=CURRENT_TIMESTAMP")
             .bind(session.merchant_id, context.terms.id, agreement.signedAt),
-          ...(context.contract.id === SOFTPOS_CONTRACT_VERSION_ID ? [softposTrialStatement(db, { merchantId: session.merchant_id, signatureId, signedAt: agreement.signedAt })] : []),
+          ...payment.statements,
           ...membershipBatch.statements,
         ]);
       } catch (error) { await stored.cleanup(); throw error; }
-      await contractEvent(db, request, { merchantId: session.merchant_id, signatureId, inviteId: context.invite.id, actorType: "merchant", actorId: session.user_id, action: "merchant_contract_signed", metadata: { version: context.contract.version, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE } });
-      await audit(db, request, "merchant", session.user_id, "merchant_contract_signed", "merchant_contract_signature", signatureId, { merchant_id: session.merchant_id, version: context.contract.version, document_hash: agreement.documentHash });
+      await contractEvent(db, request, { merchantId: session.merchant_id, signatureId, inviteId: context.invite.id, actorType: "merchant", actorId: session.user_id, action: "CONTRACT_SIGNED_PENDING_PAYMENT", metadata: { version: context.contract.version, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE, payment_request_id: payment.request.id } });
+      await audit(db, request, "merchant", session.user_id, "CONTRACT_SIGNED_PENDING_PAYMENT", "merchant_contract_signature", signatureId, { merchant_id: session.merchant_id, version: context.contract.version, document_hash: agreement.documentHash, payment_request_id: payment.request.id });
+      await audit(db, request, "system", null, "PAYMENT_REQUEST_CREATED", "merchant_contract_payment_request", payment.request.id, { merchant_id: session.merchant_id, contract_signature_id: signatureId, payment_reference: payment.request.payment_reference, amount_due_minor: payment.request.amount_due_minor });
       const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
-      const result = { ok: true, signature_id: signatureId, public_id: publicId, signed_at: agreement.signedAt, document_hash: agreement.documentHash, pdf_hash: agreement.pdfHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: membership.coupon };
+      const result = { ok: true, signature_id: signatureId, public_id: publicId, signed_at: agreement.signedAt, lifecycle_status: "SIGNED_PENDING_PAYMENT", document_hash: agreement.documentHash, pdf_hash: agreement.pdfHash, payment: payment.request, next_url: payment.next_url, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome, coupon: membership.coupon };
       await completeContractOperation(db, operation.operation.id, result);
       return json(result, 201, cors);
     }
@@ -478,16 +493,17 @@ export async function handleMerchantContractAdmin(request, env, url, cors = {}, 
       await audit(db, request, "admin", adminSession.admin_user_id, "merchant_contract_legal_review_approved", "merchant_contract_version", current.id, { approved_content_hash: current.content_hash, activate });
       const result = { ok: true, legal_review_status: "approved", approved_content_hash: current.content_hash, is_active: activate }; await completeContractOperation(db, operation.operation.id, result); return json(result, 200, cors);
     }
-    const commercePlanMatch = url.pathname.match(/^\/api\/admin\/merchants\/([^/]+)\/commerce-ai-45000-plan$/);
+    const commercePlanMatch = url.pathname.match(/^\/api\/admin\/merchants\/([^/]+)\/commerce-ai-50000-plan$/);
     if (commercePlanMatch && request.method === "POST") {
       const input = await body(request);
-      if (input.plan_id !== COMMERCE_AI_PLAN_ID || input.confirm_fixed_price !== true) throw new ContractError("COMMERCE_AI_PLAN_CONFIRMATION_REQUIRED", "請確認指派 AI 智慧商城完整版固定總價 NT$45,000。", 422);
+      if (input.plan_id !== COMMERCE_AI_PLAN_ID || input.confirm_fixed_price !== true) throw new ContractError("COMMERCE_AI_PLAN_CONFIRMATION_REQUIRED", "請確認指派 AI 智慧商城完整版固定總價 NT$50,000。", 422);
       const operation = await beginContractOperation(db, { partyType: "merchant", partyId: commercePlanMatch[1], operationType: "commercial_terms", idempotencyKey: request.headers.get("idempotency-key") || "" });
       if (operation.replay) return json(operation.result, 200, cors);
-      const assignment = await buildCommerceAiAssignment(db, commercePlanMatch[1], adminSession.admin_user_id);
-      if (!assignment) throw new ContractError("MERCHANT_NOT_FOUND", "找不到商家。", 404);
-      const result = { plan_id: COMMERCE_AI_PLAN_ID, contract_version: COMMERCE_AI_CONTRACT_ID, fixed_price_minor: assignment.snapshot.discount_price_minor, currency: assignment.snapshot.currency, assignment_id: assignment.assignment_id, commercial_terms_id: assignment.commercial_terms_id, terms_hash: assignment.terms_hash, entitlements: { commerce_full: true, cart: true, merchant_product_edit: true, merchant_content_editable: true, merchant_product_editable: true }, payment_enabled: false };
-      await audit(db, request, "admin", adminSession.admin_user_id, "merchant_commerce_ai_45000_assigned", "merchant_plan_assignment", assignment.assignment_id, { merchant_id: commercePlanMatch[1], plan_id: COMMERCE_AI_PLAN_ID, fixed_price_minor: 4500000 });
+      const merchant = await db.prepare("SELECT id FROM merchants WHERE id=?").bind(commercePlanMatch[1]).first();
+      if (!merchant) throw new ContractError("MERCHANT_NOT_FOUND", "找不到商家。", 404);
+      const assignment = await assignMerchantPlan(db, commercePlanMatch[1], adminSession.admin_user_id, COMMERCE_AI_PLAN_ID, 24);
+      const result = { plan_id: COMMERCE_AI_PLAN_ID, contract_version: COMMERCE_AI_CONTRACT_ID, fixed_price_minor: assignment.plan.contract_total_amount_minor, currency: assignment.plan.currency, assignment_id: assignment.selection_id, commercial_terms_id: assignment.commercial_terms_id, terms_hash: assignment.terms_hash, entitlements: assignment.plan.features, payment_enabled: false };
+      await audit(db, request, "admin", adminSession.admin_user_id, "merchant_commerce_ai_50000_assigned", "merchant_plan_selection", assignment.selection_id, { merchant_id: commercePlanMatch[1], plan_id: COMMERCE_AI_PLAN_ID, fixed_price_minor: 5000000 });
       await completeContractOperation(db, operation.operation.id, result);
       return json(result, 201, cors);
     }

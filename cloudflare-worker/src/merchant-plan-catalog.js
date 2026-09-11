@@ -34,11 +34,28 @@ function publicPlan(row) {
     features: JSON.parse(row.features_json || "{}"),
     installment_plan_requested: Number(row.installment_plan_available) === 1 ? 24 : null,
     payment_provider_ready: Number(row.payment_provider_ready) === 1,
+    contract_total_amount_minor: Number(row.contract_total_amount_minor),
+    payment_due_at_signature_minor: Number(row.payment_due_at_signature_minor),
+    remaining_amount_minor: Number(row.remaining_amount_minor),
+    trial_period_months: Number(row.trial_period_months),
+    post_trial_payment_minor: Number(row.post_trial_payment_minor),
+    payment_schedule_type: row.payment_schedule_type,
   };
 }
 
 function customerPlan(plan) {
-  const { contract_version: _contractVersion, features: _features, payment_provider_ready: _providerReady, ...customer } = plan;
+  const {
+    contract_version: _contractVersion,
+    features: _features,
+    payment_provider_ready: _providerReady,
+    activation_fee_minor: _legacyActivationFee,
+    deposit_minor: _legacyDeposit,
+    cycle_fee_minor: _legacyCycleFee,
+    first_cycle_credit_minor: _legacyCredit,
+    first_cycle_balance_minor: _legacyBalance,
+    renewal_fee_minor: _legacyRenewal,
+    ...customer
+  } = plan;
   return customer;
 }
 
@@ -86,8 +103,9 @@ async function createTermsStatement(db, merchantId, plan, actorId, installmentPl
     tax_reserve_enabled,withholding_enabled,included_services_json,excluded_services_json,
     attachments_json,start_date,service_period_end,renewal_terms,custom_quote_reference,
     status,created_by,approved_by,approved_at,terms_hash,source_preset_id,service_plan_version_id,
-    installment_plan_requested
-  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved',?,?,CURRENT_TIMESTAMP,?,?,?,?)`)
+    installment_plan_requested,contract_total_amount_minor,payment_due_at_signature_minor,
+    remaining_amount_minor,trial_period_months,post_trial_payment_minor,payment_schedule_type
+  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved',?,?,CURRENT_TIMESTAMP,?,?,?,?,?,?,?,?,?,?)`)
     .bind(
       termsId, merchantId, snapshot.plan_code, snapshot.plan_name, snapshot.list_price_minor,
       snapshot.discount_price_minor, snapshot.currency, snapshot.contract_term_months,
@@ -97,6 +115,9 @@ async function createTermsStatement(db, merchantId, plan, actorId, installmentPl
       JSON.stringify(snapshot.attachments), snapshot.start_date, snapshot.service_period_end,
       snapshot.renewal_terms, snapshot.custom_quote_reference, actorId, actorId, termsHash,
       plan.plan_id, servicePlanVersion, installmentPlanRequested,
+      snapshot.contract_total_amount_minor, snapshot.payment_due_at_signature_minor,
+      snapshot.remaining_amount_minor, snapshot.trial_period_months,
+      snapshot.post_trial_payment_minor, snapshot.payment_schedule_type,
     );
   return { statement, termsId, termsHash, snapshot };
 }
@@ -106,11 +127,15 @@ export async function merchantPlanState(db, merchantId) {
     db.prepare(`SELECT s.*,c.name,c.tagline,c.price_minor,c.currency,c.term_months,c.trial_months,c.activation_fee_minor,
       c.deposit_minor,c.cycle_fee_minor,c.first_cycle_credit_minor,c.first_cycle_balance_minor,c.renewal_fee_minor,
       c.contract_version_id,c.features_json,c.installment_plan_available,c.payment_provider_ready,
+      c.contract_total_amount_minor,c.payment_due_at_signature_minor,c.remaining_amount_minor,
+      c.trial_period_months,c.post_trial_payment_minor,c.payment_schedule_type,
       t.start_date,t.service_period_end,t.status AS terms_status,
-      sig.id AS signature_id,sig.public_id AS signature_public_id,sig.signed_at,sig.status AS signature_status
+      sig.id AS signature_id,sig.public_id AS signature_public_id,sig.signed_at,sig.status AS signature_status,
+      COALESCE(ls.lifecycle_status,sig.lifecycle_status) lifecycle_status,COALESCE(ls.effective_at,sig.effective_at) effective_at
       FROM merchant_plan_selections s JOIN merchant_plan_catalog c ON c.plan_id=s.plan_id
       JOIN merchant_contract_commercial_terms t ON t.id=s.commercial_terms_id AND t.merchant_id=s.merchant_id
       LEFT JOIN merchant_contract_signatures sig ON sig.commercial_terms_id=s.commercial_terms_id AND sig.merchant_id=s.merchant_id AND sig.status='VALID'
+      LEFT JOIN merchant_contract_lifecycle_states ls ON ls.contract_signature_id=sig.id
       WHERE s.merchant_id=? AND s.status='assigned' ORDER BY s.assigned_at DESC LIMIT 1`).bind(merchantId).first(),
     db.prepare("SELECT intended_plan_id,source,confirmed_at FROM merchant_plan_intents WHERE merchant_id=?").bind(merchantId).first(),
     db.prepare(`SELECT s.id,s.public_id,s.signed_at,s.contract_version_id,t.plan_code
@@ -123,7 +148,8 @@ export async function merchantPlanState(db, merchantId) {
   const today = taipeiDate();
   let planStatus = selection ? "pending_signature" : "none";
   if (selection?.signature_id && selection.terms_status === "approved") {
-    if (["terminated", "suspended"].includes(String(merchant?.status || ""))) planStatus = "terminated";
+    if (selection.lifecycle_status !== "EFFECTIVE") planStatus = "signed_pending_payment";
+    else if (["terminated", "suspended"].includes(String(merchant?.status || ""))) planStatus = "terminated";
     else if (today < String(selection.start_date)) planStatus = Number(selection.trial_months) > 0 ? "trial" : "pending_effective";
     else if (today <= String(selection.service_period_end)) planStatus = "active";
     else planStatus = "expired";
@@ -139,6 +165,8 @@ export async function merchantPlanState(db, merchantId) {
       id: selection.signature_id,
       public_id: selection.signature_public_id,
       signed_at: selection.signed_at,
+      lifecycle_status: selection.lifecycle_status,
+      effective_at: selection.effective_at,
       contract_version_id: selection.contract_version_id,
       plan_code: selection.plan_id,
     } : null,
@@ -205,20 +233,10 @@ export async function assignMerchantPlan(db, merchantId, actorId, planId, instal
     db.prepare("UPDATE merchants SET status='contract_required',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(merchantId),
   ];
 
-  if (plan.plan_id === COMMERCE_AI_PLAN_ID) {
-    const legacyAssignmentId = uid("mplan");
-    statements.push(
-      db.prepare("UPDATE merchant_plan_assignments SET status='superseded',superseded_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND status='assigned'").bind(merchantId),
-      db.prepare("INSERT INTO merchant_plan_assignments(id,merchant_id,plan_id,commercial_terms_id,status,assigned_by) VALUES(?,?,?,?,'assigned',?)")
-        .bind(legacyAssignmentId, merchantId, plan.plan_id, termsId, actorId),
-      db.prepare(`INSERT INTO merchant_plan_entitlements(assignment_id,merchant_id,plan_id,commerce_full,cart,merchant_product_edit,merchant_content_editable,merchant_product_editable)
-        VALUES(?,?,?,1,1,1,1,1)`).bind(legacyAssignmentId, merchantId, plan.plan_id),
-    );
-  }
-
   await db.batch(statements);
   return {
     code: "PLAN_ASSIGNED",
+    selection_id: selectionId,
     plan,
     commercial_terms_id: termsId,
     terms_hash: termsHash,
@@ -254,6 +272,12 @@ export async function requestMerchantPlanChange(db, merchantId, actorId, request
     first_cycle_credit_minor: requestedPlan.first_cycle_credit_minor,
     first_cycle_balance_minor: requestedPlan.first_cycle_balance_minor,
     renewal_fee_minor: requestedPlan.renewal_fee_minor,
+    contract_total_amount_minor: requestedPlan.contract_total_amount_minor,
+    payment_due_at_signature_minor: requestedPlan.payment_due_at_signature_minor,
+    remaining_amount_minor: requestedPlan.remaining_amount_minor,
+    trial_period_months: requestedPlan.trial_period_months,
+    post_trial_payment_minor: requestedPlan.post_trial_payment_minor,
+    payment_schedule_type: requestedPlan.payment_schedule_type,
   };
   const termsHash = await hashCanonical(terms);
   const requestId = uid("mplan_change");
@@ -282,7 +306,7 @@ export async function handleMerchantPlans(request, env, url, cors, authorization
   try {
     if (url.pathname === "/api/merchant/plans" && request.method === "GET") {
       const [plans, state] = await Promise.all([listMerchantPlans(env.FINANCE_DB), merchantPlanState(env.FINANCE_DB, authorization.session.merchant_id)]);
-      return json({ plans, ...state }, 200, cors);
+      return json({ plans: plans.map(customerPlan), ...state }, 200, cors);
     }
     if (url.pathname === "/api/merchant/plans/select" && request.method === "POST") {
       const input = await request.json().catch(() => ({}));

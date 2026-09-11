@@ -10,6 +10,12 @@ export type CommercialPlan = {
   activation_fee_minor: number;
   deposit_minor: number;
   first_cycle_balance_minor: number;
+  contract_total_amount_minor: number;
+  payment_due_at_signature_minor: number;
+  remaining_amount_minor: number;
+  trial_period_months: number;
+  post_trial_payment_minor: number;
+  payment_schedule_type: "SIGNATURE_FULL" | "SIGNATURE_AND_AFTER_TRIAL";
   contract_version: string;
   contract_review_status: string;
   merchant_content_editable: boolean;

@@ -16008,3 +16008,10 @@ body.home-detail-open .ai-chat{display:none}
 body:has(.contract-confirm-dialog) .ai-chat,body:has(.partner-contract) .ai-chat{display:none}
 @media(max-width:760px){.merchant-active-plan{align-items:stretch;flex-direction:column}.merchant-active-plan .btn,.merchant-change-intro .btn{width:100%}.join-plan-card{overflow-wrap:anywhere}.ai-chat-launcher{bottom:calc(82px + env(safe-area-inset-bottom))}.ai-chat-panel{bottom:calc(142px + env(safe-area-inset-bottom));max-height:calc(100dvh - 170px)}}
 @media(max-width:430px){.ai-chat-launcher{width:48px;min-width:48px;height:48px;min-height:48px;justify-content:center;padding:0;bottom:calc(82px + env(safe-area-inset-bottom));font-size:0}.ai-chat-launcher svg{width:23px;height:23px}.join-loading{padding-right:4.5rem}body:has(.immersive-home) .ai-chat-launcher{bottom:calc(clamp(132px,calc(562px - 100vw),202px) + env(safe-area-inset-bottom))}body:has(.immersive-home) .ai-chat-panel{bottom:calc(clamp(192px,calc(622px - 100vw),262px) + env(safe-area-inset-bottom));max-height:calc(100dvh - 288px)}}
+.merchant-payment-page{max-width:900px;margin:0 auto;padding:clamp(1rem,3vw,2.5rem)}
+.payment-preview dl{display:grid;grid-template-columns:minmax(9rem,.45fr) 1fr;gap:.65rem 1rem;margin:0}
+.payment-preview dt{font-weight:700;color:#16384f}.payment-preview dd{margin:0;overflow-wrap:anywhere}
+.payment-provider-card{text-align:center}.payment-qr{display:block;width:min(320px,100%);height:auto;margin:1rem auto;border-radius:1rem;border:1px solid #d6c28e}
+.payment-report-form{display:grid;gap:1rem}.payment-report-form label{display:grid;gap:.45rem;font-weight:700}.payment-report-form input,.payment-report-form textarea{width:100%;min-height:44px}.payment-report-form textarea{min-height:100px}
+.payment-secondary-actions{display:flex;justify-content:center;margin:1rem 0 5rem}
+@media(max-width:430px){.payment-preview dl{grid-template-columns:1fr}.payment-preview dd{padding-bottom:.5rem}.merchant-payment-page .btn{min-height:48px;width:100%}}

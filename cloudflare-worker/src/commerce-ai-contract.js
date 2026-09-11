@@ -1,16 +1,16 @@
 import { hashCanonical } from "./contract-engine.js";
 
-export const COMMERCE_AI_PLAN_ID = "baiye_commerce_ai_45000";
-export const COMMERCE_AI_CONTRACT_ID = "merchant_commerce_ai_v1_0_45000";
-export const COMMERCE_AI_CONTRACT_VERSION = "merchant_commerce_ai_v1_0_45000";
+export const COMMERCE_AI_PLAN_ID = "baiye_commerce_ai_50000";
+export const COMMERCE_AI_CONTRACT_ID = "merchant_commerce_ai_v1_1_50000";
+export const COMMERCE_AI_CONTRACT_VERSION = "merchant_commerce_ai_v1_1_50000";
 export const COMMERCE_AI_PLAN_NAME = "創百業智慧鏈｜AI 智慧商城完整版";
-export const COMMERCE_AI_PRICE_MINOR = 4500000;
+export const COMMERCE_AI_PRICE_MINOR = 5000000;
 
 export const COMMERCE_AI_CONTRACT_CONTENT_HTML = `<h1>創百業智慧鏈｜AI 智慧商城完整版服務契約</h1>
 <h2>第一條｜契約雙方</h2>
 <p>本契約由創百業智慧鏈平台營運主體（以下稱「甲方」）與完成商家註冊並於附件 A 留存資料之商家（以下稱「乙方」）共同訂立。雙方身分以簽署當時保存之不可變快照為準。</p>
 <h2>第二條｜固定完整方案與總價</h2>
-<p>乙方採用「創百業智慧鏈｜AI 智慧商城完整版」，方案 ID 為 baiye_commerce_ai_45000，固定總價為新臺幣 45,000 元整（NT$45,000）。</p>
+<p>乙方採用「創百業智慧鏈｜AI 智慧商城完整版」，方案 ID 為 baiye_commerce_ai_50000，固定總價為新臺幣 50,000 元整（NT$50,000）。簽約時一次支付新臺幣 50,000 元，簽約後餘額為零。</p>
 <p>本方案為完整方案，不將商品後台、購物車、金流串接或 AI 拆分計價，亦不以舊單項價格加總。附件 A 僅列功能類別，不構成細項加購報價。</p>
 <h2>第三條｜商城建置與方案內容</h2>
 <p>本方案包含標準響應式商城建置、商家管理者後台、商品與分類管理、價格與圖片管理、商品規格／選項、上下架、購物車流程、訂單管理，以及平台當期實際提供之 AI 輔助功能。每日限量等庫存相關能力，僅於現有正式 Core 已支援之範圍內提供；未完成之一般化庫存扣減功能不列為已包含。</p>
@@ -26,7 +26,7 @@ export const COMMERCE_AI_CONTRACT_CONTENT_HTML = `<h1>創百業智慧鏈｜AI �
 <p>本方案包含標準金流串接建置；實際啟用仍依第三方支付服務商審核、帳號申請及技術可用性為準。</p>
 <p>簽署本契約、建立訂單或顯示付款選項，均不等同已付款或支付 Provider 已正式啟用。只有 Provider credentials、商家帳號審核、法務／技術檢查及 Production E2E 均通過時，系統才得依 readiness Gate 開啟真實交易。甲方不得保證第三方必然核准或持續提供服務。</p>
 <h2>第八條｜不包含之第三方費用</h2>
-<p>固定總價 NT$45,000 不包含：金流交易手續費、電子發票第三方費用、LINE 超額訊息費、簡訊費、物流費、廣告費、第三方平台月費及額外 AI 超量費用。前述費用由第三方或經乙方另行確認後收取，不得混入本方案固定總價或以功能細項重複計價。</p>
+<p>固定總價 NT$50,000 不包含：金流交易手續費、電子發票第三方費用、LINE 超額訊息費、簡訊費、物流費、廣告費、第三方平台月費及額外 AI 超量費用。前述費用由第三方或經乙方另行確認後收取，不得混入本方案固定總價或以功能細項重複計價。</p>
 <h2>第九條｜商家資料義務</h2>
 <p>乙方應提供並持續維護正確、合法且有權使用之商家、商品、價格、圖片、商標、聯絡、金流及發票資料。因乙方資料錯誤、延遲、侵權或第三方帳號未通過審核所生之延遲或損害，不視為甲方已承諾之功能故障。</p>
 <h2>第十條｜資料安全</h2>
@@ -45,14 +45,16 @@ export const COMMERCE_AI_CONTRACT_CONTENT_HTML = `<h1>創百業智慧鏈｜AI �
 <h2>第十六條｜準據法與爭議處理</h2>
 <p>本契約以中華民國法律為準據法。爭議應先本誠信原則協議；未能解決時，以甲方登記所在地有管轄權之法院為第一審管轄法院，但不排除法律之強制管轄。</p>
 <h2>第十七條｜契約完整性與法律審閱 Gate</h2>
-<p>本正文、附件 A 及經雙方另行確認之補充協議構成完整契約。Production 僅得使用經正式法律審閱、核准 Hash 一致且已啟用之版本；pending_review 版本僅限隔離 Staging 測試簽署。</p>`;
+<p>本正文、附件 A 及經雙方另行確認之補充協議構成完整契約。</p>
+<h2>第十八條｜付款與生效條件</h2>
+<p>本契約經雙方完成電子簽署後，仍以本公司確認簽約應付款項實際入帳為生效條件。款項尚未確認入帳前，契約為已簽署／待付款，商家營運服務尚未正式啟用；確認入帳後，系統記錄契約生效時間並開通約定服務。</p>`;
 
 const money = (minor) => `NT$${Math.round(Number(minor || 0) / 100).toLocaleString("en-US")}`;
 
 export function commerceAiAttachmentA(terms) {
   return [{
     title: "附件 A｜AI 智慧商城完整版",
-    contentHtml: `<h2>附件 A｜方案與固定總價</h2><p>方案：AI 智慧商城完整版</p><p>方案 ID：${COMMERCE_AI_PLAN_ID}</p><p><strong>總價：${money(terms.discount_price_minor)}</strong></p><p>本附件不產生細項報價；下列僅為包含功能類別，價格均包含於固定總價 NT$45,000。</p><ul><li>商城建置</li><li>商家管理者後台與基本商城內容管理</li><li>商品、分類、價格、圖片、規格與上下架</li><li>購物車與訂單管理</li><li>平台當期實際啟用之 AI 輔助功能</li><li>標準金流串接建置（實際啟用依 Provider readiness）</li></ul><p>商家透過管理者後台自行修改方案內資料不另收費，不適用每項 NT$200 人工代修改規則。</p><p>不包含：金流交易手續費、電子發票第三方費用、LINE 超額訊息、簡訊、物流、廣告、第三方平台月費及額外 AI 超量費用。</p>`,
+    contentHtml: `<h2>附件 A｜方案與固定總價</h2><p>方案：AI 智慧商城完整版</p><p>方案 ID：${COMMERCE_AI_PLAN_ID}</p><p><strong>契約總額：${money(terms.contract_total_amount_minor)}</strong></p><p>簽約時應付：${money(terms.payment_due_at_signature_minor)}</p><p>簽約後餘額：${money(terms.remaining_amount_minor)}</p><p>本附件不產生細項報價；下列僅為包含功能類別，價格均包含於固定總價 NT$50,000。</p><ul><li>商城建置</li><li>商家管理者後台與基本商城內容管理</li><li>商品、分類、價格、圖片、規格與上下架</li><li>購物車與訂單管理</li><li>平台當期實際啟用之 AI 輔助功能</li><li>標準金流串接建置（實際啟用依付款服務商實際提供能力）</li></ul><p>商家透過管理者後台自行修改方案內資料不另收費，不適用每項 NT$200 人工代修改規則。</p><p>不包含：金流交易手續費、電子發票第三方費用、LINE 超額訊息、簡訊、物流、廣告、第三方平台月費及額外 AI 超量費用。</p>`,
   }];
 }
 
@@ -85,7 +87,13 @@ export function commerceAiTermsSnapshot(now = new Date()) {
     withholding_enabled: 0,
     included_services: ["AI 智慧商城完整版（固定完整方案）"],
     excluded_services: ["第三方交易、發票、通訊、物流、廣告、平台月費與額外 AI 超量費用"],
-    attachments: { pricing_model: "fixed_total_no_line_item_pricing", payment_provider: "standard_integration_build_subject_to_provider_readiness" },
+    contract_total_amount_minor: COMMERCE_AI_PRICE_MINOR,
+    payment_due_at_signature_minor: COMMERCE_AI_PRICE_MINOR,
+    remaining_amount_minor: 0,
+    trial_period_months: 0,
+    post_trial_payment_minor: 0,
+    payment_schedule_type: "SIGNATURE_FULL",
+    attachments: { pricing_model: "fixed_total_no_line_item_pricing", payment_provider: "依付款服務商實際提供能力" },
     start_date: startDate,
     service_period_end: addMonthsMinusDay(startDate, 24),
     renewal_terms: "期滿續用條件須由雙方另行確認，不得未經商家同意自動扣款。",
@@ -107,14 +115,19 @@ export async function buildCommerceAiAssignment(db, merchantId, actorId, now = n
       contract_term_months,payment_plan,upfront_amount_minor,offset_target_amount_minor,
       tax_reserve_enabled,withholding_enabled,included_services_json,excluded_services_json,
       attachments_json,start_date,service_period_end,renewal_terms,custom_quote_reference,
-      status,created_by,approved_by,approved_at,terms_hash,source_preset_id
-    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved',?,?,CURRENT_TIMESTAMP,?,?)`)
+      status,created_by,approved_by,approved_at,terms_hash,source_preset_id,
+      contract_total_amount_minor,payment_due_at_signature_minor,remaining_amount_minor,
+      trial_period_months,post_trial_payment_minor,payment_schedule_type
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'approved',?,?,CURRENT_TIMESTAMP,?,?,?,?,?,?,?,?)`)
       .bind(termsId, merchantId, snapshot.plan_code, snapshot.plan_name, snapshot.list_price_minor,
         snapshot.discount_price_minor, snapshot.currency, snapshot.contract_term_months,
         snapshot.payment_plan, snapshot.upfront_amount_minor, snapshot.offset_target_amount_minor,
         snapshot.tax_reserve_enabled, snapshot.withholding_enabled, JSON.stringify(snapshot.included_services),
         JSON.stringify(snapshot.excluded_services), JSON.stringify(snapshot.attachments), snapshot.start_date,
-        snapshot.service_period_end, snapshot.renewal_terms, null, actorId, actorId, termsHash, COMMERCE_AI_PLAN_ID),
+        snapshot.service_period_end, snapshot.renewal_terms, null, actorId, actorId, termsHash, COMMERCE_AI_PLAN_ID,
+        snapshot.contract_total_amount_minor, snapshot.payment_due_at_signature_minor,
+        snapshot.remaining_amount_minor, snapshot.trial_period_months,
+        snapshot.post_trial_payment_minor, snapshot.payment_schedule_type),
     db.prepare("UPDATE merchant_plan_assignments SET status='superseded',superseded_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND status='assigned'").bind(merchantId),
     db.prepare("INSERT INTO merchant_plan_assignments(id,merchant_id,plan_id,commercial_terms_id,status,assigned_by) VALUES(?,?,?,?,'assigned',?)")
       .bind(assignmentId, merchantId, COMMERCE_AI_PLAN_ID, termsId, actorId),
