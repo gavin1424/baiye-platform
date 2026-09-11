@@ -66,6 +66,7 @@ test("additive D1 migrations preserve internal safety flags", () => {
   assert.ok(migrations.includes("0027_xprinter_android_app_v1.sql"));
   assert.ok(migrations.includes("0028_ordering_spirit_operations_v1.sql"));
   assert.ok(migrations.includes("0032_merchant_storefront_url_v1.sql"));
+  assert.ok(migrations.includes("0033_beef_noodle_line_liff_ordering_v1.sql"));
   const login = read("cloudflare-worker/src/demo-merchant.js");
   const admin = read("cloudflare-worker/src/merchant-admin.js");
   assert.match(login, /official_demo/);

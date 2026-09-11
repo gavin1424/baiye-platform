@@ -187,12 +187,49 @@ async function qrContext(db, code) {
 
 async function lineIntegrationForMerchant(db, merchantId) {
   try {
-    return await db.prepare("SELECT enabled,basic_id,display_name,add_friend_url,integration_mode FROM merchant_line_integrations WHERE merchant_id=? LIMIT 1").bind(merchantId).first();
+    return await db.prepare(`SELECT enabled,basic_id,display_name,add_friend_url,integration_mode,
+      messaging_api_channel_id,line_login_channel_id,liff_id,add_friend_option,linked_official_account,
+      webhook_url,webhook_enabled,follow_webhook_enabled,unfollow_webhook_enabled,webhook_verified_at
+      FROM merchant_line_integrations WHERE merchant_id=? LIMIT 1`).bind(merchantId).first();
   } catch {
-    // Older isolated QR fixtures and pre-feature databases remain safely
-    // unconfigured instead of breaking the public ordering experience.
-    return null;
+    try {
+      return await db.prepare("SELECT enabled,basic_id,display_name,add_friend_url,integration_mode FROM merchant_line_integrations WHERE merchant_id=? LIMIT 1").bind(merchantId).first();
+    } catch {
+      // Older isolated QR fixtures remain safely unconfigured.
+      return null;
+    }
   }
+}
+
+function validLiffId(value) {
+  return /^\d{8,20}-[A-Za-z0-9_-]{6,80}$/.test(clean(value, 120));
+}
+
+export function liffOrderingUrl(liffId, code) {
+  return validLiffId(liffId) && /^[A-Za-z0-9_-]{8,64}$/.test(clean(code, 64))
+    ? `https://liff.line.me/${clean(liffId, 120)}/?qr=${encodeURIComponent(clean(code, 64))}`
+    : "";
+}
+
+function lineManualSetup(row) {
+  const missing = [];
+  if (!clean(row?.messaging_api_channel_id, 40)) missing.push("messaging_api_channel_id");
+  if (!clean(row?.line_login_channel_id, 40)) missing.push("line_login_channel_id");
+  if (!validLiffId(row?.liff_id)) missing.push("liff_id");
+  if (!/^@[A-Za-z0-9._-]{3,40}$/.test(clean(row?.basic_id, 60))) missing.push("basic_id");
+  if (!Boolean(row?.linked_official_account)) missing.push("linked_official_account");
+  if (clean(row?.add_friend_option, 20) !== "aggressive") missing.push("add_friend_option_aggressive");
+  if (!Boolean(row?.webhook_enabled)) missing.push("webhook_enabled");
+  if (!Boolean(row?.follow_webhook_enabled)) missing.push("follow_webhook_enabled");
+  if (!Boolean(row?.unfollow_webhook_enabled)) missing.push("unfollow_webhook_enabled");
+  if (!row?.webhook_verified_at) missing.push("webhook_verified");
+  return missing;
+}
+
+function lineLiffReady(row) {
+  return Boolean(row?.enabled)
+    && clean(row?.integration_mode, 60) === "linked_line_login"
+    && lineManualSetup(row).length === 0;
 }
 
 function publicLineIntegration(row) {
@@ -202,15 +239,28 @@ function publicLineIntegration(row) {
     if (parsed.protocol === "https:" && ["lin.ee", "line.me", "www.line.me", "page.line.me"].includes(parsed.hostname.toLowerCase())) addFriendUrl = parsed.toString();
   } catch { /* An absent or invalid URL is an unconfigured integration. */ }
   const integrationMode = clean(row?.integration_mode || "add_friend_link", 60) || "add_friend_link";
-  const configured = Boolean(row?.enabled) && integrationMode === "add_friend_link" && Boolean(addFriendUrl);
+  const liffReady = lineLiffReady(row);
+  const addFriendReady = Boolean(row?.enabled) && integrationMode === "add_friend_link" && Boolean(addFriendUrl);
+  const configured = liffReady || addFriendReady;
   return {
     configured,
     display_name: clean(row?.display_name, 120),
     basic_id: clean(row?.basic_id, 120),
-    add_friend_url: configured ? addFriendUrl : "",
+    add_friend_url: addFriendUrl,
+    liff_id: validLiffId(row?.liff_id) ? clean(row.liff_id, 120) : "",
+    add_friend_option: clean(row?.add_friend_option || "none", 20),
+    linked_official_account: Boolean(row?.linked_official_account),
+    webhook_url: clean(row?.webhook_url, 600),
+    webhook_verified: Boolean(row?.webhook_verified_at),
+    manual_setup: lineManualSetup(row),
     integration_mode: integrationMode,
-    capabilities: { addFriendLink: configured, login: false, friendshipStatus: false, messaging: false },
-    status: configured ? "configured" : "LINE_DEMO_NOT_CONFIGURED",
+    capabilities: {
+      addFriendLink: Boolean(addFriendUrl) || liffReady,
+      login: liffReady,
+      friendshipStatus: liffReady,
+      messaging: Boolean(row?.messaging_api_channel_id) && Boolean(row?.webhook_verified_at),
+    },
+    status: configured ? "configured" : "NEEDS_MANUAL_SETUP",
   };
 }
 
@@ -860,6 +910,23 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
   if (!env.FINANCE_DB) return json({ error: CUSTOMER_ERROR }, 503, cors);
   const db = env.FINANCE_DB;
   try {
+    if (url.pathname === "/api/ordering/liff/config" && request.method === "GET") {
+      const code = clean(url.searchParams.get("qr"), 64);
+      const context = await qrContext(db, code);
+      if (!context) return json({ error: "此 QR Code 無效、已停用或已過期。" }, 404, cors);
+      const integration = await lineIntegrationForMerchant(db, context.merchant_id);
+      const line = publicLineIntegration(integration);
+      if (!lineLiffReady(integration)) {
+        return json({ code: "NEEDS_MANUAL_SETUP", error: "LINE LIFF 尚未完成正式設定。", line }, 409, cors);
+      }
+      return json({
+        merchant_id: context.merchant_id,
+        display_name: context.display_name,
+        qr: { code: context.code, table_label: context.table_label },
+        liff_id: line.liff_id,
+        add_friend_url: line.add_friend_url,
+      }, 200, cors);
+    }
     const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|login|member-session|member-password|logout|menu|orders))?$/);
     if (qrMatch) {
       const context = await qrContext(db, qrMatch[1]);
@@ -887,7 +954,7 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
 
 async function adminOverview(db, merchantId) {
   const settings = await db.prepare(`SELECT * FROM merchant_ordering_settings WHERE merchant_id=?`).bind(merchantId).first();
-  const [qrs, categories, items, groups, values, links, sessions, orders, memberCount] = await Promise.all([
+  const [qrs, categories, items, groups, values, links, sessions, orders, memberCount, lineRow] = await Promise.all([
     db.prepare(`SELECT * FROM merchant_ordering_qr_codes WHERE merchant_id=? ORDER BY created_at DESC`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_menu_categories WHERE merchant_id=? ORDER BY sort_order,name`).bind(merchantId).all(),
     db.prepare(`SELECT m.*,CASE WHEN i.id IS NULL THEN 0 ELSE 1 END inventory_exists,i.stock_on_hand,i.inventory_enabled
@@ -906,6 +973,7 @@ async function adminOverview(db, merchantId) {
       WHERE o.merchant_id=? AND o.demo_reset_at IS NULL ORDER BY datetime(o.created_at) DESC LIMIT 200
     `).bind(merchantId).all(),
     db.prepare(`SELECT COUNT(*) total FROM merchant_ordering_memberships WHERE merchant_id=? AND status='active'`).bind(merchantId).first(),
+    lineIntegrationForMerchant(db, merchantId),
   ]);
   const orderRows = orders.results || [];
   let orderItems = [];
@@ -929,6 +997,7 @@ async function adminOverview(db, merchantId) {
     itemsByOrder.get(item.order_id).push({ ...item, quantity: Number(item.quantity), line_total_minor: Number(item.line_total_minor), options: optionsByOrderItem.get(item.id) || [] });
   }
   const storefrontUrl = publicStorefrontUrl(settings?.storefront_url);
+  const lineIntegration = publicLineIntegration(lineRow);
   return {
     settings: settings ? {
       ...settings,
@@ -949,7 +1018,16 @@ async function adminOverview(db, merchantId) {
       active: Boolean(row.active),
       storefront_url: storefrontUrl,
       ordering_url: storefrontOrderingUrl(storefrontUrl, row.code),
+      liff_ordering_url: lineLiffReady(lineRow) ? liffOrderingUrl(lineRow.liff_id, row.code) : "",
     })),
+    line_integration: {
+      ...lineIntegration,
+      messaging_api_channel_id: clean(lineRow?.messaging_api_channel_id, 40),
+      line_login_channel_id: clean(lineRow?.line_login_channel_id, 40),
+      webhook_enabled: Boolean(lineRow?.webhook_enabled),
+      follow_webhook_enabled: Boolean(lineRow?.follow_webhook_enabled),
+      unfollow_webhook_enabled: Boolean(lineRow?.unfollow_webhook_enabled),
+    },
     categories: (categories.results || []).map((row) => ({ ...row, active: Boolean(row.active) })),
     items: (items.results || []).map((row) => ({ ...row, available: Boolean(row.available), allow_customer_note: Boolean(row.allow_customer_note), price_minor: Number(row.price_minor) })),
     option_groups: (groups.results || []).map((row) => ({ ...row, required: Boolean(row.required), active: Boolean(row.active) })),
@@ -994,6 +1072,67 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
   try {
     if (url.pathname === "/api/admin/ordering/overview" && request.method === "GET") {
       return json({ merchant_id: merchantId, ...(await adminOverview(db, merchantId)) }, 200, cors);
+    }
+
+    if (url.pathname === "/api/admin/ordering/line-integration" && request.method === "PUT") {
+      const input = await request.json().catch(() => ({}));
+      const current = await lineIntegrationForMerchant(db, merchantId);
+      const integrationMode = clean(input.integration_mode ?? current?.integration_mode ?? "linked_line_login", 60);
+      if (!["add_friend_link", "linked_line_login"].includes(integrationMode)) return json({ error: "LINE integration mode 不正確。" }, 422, cors);
+      const addFriendOption = clean(input.add_friend_option ?? current?.add_friend_option ?? "none", 20);
+      if (!["none", "normal", "aggressive"].includes(addFriendOption)) return json({ error: "Add friend option 不正確。" }, 422, cors);
+      const addFriendUrl = clean(input.add_friend_url ?? current?.add_friend_url, 600);
+      if (addFriendUrl) {
+        try {
+          const parsed = new URL(addFriendUrl);
+          if (parsed.protocol !== "https:" || !["lin.ee", "line.me", "www.line.me", "page.line.me"].includes(parsed.hostname.toLowerCase())) throw new Error("invalid");
+        } catch { return json({ error: "請提供正式 LINE 加好友 HTTPS 網址。" }, 422, cors); }
+      }
+      const candidate = {
+        ...current,
+        enabled: Boolean(boolValue(input, "enabled", current?.enabled)),
+        display_name: clean(input.display_name ?? current?.display_name, 120),
+        basic_id: clean(input.basic_id ?? current?.basic_id, 60),
+        add_friend_url: addFriendUrl,
+        integration_mode: integrationMode,
+        messaging_api_channel_id: clean(input.messaging_api_channel_id ?? current?.messaging_api_channel_id, 40),
+        line_login_channel_id: clean(input.line_login_channel_id ?? current?.line_login_channel_id, 40),
+        liff_id: clean(input.liff_id ?? current?.liff_id, 120),
+        add_friend_option: addFriendOption,
+        linked_official_account: Boolean(boolValue(input, "linked_official_account", current?.linked_official_account)),
+        webhook_url: clean(input.webhook_url ?? current?.webhook_url, 600),
+        webhook_enabled: Boolean(boolValue(input, "webhook_enabled", current?.webhook_enabled)),
+        follow_webhook_enabled: Boolean(boolValue(input, "follow_webhook_enabled", current?.follow_webhook_enabled)),
+        unfollow_webhook_enabled: Boolean(boolValue(input, "unfollow_webhook_enabled", current?.unfollow_webhook_enabled)),
+        webhook_verified_at: current?.webhook_verified_at || null,
+      };
+      if (candidate.enabled && candidate.integration_mode === "linked_line_login") {
+        const missing = lineManualSetup(candidate);
+        if (missing.length) return json({ code: "NEEDS_MANUAL_SETUP", error: "LINE LIFF 尚缺少正式設定。", missing }, 422, cors);
+      }
+      await db.prepare(`INSERT INTO merchant_line_integrations(
+        merchant_id,enabled,basic_id,display_name,add_friend_url,integration_mode,
+        messaging_api_channel_id,line_login_channel_id,liff_id,add_friend_option,linked_official_account,
+        webhook_url,webhook_enabled,follow_webhook_enabled,unfollow_webhook_enabled,webhook_verified_at,updated_at
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(merchant_id) DO UPDATE SET
+        enabled=excluded.enabled,basic_id=excluded.basic_id,display_name=excluded.display_name,
+        add_friend_url=excluded.add_friend_url,integration_mode=excluded.integration_mode,
+        messaging_api_channel_id=excluded.messaging_api_channel_id,line_login_channel_id=excluded.line_login_channel_id,
+        liff_id=excluded.liff_id,add_friend_option=excluded.add_friend_option,
+        linked_official_account=excluded.linked_official_account,webhook_url=excluded.webhook_url,
+        webhook_enabled=excluded.webhook_enabled,follow_webhook_enabled=excluded.follow_webhook_enabled,
+        unfollow_webhook_enabled=excluded.unfollow_webhook_enabled,webhook_verified_at=excluded.webhook_verified_at,
+        updated_at=CURRENT_TIMESTAMP`).bind(
+          merchantId, candidate.enabled ? 1 : 0, candidate.basic_id || null, candidate.display_name || null,
+          candidate.add_friend_url || null, candidate.integration_mode, candidate.messaging_api_channel_id || null,
+          candidate.line_login_channel_id || null, candidate.liff_id || null, candidate.add_friend_option,
+          candidate.linked_official_account ? 1 : 0, candidate.webhook_url || null, candidate.webhook_enabled ? 1 : 0,
+          candidate.follow_webhook_enabled ? 1 : 0, candidate.unfollow_webhook_enabled ? 1 : 0,
+          candidate.webhook_verified_at,
+        ).run();
+      await audit(db, merchantId, actorType, actorId, "line_integration_saved", "line_integration", merchantId, { actor_role: actorRole, enabled: candidate.enabled, integration_mode: candidate.integration_mode });
+      return json({ ok: true, integration: publicLineIntegration(candidate) }, current ? 200 : 201, cors);
     }
 
     if (url.pathname === "/api/admin/ordering/orders" && request.method === "POST") {

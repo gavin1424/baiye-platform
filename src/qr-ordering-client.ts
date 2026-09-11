@@ -48,9 +48,20 @@ export type OrderingContext = {
     display_name: string;
     basic_id: string;
     add_friend_url: string;
-    integration_mode: "add_friend_link" | "linked_line_login" | "future_multi_account_liff";
+    liff_id: string;
+    add_friend_option: "none" | "normal" | "aggressive";
+    linked_official_account: boolean;
+    webhook_url: string;
+    webhook_verified: boolean;
+    messaging_api_channel_id?: string;
+    line_login_channel_id?: string;
+    webhook_enabled?: boolean;
+    follow_webhook_enabled?: boolean;
+    unfollow_webhook_enabled?: boolean;
+    manual_setup: string[];
+    integration_mode: "add_friend_link" | "linked_line_login";
     capabilities: { addFriendLink: boolean; login: boolean; friendshipStatus: boolean; messaging: boolean };
-    status: "configured" | "LINE_DEMO_NOT_CONFIGURED";
+    status: "configured" | "NEEDS_MANUAL_SETUP";
   };
   qr: {
     id: string;
@@ -213,6 +224,7 @@ export type OrderingQrAdmin = {
   created_at?: string;
   storefront_url?: string;
   ordering_url?: string;
+  liff_ordering_url?: string;
 };
 
 export type OrderingSettingsAdmin = {
@@ -478,5 +490,5 @@ export function publicOrderingUrl(code: string) {
 }
 
 export function merchantOrderingUrl(qr: OrderingQrAdmin) {
-  return qr.ordering_url || publicOrderingUrl(qr.code);
+  return qr.liff_ordering_url || qr.ordering_url || publicOrderingUrl(qr.code);
 }

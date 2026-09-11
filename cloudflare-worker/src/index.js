@@ -27,6 +27,7 @@ import { handleSharedQrMembershipCompatibility } from "./membership-compat.js";
 import { handleMerchantContractPayments, handleMerchantContractPaymentsAdmin } from "./merchant-contract-payments.js";
 import { ContractError } from "./contract-engine.js";
 import { handleMerchantPrinting } from "./merchant-printing.js";
+import { handleBeefNoodleLineWebhook } from "./line-ordering.js";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -218,6 +219,10 @@ export default {
     const cors = corsHeaders(origin);
 
     if (request.method === "GET" && url.pathname.startsWith("/api/merchant-assets/")) return (await serveMerchantProductAsset(env, url)) || new Response("Not found", { status: 404 });
+
+    if (url.pathname === "/webhooks/line/demo_beef_noodle") {
+      return handleBeefNoodleLineWebhook(request, env);
+    }
 
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, service: "創百業智慧鏈", checks: { worker: "ok", d1: Boolean(env.FINANCE_DB), r2: Boolean(env.CONTRACTS_BUCKET), ai: Boolean(env.OPENAI_API_KEY), line: Boolean(env.LINE_MEILING_CHANNEL_SECRET), ordering: Boolean(env.FINANCE_DB) } });
