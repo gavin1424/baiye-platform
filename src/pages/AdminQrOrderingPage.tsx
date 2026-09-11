@@ -202,7 +202,12 @@ export function AdminQrOrderingPage({
   const [itemGroupDraft, setItemGroupDraft] = useState<
     Record<string, string[]>
   >({});
-  const [lineForm, setLineForm] = useState({ enabled: false, display_name: "", basic_id: "", add_friend_url: "", integration_mode: "add_friend_link" });
+  const [lineForm, setLineForm] = useState({
+    enabled: false, display_name: "", basic_id: "", add_friend_url: "", integration_mode: "linked_line_login",
+    messaging_api_channel_id: "", line_login_channel_id: "", liff_id: "", add_friend_option: "aggressive",
+    linked_official_account: false, webhook_url: "https://chuang-baiye-ai.baiye-platform.workers.dev/webhooks/line/demo_beef_noodle",
+    webhook_enabled: false, follow_webhook_enabled: false, unfollow_webhook_enabled: false,
+  });
   const knownOrders = useRef(new Set<string>());
 
   const request = useCallback(
@@ -236,7 +241,16 @@ export function AdminQrOrderingPage({
         display_name: data.line_integration?.display_name || "",
         basic_id: data.line_integration?.basic_id || "",
         add_friend_url: data.line_integration?.add_friend_url || "",
-        integration_mode: data.line_integration?.integration_mode || "add_friend_link",
+        integration_mode: data.line_integration?.integration_mode || "linked_line_login",
+        messaging_api_channel_id: data.line_integration?.messaging_api_channel_id || "",
+        line_login_channel_id: data.line_integration?.line_login_channel_id || "",
+        liff_id: data.line_integration?.liff_id || "",
+        add_friend_option: data.line_integration?.add_friend_option || "aggressive",
+        linked_official_account: Boolean(data.line_integration?.linked_official_account),
+        webhook_url: data.line_integration?.webhook_url || "https://chuang-baiye-ai.baiye-platform.workers.dev/webhooks/line/demo_beef_noodle",
+        webhook_enabled: Boolean(data.line_integration?.webhook_enabled),
+        follow_webhook_enabled: Boolean(data.line_integration?.follow_webhook_enabled),
+        unfollow_webhook_enabled: Boolean(data.line_integration?.unfollow_webhook_enabled),
       });
       setSettings(
         data.settings
@@ -887,13 +901,23 @@ export function AdminQrOrderingPage({
 
         <article className="ordering-admin-panel">
           <div className="ordering-admin-panel-title"><Storefront /><div><span>商家整合</span><h2>LINE 官方帳號</h2></div></div>
-          <p>僅接受商家自己的 LINE 官方加好友網址；顧客點擊連結不等同已加入好友。</p>
+          <p>LIFF 會以 LINE Login 與 getFriendship 驗證好友狀態；Channel Secret 不會儲存在此表單。</p>
           <form className="ordering-admin-form" onSubmit={saveLineIntegration}>
             <label>LINE OA 名稱<input value={lineForm.display_name} onChange={(event) => setLineForm({ ...lineForm, display_name: event.target.value })} placeholder="例如：百工牛肉麵 LINE" /></label>
             <label>LINE Basic ID<input value={lineForm.basic_id} onChange={(event) => setLineForm({ ...lineForm, basic_id: event.target.value })} placeholder="@xxxxxxx" /></label>
             <label className="ordering-admin-form-wide">LINE 加好友網址<input type="url" value={lineForm.add_friend_url} onChange={(event) => setLineForm({ ...lineForm, add_friend_url: event.target.value })} placeholder="https://lin.ee/..." /></label>
-            <label><span>整合模式</span><select value={lineForm.integration_mode} onChange={(event) => setLineForm({ ...lineForm, integration_mode: event.target.value })}><option value="add_friend_link">加好友連結</option><option value="linked_line_login">LINE Login（需完成商家關聯）</option><option value="future_multi_account_liff">多帳號 LIFF（預留）</option></select></label>
-            <label className="ordering-consent"><input type="checkbox" checked={lineForm.enabled} onChange={(event) => setLineForm({ ...lineForm, enabled: event.target.checked })} /><span>啟用加好友導流（未設定有效 LINE URL 不會啟用）</span></label>
+            <label>Messaging API Channel ID<input value={lineForm.messaging_api_channel_id} onChange={(event) => setLineForm({ ...lineForm, messaging_api_channel_id: event.target.value })} /></label>
+            <label>LINE Login Channel ID<input value={lineForm.line_login_channel_id} onChange={(event) => setLineForm({ ...lineForm, line_login_channel_id: event.target.value })} /></label>
+            <label>LIFF ID<input value={lineForm.liff_id} onChange={(event) => setLineForm({ ...lineForm, liff_id: event.target.value })} placeholder="1234567890-AbCdEf" /></label>
+            <label><span>Add friend option</span><select value={lineForm.add_friend_option} onChange={(event) => setLineForm({ ...lineForm, add_friend_option: event.target.value })}><option value="aggressive">Aggressive</option><option value="normal">Normal</option><option value="none">None</option></select></label>
+            <label><span>整合模式</span><select value={lineForm.integration_mode} onChange={(event) => setLineForm({ ...lineForm, integration_mode: event.target.value })}><option value="linked_line_login">LINE Login + LIFF</option><option value="add_friend_link">僅加好友連結</option></select></label>
+            <label className="ordering-consent"><input type="checkbox" checked={lineForm.linked_official_account} onChange={(event) => setLineForm({ ...lineForm, linked_official_account: event.target.checked })} /><span>OA 已連結至同 Provider 的 LINE Login Channel</span></label>
+            <label className="ordering-admin-form-wide">Webhook URL<input value={lineForm.webhook_url} readOnly /></label>
+            <label className="ordering-consent"><input type="checkbox" checked={lineForm.webhook_enabled} onChange={(event) => setLineForm({ ...lineForm, webhook_enabled: event.target.checked })} /><span>LINE Console 已啟用 Webhook</span></label>
+            <label className="ordering-consent"><input type="checkbox" checked={lineForm.follow_webhook_enabled} onChange={(event) => setLineForm({ ...lineForm, follow_webhook_enabled: event.target.checked })} /><span>follow event 已驗證</span></label>
+            <label className="ordering-consent"><input type="checkbox" checked={lineForm.unfollow_webhook_enabled} onChange={(event) => setLineForm({ ...lineForm, unfollow_webhook_enabled: event.target.checked })} /><span>unfollow event 已驗證</span></label>
+            <label className="ordering-consent"><input type="checkbox" checked={lineForm.enabled} onChange={(event) => setLineForm({ ...lineForm, enabled: event.target.checked })} /><span>啟用 LIFF QR（缺任何正式設定時 Backend 會拒絕）</span></label>
+            {overview?.line_integration?.manual_setup?.length ? <p className="ordering-admin-form-wide"><strong>NEEDS_MANUAL_SETUP：</strong>{overview.line_integration.manual_setup.join("、")}</p> : null}
             <button className="btn btn-primary" type="submit" disabled={loading}>儲存 LINE 設定</button>
           </form>
         </article>

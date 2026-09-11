@@ -18,6 +18,7 @@
     "test:worker": "node --test cloudflare-worker/tests/*.test.mjs"
   },
   "dependencies": {
+    "@line/liff": "^2.31.0",
     "@phosphor-icons/react": "^2.1.10",
     "@vitejs/plugin-react": "5.0.4",
     "@zxing/browser": "^0.2.1",

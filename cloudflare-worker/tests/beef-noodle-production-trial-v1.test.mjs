@@ -4,9 +4,10 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { detectProductImageMime } from "../src/merchant-assets.js";
 import { deductionStatements, restoreStatements } from "../src/inventory.js";
-import { handleOrderingRequest } from "../src/qr-ordering.js";
+import { handleOrderingAdminRequest, handleOrderingRequest, liffOrderingUrl } from "../src/qr-ordering.js";
+import { handleBeefNoodleLineWebhook } from "../src/line-ordering.js";
 
-const migrationNames = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql","0025_platform_member_numeric_password_auth_v1.sql","0026_beef_noodle_general_ordering_entry_v1.sql","0027_xprinter_android_app_v1.sql","0028_ordering_spirit_operations_v1.sql","0032_merchant_storefront_url_v1.sql"];
+const migrationNames = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql","0025_platform_member_numeric_password_auth_v1.sql","0026_beef_noodle_general_ordering_entry_v1.sql","0027_xprinter_android_app_v1.sql","0028_ordering_spirit_operations_v1.sql","0032_merchant_storefront_url_v1.sql","0033_beef_noodle_line_liff_ordering_v1.sql"];
 function database() { const db = new DatabaseSync(":memory:"); db.exec("PRAGMA foreign_keys=ON"); for (const name of migrationNames) db.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8")); return db; }
 class Statement { constructor(statement) { this.statement = statement; this.values = []; } bind(...values) { this.values = values; return this; } async run() { const result = this.statement.run(...this.values); return { meta: { changes: Number(result.changes || 0) } }; } async first() { return this.statement.get(...this.values) || null; } async all() { return { results: this.statement.all(...this.values) }; } }
 class D1 { constructor(sqlite) { this.sqlite = sqlite; } prepare(sql) { return new Statement(this.sqlite.prepare(sql)); } async batch(statements) { this.sqlite.exec("BEGIN IMMEDIATE"); try { for (const statement of statements) await statement.run(); this.sqlite.exec("COMMIT"); } catch (error) { this.sqlite.exec("ROLLBACK"); throw error; } } }
@@ -40,6 +41,53 @@ test("general ordering entry opens the complete twenty-item menu without a prese
   const response = await handleOrderingRequest(request, { FINANCE_DB: new D1(sqlite) }, new URL(request.url), {});
   const body = await response.json();
   assert.equal(response.status, 200); assert.equal(body.context.qr.purpose, "member_order"); assert.equal(body.context.qr.table_label, ""); assert.equal(body.items.length, 20);
+});
+
+test("LINE LIFF stays fail-closed until every Console setting is verified", async () => {
+  const sqlite = database();
+  const db = new D1(sqlite);
+  const qr = "y6KGFA0pQkEKLjf41zNBS6Nb1u1hCHUR";
+  let request = new Request(`https://worker.test/api/ordering/liff/config?qr=${qr}`);
+  let response = await handleOrderingRequest(request, { FINANCE_DB: db }, new URL(request.url), {});
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).code, "NEEDS_MANUAL_SETUP");
+
+  sqlite.prepare(`UPDATE merchant_line_integrations SET enabled=1,basic_id='@beefnoodle',add_friend_url='https://lin.ee/example',
+    messaging_api_channel_id='2000000001',line_login_channel_id='2000000002',liff_id='2000000002-BeefOrder',
+    add_friend_option='aggressive',linked_official_account=1,webhook_enabled=1,follow_webhook_enabled=1,
+    unfollow_webhook_enabled=1,webhook_verified_at=CURRENT_TIMESTAMP WHERE merchant_id='demo_beef_noodle'`).run();
+  request = new Request(`https://worker.test/api/ordering/liff/config?qr=${qr}`);
+  response = await handleOrderingRequest(request, { FINANCE_DB: db }, new URL(request.url), {});
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).liff_id, "2000000002-BeefOrder");
+
+  request = new Request("https://worker.test/api/admin/ordering/overview?merchant_id=demo_beef_noodle");
+  response = await handleOrderingAdminRequest(request, { FINANCE_DB: db }, new URL(request.url), {}, true);
+  const overview = await response.json();
+  const a1 = overview.qrs.find((item) => item.code === qr);
+  assert.equal(a1.liff_ordering_url, `https://liff.line.me/2000000002-BeefOrder/?qr=${qr}`);
+  assert.equal(liffOrderingUrl("2000000002-BeefOrder", qr), a1.liff_ordering_url);
+});
+
+test("beef noodle LINE webhook verifies signatures and records follow/unfollow without raw user ids", async () => {
+  const sqlite = database();
+  const db = new D1(sqlite);
+  const secret = "production-test-channel-secret";
+  const sign = async (body) => {
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    return Buffer.from(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body))).toString("base64");
+  };
+  for (const type of ["follow", "unfollow"]) {
+    const body = JSON.stringify({ events: [{ type, source: { type: "user", userId: "U0123456789abcdef0123456789abcdef" } }] });
+    const request = new Request("https://worker.test/webhooks/line/demo_beef_noodle", { method: "POST", headers: { "x-line-signature": await sign(body) }, body });
+    const response = await handleBeefNoodleLineWebhook(request, { FINANCE_DB: db, LINE_BEEF_NOODLE_CHANNEL_SECRET: secret });
+    assert.equal(response.status, 200);
+  }
+  const friendship = sqlite.prepare("SELECT line_user_id_hash,status,last_followed_at,last_unfollowed_at FROM merchant_line_friendships WHERE merchant_id='demo_beef_noodle'").get();
+  assert.equal(friendship.status, "blocked");
+  assert.notEqual(friendship.line_user_id_hash, "U0123456789abcdef0123456789abcdef");
+  assert.ok(friendship.last_followed_at); assert.ok(friendship.last_unfollowed_at);
+  assert.ok(sqlite.prepare("SELECT webhook_verified_at FROM merchant_line_integrations WHERE merchant_id='demo_beef_noodle'").get().webhook_verified_at);
 });
 
 test("production identity provisioning is separate from migration seed", () => {
@@ -109,6 +157,6 @@ test("QR context always returns a safe LINE integration contract", () => {
   const worker = readFileSync(new URL("../src/qr-ordering.js", import.meta.url), "utf8");
   const page = readFileSync(new URL("../../src/pages/QrOrderingPage.tsx", import.meta.url), "utf8");
   assert.match(worker, /context: \{ \.\.\.publicContext\(context\), line: publicLineIntegration\(line\) \}/);
-  assert.match(worker, /LINE_DEMO_NOT_CONFIGURED/);
+  assert.match(worker, /NEEDS_MANUAL_SETUP/);
   assert.match(page, /context\?\.line\?\.configured/);
 });
