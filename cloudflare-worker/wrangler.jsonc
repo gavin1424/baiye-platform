@@ -28,7 +28,6 @@
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://baiyeconnect.com,https://www.baiyeconnect.com,https://meilingpatchwork.com,https://www.meilingpatchwork.com,https://baiye-beef-noodle-demo.pages.dev",
-    "PARTNER_OTP_MODE": "disabled",
     "MEMBERSHIP_COUPON_ISSUANCE_ENABLED": "0",
     "PRODUCTION_DEMO_ENABLED": "true"
   }

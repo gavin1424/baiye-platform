@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Handshake, SignIn, Storefront, UserPlus } from "@phosphor-icons/react";
 import { merchantOrderingApi } from "../qr-ordering-client";
@@ -98,6 +98,9 @@ function PlanCard({
 
 export function JoinPage() {
   const navigate = useNavigate();
+  const [search] = useSearchParams();
+  const plansRef = useRef<HTMLElement>(null);
+  const merchantMode = search.get("mode") === "merchant";
   const [plans, setPlans] = useState<Plan[]>([]),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState("");
@@ -106,6 +109,10 @@ export function JoinPage() {
       .then((data) => setPlans(data.plans || []))
       .catch((error) => setNotice(errorText(error)));
   }, []);
+  useEffect(() => {
+    if (merchantMode && plans.length)
+      plansRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+  }, [merchantMode, plans.length]);
   const choose = async (plan: Plan) => {
     setBusy(plan.plan_id);
     setNotice("");
@@ -148,7 +155,7 @@ export function JoinPage() {
           </Link>
         </article>
       </section>
-      <section className="join-plan-section">
+      <section className="join-plan-section" ref={plansRef}>
         <div className="join-section-heading">
           <Storefront size={30} weight="duotone" />
           <div>

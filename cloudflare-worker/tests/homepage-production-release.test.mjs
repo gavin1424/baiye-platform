@@ -17,6 +17,20 @@ test("production homepage exposes all eight interactive features", () => {
   assert.doesNotMatch(source, /立即試用完整商家系統|\/demo\/beef-noodle/);
 });
 
+test("home signing feature preserves the deployed merchant and partner split", () => {
+  const home = read("src/pages/HomePage.tsx");
+  const app = read("src/App.tsx");
+  const join = read("src/pages/JoinPages.tsx");
+  const styles = read("src/styles.css");
+  assert.match(home, /商家方案簽約/);
+  assert.match(home, /承攬夥伴簽約/);
+  assert.match(home, /to="\/join\?mode=merchant"/);
+  assert.match(home, /to="\/partner\/apply"/);
+  assert.match(app, /path="\/join" element={<JoinPage/);
+  assert.match(join, /merchantMode/);
+  assert.match(styles, /home-feature-contract-actions/);
+});
+
 test("immersive homepage keeps five truthful mobile navigation destinations", () => {
   const home = read("src/pages/HomePage.tsx");
   const components = read("src/components.tsx");
