@@ -3,12 +3,22 @@
 正式商家固定為 `demo_beef_noodle`，A1 secure code 固定為
 `y6KGFA0pQkEKLjf41zNBS6Nb1u1hCHUR`。不得建立第二個 merchant 或重建 QR token。
 
-## 目前稽核結果
+## Production 設定（2026-09-12）
 
-Production `merchant_line_integrations` 目前只有舊的停用佔位資料；Messaging API
-Channel ID、LINE Login Channel ID、LIFF ID、Basic ID 與加好友網址皆尚未設定。因此
-Production A1 QR 會繼續使用既有品牌點餐 URL，直到以下設定全部完成並驗證，避免發出
-無法開啟的 LIFF QR。
+- LINE OA：`百工牛肉麵`
+- Basic ID：`@880jcpxu`
+- Provider：`百工百業`
+- Messaging API Channel ID：`2011571431`
+- LINE Login Channel ID：`2011571470`
+- LIFF ID：`2011571470-qzACdnej`
+- 加好友網址：`https://lin.ee/rsCmovn`
+- Webhook Verify：PASS
+- Use webhook：ON
+- Worker secret：已設定為 `LINE_BEEF_NOODLE_CHANNEL_SECRET`（值不進 D1、前端或 repository）
+
+Production `merchant_line_integrations` 已啟用 `linked_line_login`，並綁定上述 OA、
+Messaging API、LINE Login 與 LIFF。正式桌號 QR 僅回傳 LINE LIFF URL；
+原有網站直接點餐 URL 仍保留供開發與備援驗證。
 
 ## LINE Developers Console 人工設定
 
@@ -31,9 +41,13 @@ Production A1 QR 會繼續使用既有品牌點餐 URL，直到以下設定全�
    Basic ID 與 `https://lin.ee/...` 加好友網址，勾選已連結、webhook 與事件驗證狀態，
    最後才啟用 LIFF QR。
 
-啟用後 overview 會自動將 A1 QR 回傳為：
+正式 A1 QR：
 
-`https://liff.line.me/<LIFF_ID>/?qr=y6KGFA0pQkEKLjf41zNBS6Nb1u1hCHUR`
+`https://liff.line.me/2011571470-qzACdnej/?qr=y6KGFA0pQkEKLjf41zNBS6Nb1u1hCHUR`
+
+正式 A2 QR：
+
+`https://liff.line.me/2011571470-qzACdnej/?qr=BglF2FaHBWxFDZxCgWXQm0rAsXAIAndg`
 
 ## 正式驗收
 
