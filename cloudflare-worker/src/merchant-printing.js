@@ -35,12 +35,12 @@ function publicJob(row, includePayload = false) {
   return result;
 }
 
-export function buildKitchenPayload({ merchantName, orderCode, tableLabel, orderType, paymentMethod, totalMinor, createdAt, items, customerNote }) {
+export function buildKitchenPayload({ merchantName, orderCode, tableLabel, orderType, paymentMethod, paymentStatus = "unpaid", totalMinor, createdAt, acceptedAt = "", items, customerNote }) {
   const printMerchantName = clean(merchantName, 120).replace(/｜完整功能試用店$/, "").trim();
   return {
     schema_version: 1, print_type: "kitchen", merchant_name: printMerchantName,
     order_code: orderCode, table_label: tableLabel || "", order_type: orderType,
-    payment_method: paymentMethod, total_minor: Number(totalMinor), created_at: createdAt,
+    payment_method: paymentMethod, payment_status: paymentStatus, total_minor: Number(totalMinor), created_at: createdAt, accepted_at: acceptedAt,
     customer_note: customerNote || "",
     items: items.map((item) => ({ name: item.name_snapshot, quantity: Number(item.quantity), note: item.note || "", options: (item.options || []).map((option) => ({ group_name: option.group_name_snapshot, value_name: option.value_name_snapshot })) })),
   };
@@ -74,7 +74,7 @@ async function handlePrinters(request, db, url, merchantId, actorId, cors) {
 }
 
 async function claimJob(request, db, merchantId, jobId, cors) {
-  const input = await request.json().catch(() => ({})), deviceId = clean(input.device_id, 160), claimRequestId = clean(input.claim_request_id, 160);
+  const input = await request.json().catch(() => ({})), deviceId = clean(input.device_id, 160), claimRequestId = clean(input.claim_request_id, 160), manual = input.manual === true;
   if (!deviceId || !/^[A-Za-z0-9._:-]{8,160}$/.test(claimRequestId)) return json({ error: "device_id and claim_request_id are required" }, 422, cors);
   // Deterministic per-request token lets the same authenticated device recover
   // a lost claim response without storing a raw token or creating a new claim.
@@ -82,8 +82,8 @@ async function claimJob(request, db, merchantId, jobId, cors) {
   const replay = await db.prepare("SELECT * FROM print_jobs WHERE id=? AND merchant_id=? AND device_id=? AND claim_request_id=? AND claim_token_hash=? AND status IN('claimed','printing')").bind(jobId, merchantId, deviceId, claimRequestId, claimHash).first();
   if (replay) return json({ job: publicJob(replay, true), claim_token: rawToken, lease_expires_at: replay.lease_expires_at, replayed: true }, 200, cors);
   const candidate = await db.prepare(`SELECT j.* FROM print_jobs j JOIN printers p ON p.id=j.printer_id AND p.merchant_id=j.merchant_id
-    WHERE j.id=? AND j.merchant_id=? AND p.enabled=1 AND p.auto_print=1 AND j.status IN('pending','failed')
-      AND j.delivery_outcome IN('not_started','safe_failure') AND j.attempt_count<4 AND datetime(COALESCE(j.available_at,j.created_at))<=datetime('now')`).bind(jobId, merchantId).first();
+    WHERE j.id=? AND j.merchant_id=? AND p.enabled=1 AND (?=1 OR p.auto_print=1) AND j.status IN('pending','failed')
+      AND j.delivery_outcome IN('not_started','safe_failure') AND j.attempt_count<4 AND datetime(COALESCE(j.available_at,j.created_at))<=datetime('now')`).bind(jobId, merchantId, manual ? 1 : 0).first();
   if (!candidate) return json({ error: "列印任務不可 claim，可能已由其他裝置處理或需要人工確認。", code: "JOB_NOT_CLAIMABLE" }, 409, cors);
   const attemptNo = Number(candidate.attempt_count) + 1, attemptId = uid("printattempt");
   let result;
@@ -173,6 +173,12 @@ export async function handleMerchantPrinting(request, env, url, cors = {}) {
   if (url.pathname === "/api/merchant-app/print-jobs/history" && request.method === "GET") {
     const result = await db.prepare("SELECT * FROM print_jobs WHERE merchant_id=? ORDER BY datetime(created_at) DESC LIMIT 200").bind(merchantId).all();
     return json({ jobs: rows(result).map(publicJob) }, 200, cors);
+  }
+  if (url.pathname === "/api/merchant-app/print-jobs/manual-pending" && request.method === "GET") {
+    const result = await db.prepare(`SELECT j.* FROM print_jobs j JOIN printers p ON p.id=j.printer_id AND p.merchant_id=j.merchant_id
+      WHERE j.merchant_id=? AND p.enabled=1 AND j.status IN('pending','failed') AND j.delivery_outcome IN('not_started','safe_failure')
+      AND j.attempt_count<4 AND datetime(COALESCE(j.available_at,j.created_at))<=datetime('now') ORDER BY datetime(j.created_at) LIMIT 100`).bind(merchantId).all();
+    return json({ jobs: rows(result).map((row) => publicJob(row, true)) }, 200, cors);
   }
   const match = url.pathname.match(/^\/api\/merchant-app\/print-jobs\/([^/]+)\/(claim|printing|printed|failed|reprint)$/);
   if (!match || request.method !== "POST") return json({ error: "Not found" }, 404, cors);

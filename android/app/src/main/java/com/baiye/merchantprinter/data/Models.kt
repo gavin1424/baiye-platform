@@ -17,6 +17,13 @@ data class MerchantOrder(
     val customerNote: String = "", val items: List<OrderItem> = emptyList(),
 )
 
+data class OrderEvent(
+    val sequence: Long, val eventId: String, val eventType: String,
+    val orderId: String, val orderCode: String, val table: String,
+    val status: String, val paymentStatus: String, val itemCount: Int,
+    val totalMinor: Int, val createdAt: String,
+)
+
 data class PrintJob(
     val id: String, val orderCode: String, val printerId: String, val status: String,
     val copies: Int, val attemptCount: Int, val payloadJson: String,

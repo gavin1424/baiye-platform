@@ -13,6 +13,14 @@
       "database_id": "1662c6ab-57d7-4df7-8056-935fbead2d8c"
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "ORDER_EVENT_HUB", "class_name": "MerchantOrderEventHub" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1-order-events", "new_sqlite_classes": ["MerchantOrderEventHub"] }
+  ],
   "r2_buckets": [
     {
       "binding": "CONTRACTS_BUCKET",

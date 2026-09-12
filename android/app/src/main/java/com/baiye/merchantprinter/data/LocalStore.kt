@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import java.util.UUID
 
-class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "baiye_printer_v1.db", null, 2) {
+class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "baiye_printer_v1.db", null, 3) {
     val applicationContext: Context = context.applicationContext
     private val preferences = context.getSharedPreferences("baiye_session_v1", Context.MODE_PRIVATE)
 
@@ -40,6 +40,8 @@ class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext
     fun clearSession() = preferences.edit().remove("cookie").remove("csrf").remove("merchant_id").remove("merchant_name").apply()
     fun setLastSync(epochMs: Long) = preferences.edit().putLong("last_sync", epochMs).apply()
     fun lastSync() = preferences.getLong("last_sync", 0)
+    fun setLastEventSequence(sequence: Long) = preferences.edit().putLong("last_event_sequence_${merchantId()}", sequence).apply()
+    fun lastEventSequence() = preferences.getLong("last_event_sequence_${merchantId()}", 0)
     private fun scopedCacheKey(key: String) = "${merchantId()}:$key"
     fun cache(key: String, json: String) = writableDatabase.insertWithOnConflict("app_cache", null, ContentValues().apply { put("cache_key", scopedCacheKey(key)); put("payload_json", json); put("updated_at", System.currentTimeMillis()) }, SQLiteDatabase.CONFLICT_REPLACE)
     fun cached(key: String): String? = readableDatabase.rawQuery("SELECT payload_json FROM app_cache WHERE cache_key=?", arrayOf(scopedCacheKey(key))).use { if (it.moveToFirst()) it.getString(0) else null }

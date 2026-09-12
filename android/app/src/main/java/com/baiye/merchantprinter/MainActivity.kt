@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
-        if (store.printer()?.autoPrint == true && store.hasSession()) PrintService.start(this)
+        if (store.hasSession()) PrintService.start(this)
         setContent { MerchantPrinterApp(store, api) }
     }
 }

@@ -4,6 +4,7 @@ import { authenticateMerchantSession, deriveMerchantPassword as deriveNumericPas
 import { deductionStatements, restoreStatements } from "./inventory.js";
 import { attachMerchantProductAssetFromUrl } from "./merchant-assets.js";
 import { buildKitchenPayload } from "./merchant-printing.js";
+import { publishMerchantOrderEvent } from "./merchant-order-events.js";
 export { normalizeTaiwanMobile } from "./platform-membership.js";
 
 const E = new TextEncoder();
@@ -738,7 +739,7 @@ async function handleMenu(request, db, context, cors) {
   }, 200, cors);
 }
 
-async function handleCreateOrder(request, db, context, cors) {
+async function handleCreateOrder(request, env, db, context, cors) {
   if (!context.enabled || context.purpose === "member_only") return json({ error: "此 QR Code 目前不提供點餐。" }, 409, cors);
   if (!context.ordering_open || !context.accepting_orders) return json({ error: context.temporary_closed_message || "店家目前暫停接單", code: "ORDERING_PAUSED" }, 409, cors);
   if (context.last_order_time) {
@@ -882,6 +883,8 @@ async function handleCreateOrder(request, db, context, cors) {
         (id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata)
       VALUES (?,?,?,?,?,?,?,?)
     `).bind(uid("ordaudit"), context.merchant_id, "customer", session.membership_id, "order_submitted", "order", orderId, JSON.stringify({ qr_id: context.id, order_type: orderType, line_context_id: lineContext?.id || null })),
+    db.prepare(`INSERT INTO merchant_order_events(event_id,merchant_id,event_type,order_id,order_code,table_label,status,payment_status,item_count,total_minor)
+      VALUES(?,?,'order_created',?,?,?,?,?,?,?)`).bind(uid("ordevt"), context.merchant_id, orderId, code, tableLabel, initialStatus, "unpaid", calculation.lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0), calculation.total_minor),
     ...(printerResult.results || []).map((printer) => db.prepare(`
       INSERT OR IGNORE INTO print_jobs
         (id,merchant_id,order_id,order_code,printer_id,print_type,status,copies,payload_json,available_at,created_by,idempotency_key)
@@ -904,6 +907,8 @@ async function handleCreateOrder(request, db, context, cors) {
   }
 
   const order = await orderWithItems(db, context.merchant_id, session.membership_id, code);
+  const createdEvent = await db.prepare("SELECT * FROM merchant_order_events WHERE merchant_id=? AND order_id=? AND event_type='order_created'").bind(context.merchant_id, orderId).first();
+  await publishMerchantOrderEvent(env, context.merchant_id, createdEvent).catch(() => {});
   return json({ message: "訂單已送出，請留意店家處理狀態。", order, replayed: false }, 201, cors);
 }
 
@@ -1005,7 +1010,7 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
       if (request.method === "POST" && action === "member-password") return handleMemberPasswordSet(request, env, context, cors);
       if (request.method === "POST" && action === "logout") return handleMemberLogout(request, env, context, cors);
       if (request.method === "GET" && action === "menu") return handleMenu(request, db, context, cors);
-      if (request.method === "POST" && action === "orders") return handleCreateOrder(request, db, context, cors);
+      if (request.method === "POST" && action === "orders") return handleCreateOrder(request, env, db, context, cors);
       return json({ error: "Method not allowed" }, 405, cors);
     }
     const orderMatch = url.pathname.match(/^\/api\/ordering\/orders\/([^/]+)(?:\/(cancel))?$/);
@@ -1596,8 +1601,13 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       await db.batch([
         db.prepare("INSERT INTO merchant_order_payment_events(id,merchant_id,order_id,action,payment_method,reference,actor_type,actor_id,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?)").bind(uid("payevent"), merchantId, order.id, action, method, clean(input.reference, 120) || null, actor.actor_type === "merchant" ? "merchant" : "admin", actorId, key),
         db.prepare("UPDATE merchant_food_orders SET payment_status=?,payment_method_v1=?,payment_reference=?,payment_confirmed_at=CASE WHEN ?='paid' THEN CURRENT_TIMESTAMP ELSE payment_confirmed_at END,payment_confirmed_by=?,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?").bind(next, method, clean(input.reference, 120) || null, next, actorId, merchantId, order.id),
+        db.prepare(`INSERT INTO merchant_order_events(event_id,merchant_id,event_type,order_id,order_code,table_label,status,payment_status,item_count,total_minor)
+          SELECT ?,merchant_id,'order_payment_updated',id,order_code,table_label,status,?,(SELECT COALESCE(SUM(quantity),0) FROM merchant_food_order_items WHERE order_id=?),total_minor FROM merchant_food_orders WHERE merchant_id=? AND id=?`)
+          .bind(uid("ordevt"), next, order.id, merchantId, order.id),
       ]);
       await audit(db, merchantId, actorType, actorId, `order_payment_${action}`, "order", order.id, { method, reference: clean(input.reference, 120) || null, actor_role: actorRole });
+      const paymentEvent = await db.prepare("SELECT * FROM merchant_order_events WHERE merchant_id=? AND order_id=? AND event_type='order_payment_updated' ORDER BY sequence DESC LIMIT 1").bind(merchantId, order.id).first();
+      await publishMerchantOrderEvent(env, merchantId, paymentEvent).catch(() => {});
       return json({ ok: true, payment_status: next }, 200, cors);
     }
 
@@ -1632,7 +1642,10 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
           admin_override=CASE WHEN ?=1 THEN 1 ELSE admin_override END,
           updated_at=CURRENT_TIMESTAMP
         WHERE merchant_id=? AND id=?
-      `).bind(nextStatus, paymentStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, cancelReason || null, nextStatus, actor.actor_type === "merchant" ? "merchant" : "admin", nextStatus, actorId, override ? 1 : 0, merchantId, current.id), ...couponStatements, ...restoreStatements(db, merchantId, current.id, restoreLines.results || [], actorType, actorId, cancelReason), db.prepare(`INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?,?)`).bind(uid("ordaudit"), merchantId, actorType, actorId, actorRole, "order_status_updated", "order", current.id, JSON.stringify({ from: current.status, to: nextStatus, payment_status: paymentStatus, cancel_reason: cancelReason || null, admin_override: override }))]);
+      `).bind(nextStatus, paymentStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, nextStatus, cancelReason || null, nextStatus, actor.actor_type === "merchant" ? "merchant" : "admin", nextStatus, actorId, override ? 1 : 0, merchantId, current.id), ...couponStatements, ...restoreStatements(db, merchantId, current.id, restoreLines.results || [], actorType, actorId, cancelReason), db.prepare(`INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type,resource_id,metadata) VALUES(?,?,?,?,?,?,?,?,?)`).bind(uid("ordaudit"), merchantId, actorType, actorId, actorRole, "order_status_updated", "order", current.id, JSON.stringify({ from: current.status, to: nextStatus, payment_status: paymentStatus, cancel_reason: cancelReason || null, admin_override: override })), db.prepare(`INSERT INTO merchant_order_events(event_id,merchant_id,event_type,order_id,order_code,table_label,status,payment_status,item_count,total_minor)
+        SELECT ?,merchant_id,'order_status_updated',id,order_code,table_label,?,payment_status,(SELECT COALESCE(SUM(quantity),0) FROM merchant_food_order_items WHERE order_id=?),total_minor FROM merchant_food_orders WHERE merchant_id=? AND id=?`).bind(uid("ordevt"), nextStatus, current.id, merchantId, current.id)]);
+      const statusEvent = await db.prepare("SELECT * FROM merchant_order_events WHERE merchant_id=? AND order_id=? AND event_type='order_status_updated' ORDER BY sequence DESC LIMIT 1").bind(merchantId, current.id).first();
+      await publishMerchantOrderEvent(env, merchantId, statusEvent).catch(() => {});
       return json({ ok: true, status: nextStatus, payment_status: paymentStatus }, 200, cors);
     }
 

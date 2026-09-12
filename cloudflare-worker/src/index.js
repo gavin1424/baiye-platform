@@ -23,6 +23,9 @@ import { handleCommercialCatalog } from "./commercial-catalog.js";
 import { handleMerchantPrinting } from "./merchant-printing.js";
 import { handlePlanContractAdmin, handlePlanContractPublic, handlePlanContractRequest } from "./plan-contracts.js";
 import { handleBeefNoodleLineWebhook } from "./line-ordering.js";
+import { handleMerchantOrderEvents, MerchantOrderEventHub } from "./merchant-order-events.js";
+
+export { MerchantOrderEventHub };
 
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_MESSAGES = 10;
@@ -249,6 +252,10 @@ export default {
       return handleOrderingAdminRequest(request, env, scopedUrl, {}, true, {
         actor_type: "merchant", actor_id: authorization.session.user_id, actor_role: "merchant_owner",
       });
+    }
+
+    if (url.pathname.startsWith("/api/merchant-app/order-events") || url.pathname === "/api/merchant-app/devices") {
+      return handleMerchantOrderEvents(request, env, url, {});
     }
 
     if (url.pathname.startsWith("/api/merchant-app/")) {

@@ -8,6 +8,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.provider.MediaStore
 import androidx.compose.foundation.background
@@ -53,6 +55,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.baiye.merchantprinter.data.LocalStore
 import com.baiye.merchantprinter.data.PrinterConfig
 import com.baiye.merchantprinter.data.PrintJob
@@ -91,7 +94,7 @@ fun DiningSpiritApp(store: LocalStore, api: MerchantApi) {
         LaunchedEffect(loggedIn) {
             if (loggedIn) try {
                 withContext(Dispatchers.IO) { api.validateSession() }
-                if (store.printer()?.autoPrint == true) PrintService.start(context)
+                PrintService.start(context)
             } catch (error: ApiException) { if (error.status == 401) { api.clearSession(); loggedIn = false } }
         }
         if (!loggedIn) { SpiritLogin(api) { loggedIn=true }; return@DiningSpiritTheme }
@@ -174,10 +177,18 @@ private fun OperationsShell(store: LocalStore, api: MerchantApi, onLogout: () ->
         scope.launch { refreshNow() }
     }
 
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(receiverContext: Context?, intent: Intent?) { refresh() }
+        }
+        ContextCompat.registerReceiver(context, receiver, IntentFilter(PrintService.ACTION_ORDER_EVENT), ContextCompat.RECEIVER_NOT_EXPORTED)
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+
     LaunchedEffect(Unit) {
         refreshNow()
         while (isActive) {
-            delay(3_000)
+            delay(30_000)
             refreshOrdering()
         }
     }
@@ -924,14 +935,15 @@ private fun QuickButton(label: String, icon: ImageVector, key: String, go: (Stri
     var reason by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     fun load() { scope.launch { try { jobs = withContext(Dispatchers.IO) { api.history() } } catch (e:Exception) { message=e.message.orEmpty() } } }
     LaunchedEffect(Unit) { load() }
     LazyColumn(Modifier.fillMaxSize().padding(16.dp).testTag("print-history-screen")) {
         item { Text("列印紀錄",fontSize=28.sp,fontWeight=FontWeight.Bold); Text("疑義列印不會自動重送，請先確認紙本。") }
-        items(jobs,key={it.id}) { job -> ListItem(headlineContent={Text("#${job.orderCode}")},supportingContent={Text("${job.status}・嘗試 ${job.attemptCount} 次${if(job.lastError.isBlank())"" else "・${job.lastError}"}")},trailingContent={OutlinedButton({selected=job}){Text("補印")}}) }
+        items(jobs,key={it.id}) { job -> ListItem(headlineContent={Text("#${job.orderCode}")},supportingContent={Text("${job.status}・嘗試 ${job.attemptCount} 次${if(job.lastError.isBlank())"" else "・${job.lastError}"}")},trailingContent={if(job.status in listOf("pending","failed"))OutlinedButton({PrintService.manualPrint(context,job.id);message="已送出手動列印指令"}){Text("列印")}else OutlinedButton({selected=job}){Text("補印")}}) }
         if(jobs.isEmpty()) item { EmptyState(if(message.isBlank())"目前沒有列印紀錄" else message) }
     }
-    selected?.let { job -> AlertDialog(onDismissRequest={selected=null},title={Text("確定重新列印 #${job.orderCode}？")},text={OutlinedTextField(reason,{reason=it},label={Text("補印原因（必填）")})},confirmButton={Button({scope.launch{try{withContext(Dispatchers.IO){api.reprint(job.id,reason,"reprint-${UUID.randomUUID()}")};message="已建立標註【補印】的列印任務";selected=null;reason="";load()}catch(e:Exception){message=e.message.orEmpty()}}},enabled=reason.isNotBlank()){Text("確認補印")}},dismissButton={TextButton({selected=null}){Text("取消")}}) }
+    selected?.let { job -> AlertDialog(onDismissRequest={selected=null},title={Text("確定重新列印 #${job.orderCode}？")},text={OutlinedTextField(reason,{reason=it},label={Text("補印原因（必填）")})},confirmButton={Button({scope.launch{try{val created=withContext(Dispatchers.IO){api.reprint(job.id,reason,"reprint-${UUID.randomUUID()}")};PrintService.manualPrint(context,created.id);message="已建立標註【補印】的列印任務";selected=null;reason="";load()}catch(e:Exception){message=e.message.orEmpty()}}},enabled=reason.isNotBlank()){Text("確認補印")}},dismissButton={TextButton({selected=null}){Text("取消")}}) }
 }
 
 private fun JSONObject.text(key:String)=optString(key,"")

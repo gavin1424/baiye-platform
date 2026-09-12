@@ -6,6 +6,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response as OkHttpResponse
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -130,22 +133,42 @@ class MerchantApi(
         return synced
     }
 
+    fun registerDevice(printerId: String = "") = request("/api/merchant-app/devices", "POST", JSONObject()
+        .put("device_id", store.deviceId()).put("device_name", android.os.Build.MODEL ?: "Android device")
+        .put("app_version", BuildConfig.VERSION_NAME).put("printer_id", printerId))
+
+    fun orderEvents(after: Long = store.lastEventSequence()): List<OrderEvent> = request("/api/merchant-app/order-events?after=$after&limit=200").body.optJSONArray("events").toList().map { parseOrderEvent(it as JSONObject) }
+
+    fun connectOrderEvents(onEvent: (OrderEvent) -> Unit, onState: (Boolean) -> Unit): WebSocket {
+        val socketUrl = baseUrl.trimEnd('/').replaceFirst("https://", "wss://").replaceFirst("http://", "ws://") + "/api/merchant-app/order-events/live"
+        return client.newWebSocket(Request.Builder().url(socketUrl).build(), object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: OkHttpResponse) = onState(true)
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                runCatching { JSONObject(text) }.getOrNull()?.takeIf { it.optString("event_id").isNotBlank() }?.let { onEvent(parseOrderEvent(it)) }
+            }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = onState(false)
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: OkHttpResponse?) = onState(false)
+        })
+    }
+
     fun pendingJobs(): List<PrintJob> = request("/api/merchant-app/print-jobs/pending").body.optJSONArray("jobs").toList().map { parseJob(it as JSONObject) }
+    fun manualPendingJobs(): List<PrintJob> = request("/api/merchant-app/print-jobs/manual-pending").body.optJSONArray("jobs").toList().map { parseJob(it as JSONObject) }
     fun history(): List<PrintJob> = request("/api/merchant-app/print-jobs/history").body.optJSONArray("jobs").toList().map { parseJob(it as JSONObject) }
-    fun claim(jobId: String, claimRequestId: String): PrintJob {
-        val response = request("/api/merchant-app/print-jobs/${enc(jobId)}/claim", "POST", JSONObject().put("device_id", store.deviceId()).put("claim_request_id", claimRequestId)).body
+    fun claim(jobId: String, claimRequestId: String, manual: Boolean = false): PrintJob {
+        val response = request("/api/merchant-app/print-jobs/${enc(jobId)}/claim", "POST", JSONObject().put("device_id", store.deviceId()).put("claim_request_id", claimRequestId).put("manual", manual)).body
         return parseJob(response.getJSONObject("job")).copy(claimToken = response.getString("claim_token"), localState = LocalJobState.CLAIMED_DURABLE, claimRequestId = claimRequestId)
     }
     fun printing(job: PrintJob) = transition(job, "printing")
     fun printed(job: PrintJob, bytes: Int) = request("/api/merchant-app/print-jobs/${enc(job.id)}/printed", "POST", JSONObject().put("claim_token", job.claimToken).put("bytes_written", bytes))
     fun failed(job: PrintJob, ambiguous: Boolean, error: Throwable) = request("/api/merchant-app/print-jobs/${enc(job.id)}/failed", "POST", JSONObject().put("claim_token", job.claimToken).put("ambiguous", ambiguous).put("error_code", error.javaClass.simpleName).put("error_message", error.message ?: "PRINT_FAILED"))
     private fun transition(job: PrintJob, action: String) = request("/api/merchant-app/print-jobs/${enc(job.id)}/$action", "POST", JSONObject().put("claim_token", job.claimToken))
-    fun reprint(jobId: String, reason: String, key: String) = request("/api/merchant-app/print-jobs/${enc(jobId)}/reprint", "POST", JSONObject().put("reason", reason).put("idempotency_key", key), key)
+    fun reprint(jobId: String, reason: String, key: String): PrintJob = parseJob(request("/api/merchant-app/print-jobs/${enc(jobId)}/reprint", "POST", JSONObject().put("reason", reason).put("idempotency_key", key), key).body.getJSONObject("job"))
 
     private fun parseOrder(o: JSONObject): MerchantOrder = MerchantOrder(o.getString("order_code"), o.optString("table_label"), o.optString("order_type"), o.optString("status"), o.optString("payment_method", "counter"), o.optInt("total_minor"), o.optString("created_at"), o.optString("customer_note"), o.optJSONArray("items").toList().map { value ->
         val i = value as JSONObject; OrderItem(i.getString("name"), i.getInt("quantity"), i.optString("note"), i.optJSONArray("options").toList().map { option -> val x = option as JSONObject; OrderOption(x.optString("group_name"), x.optString("value_name")) })
     })
     private fun parseJob(j: JSONObject): PrintJob = PrintJob(j.getString("id"), j.getString("order_code"), j.getString("printer_id"), j.optString("status"), j.optInt("copies", 1), j.optInt("attempt_count"), j.optJSONObject("payload")?.toString() ?: "{}", deliveryOutcome = j.optString("delivery_outcome"), lastError = j.optString("last_error"))
+    private fun parseOrderEvent(e: JSONObject) = OrderEvent(e.optLong("sequence"), e.optString("event_id"), e.optString("event_type"), e.optString("order_id"), e.optString("order_code"), e.optString("table_label"), e.optString("status"), e.optString("payment_status"), e.optInt("item_count"), e.optInt("total_minor"), e.optString("created_at"))
     private fun enc(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
 
     companion object {

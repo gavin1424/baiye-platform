@@ -11,10 +11,10 @@ import com.baiye.merchantprinter.data.LocalStore
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED && LocalStore(context).printer()?.autoPrint == true)
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED && LocalStore(context).hasSession())
             WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<RestorePrintServiceWorker>().build())
     }
 }
 class RestorePrintServiceWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
-    override fun doWork(): Result = try { if (LocalStore(applicationContext).printer()?.autoPrint == true) PrintService.start(applicationContext); Result.success() } catch (_: Exception) { Result.retry() }
+    override fun doWork(): Result = try { if (LocalStore(applicationContext).hasSession()) PrintService.start(applicationContext); Result.success() } catch (_: Exception) { Result.retry() }
 }

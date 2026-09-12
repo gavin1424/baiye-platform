@@ -13,40 +13,75 @@ import com.baiye.merchantprinter.printer.LanEscPosPrinter
 import com.baiye.merchantprinter.printer.PrinterIoException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicBoolean
+import okhttp3.WebSocket
 
 class PrintService : Service() {
     private val executor = Executors.newSingleThreadScheduledExecutor()
     private lateinit var store: LocalStore
     private lateinit var api: MerchantApi
     @Volatile private var syncing = false
+    @Volatile private var realtimeConnected = false
+    private val reconnectScheduled = AtomicBoolean(false)
+    private var webSocket: WebSocket? = null
 
     override fun onCreate() {
-        super.onCreate(); store = LocalStore(this); api = MerchantApi(store); createChannel(); startForeground(NOTIFICATION_ID, notification("正在連線列印佇列…"))
-        executor.scheduleWithFixedDelay(::safeSync, 0, 3, TimeUnit.SECONDS)
+        super.onCreate(); store = LocalStore(this); api = MerchantApi(store); createChannel(); startForeground(NOTIFICATION_ID, notification("正在連線訂單事件…"))
+        connectRealtime()
+        executor.scheduleWithFixedDelay(::safeSync, 0, 30, TimeUnit.SECONDS)
     }
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_MANUAL_PRINT) intent.getStringExtra(EXTRA_JOB_ID)?.let { jobId -> executor.execute { manualPrint(jobId) } }
+        return START_STICKY
+    }
     override fun onBind(intent: Intent?): IBinder? = null
-    override fun onDestroy() { executor.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() { webSocket?.cancel(); executor.shutdownNow(); super.onDestroy() }
+
+    private fun connectRealtime() {
+        if (!store.hasSession()) return
+        webSocket?.cancel()
+        webSocket = api.connectOrderEvents(
+            onEvent = { event -> executor.execute { consumeOrderEvent(event) } },
+            onState = { connected ->
+                realtimeConnected = connected
+                updateNotification(if (connected) "訂單即時連線" else "訂單離線，等待重連")
+                if (!connected && reconnectScheduled.compareAndSet(false, true)) {
+                    executor.schedule({ reconnectScheduled.set(false); connectRealtime() }, 5, TimeUnit.SECONDS)
+                }
+            },
+        )
+    }
+
+    private fun consumeOrderEvent(event: OrderEvent) {
+        if (event.sequence > store.lastEventSequence()) store.setLastEventSequence(event.sequence)
+        if (event.eventType == "order_created") notifyNewOrder(event)
+        sendBroadcast(Intent(ACTION_ORDER_EVENT).setPackage(packageName).putExtra("event_id", event.eventId))
+    }
 
     private fun safeSync() {
         if (syncing || !store.hasSession()) return
         syncing = true
         try {
             api.syncPending()
-            val localPrinter = store.printer() ?: return
+            api.orderEvents(store.lastEventSequence()).forEach(::consumeOrderEvent)
+            val localPrinter = store.printer()
+            runCatching { api.registerDevice(localPrinter?.id.orEmpty()) }
+            if (localPrinter == null) {
+                updateNotification(if (realtimeConnected) "訂單即時連線 • 未設定印表機" else "訂單離線，等待重連")
+                store.setLastSync(System.currentTimeMillis())
+                return
+            }
             // The backend setting is authoritative. A stale local ON value must never
             // overwrite a remotely disabled printer or claim a new pending job.
             val printer = api.printers().firstOrNull { it.id == localPrinter.id } ?: return
             store.savePrinter(printer)
-            updateNotification("${printer.name} • ${if (printer.autoPrint) "自動出單 ON" else "自動出單 OFF"}")
+            updateNotification("${if (realtimeConnected) "即時連線" else "離線補單"} • ${printer.name} • ${if (printer.autoPrint) "自動出單 ON" else "自動出單 OFF"}")
             if (!printer.canAutoClaim) {
                 store.setLastSync(System.currentTimeMillis())
                 return
             }
             recover(printer)
             api.pendingJobs().forEach { discovered ->
-                notifyNewOrder(discovered)
                 if (store.jobsIn(LocalJobState.PRINTED_ACKED, LocalJobState.AMBIGUOUS).none { it.id == discovered.id }) {
                     val requestId = "claim-${java.util.UUID.randomUUID()}"
                     store.saveJob(discovered.copy(claimRequestId = requestId))
@@ -60,15 +95,13 @@ class PrintService : Service() {
         finally { syncing = false }
     }
 
-    private fun notifyNewOrder(job: PrintJob) {
-        if (!store.markNotified(job.orderCode)) return
-        val payload = runCatching { JSONObject(job.payloadJson) }.getOrNull()
-        val table = payload?.optString("table_label").orEmpty().ifBlank { "外帶" }
-        val total = (payload?.optInt("total_minor") ?: 0) / 100
-        val intent = PendingIntent.getActivity(this, job.orderCode.hashCode(), Intent(this, MainActivity::class.java).putExtra("order_code", job.orderCode), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val message = "$table 新訂單 NT$ $total"
+    private fun notifyNewOrder(event: OrderEvent) {
+        if (!store.markNotified(event.orderCode)) return
+        val table = event.table.ifBlank { "外帶" }
+        val intent = PendingIntent.getActivity(this, event.orderCode.hashCode(), Intent(this, MainActivity::class.java).putExtra("order_code", event.orderCode), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val message = "$table 新訂單｜${event.itemCount} 項商品"
         val notification = NotificationCompat.Builder(this, ORDER_CHANNEL_ID).setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("點餐靈・新訂單").setContentText(message).setAutoCancel(true).setContentIntent(intent).setPriority(NotificationCompat.PRIORITY_HIGH).setDefaults(NotificationCompat.DEFAULT_ALL).build()
-        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(job.orderCode.hashCode(), notification)
+        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(event.orderCode.hashCode(), notification)
     }
 
     private fun recover(printer: PrinterConfig) {
@@ -107,6 +140,19 @@ class PrintService : Service() {
         }
     }
 
+    private fun manualPrint(jobId: String) {
+        try {
+            val localPrinter = store.printer() ?: return
+            val printer = api.printers().firstOrNull { it.id == localPrinter.id && it.enabled } ?: return
+            val pending = api.manualPendingJobs().firstOrNull { it.id == jobId } ?: return
+            val requestId = "manual-${java.util.UUID.randomUUID()}"
+            store.saveJob(pending.copy(claimRequestId = requestId))
+            val claimed = api.claim(jobId, requestId, manual = true)
+            store.saveJob(claimed)
+            process(claimed, printer)
+        } catch (_: Exception) { }
+    }
+
     private fun createChannel() { (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).apply { createNotificationChannel(NotificationChannel(CHANNEL_ID, "點餐靈營運服務", NotificationManager.IMPORTANCE_LOW)); createNotificationChannel(NotificationChannel(ORDER_CHANNEL_ID, "點餐靈新訂單", NotificationManager.IMPORTANCE_HIGH).apply { enableVibration(true) }) } }
     private fun notification(text: String): Notification {
         val intent = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -116,6 +162,10 @@ class PrintService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "baiye_print_service_v1"; private const val ORDER_CHANNEL_ID = "baiye_new_orders_v1"; private const val NOTIFICATION_ID = 1602
+        private const val ACTION_MANUAL_PRINT = "com.baiye.merchantprinter.MANUAL_PRINT"
+        const val ACTION_ORDER_EVENT = "com.baiye.merchantprinter.ORDER_EVENT"
+        private const val EXTRA_JOB_ID = "print_job_id"
         fun start(context: Context) { context.startForegroundService(Intent(context, PrintService::class.java)) }
+        fun manualPrint(context: Context, jobId: String) { context.startForegroundService(Intent(context, PrintService::class.java).setAction(ACTION_MANUAL_PRINT).putExtra(EXTRA_JOB_ID, jobId)) }
     }
 }
