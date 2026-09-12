@@ -26,5 +26,8 @@ await writeFile(indexPath, html, "utf8");
 const headersPath = path.join(distDir, "_headers");
 const headers = await readFile(headersPath, "utf8");
 if (!headers.includes(expectedWorker)) throw new Error("Storefront CSP must allow the production ordering Worker.");
+for (const lineOrigin of ["https://api.line.me", "https://liff.line.me", "https://access.line.me"]) {
+  if (!headers.includes(lineOrigin)) throw new Error(`Storefront CSP must allow the LINE LIFF origin: ${lineOrigin}`);
+}
 await writeFile(headersPath, headers, "utf8");
 await writeFile(path.join(distDir, "robots.txt"), "User-agent: *\nDisallow: /\n", "utf8");
