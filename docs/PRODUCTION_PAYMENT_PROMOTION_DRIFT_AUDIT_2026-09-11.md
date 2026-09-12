@@ -151,3 +151,22 @@ does not authorize a Production migration or deployment.
   no payment QR/barcode content
 - automated checks: Worker 700 passed, 1 skipped, 0 failed; contractor policy 5/5;
   commerce 11/11; ordering UI 1/1; typecheck and Production build passed
+
+## Production checkpoint — 2026-09-12
+
+- 0033 guarded reconciliation: PASS;
+- QR-free 0035 and reconciliation replay: PASS;
+- migration status: `No migrations to apply`;
+- exact new contract hashes: present and still `pending_review`/inactive;
+- public catalog data: 18k, 50k, SoftPOS 24k; historical 45k retained but not selectable;
+- Production QR configuration table: absent;
+- Production payment requests/schedules immediately after migration: 0/0;
+- historical signature/artifact/hash aggregates: unchanged;
+- Production Worker remains `ef401515-2443-412f-b1c7-bbfa0acff8fd`;
+- Production Pages remains `7f0e67a2-8bbe-4f3e-8ba3-39da4d792d13` from `930d544`.
+
+The next gate is an authenticated administrator call to the existing Legal
+Review API. Production currently has no active administrator session and no
+administrator credential is available in the execution environment. Direct D1
+approval is forbidden, so Worker and Pages deployment remain stopped until an
+authorized administrator signs in and the three approval API calls succeed.

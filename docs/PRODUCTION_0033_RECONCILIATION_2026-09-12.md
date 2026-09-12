@@ -123,3 +123,30 @@ rehearsed again with the revised pending 0035 migration.
 
 The prior Staging QR object was not read, changed, or deleted. Production writes
 during both rehearsals remain zero.
+
+## Production reconciliation execution
+
+After the fresh QR-free clone rehearsal and a new D1 export, the guarded
+reconciliation was executed against Production.
+
+- pre-reconciliation export SHA-256: `0B58C02F1D21D27D1FA540F5D2985B665CF775A592EBEF88D1CA59ACFAC1FA06`;
+- guard result: PASS across the complete 13-item manifest;
+- remote execution report: 6 queries, 2138 rows read, 8 engine-counted rows
+  written; engine accounting includes the temporary guard lifecycle, while the
+  only persistent data rows added are one ledger row and one audit row; the
+  guard table is absent afterward;
+- persistent 0033 ledger rows: exactly one;
+- persistent reconciliation audit rows: exactly one;
+- post-reconciliation/pre-0035 export SHA-256:
+  `47A9B510F508ACD4C916FD7290783AAC556128E1F837BCAF829068669F195EAD`;
+- subsequent migration runner: revised QR-free 0035 PASS and reconciliation
+  replay PASS; final result `No migrations to apply`;
+- Production creates no `platform_payment_configurations` table;
+- immediately after migration, payment request and schedule row counts remain zero;
+- historical aggregates remain exactly 32 signatures, 64 artifacts, 1376
+  PDF-hash characters, 1376 document-hash characters, and 2752 artifact-hash
+  characters.
+
+The three new contract versions exist with their exact expected hashes and
+remain `pending_review`/inactive. No Worker or Pages Production deployment was
+performed before Legal Approval.
