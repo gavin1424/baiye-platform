@@ -80,8 +80,8 @@ test("SP01 migration keeps the unique 0023-0026 integration sequence and immutab
 
 test("SP02 new contract body keeps legal gate and states the 6k + 18k schedule", async () => {
   const db = new D1(); const row = db.sqlite.prepare("SELECT * FROM merchant_contract_versions WHERE id=?").get(SOFTPOS_CONTRACT_VERSION_ID);
-  assert.equal(row.version, "merchant_softpos_v1_1_24000_payment"); assert.equal(row.legal_review_status, "pending_review"); assert.equal(row.is_active, 0); assert.equal(row.staging_signing_enabled, 1);
-  assert.equal(row.content_hash, "D_jCMCLkfs_bnEDyrUumImJPKjZpWLCZlvWtAyRX2_0");
+  assert.equal(row.version, "merchant_softpos_v1_2_24000_payment"); assert.equal(row.legal_review_status, "pending_review"); assert.equal(row.is_active, 0); assert.equal(row.staging_signing_enabled, 1); assert.doesNotMatch(row.content_html,/QR|JKOPay|街口|qr_asset_key|deep_link/i);
+  assert.equal(row.content_hash, "83yaTB1CAFALduFTVT0O93FIZKnbnxwFwPaRRRRh_nY");
   for (const phrase of ["契約總額為新臺幣 24,000 元","簽約時支付首期款新臺幣 6,000 元","三個月為試用期間","剩餘尾款新臺幣 18,000 元","免專用 POS 主機"]) assert.match(row.content_html, new RegExp(phrase));
   assert.doesNotMatch(row.content_html, /開通費新臺幣 3,000 元|保證金新臺幣 6,000 元/);
   assert.doesNotMatch(row.content_html, /完全零硬體。/);

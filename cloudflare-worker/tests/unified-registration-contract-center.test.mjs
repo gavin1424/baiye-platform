@@ -17,7 +17,7 @@ function seedMerchant(db,id="merchant-unified",userId="owner-unified") {
 async function seedSignedPlan(db, merchant, planId = "baiye_standard_18000_addons") {
   const assigned=await assignMerchantPlan(db,merchant.id,merchant.userId,planId,24);
   const invite=db.sqlite.prepare("SELECT id FROM merchant_contract_invites WHERE merchant_id=? AND commercial_terms_id=?").get(merchant.id,assigned.commercial_terms_id);
-  const contractVersion=planId === "baiye_standard_18000_addons" ? "merchant_service_v1_3_18000_payment" : planId === "baiye_commerce_ai_50000" ? "merchant_commerce_ai_v1_1_50000" : "merchant_softpos_v1_1_24000_payment";
+  const contractVersion=planId === "baiye_standard_18000_addons" ? "merchant_service_v1_3_18000_payment" : planId === "baiye_commerce_ai_50000" ? "merchant_commerce_ai_v1_1_50000" : "merchant_softpos_v1_2_24000_payment";
   const signatureId=`signed-${merchant.id}`;
   db.sqlite.prepare(`INSERT INTO merchant_contract_signatures(id,public_id,merchant_id,merchant_user_id,contract_version_id,commercial_terms_id,signatory_legal_name,signatory_role,legal_representative_name,company_name,signed_at,contract_content_hash,commercial_terms_hash,signature_hash,signature_data,document_hash,pdf_hash,consent_version,invite_id,session_id_hash,r2_key,evidence_object_key,status)
     VALUES(?,?,?, ?,?,?,'管理者','legal_representative','管理者','整合測試商家',CURRENT_TIMESTAMP,'content','terms','signature','{}','document','pdf','consent',?,'session','signed.pdf','signed.json','VALID')`)
@@ -33,7 +33,7 @@ test("UNIFIED-01 migrations are unique and ordered 0023 commerce, 0024 SoftPOS, 
 test("UNIFIED-02 public server catalog exposes exactly the three immutable plans", async () => {
   const db=new D1(),plans=await listMerchantPlans(db);
   assert.deepEqual(plans.map((plan)=>plan.plan_id),["baiye_standard_18000_addons","baiye_commerce_ai_50000","baiye_softpos_24000"]);
-  assert.deepEqual(plans.map((plan)=>plan.contract_version),["merchant_service_v1_3_18000_payment","merchant_commerce_ai_v1_1_50000","merchant_softpos_v1_1_24000_payment"]);
+  assert.deepEqual(plans.map((plan)=>plan.contract_version),["merchant_service_v1_3_18000_payment","merchant_commerce_ai_v1_1_50000","merchant_softpos_v1_2_24000_payment"]);
   assert.deepEqual(plans.map((plan)=>plan.price_minor),[1800000,5000000,2400000]);
   assert.deepEqual(plans.map((plan)=>plan.payment_due_at_signature_minor),[1800000,5000000,600000]);
 });

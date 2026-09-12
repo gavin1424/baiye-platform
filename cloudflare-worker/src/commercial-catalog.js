@@ -81,7 +81,7 @@ export const MERCHANT_PLANS = Object.freeze([
     trial_period_months: 3,
     post_trial_payment_minor: 1800000,
     payment_schedule_type: "SIGNATURE_AND_AFTER_TRIAL",
-    contract_version: "merchant_softpos_v1_1_24000_payment",
+    contract_version: "merchant_softpos_v1_2_24000_payment",
     contract_review_status: "pending_review",
     merchant_content_editable: false,
     merchant_product_editable: true,

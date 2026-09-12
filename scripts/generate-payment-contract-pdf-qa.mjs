@@ -42,7 +42,7 @@ const plans = [
   },
   {
     slug: "softpos-24000",
-    contractId: "merchant_softpos_v1_1_24000_payment",
+    contractId: "merchant_softpos_v1_2_24000_payment",
     terms: softposCommercialTermsSnapshot(new Date(signedAt)),
     attachments: (terms) => softposAttachmentA(terms, { formal_name: "創百業智慧鏈｜免 POS 機智慧點餐系統" }),
   },

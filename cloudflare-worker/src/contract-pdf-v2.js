@@ -201,7 +201,10 @@ export async function createSignedAgreementPdfV2(input) {
     renderBlocks(contractBlocksFromHtml(attachment.contentHtml || attachment.content || ""));
   }
 
-  newPage();
+  // Keep the signature evidence together, but reuse a nearly empty trailing
+  // contract page when the whole signature section still fits. This prevents
+  // a short attachment tail from becoming an otherwise blank standalone page.
+  requireHeight(560);
   drawLines("電子簽署紀錄", { font: bold, size: 16, lineHeight: 23, after: 12 });
   drawLines(`簽署者姓名：${input.signatory || "—"}`, { after: 3 });
   drawLines(`簽署身分：${displaySignatoryRole(input.signatoryRole)}`, { after: 3 });

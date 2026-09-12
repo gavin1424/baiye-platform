@@ -234,7 +234,7 @@ async function merchantContractContext(db, session, env) {
   }
   const contract = await currentMerchantContract(db, env, terms.plan_code);
   if (!contract) {
-    const latest = await db.prepare("SELECT * FROM merchant_contract_versions WHERE id IN ('merchant_service_v1_3_18000_payment','merchant_commerce_ai_v1_1_50000','merchant_softpos_v1_1_24000_payment') ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
+    const latest = await db.prepare("SELECT * FROM merchant_contract_versions WHERE id IN ('merchant_service_v1_3_18000_payment','merchant_commerce_ai_v1_1_50000','merchant_softpos_v1_2_24000_payment') ORDER BY effective_date DESC,created_at DESC LIMIT 1").first();
     if (latest?.legal_review_status !== "approved" && env.CONTRACT_SIGNING_MODE !== "staging") throw new ContractError("LEGAL_REVIEW_REQUIRED", "此契約版本尚未完成正式法律審閱，目前不可簽署。", 423);
     throw new ContractError("CONTRACT_NOT_ACTIVE", "目前沒有可簽署的商家服務契約。", 409);
   }

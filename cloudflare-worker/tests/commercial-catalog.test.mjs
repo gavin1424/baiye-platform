@@ -25,7 +25,7 @@ test("catalog values stay consistent with immutable contract commercial definiti
   assert.equal(commerce.payment_due_at_signature_minor, 5000000);
   assert.equal(commerce.merchant_product_editable, true);
   assert.equal(commerce.commerce_full, true);
-  assert.equal(softpos.contract_version, "merchant_softpos_v1_1_24000_payment");
+  assert.equal(softpos.contract_version, "merchant_softpos_v1_2_24000_payment");
   assert.equal(softpos.trial_months, 3);
   assert.equal(softpos.payment_due_at_signature_minor, 600000);
   assert.equal(softpos.post_trial_payment_minor, 1800000);

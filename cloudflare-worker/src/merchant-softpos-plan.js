@@ -1,8 +1,8 @@
 import { ContractError, hashCanonical } from "./contract-engine.js";
 
 export const SOFTPOS_PLAN_ID = "baiye_softpos_24000";
-export const SOFTPOS_CONTRACT_VERSION_ID = "merchant_softpos_v1_1_24000_payment";
-export const SOFTPOS_CONTRACT_VERSION = "merchant_softpos_v1_1_24000_payment";
+export const SOFTPOS_CONTRACT_VERSION_ID = "merchant_softpos_v1_2_24000_payment";
+export const SOFTPOS_CONTRACT_VERSION = "merchant_softpos_v1_2_24000_payment";
 export const SOFTPOS_FORMAL_NAME = "創百業智慧鏈｜免 POS 機智慧點餐系統";
 export const INSTALLMENT_DISCLOSURE = "24 期零利率須依合作金融／支付機構核准與實際可用方案為準。";
 
