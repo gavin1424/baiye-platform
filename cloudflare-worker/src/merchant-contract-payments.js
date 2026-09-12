@@ -57,8 +57,8 @@ export async function prepareSignaturePayment(db, { merchantId, signatureId, con
       .bind(scheduleId, merchantId, signatureId, contractVersion, planId, authority.currency, authority.signatureDue, authority.trialMonths),
     db.prepare(`INSERT INTO merchant_contract_payment_requests(
       id,merchant_id,contract_signature_id,payment_schedule_id,contract_version,plan_id,
-      currency,amount_due_minor,payment_method,provider,status,payment_reference,expires_at
-    ) VALUES(?,?,?,?,?,?,?,?,'jkopay_manual_qr','jkopay_manual_qr','pending',?,?)`)
+      currency,amount_due_minor,status,payment_reference,expires_at
+    ) VALUES(?,?,?,?,?,?,?,?,'pending',?,?)`)
       .bind(requestId, merchantId, signatureId, scheduleId, contractVersion, planId, authority.currency, authority.signatureDue, paymentReference, expiresAt),
   ];
   if (authority.remaining > 0) {
@@ -79,14 +79,12 @@ export async function prepareSignaturePayment(db, { merchantId, signatureId, con
 async function paymentRecord(db, paymentRequestId, merchantId = null) {
   const row = await db.prepare(`SELECT p.*,m.name merchant_name,s.public_id contract_public_id,s.signed_at,
       COALESCE(ls.lifecycle_status,s.lifecycle_status) lifecycle_status,c.name plan_name,c.contract_total_amount_minor,c.payment_due_at_signature_minor,
-      c.remaining_amount_minor,c.trial_period_months,c.post_trial_payment_minor,
-      cfg.display_name provider_display_name,cfg.recipient_display_name,cfg.qr_asset_key,cfg.payment_deep_link,cfg.enabled provider_enabled
+      c.remaining_amount_minor,c.trial_period_months,c.post_trial_payment_minor
     FROM merchant_contract_payment_requests p
     JOIN merchants m ON m.id=p.merchant_id
     JOIN merchant_contract_signatures s ON s.id=p.contract_signature_id AND s.merchant_id=p.merchant_id
     LEFT JOIN merchant_contract_lifecycle_states ls ON ls.contract_signature_id=s.id
     LEFT JOIN merchant_plan_catalog c ON c.plan_id=p.plan_id
-    LEFT JOIN platform_payment_configurations cfg ON cfg.provider=p.provider
     WHERE p.id=? ${merchantId ? "AND p.merchant_id=?" : ""}`)
     .bind(...(merchantId ? [paymentRequestId, merchantId] : [paymentRequestId])).first();
   return row || null;
@@ -117,11 +115,6 @@ function customerPayment(row) {
     remaining_amount_minor: Number(row.remaining_amount_minor),
     trial_period_months: Number(row.trial_period_months),
     post_trial_payment_minor: Number(row.post_trial_payment_minor),
-    payment_method: row.payment_method,
-    payment_method_name: row.provider_display_name || "街口支付",
-    recipient_display_name: row.recipient_display_name || "百工百業",
-    payment_deep_link: row.payment_deep_link || null,
-    qr_available: Number(row.provider_enabled) === 1 && Boolean(row.qr_asset_key),
     status: row.status,
     submitted_at: row.submitted_at,
     confirmed_at: row.confirmed_at,
@@ -151,7 +144,7 @@ async function audit(db, request, actorType, actorId, action, entityType, entity
 
 export async function handleMerchantContractPayments(request, env, url, cors, authorization) {
   const db = env.FINANCE_DB;
-  const match = url.pathname.match(/^\/api\/merchant\/contract-payments\/([^/]+)(?:\/(qr|submit))?$/);
+  const match = url.pathname.match(/^\/api\/merchant\/contract-payments\/([^/]+)(?:\/(submit))?$/);
   if (!match) return null;
   const paymentRequestId = decodeURIComponent(match[1]);
   const action = match[2] || "";
@@ -162,12 +155,6 @@ export async function handleMerchantContractPayments(request, env, url, cors, au
   }
   row = await expirePendingPayment(db, row);
   if (!action && request.method === "GET") return json({ payment: customerPayment(row) }, 200, cors);
-  if (action === "qr" && request.method === "GET") {
-    if (Number(row.provider_enabled) !== 1 || !row.qr_asset_key) throw new ContractError("PAYMENT_CONFIGURATION_REQUIRED", "付款 QR Code 尚未完成設定，請聯絡客服。", 503);
-    const object = await env.CONTRACTS_BUCKET.get(row.qr_asset_key);
-    if (!object) throw new ContractError("PAYMENT_QR_NOT_FOUND", "付款 QR Code 暫時無法取得。", 503);
-    return new Response(object.body, { headers: { ...cors, "content-type": object.httpMetadata?.contentType || "image/png", "cache-control": "private, no-store" } });
-  }
   if (action === "submit" && request.method === "POST") {
     if (!["pending", "rejected"].includes(row.status)) {
       if (["submitted", "confirmed"].includes(row.status)) return json({ payment: customerPayment(row), replay: true }, 200, cors);
@@ -227,33 +214,6 @@ async function storeActivationEvidence(env, row, adminId, confirmedAt) {
 
 export async function handleMerchantContractPaymentsAdmin(request, env, url, cors, adminSession) {
   const db = env.FINANCE_DB;
-  if (url.pathname === "/api/admin/merchant-payments/config/jkopay_manual_qr") {
-    if (request.method === "GET") {
-      const config = await db.prepare("SELECT provider,display_name,recipient_display_name,payment_deep_link,enabled,configured_at,updated_at,qr_asset_key IS NOT NULL qr_configured FROM platform_payment_configurations WHERE provider='jkopay_manual_qr'").first();
-      return json({ config }, 200, cors);
-    }
-    if (request.method === "POST") {
-      const form = await request.formData();
-      const file = validateEvidenceFile(form.get("qr_asset"));
-      const current = await db.prepare("SELECT qr_asset_key FROM platform_payment_configurations WHERE provider='jkopay_manual_qr'").first();
-      let key = current?.qr_asset_key || null;
-      if (file) {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        if (!magicMatches(bytes, file.type)) throw new ContractError("PAYMENT_QR_MAGIC_INVALID", "付款 QR Code 圖片格式不正確。", 422);
-        const extension = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
-        key = `platform-payment-assets/jkopay_manual_qr/official-${await sha256(bytes)}.${extension}`;
-        await env.CONTRACTS_BUCKET.put(key, bytes, { httpMetadata: { contentType: file.type, contentDisposition: "inline" } });
-      }
-      if (!key) throw new ContractError("PAYMENT_QR_REQUIRED", "請上傳正式街口支付 QR Code。", 422);
-      const deepLink = String(form.get("payment_deep_link") || "").trim() || null;
-      if (deepLink && !/^https:\/\//i.test(deepLink)) throw new ContractError("PAYMENT_DEEP_LINK_INVALID", "付款連結必須是正式 HTTPS 網址。", 422);
-      await db.prepare(`UPDATE platform_payment_configurations SET qr_asset_key=?,payment_deep_link=?,enabled=1,
-        configured_by=?,configured_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE provider='jkopay_manual_qr'`)
-        .bind(key, deepLink, adminSession.admin_user_id).run();
-      await audit(db, request, "admin", adminSession.admin_user_id, "PAYMENT_PROVIDER_CONFIGURED", "platform_payment_configuration", "jkopay_manual_qr", { qr_asset_key: key, deep_link_configured: Boolean(deepLink) });
-      return json({ ok: true, provider: "jkopay_manual_qr", qr_configured: true, deep_link_configured: Boolean(deepLink) }, 200, cors);
-    }
-  }
   if (url.pathname === "/api/admin/merchant-payments" && request.method === "GET") {
     const rows = await db.prepare(`SELECT p.*,m.name merchant_name,s.public_id contract_public_id,s.signed_at
       FROM merchant_contract_payment_requests p JOIN merchants m ON m.id=p.merchant_id

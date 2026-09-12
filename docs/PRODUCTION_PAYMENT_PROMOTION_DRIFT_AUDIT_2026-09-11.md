@@ -2,6 +2,23 @@
 
 This is an internal deployment record. It is not shipped as public website content.
 
+## Superseding payment-channel decision — 2026-09-12
+
+The platform owner has decided that the three merchant-contract payment flows
+must not use a payment barcode or JKOPAY QR Code. The QR candidate and Staging
+verification below are retained only as historical audit evidence; they are no
+longer a Production requirement or deployment gate.
+
+The current implementation:
+
+- creates no JKOPAY-specific configuration table in the pending Production 0035 migration;
+- does not require or return a QR asset key, QR availability, deep link, payment provider, or payment method;
+- removes the customer QR display and administrator QR configuration endpoint;
+- keeps payment requests, optional private payment evidence, manual review, and server-authoritative amounts provider-neutral;
+- does not modify or delete the prior Staging QR object or evidence.
+
+Decision flags: `PAYMENT_QR_NOT_REQUIRED`, `JKOPAY_QR_GATE_REMOVED`.
+
 ## Read-only production snapshot
 
 - `official-production-v2`: `daf7f0369fecfb0d8e96ca97fccb2201fa2de0d0`
@@ -59,7 +76,7 @@ The approval API pins `approved_content_hash` to the reviewed `content_hash`,
 records `reviewed_by`, `reviewed_at`, and `legal_counsel_reference`, and writes
 an audit record. Any content-hash change invalidates the deployment gate.
 
-## JKOPAY production asset candidate
+## Superseded JKOPAY production asset candidate (historical only)
 
 - supplied file: `1-Photo-1.jpg`
 - format: JPEG, 854 × 1280, 24-bit RGB
@@ -77,14 +94,15 @@ upload endpoint validates MIME and magic bytes, stores the object in private
 the provider configuration, and writes `PAYMENT_PROVIDER_CONFIGURED` audit.
 No deep link is derived from the QR payload.
 
-## Stop conditions
+## Current stop conditions
 
 Production migration and deployment remain blocked until:
 
 1. all three exact content hashes receive genuine legal approval;
-2. the supplied JKOPAY recipient is confirmed and the asset is registered by an authorized admin;
-3. the integrated baseline is redeployed and fully retested on Staging;
-4. historical PDF and artifact hashes remain unchanged.
+2. the integrated baseline is redeployed and fully retested on Staging;
+3. historical PDF and artifact hashes remain unchanged.
+
+The JKOPAY asset is explicitly not a stop condition.
 
 ## Drift-integrated Staging verification
 
@@ -92,10 +110,10 @@ Production migration and deployment remain blocked until:
 - Staging Worker version: `6e01c8cc-c3e2-40a0-a91e-98628ee410ab`
 - Staging Pages deployment: `749ba7e0-4745-443d-a539-c4797bb66ef8`
 - Staging Pages source: `9b49f2e`
-- private QR asset key: `platform-payment-assets/jkopay_manual_qr/official-d6nGNKaDZyRIGDnV2hooO34L9_dPvc18PpWVpVbNM3k.jpg`
+- historical Staging-only QR asset key: `platform-payment-assets/jkopay_manual_qr/official-d6nGNKaDZyRIGDnV2hooO34L9_dPvc18PpWVpVbNM3k.jpg`
 - R2 upload/download SHA-256: `77A9C634A6836724481839D5DA1A283B7E0BF7F74FBDCD7C3E9595A556CD3379` (exact match)
 - provider status: enabled in Staging; deep link absent and not inferred
-- three-plan live smoke: passed through signed/pending-payment, QR retrieval,
+- historical three-plan live smoke: passed through signed/pending-payment, QR retrieval,
   evidence/PDF generation, and payment-evidence submission
 - live signature dues: standard `1800000`, commerce AI `5000000`, SoftPOS `600000`
 - SoftPOS remaining after three-month trial: `1800000`

@@ -82,11 +82,26 @@ test("PAY-V1 explicit schedule authority is 18000, 50000, and SoftPOS 6000 + 180
     const seeded = await seedPayment(db, planId);
     const authority = validatePaymentAuthority(seeded.terms);
     assert.deepEqual([authority.signatureDue, authority.remaining, authority.trialMonths], [signatureDue, remaining, trial]);
-    const request = db.sqlite.prepare("SELECT amount_due_minor FROM merchant_contract_payment_requests WHERE contract_signature_id=?").get(seeded.signatureId);
+    const request = db.sqlite.prepare("SELECT amount_due_minor,payment_method,provider FROM merchant_contract_payment_requests WHERE contract_signature_id=?").get(seeded.signatureId);
     assert.equal(request.amount_due_minor, signatureDue);
+    assert.equal(request.payment_method, null);
+    assert.equal(request.provider, null);
     const schedules = db.sqlite.prepare("SELECT phase,amount_due_minor FROM merchant_contract_payment_schedules WHERE contract_signature_id=? ORDER BY sequence_number").all(seeded.signatureId);
     assert.deepEqual(schedules.map((row) => [row.phase, row.amount_due_minor]), remaining ? [["SIGNATURE", signatureDue], ["AFTER_TRIAL", remaining]] : [["SIGNATURE", signatureDue]]);
   }
+});
+
+test("PAY-V1 payment flow has no QR, barcode, deep-link, or provider gate", async () => {
+  const db = new D1(); const seeded = await seedPayment(db, "baiye_standard_18000_addons", "no-qr");
+  assert.equal(db.sqlite.prepare("SELECT COUNT(*) count FROM sqlite_master WHERE type='table' AND name='platform_payment_configurations'").get().count, 0);
+  const env = { FINANCE_DB: db, CONTRACTS_BUCKET: new Bucket() };
+  const authorization = { session: { merchant_id: seeded.merchantId, user_id: seeded.userId } };
+  const get = new Request(`https://worker.test/api/merchant/contract-payments/${seeded.prepared.request.id}`);
+  const response = await handleMerchantContractPayments(get, env, new URL(get.url), {}, authorization);
+  const payment = (await response.json()).payment;
+  for (const removedField of ["qr_available", "qr_asset_key", "payment_deep_link", "payment_method_name", "recipient_display_name"]) assert.equal(removedField in payment, false);
+  const qr = new Request(`https://worker.test/api/merchant/contract-payments/${seeded.prepared.request.id}/qr`);
+  assert.equal(await handleMerchantContractPayments(qr, env, new URL(qr.url), {}, authorization), null);
 });
 
 test("PAY-V1 submit and admin confirm are idempotent and activate only after confirmation", async () => {
@@ -94,7 +109,7 @@ test("PAY-V1 submit and admin confirm are idempotent and activate only after con
   const env = { FINANCE_DB: db, CONTRACTS_BUCKET: bucket };
   const authorization = { session: { merchant_id: seeded.merchantId, user_id: seeded.userId } };
   assert.equal((await paymentRequiredForMerchant(db, seeded.merchantId)).code, "MERCHANT_PAYMENT_REQUIRED");
-  const submitRequest = new Request(`https://worker.test/api/merchant/contract-payments/${seeded.prepared.request.id}/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ payment_at: "2026-09-11T12:00", transaction_reference: "JKO-TEST" }) });
+  const submitRequest = new Request(`https://worker.test/api/merchant/contract-payments/${seeded.prepared.request.id}/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ payment_at: "2026-09-11T12:00", transaction_reference: "PAYMENT-TEST" }) });
   const submitted = await handleMerchantContractPayments(submitRequest, env, new URL(submitRequest.url), {}, authorization);
   assert.equal((await submitted.json()).payment.status, "submitted");
   assert.notEqual(db.sqlite.prepare("SELECT status FROM merchants WHERE id=?").get(seeded.merchantId).status, "active");

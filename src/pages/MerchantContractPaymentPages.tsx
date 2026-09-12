@@ -86,7 +86,7 @@ export function MerchantContractPaymentPage() {
         </div>
       )}
       <section className="contract-summary-card payment-preview">
-        <h2>付款 Preview</h2>
+        <h2>付款資訊</h2>
         <dl>
           <dt>方案名稱</dt>
           <dd>{payment.plan_name}</dd>
@@ -112,24 +112,6 @@ export function MerchantContractPaymentPage() {
           </p>
         )}
       </section>
-      <section className="contract-summary-card payment-provider-card">
-        <h2>付款方式：{payment.payment_method_name}</h2>
-        <p>收款對象：{payment.recipient_display_name}</p>
-        {payment.qr_available ? (
-          <img
-            className="payment-qr"
-            src={`${API}/api/merchant/contract-payments/${payment.id}/qr`}
-            alt="街口支付收款 QR Code"
-          />
-        ) : (
-          <p>付款 QR Code 尚未完成設定，請聯絡客服取得付款方式。</p>
-        )}
-        {payment.payment_deep_link && (
-          <a className="btn btn-primary" href={payment.payment_deep_link}>
-            開啟街口支付
-          </a>
-        )}
-      </section>
       {!submitted ? (
         <form
           className="contract-summary-card payment-report-form"
@@ -145,7 +127,7 @@ export function MerchantContractPaymentPage() {
             />
           </label>
           <label>
-            街口交易編號（若可取得）
+            付款識別資訊（若可取得）
             <input
               value={form.transaction_reference}
               onChange={(e) =>
@@ -196,8 +178,6 @@ export function MerchantContractPaymentPage() {
 export function AdminMerchantPaymentsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [notice, setNotice] = useState("");
-  const [qr, setQr] = useState<File | null>(null);
-  const [deepLink, setDeepLink] = useState("");
   const load = async () => {
     try {
       const data = await adminApi("/api/admin/merchant-payments");
@@ -209,20 +189,6 @@ export function AdminMerchantPaymentsPage() {
   useEffect(() => {
     void load();
   }, []);
-  const configure = async () => {
-    try {
-      const body = new FormData();
-      if (qr) body.set("qr_asset", qr);
-      body.set("payment_deep_link", deepLink);
-      await adminApi("/api/admin/merchant-payments/config/jkopay_manual_qr", {
-        method: "POST",
-        body,
-      });
-      setNotice("街口支付設定已更新。");
-    } catch (error) {
-      setNotice(userFacingError(error, "街口支付設定未完成。"));
-    }
-  };
   const act = async (item: any, action: "confirm" | "reject") => {
     const reason = action === "reject" ? window.prompt("請填寫退回原因") : "";
     if (action === "reject" && !reason) return;
@@ -247,27 +213,6 @@ export function AdminMerchantPaymentsPage() {
         <h1>商家付款確認</h1>
       </header>
       {notice && <div className="partner-message">{notice}</div>}
-      <section className="admin-panel">
-        <h2>街口支付設定</h2>
-        <label>
-          正式收款 QR Code
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setQr(e.target.files?.[0] || null)}
-          />
-        </label>
-        <label>
-          正式付款 Deep Link（選填）
-          <input
-            value={deepLink}
-            onChange={(e) => setDeepLink(e.target.value)}
-          />
-        </label>
-        <button className="btn btn-primary" onClick={() => void configure()}>
-          儲存付款設定
-        </button>
-      </section>
       <section className="admin-panel">
         <h2>付款回報</h2>
         {items.length ? (

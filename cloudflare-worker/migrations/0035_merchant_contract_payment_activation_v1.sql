@@ -43,22 +43,6 @@ CREATE TABLE IF NOT EXISTS merchant_contract_lifecycle_states (
 INSERT OR IGNORE INTO merchant_contract_lifecycle_states(contract_signature_id,merchant_id,lifecycle_status,effective_at)
 SELECT id,merchant_id,'EFFECTIVE',signed_at FROM merchant_contract_signatures;
 
-CREATE TABLE IF NOT EXISTS platform_payment_configurations (
-  provider TEXT PRIMARY KEY,
-  display_name TEXT NOT NULL,
-  recipient_display_name TEXT NOT NULL,
-  qr_asset_key TEXT,
-  payment_deep_link TEXT,
-  enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
-  configured_by TEXT,
-  configured_at TEXT,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-INSERT OR IGNORE INTO platform_payment_configurations(
-  provider,display_name,recipient_display_name,enabled
-) VALUES('jkopay_manual_qr','街口支付','百工百業',0);
-
 -- The catalog is immutable during normal runtime. This migration is the audited,
 -- one-time version transition and restores the guard before it completes.
 DROP TRIGGER IF EXISTS trg_merchant_plan_catalog_no_update;
@@ -91,8 +75,8 @@ CREATE TABLE IF NOT EXISTS merchant_contract_payment_requests (
   plan_id TEXT NOT NULL,
   currency TEXT NOT NULL DEFAULT 'TWD' CHECK(currency='TWD'),
   amount_due_minor INTEGER NOT NULL CHECK(amount_due_minor >= 0),
-  payment_method TEXT NOT NULL DEFAULT 'jkopay_manual_qr',
-  provider TEXT NOT NULL DEFAULT 'jkopay_manual_qr',
+  payment_method TEXT,
+  provider TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','submitted','confirmed','rejected','expired','void')),
   payment_reference TEXT NOT NULL UNIQUE,
   expires_at TEXT,
@@ -127,7 +111,7 @@ CREATE TABLE IF NOT EXISTS merchant_contract_activation_evidence (
   payment_request_id TEXT NOT NULL UNIQUE REFERENCES merchant_contract_payment_requests(id),
   payment_reference TEXT NOT NULL,
   amount_minor INTEGER NOT NULL CHECK(amount_minor >= 0),
-  provider TEXT NOT NULL,
+  provider TEXT,
   confirmed_at TEXT NOT NULL,
   confirmed_by TEXT NOT NULL,
   activation_event_hash TEXT NOT NULL,

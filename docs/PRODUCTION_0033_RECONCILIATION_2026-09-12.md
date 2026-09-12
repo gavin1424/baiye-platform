@@ -103,3 +103,23 @@ After the local runner:
 - three new contract versions are created pending review with their expected hashes
 
 No reconciliation SQL has been executed against Production.
+
+## QR-free payment decision re-rehearsal
+
+After the owner superseded all payment QR/barcode requirements, a second fresh
+clone was restored from the same Production export and the complete sequence was
+rehearsed again with the revised pending 0035 migration.
+
+- import: 177 tables, 46 ledger rows, 32 signatures, 64 artifacts, zero FK violations;
+- guarded 0033 reconciliation: PASS; exactly one 0033 ledger row and one reconciliation audit event;
+- migration runner: revised 0035 PASS, production 0036 replay PASS, then `No migrations to apply`;
+- revised 0035 creates no `platform_payment_configurations` table;
+- generic `payment_method` and `provider` columns are nullable with no default and are not gates;
+- three contract content hashes remain exact and pending legal review;
+- authoritative totals/due amounts remain 1800000/1800000, 5000000/5000000,
+  and 2400000/600000 plus 1800000 after three months;
+- post-rehearsal history aggregates remain 32 signatures, 64 artifacts,
+  1376 PDF-hash characters, 1376 document-hash characters, and 2752 artifact-hash characters.
+
+The prior Staging QR object was not read, changed, or deleted. Production writes
+during both rehearsals remain zero.
