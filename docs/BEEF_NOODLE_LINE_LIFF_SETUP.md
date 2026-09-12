@@ -43,3 +43,9 @@ Production A1 QR 會繼續使用既有品牌點餐 URL，直到以下設定全�
 4. 選品、購物車並以原有 `POST /api/ordering/qr/:code/orders` 送單。
 5. 確認 Customer 與點餐靈訂單中心的 `order_code` 完全相同。
 
+LIFF 登入後，前端會將 LINE ID token 交由 Worker 向 LINE 驗證；前端傳入的 userId
+不會被信任。D1 只保存 LINE userId 的不可逆雜湊，以及綁定 merchant、QR、桌號、
+訂單的短效 context。A1 context 無法用於 A2 訂單。
+
+桌號 QR 是正式營運入口，只允許 `https://liff.line.me/...`。LIFF 尚未完成時，商家後台
+與點餐靈會停用桌號 QR 的顯示、分享、下載與列印；一般網站點餐 URL 仍保留供開發測試。

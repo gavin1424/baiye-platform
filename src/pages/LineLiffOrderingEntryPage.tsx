@@ -1,6 +1,7 @@
 import liff from "@line/liff";
 import { CheckCircle, SpinnerGap, WarningCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { orderingPublicApi, saveLineOrderingContext } from "../qr-ordering-client";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -13,6 +14,15 @@ type LiffConfig = {
   qr: { code: string; table_label: string };
   liff_id: string;
   add_friend_url: string;
+};
+
+type LineOrderingSession = {
+  context_id: string;
+  merchant_id: string;
+  qr_id: string;
+  table_no: string;
+  line_user_verified: boolean;
+  expires_at: string;
 };
 
 function qrCodeFromLocation() {
@@ -31,6 +41,19 @@ function enterOrdering(code: string) {
   window.location.replace(`${window.location.origin}/#/q/${encodeURIComponent(code)}`);
 }
 
+async function establishLineContext(config: LiffConfig) {
+  const idToken = liff.getIDToken();
+  if (!idToken) throw new Error("無法取得 LINE Login 授權，請重新開啟桌上 QR。");
+  const session = await orderingPublicApi<LineOrderingSession>("/api/ordering/liff/session", {
+    method: "POST",
+    body: JSON.stringify({ qr: config.qr.code, id_token: idToken }),
+  });
+  if (!session.line_user_verified || session.merchant_id !== config.merchant_id || session.table_no !== config.qr.table_label) {
+    throw new Error("LINE 桌號驗證不一致，請重新掃描桌上 QR。");
+  }
+  saveLineOrderingContext(config.qr.code, session.context_id);
+}
+
 export function LineLiffOrderingEntryPage() {
   const [phase, setPhase] = useState<"loading" | "friend" | "error">("loading");
   const [config, setConfig] = useState<LiffConfig | null>(null);
@@ -42,7 +65,7 @@ export function LineLiffOrderingEntryPage() {
     running.current = true;
     try {
       const qr = qrCodeFromLocation();
-      if (!qr) throw new Error("A1 安全 QR 參數遺失，請重新掃描桌上 QR Code。");
+      if (!qr) throw new Error("桌號安全 QR 參數遺失，請重新掃描桌上 QR Code。");
       const response = await fetch(`${API}/api/ordering/liff/config?qr=${encodeURIComponent(qr)}`, {
         credentials: "include",
       });
@@ -61,7 +84,8 @@ export function LineLiffOrderingEntryPage() {
       }
       const friendship = await liff.getFriendship();
       if (friendship.friendFlag) {
-        setMessage("已加入好友，正在開啟 A1 菜單…");
+        setMessage(`已加入好友，正在開啟 ${next.qr.table_label || "桌邊"} 菜單…`);
+        await establishLineContext(next);
         enterOrdering(next.qr.code);
         return;
       }
@@ -91,7 +115,8 @@ export function LineLiffOrderingEntryPage() {
         setMessage("尚未完成加好友，請確認後再繼續。");
         return;
       }
-      setMessage("加好友完成，正在開啟 A1 菜單…");
+      setMessage(`加好友完成，正在開啟 ${config.qr.table_label || "桌邊"} 菜單…`);
+      await establishLineContext(config);
       enterOrdering(config.qr.code);
     } catch (error) {
       setPhase("friend");

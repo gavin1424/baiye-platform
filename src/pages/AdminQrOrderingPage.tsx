@@ -1087,27 +1087,32 @@ export function AdminQrOrderingPage({
                   key={qr.id}
                 >
                   <div className="ordering-qr-canvas">
-                    <QRCodeSVG
-                      id={`ordering-qr-${qr.id}`}
-                      value={url}
-                      size={220}
-                      level="H"
-                      includeMargin
-                      title={qr.label}
-                    />
+                    {url ? (
+                      <QRCodeSVG
+                        id={`ordering-qr-${qr.id}`}
+                        value={url}
+                        size={220}
+                        level="H"
+                        includeMargin
+                        title={qr.label}
+                      />
+                    ) : (
+                      <div className="ordering-admin-empty">NEEDS_MANUAL_SETUP<br />完成 LINE LIFF 設定後才會產生正式桌上 QR。</div>
+                    )}
                   </div>
                   <div className="ordering-qr-card-copy">
                     <span>{purposeLabels[qr.purpose]}</span>
                     <h3>{qr.label}</h3>
                     {qr.table_label && <strong>{qr.table_label}</strong>}
-                    <p>{url}</p>
+                    <p>{url || "桌號 QR 已停用網站直連，等待正式 LIFF ID。"}</p>
                     <div className="ordering-qr-actions">
-                      <button type="button" onClick={() => void copyText(url)}>
+                      <button type="button" disabled={!url} onClick={() => void copyText(url)}>
                         <ClipboardText />
                         複製
                       </button>
                       <button
                         type="button"
+                        disabled={!url}
                         onClick={() => downloadQr(qr.id, qr.label)}
                       >
                         <DownloadSimple />
@@ -1115,6 +1120,7 @@ export function AdminQrOrderingPage({
                       </button>
                       <button
                         type="button"
+                        disabled={!url}
                         onClick={() => printQr(qr.id, qr.label, url)}
                       >
                         <Printer />
@@ -1619,7 +1625,8 @@ export function AdminQrOrderingPage({
                               },
                               body: JSON.stringify({
                                 action: "confirm",
-                                payment_method: "counter",
+                                payment_method: "cash",
+                                reference: "後台人工確認收款",
                               }),
                             },
                             "訂單已由店家確認付款。",

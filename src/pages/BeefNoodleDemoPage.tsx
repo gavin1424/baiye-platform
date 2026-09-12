@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowRight, BowlFood, CheckCircle, Clock, CookingPot, DeviceMobile, MagnifyingGlass, QrCode, ShieldCheck, ShoppingCart, Sparkle, Storefront, Users } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import "../beef-noodle-demo.css";
 
 const A1_CODE = import.meta.env.VITE_BEEF_NOODLE_A1_CODE || "y6KGFA0pQkEKLjf41zNBS6Nb1u1hCHUR";
@@ -9,7 +10,7 @@ const GENERAL_ORDERING_CODE =
   "TlTgDC3Wh5xo61yT1WWbPnJK9GZt_o4y";
 const GENERAL_ORDERING_PATH = `/q/${GENERAL_ORDERING_CODE}`;
 const SITE_URL = (import.meta.env.VITE_PUBLIC_SITE_URL || "https://baiyeconnect.com").replace(/\/$/, "");
-const A1_URL = `${SITE_URL}/#/q/${A1_CODE}`;
+const API_URL = (import.meta.env.VITE_PLATFORM_API_URL || "https://chuang-baiye-ai.baiye-platform.workers.dev").replace(/\/$/, "");
 
 const highlights = [
   { icon: CookingPot, title: "慢燉牛骨湯", text: "用溫暖層次呈現招牌紅燒風味。" },
@@ -28,6 +29,18 @@ const menu = [
 const steps = ["掃描桌上 QR", "快速加入會員", "選餐與加料", "送出訂單", "查看製作進度"];
 
 export function BeefNoodleDemoPage() {
+  const [a1LiffUrl, setA1LiffUrl] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${API_URL}/api/ordering/liff/config?qr=${encodeURIComponent(A1_CODE)}`, { signal: controller.signal })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((config) => {
+        const liffId = typeof config?.liff_id === "string" ? config.liff_id : "";
+        if (/^\d{8,20}-[A-Za-z0-9_-]{6,80}$/.test(liffId)) setA1LiffUrl(`https://liff.line.me/${liffId}/?qr=${encodeURIComponent(A1_CODE)}`);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
   return (
     <div className="beef-demo-site">
       <header className="beef-demo-header">
@@ -78,7 +91,7 @@ export function BeefNoodleDemoPage() {
           <ol>{steps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol>
             <div className="beef-demo-qr-card">
             <div><span className="beef-demo-kicker">A1 桌 QR</span><h2>拿手機掃描桌上 QR</h2><p>桌上 QR 會自動帶入桌號；一般網路點餐請使用線上入口。</p><Link className="beef-demo-btn" to={GENERAL_ORDERING_PATH}>開啟線上點餐 <ArrowRight /></Link></div>
-            <div className="beef-demo-qr"><QRCodeSVG value={A1_URL} size={220} level="H" marginSize={2} title="百工牛肉麵 A1 桌 QR"/><strong>A1 桌</strong></div>
+            <div className="beef-demo-qr">{a1LiffUrl ? <QRCodeSVG value={a1LiffUrl} size={220} level="H" marginSize={2} title="百工牛肉麵 A1 桌 LINE LIFF QR"/> : <p><strong>LINE LIFF 桌上 QR 設定中</strong><br/>正式 LIFF ID 完成前不提供網站直連桌號 QR。</p>}<strong>A1 桌</strong></div>
           </div>
         </section>
 

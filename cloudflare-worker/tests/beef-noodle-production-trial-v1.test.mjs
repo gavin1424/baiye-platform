@@ -4,10 +4,10 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { detectProductImageMime } from "../src/merchant-assets.js";
 import { deductionStatements, restoreStatements } from "../src/inventory.js";
-import { handleOrderingAdminRequest, handleOrderingRequest, liffOrderingUrl } from "../src/qr-ordering.js";
+import { handleOrderingAdminRequest, handleOrderingRequest, liffOrderingUrl, verifyLineIdToken } from "../src/qr-ordering.js";
 import { handleBeefNoodleLineWebhook } from "../src/line-ordering.js";
 
-const migrationNames = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql","0025_platform_member_numeric_password_auth_v1.sql","0026_beef_noodle_general_ordering_entry_v1.sql","0027_xprinter_android_app_v1.sql","0028_ordering_spirit_operations_v1.sql","0032_merchant_storefront_url_v1.sql","0033_beef_noodle_line_liff_ordering_v1.sql"];
+const migrationNames = ["0001_finance_core.sql","0002_partner_portal.sql","0003_partner_completion.sql","0004_contract_v1_hash.sql","0005_partner_activation_approval.sql","0006_contractor_v13_policy.sql","0007_merchant_ai_quota.sql","0008_merchant_booking_engine.sql","0009_production_admin_auth.sql","0010_merchant_settlements.sql","0011_qr_membership_ordering.sql","0012_member_benefits_integrations.sql","0013_growth_completion.sql","0013_qr_ordering_commercial_v1.sql","0014_merchant_contracts.sql","0015_phone_only_platform_membership.sql","0016_partner_auto_approval.sql","0017_partner_passwordless_login.sql","0018_beef_noodle_production_trial_v1.sql","0019_beef_noodle_production_trial_seed_v1.sql","0020_beef_noodle_production_options_qr_v1.sql","0021_beef_noodle_production_booking_golden_v1.sql","0022_beef_noodle_production_golden_menu_v1.sql","0023_beef_noodle_production_golden_options_v1.sql","0024_merchant_numeric_password_auth_v1.sql","0025_platform_member_numeric_password_auth_v1.sql","0026_beef_noodle_general_ordering_entry_v1.sql","0027_xprinter_android_app_v1.sql","0028_ordering_spirit_operations_v1.sql","0032_merchant_storefront_url_v1.sql","0033_beef_noodle_line_liff_ordering_v1.sql","0034_line_liff_order_context_v1.sql"];
 function database() { const db = new DatabaseSync(":memory:"); db.exec("PRAGMA foreign_keys=ON"); for (const name of migrationNames) db.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8")); return db; }
 class Statement { constructor(statement) { this.statement = statement; this.values = []; } bind(...values) { this.values = values; return this; } async run() { const result = this.statement.run(...this.values); return { meta: { changes: Number(result.changes || 0) } }; } async first() { return this.statement.get(...this.values) || null; } async all() { return { results: this.statement.all(...this.values) }; } }
 class D1 { constructor(sqlite) { this.sqlite = sqlite; } prepare(sql) { return new Statement(this.sqlite.prepare(sql)); } async batch(statements) { this.sqlite.exec("BEGIN IMMEDIATE"); try { for (const statement of statements) await statement.run(); this.sqlite.exec("COMMIT"); } catch (error) { this.sqlite.exec("ROLLBACK"); throw error; } } }
@@ -67,6 +67,43 @@ test("LINE LIFF stays fail-closed until every Console setting is verified", asyn
   const a1 = overview.qrs.find((item) => item.code === qr);
   assert.equal(a1.liff_ordering_url, `https://liff.line.me/2000000002-BeefOrder/?qr=${qr}`);
   assert.equal(liffOrderingUrl("2000000002-BeefOrder", qr), a1.liff_ordering_url);
+});
+
+test("verified LINE Login creates an opaque table-bound ordering context", async () => {
+  const sqlite = database();
+  const db = new D1(sqlite);
+  sqlite.prepare(`UPDATE merchant_line_integrations SET enabled=1,basic_id='@beefnoodle',add_friend_url='https://lin.ee/example',
+    messaging_api_channel_id='2000000001',line_login_channel_id='2000000002',liff_id='2000000002-BeefOrder',
+    add_friend_option='aggressive',linked_official_account=1,webhook_enabled=1,follow_webhook_enabled=1,
+    unfollow_webhook_enabled=1,webhook_verified_at=CURRENT_TIMESTAMP WHERE merchant_id='demo_beef_noodle'`).run();
+  const lineUserId = "U0123456789abcdef0123456789abcdef";
+  const fetcher = async (_url, init) => {
+    assert.match(String(init.body), /client_id=2000000002/);
+    return new Response(JSON.stringify({ sub: lineUserId, aud: "2000000002", exp: Math.floor(Date.now() / 1000) + 600 }), { status: 200 });
+  };
+  assert.equal((await verifyLineIdToken("signed-line-id-token", "2000000002", fetcher)).user_id, lineUserId);
+  const qr = "y6KGFA0pQkEKLjf41zNBS6Nb1u1hCHUR";
+  const request = new Request("https://worker.test/api/ordering/liff/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ qr, id_token: "signed-line-id-token" }) });
+  const response = await handleOrderingRequest(request, { FINANCE_DB: db, LINE_API_FETCH: fetcher }, new URL(request.url), {});
+  const body = await response.json();
+  assert.equal(response.status, 201); assert.equal(body.merchant_id, "demo_beef_noodle"); assert.equal(body.table_no, "A1"); assert.equal(body.line_user_verified, true);
+  const saved = sqlite.prepare("SELECT qr_id,table_label,line_user_id_hash,status FROM merchant_line_ordering_sessions WHERE id=?").get(body.context_id);
+  assert.equal(saved.qr_id, "bn_qr_a1"); assert.equal(saved.table_label, "A1"); assert.equal(saved.status, "active"); assert.notEqual(saved.line_user_id_hash, lineUserId);
+
+  const memberSecret = "line-ordering-member-session-test-secret";
+  const joinRequest = new Request(`https://worker.test/api/ordering/qr/${qr}/join`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ phone: "0912777888", password: "48261539", password_confirm: "48261539", privacy_consent: true, consent_version: "PRODUCTION-DEMO-2026-09", device_id: "line-liff-test-device" }) });
+  const joinResponse = await handleOrderingRequest(joinRequest, { FINANCE_DB: db, MEMBER_SESSION_SECRET: memberSecret }, new URL(joinRequest.url), {});
+  const joined = await joinResponse.json();
+  assert.equal(joinResponse.status, 201);
+  const item = sqlite.prepare(`SELECT m.id FROM merchant_menu_items m WHERE m.merchant_id='demo_beef_noodle' AND m.status='active'
+    AND NOT EXISTS (SELECT 1 FROM merchant_menu_item_option_groups l JOIN merchant_menu_option_groups g ON g.id=l.option_group_id WHERE l.menu_item_id=m.id AND g.required=1) LIMIT 1`).get();
+  const orderRequest = new Request(`https://worker.test/api/ordering/qr/${qr}/orders`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${joined.session.token}`, "idempotency-key": "line-order-context-order-1" }, body: JSON.stringify({ order_type: "dine_in", line_context_id: body.context_id, items: [{ item_id: item.id, quantity: 1, option_value_ids: [] }] }) });
+  const orderResponse = await handleOrderingRequest(orderRequest, { FINANCE_DB: db }, new URL(orderRequest.url), {});
+  const ordered = await orderResponse.json();
+  assert.equal(orderResponse.status, 201); assert.equal(ordered.order.table_label, "A1");
+  const linked = sqlite.prepare("SELECT line_context_id FROM merchant_food_orders WHERE order_code=?").get(ordered.order.order_code);
+  assert.equal(linked.line_context_id, body.context_id);
+  assert.equal(sqlite.prepare("SELECT status,last_order_id FROM merchant_line_ordering_sessions WHERE id=?").get(body.context_id).status, "ordered");
 });
 
 test("beef noodle LINE webhook verifies signatures and records follow/unfollow without raw user ids", async () => {

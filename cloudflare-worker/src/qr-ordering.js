@@ -211,6 +211,23 @@ export function liffOrderingUrl(liffId, code) {
     : "";
 }
 
+export async function verifyLineIdToken(idToken, channelId, fetcher = fetch) {
+  const token = clean(idToken, 4096);
+  const clientId = clean(channelId, 40);
+  if (!token || !/^\d{6,40}$/.test(clientId)) return null;
+  const response = await fetcher("https://api.line.me/oauth2/v2.1/verify", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ id_token: token, client_id: clientId }).toString(),
+  });
+  if (!response.ok) return null;
+  const payload = await response.json().catch(() => ({}));
+  if (!/^U[0-9a-f]{32}$/i.test(clean(payload?.sub, 64))) return null;
+  if (clean(payload?.aud, 40) && clean(payload.aud, 40) !== clientId) return null;
+  if (Number(payload?.exp || 0) * 1000 <= Date.now()) return null;
+  return { user_id: clean(payload.sub, 64) };
+}
+
 function lineManualSetup(row) {
   const missing = [];
   if (!clean(row?.messaging_api_channel_id, 40)) missing.push("messaging_api_channel_id");
@@ -737,6 +754,21 @@ async function handleCreateOrder(request, db, context, cors) {
   if (!orderType) return json({ error: "此商家目前未開放所選的用餐方式。" }, 409, cors);
   const tableLabel = orderType === "dine_in" ? clean(context.table_label || input?.table_label, 80) : null;
   if (orderType === "dine_in" && !tableLabel) return json({ error: "請輸入桌號後再送出訂單。" }, 400, cors);
+  const lineContextId = clean(input?.line_context_id, 120);
+  let lineContext = null;
+  if (lineContextId) {
+    try {
+      lineContext = await db.prepare(`SELECT id,merchant_id,qr_id,table_label,status,expires_at
+        FROM merchant_line_ordering_sessions
+        WHERE id=? AND merchant_id=? AND qr_id=? AND status='active' AND datetime(expires_at)>datetime('now')
+        LIMIT 1`).bind(lineContextId, context.merchant_id, context.id).first();
+    } catch (error) {
+      if (!String(error instanceof Error ? error.message : error).includes("no such table")) throw error;
+    }
+    if (!lineContext || clean(lineContext.table_label, 80) !== clean(context.table_label, 80)) {
+      return json({ code: "LINE_ORDER_CONTEXT_INVALID", error: "LINE 桌號 Session 已失效，請重新掃描桌上 QR。" }, 409, cors);
+    }
+  }
   const idempotencyKey = clean(request.headers.get("idempotency-key") || input?.idempotency_key, 80);
   if (!/^[A-Za-z0-9._:-]{8,80}$/.test(idempotencyKey)) return json({ error: "訂單識別碼格式不正確，請重新送出。" }, 400, cors);
 
@@ -808,15 +840,23 @@ async function handleCreateOrder(request, db, context, cors) {
     customerNote: clean(input?.customer_note, 500),
     items: calculation.lines,
   });
-  const statements = [
-    db.prepare(`
+  const orderInsert = lineContext ? db.prepare(`
+      INSERT INTO merchant_food_orders
+        (id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,line_context_id)
+      VALUES (?,?,?,?,?,?,?,?,'unpaid','counter','counter',?,?,?,?,?,?)
+    `).bind(
+      orderId, code, context.merchant_id, session.membership_id, context.id, tableLabel,
+      orderType, initialStatus, calculation.subtotal_minor, calculation.total_minor, clean(input?.customer_note, 500) || null, idempotencyKey, diningSessionId, lineContext.id,
+    ) : db.prepare(`
       INSERT INTO merchant_food_orders
         (id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id)
       VALUES (?,?,?,?,?,?,?,?,'unpaid','counter','counter',?,?,?,?,?)
     `).bind(
       orderId, code, context.merchant_id, session.membership_id, context.id, tableLabel,
       orderType, initialStatus, calculation.subtotal_minor, calculation.total_minor, clean(input?.customer_note, 500) || null, idempotencyKey, diningSessionId,
-    ),
+    );
+  const statements = [
+    orderInsert,
     ...calculation.lines.map((line) => {
       line.order_item_id = uid("fooditem");
       return db.prepare(`
@@ -833,6 +873,7 @@ async function handleCreateOrder(request, db, context, cors) {
     `).bind(uid("foodoption"), context.merchant_id, orderId, line.order_item_id, option.option_group_id, option.option_value_id, option.group_name_snapshot, option.value_name_snapshot, option.price_delta_minor))),
     ...(initialStatus === "accepted" ? [db.prepare("UPDATE merchant_food_orders SET accepted_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=?").bind(orderId, context.merchant_id)] : []),
     ...(diningSessionId ? [db.prepare("UPDATE merchant_dining_sessions SET last_order_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status='open'").bind(diningSessionId, context.merchant_id)] : []),
+    ...(lineContext ? [db.prepare("UPDATE merchant_line_ordering_sessions SET status='ordered',last_order_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status='active'").bind(orderId, lineContext.id, context.merchant_id)] : []),
     ...couponPricing.statements,
     db.prepare(`INSERT INTO merchant_order_pricing(order_id,merchant_id,gross_subtotal_minor,coupon_discount_minor,payable_total_minor,coupon_id,merchant_funded_minor,platform_funded_minor) VALUES(?,?,?,?,?,?,?,0)`).bind(orderId, context.merchant_id, calculation.subtotal_minor, couponPricing.discount, Math.max(calculation.subtotal_minor - couponPricing.discount, 0), couponPricing.couponId, couponPricing.discount),
     db.prepare(`UPDATE merchant_ordering_memberships SET order_count=order_count+1,last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?`).bind(context.merchant_id, session.membership_id),
@@ -840,7 +881,7 @@ async function handleCreateOrder(request, db, context, cors) {
       INSERT INTO merchant_ordering_audit_logs
         (id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata)
       VALUES (?,?,?,?,?,?,?,?)
-    `).bind(uid("ordaudit"), context.merchant_id, "customer", session.membership_id, "order_submitted", "order", orderId, JSON.stringify({ qr_id: context.id, order_type: orderType })),
+    `).bind(uid("ordaudit"), context.merchant_id, "customer", session.membership_id, "order_submitted", "order", orderId, JSON.stringify({ qr_id: context.id, order_type: orderType, line_context_id: lineContext?.id || null })),
     ...(printerResult.results || []).map((printer) => db.prepare(`
       INSERT OR IGNORE INTO print_jobs
         (id,merchant_id,order_id,order_code,printer_id,print_type,status,copies,payload_json,available_at,created_by,idempotency_key)
@@ -925,6 +966,32 @@ export async function handleOrderingRequest(request, env, url, cors = {}) {
         liff_id: line.liff_id,
         add_friend_url: line.add_friend_url,
       }, 200, cors);
+    }
+    if (url.pathname === "/api/ordering/liff/session" && request.method === "POST") {
+      const input = await request.json().catch(() => ({}));
+      const code = clean(input.qr, 64);
+      const context = await qrContext(db, code);
+      if (!context) return json({ error: "此 QR Code 無效、已停用或已過期。" }, 404, cors);
+      const integration = await lineIntegrationForMerchant(db, context.merchant_id);
+      if (!lineLiffReady(integration)) return json({ code: "NEEDS_MANUAL_SETUP", error: "LINE LIFF 尚未完成正式設定。" }, 409, cors);
+      const verified = await verifyLineIdToken(input.id_token, integration.line_login_channel_id, env.LINE_API_FETCH || fetch);
+      if (!verified) return json({ code: "LINE_ID_TOKEN_INVALID", error: "LINE Login 驗證失敗，請重新開啟桌上 QR。" }, 401, cors);
+      const contextId = uid("linectx");
+      const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+      await db.prepare(`INSERT INTO merchant_line_ordering_sessions
+        (id,merchant_id,qr_id,table_label,line_user_id_hash,status,expires_at)
+        VALUES(?,?,?,?,?,'active',?)`).bind(
+          contextId, context.merchant_id, context.id, context.table_label || null,
+          await hash(`line-user:${verified.user_id}`), expiresAt,
+        ).run();
+      return json({
+        context_id: contextId,
+        merchant_id: context.merchant_id,
+        qr_id: context.id,
+        table_no: context.table_label || "",
+        line_user_verified: true,
+        expires_at: expiresAt,
+      }, 201, cors);
     }
     const qrMatch = url.pathname.match(/^\/api\/ordering\/qr\/([A-Za-z0-9_-]{8,64})(?:\/(join|login|member-session|member-password|logout|menu|orders))?$/);
     if (qrMatch) {
@@ -1530,7 +1597,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
         db.prepare("INSERT INTO merchant_order_payment_events(id,merchant_id,order_id,action,payment_method,reference,actor_type,actor_id,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?)").bind(uid("payevent"), merchantId, order.id, action, method, clean(input.reference, 120) || null, actor.actor_type === "merchant" ? "merchant" : "admin", actorId, key),
         db.prepare("UPDATE merchant_food_orders SET payment_status=?,payment_method_v1=?,payment_reference=?,payment_confirmed_at=CASE WHEN ?='paid' THEN CURRENT_TIMESTAMP ELSE payment_confirmed_at END,payment_confirmed_by=?,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?").bind(next, method, clean(input.reference, 120) || null, next, actorId, merchantId, order.id),
       ]);
-      await audit(db, merchantId, actorType, actorId, `order_payment_${action}`, "order", order.id, { method, actor_role: actorRole });
+      await audit(db, merchantId, actorType, actorId, `order_payment_${action}`, "order", order.id, { method, reference: clean(input.reference, 120) || null, actor_role: actorRole });
       return json({ ok: true, payment_status: next }, 200, cors);
     }
 

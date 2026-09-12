@@ -37,6 +37,7 @@ import {
   saveOrderingLastOrder,
   clearPersistedOrderingCart,
   getOrderingLineClicked,
+  getLineOrderingContext,
   getPersistedOrderingCart,
   saveOrderingLineClicked,
   savePersistedOrderingCart,
@@ -627,6 +628,7 @@ function QrOrderingView({ code }: { code: string }) {
             order_type: orderType,
             table_label: tableLabel,
             customer_note: customerNote,
+            line_context_id: getLineOrderingContext(code),
             // QR V1 remains merchant-confirmed collection. The Worker keeps the
             // authoritative default (`counter`) and never trusts a customer-paid flag.
             payment_method: "counter",

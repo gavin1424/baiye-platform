@@ -489,6 +489,27 @@ export function publicOrderingUrl(code: string) {
   return `${site}/#/q/${encodeURIComponent(code)}`;
 }
 
+function lineContextKey(code: string) {
+  return `baiye-line-ordering-context:${code}`;
+}
+
+export function saveLineOrderingContext(code: string, contextId: string) {
+  try {
+    window.sessionStorage.setItem(lineContextKey(code), contextId);
+  } catch {
+    // The order remains usable as a normal direct-link flow when storage is unavailable.
+  }
+}
+
+export function getLineOrderingContext(code: string) {
+  try {
+    return window.sessionStorage.getItem(lineContextKey(code)) || "";
+  } catch {
+    return "";
+  }
+}
+
 export function merchantOrderingUrl(qr: OrderingQrAdmin) {
+  if (qr.purpose === "dine_in") return qr.liff_ordering_url || "";
   return qr.liff_ordering_url || qr.ordering_url || publicOrderingUrl(qr.code);
 }
