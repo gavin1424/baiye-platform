@@ -128,3 +128,26 @@ The JKOPAY asset is explicitly not a stop condition.
 
 This verification does not satisfy the genuine legal-approval requirement and
 does not authorize a Production migration or deployment.
+
+## QR-free Staging revalidation — 2026-09-12
+
+- implementation commit: `5172b285ceb1176b16a8c3540ac9a1111e1d5fdb`
+- Staging Worker version: `b3f10b34-d473-474b-90c1-4f42e86df5b6`
+- Staging Pages deployment: `1916d2fa-4a69-4b4f-875b-c26b38a2dbf9`
+- Staging Pages source: `5172b28`
+- live signature dues: standard `1800000`, commerce AI `5000000`, SoftPOS `600000`
+- SoftPOS remaining after three-month trial: `1800000`
+- payment API returned no QR availability, asset key, deep link, provider display,
+  or recipient fields for all three plans
+- QR-specific payment route and administrator configuration endpoint are absent
+- the existing Staging-only QR configuration table, its 19 historical provider-tagged
+  test requests, and its R2 object were preserved without modification
+- new PDF hashes:
+  - standard: `o_aJwNroo6mIeQpL3Yuiscad8i6AXhDU-5TTRksapFQ`
+  - commerce AI: `cFJAmXQWi2sevSmWt_USnYPqkKbwaDU-h6zifg8A7mA`
+  - SoftPOS: `I8S2CeeZDyaaMV-Z1HfI4lRjNihTMTgJ3u1fMrkF5VI`
+- visual PDF review: all 12 pages rasterized and inspected; payment wording,
+  Traditional Chinese, signatures, and verification pages are complete and contain
+  no payment QR/barcode content
+- automated checks: Worker 700 passed, 1 skipped, 0 failed; contractor policy 5/5;
+  commerce 11/11; ordering UI 1/1; typecheck and Production build passed
