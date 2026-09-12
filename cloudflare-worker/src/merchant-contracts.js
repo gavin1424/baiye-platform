@@ -416,11 +416,21 @@ export async function handleMerchantContractRequest(request, env, url, cors = {}
     }
     const pdfMatch = url.pathname.match(/^\/api\/merchant\/contracts\/([^/]+)\/pdf$/);
     if (pdfMatch && request.method === "GET") {
-      const signature = await db.prepare("SELECT * FROM merchant_contract_signatures WHERE id=? AND merchant_id=?").bind(pdfMatch[1], session.merchant_id).first();
+      const signature = await db.prepare(`SELECT s.id,s.public_id,s.merchant_id,s.contract_version_id,s.signed_at,s.document_hash,s.pdf_hash,s.r2_key,
+        a.id artifact_id,a.object_key artifact_object_key,a.sha256 artifact_sha256,a.content_type artifact_content_type
+        FROM merchant_contract_signatures s
+        JOIN merchant_contract_artifacts a ON a.signature_id=s.id AND a.merchant_id=s.merchant_id AND a.artifact_type='signed_pdf'
+        WHERE s.id=? AND s.merchant_id=? AND s.status='VALID'`)
+        .bind(pdfMatch[1], session.merchant_id).first();
       if (!signature) throw new ContractError("CONTRACT_NOT_FOUND", "找不到契約文件。", 404);
-      const object = await env.CONTRACTS_BUCKET.get(signature.r2_key);
+      if (signature.artifact_content_type !== "application/pdf" || signature.artifact_object_key !== signature.r2_key || signature.artifact_sha256 !== signature.pdf_hash) {
+        throw new ContractError("CONTRACT_ARTIFACT_MISMATCH", "契約文件驗證未通過，請聯絡平台協助。", 409);
+      }
+      const object = await env.CONTRACTS_BUCKET.get(signature.artifact_object_key);
       if (!object) throw new ContractError("CONTRACT_ARTIFACT_NOT_FOUND", "契約 PDF 暫時無法取得。", 404);
-      return new Response(object.body, { headers: { ...cors, "content-type": "application/pdf", "content-disposition": `attachment; filename=merchant-contract-${signature.public_id}.pdf`, "x-pdf-sha256": signature.pdf_hash, "cache-control": "private, no-store" } });
+      const publicId = String(signature.public_id || signature.id).replace(/[^A-Za-z0-9_-]/g, "-");
+      const filename = `創百業智慧鏈_商家合約_${publicId}.pdf`;
+      return new Response(object.body, { headers: { ...cors, "content-type": "application/pdf", "content-disposition": `attachment; filename="baiye-merchant-contract-${publicId}.pdf"; filename*=UTF-8''${encodeURIComponent(filename)}`, "x-contract-signature-id": signature.id, "x-contract-artifact-id": signature.artifact_id, "x-document-sha256": signature.document_hash, "x-pdf-sha256": signature.pdf_hash, "cache-control": "private, no-store" } });
     }
     const verifyMatch = url.pathname.match(/^\/api\/merchant\/contracts\/([^/]+)\/verification$/);
     if (verifyMatch && request.method === "GET") {

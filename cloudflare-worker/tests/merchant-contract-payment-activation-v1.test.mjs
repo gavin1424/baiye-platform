@@ -82,6 +82,18 @@ test("PAY-V1 legal activation preserves every currently selectable plan contract
   assert.match(source, /id NOT IN \(\s*SELECT contract_version_id FROM merchant_plan_catalog WHERE is_selectable=1\s*\)/);
 });
 
+test("PAY-V1 signed completion renders only the contract download action", () => {
+  const source = readFileSync(new URL("../../src/pages/MerchantContractPages.tsx", import.meta.url), "utf8");
+  const completion = source.match(/if \(context\.signed\)([\s\S]+?)const consentLabels/)?.[1] || "";
+  assert.match(completion, />\s*合約下載\s*</);
+  assert.match(completion, /契約編號/);
+  assert.match(completion, /簽署方案/);
+  assert.match(completion, /簽署時間/);
+  for (const removed of ["查看正式契約", "繼續完成方案申請", "前往付款", "返回商家中心"]) assert.doesNotMatch(completion, new RegExp(removed));
+  assert.equal((completion.match(/<button/g) || []).length, 1);
+  assert.equal((completion.match(/<Link/g) || []).length, 0);
+});
+
 test("PAY-V1 explicit schedule authority is 18000, 50000, and SoftPOS 6000 + 18000", async () => {
   for (const [planId, signatureDue, remaining, trial] of plans) {
     const db = new D1();

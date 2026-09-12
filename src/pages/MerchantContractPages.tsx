@@ -26,6 +26,20 @@ const money = (minor: number) =>
 const message = (error: unknown) => userFacingError(error, "契約服務暫時無法使用，請稍後再試。");
 const roleLabel = (role: string) =>
   role === "authorized_representative" ? "受授權代表" : "法定代表人";
+const signedAtLabel = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value || "—";
+  return new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+};
 
 async function publicApi(path: string, init: RequestInit = {}) {
   const response = await fetch(`${API}${path}`, {
@@ -185,7 +199,7 @@ export function MerchantContractPage() {
   const [notice, setNotice] = useState("");
   const [authRequired, setAuthRequired] = useState(false);
   const [preview, setPreview] = useState<any>();
-  const [memberWelcome, setMemberWelcome] = useState<any>();
+  const [, setMemberWelcome] = useState<any>();
   const [isSigning, setIsSigning] = useState(false);
   const [form, setForm] = useState({
     signatory_legal_name: "",
@@ -291,29 +305,6 @@ export function MerchantContractPage() {
     }
   };
 
-  const decideRenewal = async (continueService: boolean) => {
-    setNotice("");
-    try {
-      const result: any = await merchantOrderingApi(
-        continueService
-          ? "/api/merchant/contracts/renewal/prepare"
-          : "/api/merchant/contracts/renewal/decline",
-        {
-          method: "POST",
-          body: JSON.stringify({ continue_service: continueService }),
-        },
-      );
-      setNotice(
-        continueService
-          ? `第 ${result.cycle.cycle_number} 週期待付金額：${money(result.cycle.balance_due_minor)}。${result.payment_provider.disclosure}`
-          : `已選擇不續用。${result.data_retention}`,
-      );
-      await load();
-    } catch (error) {
-      setNotice(message(error));
-    }
-  };
-
   if (!context)
     return (
       <main className="partner-shell contract-shell">
@@ -341,58 +332,16 @@ export function MerchantContractPage() {
   if (context.signed)
     return (
       <main className="partner-shell contract-shell">
-        <h1>{context.signature.lifecycle_status === "EFFECTIVE" ? "商家平台服務契約已生效" : "商家平台服務契約已完成簽署"}</h1>
-        <p>
-          版本 {context.contract.version} · {context.signature.signed_at}
-        </p>
-        {context.signature.lifecycle_status !== "EFFECTIVE" && context.payment_next_url && (
-          <section className="contract-summary-card">
-            <strong>契約已簽署，尚待完成付款</strong>
-            <span>平台確認簽約應付款項入帳後，契約才會正式生效並啟用服務。</span>
-            <Link className="btn btn-primary" to={context.payment_next_url}>前往付款</Link>
-          </section>
-        )}
-        {context.renewal && (
-          <section className="contract-summary-card">
-            <strong>
-              {context.renewal.subscription.renewal_state === "RENEWAL_REQUIRED"
-                ? "是否續用免 POS 機智慧點餐系統"
-                : `服務狀態：${context.renewal.subscription.renewal_state}`}
-            </strong>
-            <span>
-              免費試用：{context.renewal.subscription.trial_started_at} ～{" "}
-              {context.renewal.subscription.trial_ends_at}
-            </span>
-            {context.renewal.subscription.renewal_state ===
-              "RENEWAL_REQUIRED" && (
-              <>
-                <span>
-                  第一週期尚應支付 {money(context.plan.first_cycle_balance)}
-                  ；不續用將停止正式服務功能並依契約保留資料。
-                </span>
-                <div className="partner-workflow-actions">
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    onClick={() => void decideRenewal(true)}
-                  >
-                    續用，建立第一週期
-                  </button>
-                  <button
-                    className="btn btn-outline"
-                    type="button"
-                    onClick={() => void decideRenewal(false)}
-                  >
-                    不續用
-                  </button>
-                </div>
-              </>
-            )}
-          </section>
-        )}
+        <h1>契約簽署完成</h1>
+        <dl className="contract-completion-details">
+          <div><dt>契約編號</dt><dd>{context.signature.public_id}</dd></div>
+          <div><dt>簽署方案</dt><dd>{context.terms.plan_name}</dd></div>
+          <div><dt>簽署時間</dt><dd>{signedAtLabel(context.signature.signed_at)}</dd></div>
+        </dl>
         <div className="partner-workflow-actions">
           <button
             className="btn btn-primary"
+            type="button"
             onClick={() =>
               void downloadMerchantContractPdf(
                 context.signature.id,
@@ -400,34 +349,10 @@ export function MerchantContractPage() {
               ).catch((error) => setNotice(message(error)))
             }
           >
-            下載契約檔案
+            合約下載
           </button>
-          <Link className="btn btn-outline" to="/merchant">
-            返回商家中心
-          </Link>
         </div>
         {notice && <div className="partner-message">{notice}</div>}
-        {memberWelcome && (
-          <div
-            className="contract-confirm-dialog member-welcome-modal"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div>
-              <div className="member-celebration">🎉</div>
-              <h2>{memberWelcome.title}</h2>
-              <p>您的創百業會員資格也已建立。</p>
-              <div className="partner-workflow-actions">
-                <Link className="btn btn-primary" to="/member">
-                  前往會員中心
-                </Link>
-                <Link className="btn btn-outline" to="/merchant">
-                  返回商家中心
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     );
 
