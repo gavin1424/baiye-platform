@@ -76,6 +76,12 @@ test("PAY-V1 catalog has exactly 18k, new 50k, and SoftPOS; historical 45k is no
   assert.ok(db.sqlite.prepare("SELECT id FROM merchant_contract_versions WHERE id='merchant_commerce_ai_v1_0_45000'").get());
 });
 
+test("PAY-V1 legal activation preserves every currently selectable plan contract", () => {
+  const source = readFileSync(new URL("../src/merchant-contracts.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /UPDATE merchant_contract_versions SET is_active=0 WHERE is_active=1["'`]/);
+  assert.match(source, /id NOT IN \(\s*SELECT contract_version_id FROM merchant_plan_catalog WHERE is_selectable=1\s*\)/);
+});
+
 test("PAY-V1 explicit schedule authority is 18000, 50000, and SoftPOS 6000 + 18000", async () => {
   for (const [planId, signatureDue, remaining, trial] of plans) {
     const db = new D1();

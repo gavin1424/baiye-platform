@@ -486,7 +486,10 @@ export async function handleMerchantContractAdmin(request, env, url, cors = {}, 
       if (operation.replay) return json(operation.result, 200, cors);
       const activate = input.activate === true;
       const statements = [];
-      if (activate) statements.push(db.prepare("UPDATE merchant_contract_versions SET is_active=0 WHERE is_active=1"));
+      if (activate) statements.push(db.prepare(`UPDATE merchant_contract_versions SET is_active=0
+        WHERE is_active=1 AND id NOT IN (
+          SELECT contract_version_id FROM merchant_plan_catalog WHERE is_selectable=1
+        )`));
       statements.push(db.prepare("UPDATE merchant_contract_versions SET legal_review_status='approved',reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,legal_counsel_reference=?,approved_content_hash=content_hash,is_active=? WHERE id=?")
         .bind(adminSession.admin_user_id, String(input.legal_counsel_reference).slice(0, 240), activate ? 1 : 0, current.id));
       await db.batch(statements);
