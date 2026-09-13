@@ -26,6 +26,7 @@ type LineOrderingSession = {
 };
 
 const PENDING_QR_KEY = "baiye_line_ordering_pending_qr_v1";
+const AUTH_RETRY_KEY = "baiye_line_ordering_auth_retry_v1";
 const PENDING_QR_MAX_AGE_MS = 10 * 60 * 1000;
 
 function validQrCode(value: string) {
@@ -77,8 +78,26 @@ function qrCodeFromLocation() {
 }
 
 function enterOrdering(code: string) {
-  try { window.sessionStorage.removeItem(PENDING_QR_KEY); } catch { /* no-op */ }
+  try {
+    window.sessionStorage.removeItem(PENDING_QR_KEY);
+    window.sessionStorage.removeItem(AUTH_RETRY_KEY);
+  } catch { /* no-op */ }
   window.location.replace(`${window.location.origin}/#/q/${encodeURIComponent(code)}`);
+}
+
+function retryLineLoginOnce(code: string, error: unknown) {
+  const typed = error as { code?: string };
+  if (typed?.code !== "LINE_ID_TOKEN_INVALID") return false;
+  try {
+    if (window.sessionStorage.getItem(AUTH_RETRY_KEY) === code) return false;
+    window.sessionStorage.setItem(AUTH_RETRY_KEY, code);
+  } catch {
+    return false;
+  }
+  rememberQrCode(code);
+  liff.logout();
+  liff.login({ redirectUri: `${window.location.origin}/liff-ordering?qr=${encodeURIComponent(code)}` });
+  return true;
 }
 
 async function establishLineContext(config: LiffConfig) {
@@ -125,7 +144,12 @@ export function LineLiffOrderingEntryPage() {
       const friendship = await liff.getFriendship();
       if (friendship.friendFlag) {
         setMessage(`已加入好友，正在開啟 ${next.qr.table_label || "桌邊"} 菜單…`);
-        await establishLineContext(next);
+        try {
+          await establishLineContext(next);
+        } catch (error) {
+          if (retryLineLoginOnce(next.qr.code, error)) return;
+          throw error;
+        }
         enterOrdering(next.qr.code);
         return;
       }
@@ -156,7 +180,12 @@ export function LineLiffOrderingEntryPage() {
         return;
       }
       setMessage(`加好友完成，正在開啟 ${config.qr.table_label || "桌邊"} 菜單…`);
-      await establishLineContext(config);
+      try {
+        await establishLineContext(config);
+      } catch (error) {
+        if (retryLineLoginOnce(config.qr.code, error)) return;
+        throw error;
+      }
       enterOrdering(config.qr.code);
     } catch (error) {
       setPhase("friend");
