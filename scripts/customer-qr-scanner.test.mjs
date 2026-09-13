@@ -37,6 +37,7 @@ test("customer UI exposes guest ordering without a membership gate or camera UI"
   assert.doesNotMatch(entry, /BarcodeDetector|@zxing\/browser|getUserMedia|相機|Camera Preview|<video/);
   for (const copy of ["已進入線上點餐", "已掃描此桌 QR Code", "查看購物車"]) assert.match(qr, new RegExp(copy));
   for (const forbidden of ["加入會員後即可送出訂單", "新會員加入", "已有會員登入", "手機號碼", "8 位數字會員密碼", "會員登入並開始點餐", "加入會員並開始點餐", "加入會員後結帳"]) assert.doesNotMatch(qr, new RegExp(forbidden));
+  assert.doesNotMatch(qr, /掃碼會員/);
   assert.match(storefront, /GENERAL_ORDERING_PATH/);
   assert.equal((storefront.match(/to=\{GENERAL_ORDERING_PATH\}/g) || []).length, 5);
   assert.doesNotMatch(storefront, /to="\/scan"/);

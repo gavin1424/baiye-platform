@@ -115,7 +115,7 @@ function OrderingTopbar({ branded = IS_BEEF_NOODLE_DEMO }: { branded?: boolean }
   return (
     <header className="ordering-topbar">
       <PlatformLogo />
-      <span>掃碼會員・手機點餐</span>
+      <span>桌邊 QR 點餐</span>
     </header>
   );
 }
@@ -578,7 +578,7 @@ function QrOrderingView({ code }: { code: string }) {
         <section className="ordering-center-card">
           <Storefront size={48} />
           <h1>{context.display_name}</h1>
-          <p>此商家的掃碼會員與點餐服務尚未開放，請洽現場人員。</p>
+          <p>此商家的桌邊點餐服務尚未開放，請洽現場人員。</p>
         </section>
       </main>
     );
