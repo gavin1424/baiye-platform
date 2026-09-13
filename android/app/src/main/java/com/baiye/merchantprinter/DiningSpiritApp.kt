@@ -385,7 +385,7 @@ private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, net
             }
         }
         item { SectionTitle("最近訂單") }
-        items(orders.take(5)) { OrderSummary(it, { selected = it }, oneTapMode) }
+        items(orders.take(5)) { OrderSummary(it) { selected = it } }
     }
     selected?.let { OrderDetail(it, api, oneTapMode, { selected = null; refresh() }, { selected = null }) }
 }
@@ -415,26 +415,31 @@ private fun OrderCenter(o: JSONObject, api: MerchantApi, refresh: () -> Unit) {
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             if (visible.isEmpty()) item { EmptyState("目前沒有符合條件的訂單") }
-            items(visible, key = { it.text("order_code") }) { order -> OrderSummary(order, { selected = order }, oneTapMode) }
+            items(visible, key = { it.text("order_code") }) { order -> OrderSummary(order) { selected = order } }
         }
     }
     selected?.let { OrderDetail(it, api, oneTapMode, { selected = null; refresh() }, { selected = null }) }
 }
 
 @Composable
-private fun OrderSummary(o: JSONObject, onClick: (() -> Unit)?, oneTapMode: Boolean = false) {
-    val shownStatus = if (oneTapMode && o.text("status") in activeOrderStatuses) "進行中" else statusLabel(o.text("status"))
-    Card(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)) {
-        Row(Modifier.padding(14.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f)) {
-                Text(orderPrimaryLabel(o), fontSize = 25.sp, fontWeight = FontWeight.Black)
-                Text("訂單編號 ${o.text("order_code")}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("${o.array("items").sumOf { it.int("quantity") }} 項餐點", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("付款：${paymentLabel(o.text("payment_status"))}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun OrderSummary(o: JSONObject, onClick: (() -> Unit)? = null) {
+    Card(Modifier.fillMaxWidth().heightIn(min = 92.dp).then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(orderPrimaryLabel(o), fontSize = 25.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "${o.array("items").sumOf { it.int("quantity") }} 項餐點",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(money(o.int("total_minor")), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                StatusBadge(shownStatus, o.text("status") != "cancelled")
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text(money(o.int("total_minor")), fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                StatusBadge(simplifiedOrderStatus(o.text("status")), o.text("status") != "cancelled")
             }
         }
     }
@@ -472,15 +477,40 @@ private fun OrderDetail(order: JSONObject, api: MerchantApi, oneTapMode: Boolean
     }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text(orderPrimaryLabel(order)) },
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("訂單", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(orderPrimaryLabel(order), fontSize = 27.sp, fontWeight = FontWeight.Black)
+            }
+        },
         text = { LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { Text("訂單編號 ${order.text("order_code")}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text("付款：${paymentLabel(order.text("payment_status"))}") }
-            items(order.array("items")) { i -> Column { Text("${i.int("quantity")} × ${i.text("name")}", fontWeight = FontWeight.Bold); i.array("options").forEach { x -> Text("　${x.text("group_name")}：${x.text("value_name")}") }; customerVisibleNote(i.text("note")).takeIf(String::isNotBlank)?.let { Text("備註：$it") } } }
-            item { customerVisibleNote(order.text("customer_note")).takeIf(String::isNotBlank)?.let { Text("備註：$it") }; HorizontalDivider(); Text("總額 ${money(order.int("total_minor"))}", fontSize = 22.sp, fontWeight = FontWeight.Black); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) }
+            items(order.array("items")) { i ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("${i.int("quantity")} × ${i.text("name")}", Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                        Text(money(i.int("line_total_minor").takeIf { it > 0 } ?: (i.int("unit_price_minor") * i.int("quantity"))), fontWeight = FontWeight.SemiBold)
+                    }
+                    i.array("options").forEach { x -> Text("${x.text("group_name")}：${x.text("value_name")}", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    customerVisibleNote(i.text("note")).takeIf(String::isNotBlank)?.let { Text("備註：$it") }
+                }
+            }
+            item {
+                customerVisibleNote(order.text("customer_note")).takeIf(String::isNotBlank)?.let { Text("備註：$it") }
+                HorizontalDivider(Modifier.padding(vertical = 3.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("總額", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(money(order.int("total_minor")), fontSize = 22.sp, fontWeight = FontWeight.Black)
+                }
+                Text("付款：${paymentLabel(order.text("payment_status"))}")
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Text("訂單資訊", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("系統單號：${order.text("order_code")}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+            }
         } },
         confirmButton = { Column {
-            if (oneTapMode && order.text("status") in activeOrderStatuses) Button({ if (order.text("payment_status") == "paid") finish(false) else paymentChoice = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("完成訂單") }
-            else if (!oneTapMode) nextStatus(order.text("status"))?.let { next -> Button({ transition(next) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(statusAction(next)) } }
+            if (oneTapMode && order.text("status") in activeOrderStatuses) Button({ if (order.text("payment_status") == "paid") finish(false) else paymentChoice = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("完成訂單") }
+            else if (!oneTapMode) nextStatus(order.text("status"))?.let { next -> Button({ transition(next) }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(statusAction(next)) } }
             if (order.text("status") !in listOf("completed", "cancelled")) TextButton({ cancel = true }, Modifier.fillMaxWidth()) { Text("取消訂單", color = MaterialTheme.colorScheme.error) }
         } },
         dismissButton = { TextButton(onClose) { Text("關閉") } },
@@ -761,7 +791,7 @@ private fun MoreHost(page: MorePage, setPage: (MorePage) -> Unit, o: JSONObject,
 
 @Composable
 private fun TablesScreen(o: JSONObject, api: MerchantApi, refresh: () -> Unit) {
-    val qrs = o.array("qrs").filter { validTableLabel(it).isNotBlank() }
+    val qrs = o.array("qrs").filter { validTableLabel(it).isNotBlank() }.sortedByTableLabelNaturally()
     var table by remember { mutableStateOf("") }
     var shown by remember { mutableStateOf<JSONObject?>(null) }
     var error by remember { mutableStateOf("") }
@@ -795,9 +825,37 @@ private fun TablesScreen(o: JSONObject, api: MerchantApi, refresh: () -> Unit) {
     shown?.let { QrDialog(it) { shown = null } }
 }
 
-@Composable private fun QrDialog(q:JSONObject,onClose:()->Unit){val context=LocalContext.current;val tableQr=q.text("table_label").isNotBlank();val liffUrl=q.text("liff_ordering_url");val url=if(tableQr)liffUrl else liffUrl.ifBlank{q.text("ordering_url")};val bitmap=remember(url){if(url.startsWith("https://liff.line.me/"))qrBitmap(url)else if(!tableQr&&url.startsWith("https://"))qrBitmap(url)else null};AlertDialog(onDismissRequest=onClose,title={Text(q.text("table_label").ifBlank{"點餐 QR"})},text={Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){if(bitmap!=null){Image(bitmap.asImageBitmap(),null,Modifier.size(240.dp));Text(url,fontSize=12.sp)}else{ErrorState(if(tableQr)"正式桌號 QR 僅允許 LINE LIFF，請先完成 LIFF ID 與 Channel 設定。" else "商家品牌點餐連結尚未載入，請關閉後重新整理。")};Button({context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="text/plain";putExtra(Intent.EXTRA_TEXT,url)},"分享安全點餐連結"))},enabled=bitmap!=null){Text("分享 QR 連結")}}},confirmButton={TextButton(onClose){Text("完成")}})}
+@Composable
+private fun QrDialog(q: JSONObject, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val table = validTableLabel(q)
+    val tableQr = table.isNotBlank()
+    val liffUrl = q.text("liff_ordering_url")
+    val url = if (tableQr) liffUrl else liffUrl.ifBlank { q.text("ordering_url") }
+    val bitmap = remember(url) {
+        if (url.startsWith("https://liff.line.me/")) qrBitmap(url)
+        else if (!tableQr && url.startsWith("https://")) qrBitmap(url)
+        else null
+    }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(table.ifBlank { "點餐 QR" }, fontWeight = FontWeight.Black) },
+        text = {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                if (bitmap != null) Image(bitmap.asImageBitmap(), "${table.ifBlank { "點餐" }} QR", Modifier.fillMaxWidth().aspectRatio(1f))
+                else ErrorState(if (tableQr) "正式桌號 QR 尚未就緒，請稍後重新整理。" else "商家點餐 QR 尚未就緒，請稍後重新整理。")
+                Button(
+                    onClick = { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url) }, "分享點餐 QR")) },
+                    enabled = bitmap != null,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                ) { Text("分享 QR") }
+            }
+        },
+        confirmButton = { TextButton(onClose) { Text("完成") } },
+    )
+}
 
-@Composable private fun KdsScreen(o:JSONObject,api:MerchantApi,refresh:()->Unit){val scope=rememberCoroutineScope();val oneTap=o.obj("settings").bool("auto_accept_orders");val orders=o.array("orders").withDailyTakeawayNumbers();val columns=if(oneTap)listOf("preparing" to "進行中")else listOf("submitted" to "新單","preparing" to "製作中","ready" to "待出餐");BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp)){val horizontal=maxWidth>=720.dp;val content:@Composable (Pair<String,String>)->Unit={c->Column(Modifier.then(if(horizontal)Modifier.width((maxWidth-32.dp)/columns.size.coerceAtLeast(1))else Modifier.fillMaxWidth()).background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp)){Text(c.second,fontSize=23.sp,fontWeight=FontWeight.Black);orders.filter{if(oneTap)it.text("status") in activeOrderStatuses else if(c.first=="preparing")it.text("status") in listOf("accepted","preparing")else it.text("status")==c.first}.forEach{order->Card(Modifier.fillMaxWidth().padding(vertical=5.dp)){Column(Modifier.padding(12.dp)){Text(orderPrimaryLabel(order),fontSize=30.sp,fontWeight=FontWeight.Black);Text("訂單編號 ${order.text("order_code")}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);order.array("items").forEach{Text("${it.int("quantity")}× ${it.text("name")}",fontSize=19.sp,fontWeight=FontWeight.Bold)};if(oneTap)Text("請至訂單中心按「完成訂單」")else nextStatus(order.text("status"))?.let{next->Button({scope.launch{runCatching{withContext(Dispatchers.IO){api.updateOrder(order.text("order_code"),next,key="kds-${UUID.randomUUID()}")};refresh()}}},Modifier.fillMaxWidth()){Text(statusAction(next))}}}}}}};if(horizontal)Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){for(c in columns)content(c)}else LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){items(columns){content(it)}}}}
+@Composable private fun KdsScreen(o:JSONObject,api:MerchantApi,refresh:()->Unit){val scope=rememberCoroutineScope();val oneTap=o.obj("settings").bool("auto_accept_orders");val orders=o.array("orders").withDailyTakeawayNumbers();val columns=if(oneTap)listOf("preparing" to "進行中")else listOf("submitted" to "新單","preparing" to "製作中","ready" to "待出餐");BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp)){val horizontal=maxWidth>=720.dp;val content:@Composable (Pair<String,String>)->Unit={c->Column(Modifier.then(if(horizontal)Modifier.width((maxWidth-32.dp)/columns.size.coerceAtLeast(1))else Modifier.fillMaxWidth()).background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp)){Text(c.second,fontSize=23.sp,fontWeight=FontWeight.Black);orders.filter{if(oneTap)it.text("status") in activeOrderStatuses else if(c.first=="preparing")it.text("status") in listOf("accepted","preparing")else it.text("status")==c.first}.forEach{order->Card(Modifier.fillMaxWidth().padding(vertical=5.dp)){Column(Modifier.padding(12.dp)){Text(orderPrimaryLabel(order),fontSize=30.sp,fontWeight=FontWeight.Black);order.array("items").forEach{Text("${it.int("quantity")}× ${it.text("name")}",fontSize=19.sp,fontWeight=FontWeight.Bold)};if(oneTap)Text("請至訂單中心按「完成訂單」")else nextStatus(order.text("status"))?.let{next->Button({scope.launch{runCatching{withContext(Dispatchers.IO){api.updateOrder(order.text("order_code"),next,key="kds-${UUID.randomUUID()}")};refresh()}}},Modifier.fillMaxWidth()){Text(statusAction(next))}}}}}}};if(horizontal)Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){for(c in columns)content(c)}else LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){items(columns){content(it)}}}}
 
 @Composable private fun MembersScreen(api:MerchantApi,store:LocalStore){var payload by remember{mutableStateOf(store.cached("members")?.jsonOrNull() ?: if(store.demoMode()) demoMembers() else JSONObject().put("members",JSONArray()))};var query by remember{mutableStateOf("")};var loading by remember{mutableStateOf(true)};var error by remember{mutableStateOf("")};LaunchedEffect(Unit){try{if(!store.demoMode())payload=withContext(Dispatchers.IO){api.members()}}catch(e:Exception){error=e.message.orEmpty()}finally{loading=false}};Column(Modifier.fillMaxSize().padding(16.dp)){Text("會員中心",fontSize=28.sp,fontWeight=FontWeight.Bold);OutlinedTextField(query,{query=it},label={Text("搜尋姓名、手機、會員編號")},modifier=Modifier.fillMaxWidth());if(loading)LinearProgressIndicator(Modifier.fillMaxWidth());if(error.isNotBlank())Text("會員資料暫時無法更新") ;LazyColumn{items(payload.array("members").filter{query.isBlank()||it.text("display_name").contains(query,true)||it.text("name").contains(query,true)||it.text("phone_masked").contains(query)||it.text("membership_no").contains(query,true)}){m->ListItem(headlineContent={Text(m.text("display_name").ifBlank{m.text("name").ifBlank{"未命名會員"}})},supportingContent={Text("${m.text("phone_masked").ifBlank{m.text("phone")}}・消費 ${m.int("order_count")} 次")})}}}}
 
@@ -1099,6 +1157,11 @@ private fun List<JSONObject>.countStatus(status:String)=count{it.text("status")=
 private fun List<JSONObject>.countStatuses(vararg status:String)=count{it.text("status") in status}
 private fun money(minor:Int)="NT$ %,d".format(minor/100)
 private fun statusLabel(s:String)=when(s){"submitted"->"待接單";"accepted"->"已接單";"preparing"->"製作中";"ready"->"待出餐";"served"->"已出餐";"completed"->"完成";"cancelled"->"取消";"sold_out"->"售完";"active"->"販售中";else->s.ifBlank{"未知"}}
+private fun simplifiedOrderStatus(s: String) = when (s) {
+    "completed", "served" -> "完成"
+    "cancelled" -> "已取消"
+    else -> "進行中"
+}
 private fun typeLabel(s:String)=when(s){"dine_in"->"內用";"takeaway"->"外帶";"delivery"->"外送";else->"訂單"}
 private val internalOrderNote = Regex("(?i)(line\\s*guest|production\\s*e2e|(?:^|\\s)debug(?:\\s|$)|(?:^|\\s)qa(?:\\s|$)|guest\\s*(?:order|test|[a-z]+\\d*)?)")
 internal fun customerVisibleNote(value: String) = value.trim().takeUnless { it.isBlank() || internalOrderNote.containsMatchIn(it) }.orEmpty()
@@ -1109,6 +1172,20 @@ internal fun validTableText(vararg candidates: String) = candidates
 internal fun validTableLabel(order: JSONObject): String {
     val candidates = listOf(order.text("table_label"), order.text("table_no"))
     return validTableText(*candidates.toTypedArray())
+}
+private val naturalTablePattern = Regex("(?i)^([a-z]+)(\\d+)$")
+private fun naturalTableParts(label: String): Triple<String, Int, String> {
+    val match = naturalTablePattern.matchEntire(label)
+    return if (match != null) Triple(match.groupValues[1].uppercase(), match.groupValues[2].toIntOrNull() ?: Int.MAX_VALUE, label.uppercase())
+    else Triple(label.uppercase(), Int.MAX_VALUE, label.uppercase())
+}
+internal fun List<JSONObject>.sortedByTableLabelNaturally() = sortedWith(
+    Comparator { left, right -> compareTableLabels(validTableLabel(left), validTableLabel(right)) },
+)
+internal fun compareTableLabels(left: String, right: String): Int {
+    val a = naturalTableParts(left)
+    val b = naturalTableParts(right)
+    return compareValuesBy(a, b, { it.first }, { it.second }, { it.third })
 }
 private fun orderDay(order: JSONObject): String {
     val raw = order.text("created_at")
@@ -1179,7 +1256,7 @@ private fun notifyNewOrder(context: Context, store: LocalStore, order: JSONObjec
     manager.notify(orderCode.hashCode(), notification)
 }
 
-private fun demoOverview():JSONObject{val cats=JSONArray().put(JSONObject().put("id","cat-noodle").put("name","麵食")).put(JSONObject().put("id","cat-side").put("name","小菜"));val products=JSONArray();repeat(20){i->products.put(JSONObject().put("id","item-$i").put("category_id",if(i<12)"cat-noodle" else "cat-side").put("name",if(i<12)"招牌牛肉麵 ${i+1}" else "精選小菜 ${i-11}").put("price_minor",(100+i*10)*100).put("status",if(i==4)"sold_out" else "active").put("available",i!=4))};val orders=JSONArray();repeat(10){i->orders.put(JSONObject().put("order_code","A1-%04d".format(88-i)).put("table_label","A${i%5+1}").put("source",listOf("QR","LINE","WEB","COUNTER")[i%4]).put("order_type",if(i%3==0)"takeaway" else "dine_in").put("status",listOf("submitted","accepted","preparing","ready","completed")[i%5]).put("payment_status",if(i%2==0)"paid" else "unpaid").put("total_minor",(320+i*25)*100).put("pickup_number","A${88-i}").put("items",JSONArray().put(JSONObject().put("name","招牌紅燒牛肉麵").put("quantity",i%3+1).put("options",JSONArray()))))};return JSONObject().put("settings",JSONObject().put("accepting_orders",true).put("auto_accept_orders",false).put("dine_in_enabled",true).put("takeaway_enabled",true)).put("categories",cats).put("items",products).put("orders",orders).put("qrs",JSONArray().put(JSONObject().put("code","demo-secure-token-a1").put("label","桌號 A1").put("table_label","A1"))).put("dining_sessions",JSONArray()).put("option_groups",JSONArray().put(JSONObject().put("name","麵條")).put(JSONObject().put("name","辣度")))}
+private fun demoOverview():JSONObject{val cats=JSONArray().put(JSONObject().put("id","cat-noodle").put("name","麵食")).put(JSONObject().put("id","cat-side").put("name","小菜"));val products=JSONArray();repeat(20){i->products.put(JSONObject().put("id","item-$i").put("category_id",if(i<12)"cat-noodle" else "cat-side").put("name",if(i<12)"招牌牛肉麵 ${i+1}" else "精選小菜 ${i-11}").put("price_minor",(100+i*10)*100).put("status",if(i==4)"sold_out" else "active").put("available",i!=4))};val orders=JSONArray();repeat(10){i->orders.put(JSONObject().put("order_code","A1-%04d".format(88-i)).put("table_label","A${i%5+1}").put("source",listOf("QR","LINE","WEB","COUNTER")[i%4]).put("order_type",if(i%3==0)"takeaway" else "dine_in").put("status",listOf("submitted","accepted","preparing","ready","completed")[i%5]).put("payment_status",if(i%2==0)"paid" else "unpaid").put("total_minor",(320+i*25)*100).put("pickup_number",(i+1).toString()).put("customer_note",if(i==1)"不要辣" else if(i==2)"LINE Guest Production E2E A2" else "").put("items",JSONArray().put(JSONObject().put("name","招牌紅燒牛肉麵").put("quantity",i%3+1).put("unit_price_minor",(320+i*25)*100).put("line_total_minor",(320+i*25)*100).put("options",JSONArray()))))};val qrs=JSONArray().put(JSONObject().put("code","demo-secure-token-a10").put("table_label","A10").put("liff_ordering_url","https://liff.line.me/demo/?qr=a10")).put(JSONObject().put("code","demo-secure-token-a2").put("table_label","A2").put("liff_ordering_url","https://liff.line.me/demo/?qr=a2")).put(JSONObject().put("code","demo-invalid").put("table_label",JSONObject.NULL)).put(JSONObject().put("code","demo-secure-token-a1").put("table_label","A1").put("liff_ordering_url","https://liff.line.me/demo/?qr=a1"));return JSONObject().put("settings",JSONObject().put("accepting_orders",true).put("auto_accept_orders",true).put("dine_in_enabled",true).put("takeaway_enabled",true)).put("categories",cats).put("items",products).put("orders",orders).put("qrs",qrs).put("dining_sessions",JSONArray()).put("option_groups",JSONArray().put(JSONObject().put("name","麵條")).put(JSONObject().put("name","辣度")))}
 private fun demoDashboard()=JSONObject().put("ok",true)
 private fun demoReport()=JSONObject().put("kpis",JSONObject().put("revenue_minor",2865000).put("orders",42).put("average_order_minor",68200).put("pending",3).put("new_members",4)).put("products",JSONArray().put(JSONObject().put("name","招牌紅燒牛肉麵").put("quantity",28).put("revenue_minor",532000)))
 private fun demoMembers():JSONObject{val a=JSONArray();repeat(10){i->a.put(JSONObject().put("id","member-$i").put("name","示範會員 ${i+1}").put("phone","09••••${1000+i}").put("order_count",i+1).put("lifetime_spend_minor",(500+i*320)*100))};return JSONObject().put("members",a)}

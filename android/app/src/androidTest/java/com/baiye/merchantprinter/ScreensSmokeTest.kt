@@ -59,6 +59,16 @@ class ScreensSmokeTest {
         compose.onNodeWithText("訂單備註").assertIsDisplayed()
     }
 
+    @Test fun productionOrderCardsAndDetailsStayOperational() {
+        compose.onNodeWithTag("home-screen").performScrollToNode(hasText("內用 A2"))
+        compose.onNodeWithText("內用 A2").assertIsDisplayed().performClick()
+        compose.onNodeWithText("完成訂單").assertIsDisplayed()
+        compose.onNodeWithText("備註：不要辣").assertExists()
+        compose.onNodeWithText("系統單號：A1-0087").assertExists()
+        compose.onAllNodesWithText("待接單").assertCountEquals(0)
+        compose.onAllNodesWithText("LINE Guest Production E2E A2").assertCountEquals(0)
+    }
+
     @Test fun traditionalChineseLongReceiptRendersRasterAndCut() {
         val options = JSONArray().put(JSONObject().put("group_name", "麵條").put("value_name", "粗麵")).put(JSONObject().put("group_name", "辣度").put("value_name", "小辣"))
         val item = JSONObject().put("name", "超長品名招牌紅燒半筋半肉牛肉麵加大份").put("quantity", 20).put("note", "不要蔥不要蒜而且湯與麵分開放").put("options", options)

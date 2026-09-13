@@ -39,6 +39,29 @@ class ScreenshotQaTest {
 
     @Test fun captureHome() = capture("01-home")
 
+    @Test fun captureOrderList() {
+        compose.onAllNodesWithText("訂單").onLast().performClick()
+        compose.onNodeWithTag("orders-screen").assertIsDisplayed()
+        capture("08-order-list")
+    }
+
+    @Test fun captureOrderDetail() {
+        compose.onNodeWithTag("home-screen").performScrollToNode(hasText("內用 A2"))
+        compose.onAllNodesWithText("內用 A2").onFirst().performClick()
+        compose.onNodeWithText("完成訂單").assertIsDisplayed()
+        capture("08-order-detail")
+    }
+
+    @Test fun captureTablesAndQr() {
+        compose.onAllNodesWithText("更多").onLast().performClick()
+        compose.onNodeWithText("桌位與 QR").performClick()
+        compose.onNodeWithText("A1").assertIsDisplayed()
+        capture("09-tables")
+        compose.onNodeWithText("A1").performClick()
+        compose.onNodeWithText("分享 QR").assertIsDisplayed()
+        capture("10-qr")
+    }
+
     @Test fun captureReports() {
         compose.onAllNodesWithText("更多").onLast().performClick()
         compose.onNodeWithText("營運報表").performClick()
