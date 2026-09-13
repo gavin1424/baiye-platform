@@ -1,5 +1,5 @@
 import liff from "@line/liff";
-import { CheckCircle, SpinnerGap, WarningCircle } from "@phosphor-icons/react";
+import { SpinnerGap, WarningCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { orderingPublicApi, saveLineOrderingContext } from "../qr-ordering-client";
 
@@ -125,9 +125,7 @@ async function enterOrderingWithOptionalLineIdentity(config: LiffConfig) {
 }
 
 export function LineLiffOrderingEntryPage() {
-  const [phase, setPhase] = useState<"loading" | "friend" | "error">("loading");
-  const [config, setConfig] = useState<LiffConfig | null>(null);
-  const [message, setMessage] = useState("正在連接 LINE…");
+  const [phase, setPhase] = useState<"loading" | "error">("loading");
   const running = useRef(false);
 
   const initialize = useCallback(async () => {
@@ -146,20 +144,12 @@ export function LineLiffOrderingEntryPage() {
         throw error;
       }
       const next = data as LiffConfig;
-      setConfig(next);
       await liff.init({ liffId: next.liff_id, withLoginOnExternalBrowser: true });
       if (!liff.isLoggedIn()) {
         liff.login({ redirectUri: window.location.href });
         return;
       }
-      const friendship = await liff.getFriendship();
-      if (friendship.friendFlag) {
-        setMessage(`已加入好友，正在開啟 ${next.qr.table_label || "桌邊"} 菜單…`);
-        await enterOrderingWithOptionalLineIdentity(next);
-        return;
-      }
-      setPhase("friend");
-      setMessage(`加入${next.display_name} LINE 官方帳號後即可直接點餐。`);
+      await enterOrderingWithOptionalLineIdentity(next);
     } finally {
       running.current = false;
     }
@@ -168,43 +158,19 @@ export function LineLiffOrderingEntryPage() {
   useEffect(() => {
     void initialize().catch((error) => {
       setPhase("error");
-      setMessage(error instanceof Error ? error.message : "LINE 入口暫時無法使用。");
+      console.error("Ordering entry initialization failed", error);
     });
   }, [initialize]);
-
-  const requestFriendship = async () => {
-    if (!config) return;
-    setPhase("loading");
-    setMessage("正在開啟 LINE 加好友確認…");
-    try {
-      await liff.requestFriendship();
-      const friendship = await liff.getFriendship();
-      if (!friendship.friendFlag) {
-        setPhase("friend");
-        setMessage("尚未完成加好友，請確認後再繼續。");
-        return;
-      }
-      setMessage(`加好友完成，正在開啟 ${config.qr.table_label || "桌邊"} 菜單…`);
-      await enterOrderingWithOptionalLineIdentity(config);
-    } catch (error) {
-      setPhase("friend");
-      setMessage(error instanceof Error ? error.message : "無法開啟加好友視窗，請稍後再試。");
-    }
-  };
 
   return (
     <main className="line-liff-entry">
       <section className="line-liff-card" aria-live="polite">
         <span className="line-liff-brand">百工牛肉麵</span>
         {phase === "loading" && <SpinnerGap className="line-liff-spinner" weight="bold" />}
-        {phase === "friend" && <CheckCircle className="line-liff-icon" weight="fill" />}
         {phase === "error" && <WarningCircle className="line-liff-icon line-liff-error" weight="fill" />}
-        <h1>{phase === "friend" ? "加入好友後開始點餐" : phase === "error" ? "LINE 點餐尚未就緒" : "LINE 加好友點餐"}</h1>
-        <p>{message}</p>
-        {config?.qr.table_label && <strong>桌號 {config.qr.table_label}</strong>}
-        {phase === "friend" && <button className="btn btn-primary btn-lg" type="button" onClick={() => void requestFriendship()}>加入好友並繼續</button>}
-        {phase === "friend" && config?.add_friend_url && <a className="btn btn-outline" href={config.add_friend_url}>改用 LINE 官方帳號頁面加入</a>}
-        {phase === "error" && <button className="btn btn-outline" type="button" onClick={() => { setPhase("loading"); setMessage("正在重新連接 LINE…"); void initialize().catch((error) => { setPhase("error"); setMessage(error instanceof Error ? error.message : "LINE 入口暫時無法使用。"); }); }}>重新整理</button>}
+        <h1>{phase === "error" ? "點餐暫時無法開啟" : "正在開啟點餐"}</h1>
+        <p>{phase === "error" ? "請重新掃描桌上 QR 或稍後再試。" : "正在載入菜單…"}</p>
+        {phase === "error" && <button className="btn btn-outline" type="button" onClick={() => { setPhase("loading"); void initialize().catch((error) => { console.error("Ordering entry retry failed", error); setPhase("error"); }); }}>重新整理</button>}
       </section>
     </main>
   );

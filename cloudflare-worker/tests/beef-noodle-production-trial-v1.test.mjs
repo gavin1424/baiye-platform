@@ -79,6 +79,10 @@ test("LINE LIFF preserves the table QR across the external Login callback", () =
   assert.match(source, /typed\?\.code !== "LINE_ID_TOKEN_INVALID"/);
   assert.match(source, /sessionStorage\.getItem\(AUTH_RETRY_KEY\) === code/);
   assert.match(source, /liff\.logout\(\)/);
+  assert.match(source, /正在開啟點餐/);
+  assert.match(source, /正在載入菜單…/);
+  assert.doesNotMatch(source, /LINE 加好友點餐|正在連接 LINE|加入好友後開始點餐/);
+  assert.doesNotMatch(source, /requestFriendship|getFriendship/);
 });
 
 test("verified LINE Login creates an opaque table-bound ordering context", async () => {
