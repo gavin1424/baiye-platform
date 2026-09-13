@@ -152,6 +152,7 @@ export type OrderingOrder = {
   status: OrderingOrderStatus;
   payment_status: OrderingPaymentStatus;
   payment_method: string;
+  pickup_number?: string;
   subtotal_minor: number;
   total_minor: number;
   customer_note: string;
@@ -493,6 +494,10 @@ function lineContextKey(code: string) {
   return `baiye-line-ordering-context:${code}`;
 }
 
+function lineFriendshipKey(code: string) {
+  return `baiye-line-ordering-friendship:${code}`;
+}
+
 export function saveLineOrderingContext(code: string, contextId: string) {
   try {
     window.sessionStorage.setItem(lineContextKey(code), contextId);
@@ -507,6 +512,25 @@ export function getLineOrderingContext(code: string) {
   } catch {
     return "";
   }
+}
+
+export function saveLineFriendshipStatus(code: string, friendFlag: boolean) {
+  try {
+    window.sessionStorage.setItem(lineFriendshipKey(code), friendFlag ? "friend" : "not_friend");
+  } catch {
+    // Friendship only controls optional presentation and never gates ordering.
+  }
+}
+
+export function getLineFriendshipStatus(code: string): boolean | null {
+  try {
+    const value = window.sessionStorage.getItem(lineFriendshipKey(code));
+    if (value === "friend") return true;
+    if (value === "not_friend") return false;
+  } catch {
+    // Unknown friendship hides promotional UI and keeps guest ordering available.
+  }
+  return null;
 }
 
 export function merchantOrderingUrl(qr: OrderingQrAdmin) {

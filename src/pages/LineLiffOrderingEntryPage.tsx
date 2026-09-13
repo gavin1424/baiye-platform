@@ -1,7 +1,7 @@
 import liff from "@line/liff";
 import { SpinnerGap, WarningCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { orderingPublicApi, saveLineOrderingContext } from "../qr-ordering-client";
+import { orderingPublicApi, saveLineFriendshipStatus, saveLineOrderingContext } from "../qr-ordering-client";
 
 const API = (
   import.meta.env.VITE_PLATFORM_API_URL ||
@@ -148,6 +148,12 @@ export function LineLiffOrderingEntryPage() {
       if (!liff.isLoggedIn()) {
         liff.login({ redirectUri: window.location.href });
         return;
+      }
+      try {
+        const friendship = await liff.getFriendship();
+        saveLineFriendshipStatus(next.qr.code, friendship.friendFlag === true);
+      } catch {
+        // A friendship lookup failure must never block the secure QR guest flow.
       }
       await enterOrderingWithOptionalLineIdentity(next);
     } finally {

@@ -512,8 +512,16 @@ async function handleMemberLogout(request, env, context, cors) {
 
 async function orderWithItems(db, merchantId, membershipId, orderCodeValue) {
   const row = await db.prepare(`
-    SELECT * FROM merchant_food_orders
-    WHERE merchant_id=? AND membership_id IS ? AND order_code=? AND demo_reset_at IS NULL
+    SELECT o.*,f.source order_source,f.scheduled_for,
+      COALESCE(f.pickup_number,CASE WHEN o.order_type='takeaway' THEN CAST((
+        SELECT COUNT(*) FROM merchant_food_orders daily
+        WHERE daily.merchant_id=o.merchant_id AND daily.order_type='takeaway' AND daily.demo_reset_at IS NULL
+          AND date(daily.created_at,'+8 hours')=date(o.created_at,'+8 hours')
+          AND (datetime(daily.created_at)<datetime(o.created_at) OR (datetime(daily.created_at)=datetime(o.created_at) AND daily.id<=o.id))
+      ) AS TEXT) END) pickup_number,f.fulfillment_status
+    FROM merchant_food_orders o
+    LEFT JOIN merchant_order_fulfillment f ON f.merchant_id=o.merchant_id AND f.order_id=o.id
+    WHERE o.merchant_id=? AND o.membership_id IS ? AND o.order_code=? AND o.demo_reset_at IS NULL
     LIMIT 1
   `).bind(merchantId, membershipId, clean(orderCodeValue, 40)).first();
   if (!row) return null;

@@ -37,6 +37,10 @@ test("customer UI exposes guest ordering without a membership gate or camera UI"
   assert.doesNotMatch(entry, /BarcodeDetector|@zxing\/browser|getUserMedia|相機|Camera Preview|<video/);
   for (const copy of ["已進入線上點餐", "已掃描此桌 QR Code", "查看購物車"]) assert.match(qr, new RegExp(copy));
   for (const forbidden of ["加入會員後即可送出訂單", "新會員加入", "已有會員登入", "手機號碼", "8 位數字會員密碼", "會員登入並開始點餐", "加入會員並開始點餐", "加入會員後結帳"]) assert.doesNotMatch(qr, new RegExp(forbidden));
+  for (const confirmation of ["訂單已成功送出", "訂購資訊", "餐點明細", "付款狀態", "待付款", "總計金額"]) assert.match(qr, new RegExp(confirmation));
+  assert.doesNotMatch(qr, /您的訂單已付款成功|加入百工牛肉麵|加入後方便接收優惠與店家消息|>加入 LINE</);
+  assert.doesNotMatch(qr, /\/member-session/);
+  assert.match(qr, /lineFriendFlag === false/);
   assert.doesNotMatch(qr, /掃碼會員/);
   assert.match(storefront, /GENERAL_ORDERING_PATH/);
   assert.equal((storefront.match(/to=\{GENERAL_ORDERING_PATH\}/g) || []).length, 5);
@@ -53,6 +57,8 @@ test("LIFF entry document cannot retain a stale ordering bundle", () => {
 test("changing or rejecting a QR clears the previous merchant and menu state", () => {
   const source = readFileSync(new URL("../src/pages/QrOrderingPage.tsx", import.meta.url), "utf8");
   assert.match(source, /<QrOrderingView key=\{code\} code=\{code\} \/>/);
+  assert.match(source, /lastOrder\.order\.table_label === ctx\.qr\.table_label/);
+  assert.match(source, /if \(belongsToCurrentQr\) setOrder\(lastOrder\.order\)/);
   const initialize = source.slice(source.indexOf("const initialize = useCallback"), source.indexOf("useEffect(() => {\n    void initialize()"));
   for (const reset of ["setContext(null)", "setToken(\"\")", "setItems([])", "setCart({})"]) assert.match(initialize, new RegExp(reset.replace(/[()[\]{}]/g, "\\$&")));
 });

@@ -27,13 +27,12 @@ import {
   getOrderingMemberToken,
   orderingPublicApi,
   merchantOrderingApi,
-  saveOrderingMemberToken,
   getPlatformMemberToken,
-  savePlatformMemberToken,
   getPlatformDeviceId,
   saveOrderingLastOrder,
   clearPersistedOrderingCart,
   getOrderingLineClicked,
+  getLineFriendshipStatus,
   getLineOrderingContext,
   getPersistedOrderingCart,
   saveOrderingLineClicked,
@@ -110,6 +109,33 @@ function statusTone(status: OrderingOrderStatus) {
   return "info";
 }
 
+function orderPaymentMethodLabel(method: string) {
+  return ["cash", "counter", "manual", "manual_counter"].includes(String(method || "").toLowerCase())
+    ? "現金"
+    : "依店家指示";
+}
+
+function orderPaymentStatusLabel(status: OrderingOrder["payment_status"]) {
+  return status === "paid" ? "已付款" : status === "refunded" ? "已退款" : "待付款";
+}
+
+function orderCreatedAtLabel(value: string) {
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.replace(" ", "T")}Z`
+    : value;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 function OrderingTopbar({ branded = IS_BEEF_NOODLE_DEMO }: { branded?: boolean }) {
   if (branded) return null;
   return (
@@ -167,6 +193,7 @@ function QrOrderingView({ code }: { code: string }) {
   const [invoiceBuyerName, setInvoiceBuyerName] = useState("");
   const [invoiceDonationCode, setInvoiceDonationCode] = useState("");
   const [lineClicked, setLineClicked] = useState(false);
+  const [lineFriendFlag] = useState<boolean | null>(() => getLineFriendshipStatus(code));
   const [lineCheckoutSkipped, setLineCheckoutSkipped] = useState(false);
   const [demoAdministrator, setDemoAdministrator] = useState(false);
   const pendingOrderKey = useRef("");
@@ -258,7 +285,7 @@ function QrOrderingView({ code }: { code: string }) {
         try {
           setToken(savedToken);
           await loadMenu(ctx, savedToken);
-          await loadBenefits(savedToken);
+          await loadBenefits(savedToken).catch(() => undefined);
           const lastOrderCode = getOrderingLastOrder(ctx.merchant_id);
           if (lastOrderCode) {
             try {
@@ -269,40 +296,28 @@ function QrOrderingView({ code }: { code: string }) {
                 {},
                 savedToken,
               );
-              setOrder(lastOrder.order);
+              const belongsToCurrentQr = ctx.qr.purpose === "dine_in"
+                ? lastOrder.order.order_type === "dine_in" && lastOrder.order.table_label === ctx.qr.table_label
+                : ctx.qr.purpose === "takeaway"
+                  ? lastOrder.order.order_type === "takeaway"
+                  : true;
+              if (belongsToCurrentQr) setOrder(lastOrder.order);
             } catch (error) {
-              if (errorStatus(error) === 404)
+              if ([401, 404].includes(errorStatus(error)))
                 clearOrderingLastOrder(ctx.merchant_id);
-              else throw error;
             }
           }
         } catch (error) {
           if (errorStatus(error) === 401) {
             clearOrderingMemberToken(ctx.merchant_id);
             setToken("");
+            await loadMenu(ctx, "");
           } else {
             throw error;
           }
         }
       } else {
-        try {
-          const reused = await orderingPublicApi<{
-            session: { token: string; expires_at: string };
-            platform_session?: { token: string; expires_at: string } | null;
-            member_password_set: boolean;
-          }>(`/api/ordering/qr/${encodeURIComponent(code)}/member-session`, {
-            method: "POST",
-            headers: { "x-platform-member-token": getPlatformMemberToken(), "x-device-id": getPlatformDeviceId() },
-          });
-          setToken(reused.session.token);
-          saveOrderingMemberToken(ctx.merchant_id, reused.session.token);
-          if (reused.platform_session?.token) savePlatformMemberToken(reused.platform_session.token);
-          await loadMenu(ctx, reused.session.token);
-          await loadBenefits(reused.session.token);
-        } catch (error) {
-          if (![401, 409].includes(errorStatus(error))) throw error;
-          await loadMenu(ctx, "");
-        }
+        await loadMenu(ctx, "");
       }
     } catch (error) {
       setMessage(errorMessage(error, "此 QR Code 目前無法使用。"));
@@ -512,7 +527,7 @@ function QrOrderingView({ code }: { code: string }) {
       clearPersistedOrderingCart(code);
       setCartOpen(false);
       setCustomerNote("");
-      setMessage(data.message);
+      setMessage("");
       if (checkoutPaymentProvider !== "manual_counter") {
         const paymentKey = `${pendingOrderKey.current || crypto.randomUUID()}:payment`;
         const payment = await orderingPublicApi<{ redirect_url?: string; intent: { status: string } }>(
@@ -621,15 +636,11 @@ function QrOrderingView({ code }: { code: string }) {
 
       {officialProductionDemo && <div className="ordering-demo-privacy-note"><strong>付款服務尚未啟用</strong>｜目前不進行真實交易，也不會發生真實扣款。</div>}
 
-      {storefrontMode && (
-        context.line?.configured ? (
-          <section className="ordering-line-banner" aria-label="店家 LINE 官方帳號">
-            <div><strong>加入{context.line.display_name || "百工牛肉麵 LINE"}</strong><span>加入後方便接收優惠與店家消息</span></div>
-            <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("menu_banner")}>加入 LINE</a>
-          </section>
-        ) : (
-          <p className="ordering-line-unconfigured">LINE 官方帳號尚未設定</p>
-        )
+      {storefrontMode && !order && context.line?.configured && lineFriendFlag === false && !lineClicked && (
+        <section className="ordering-line-banner ordering-line-banner-compact" aria-label="店家好友資訊">
+          <span>接收店家最新消息</span>
+          <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("menu_banner")}>加入好友</a>
+        </section>
       )}
 
       {message && (
@@ -639,80 +650,61 @@ function QrOrderingView({ code }: { code: string }) {
       )}
 
       {order && (
-        <section className="ordering-order-status-card">
-          <div
-            className={`ordering-status-icon tone-${statusTone(order.status)}`}
-          >
-            <Receipt weight="duotone" />
-          </div>
-          <div>
-            <span>訂單編號</span>
-            <h2>{order.order_code}</h2>
-            <p
-              className={`ordering-status-pill tone-${statusTone(order.status)}`}
-            >
-              {orderStatusLabels[order.status]}
-            </p>
-            <small>
-              系統會自動更新處理狀態；需要協助時請向店家出示訂單編號。現場付款將由店家確認。
-            </small>
-            <div className="ordering-invoice-status"><strong>發票</strong>{order.invoice?.status === "ISSUED" ? <span>電子發票已開立：{order.invoice.invoice_number}</span> : <span>電子發票服務尚未啟用</span>}</div>
-            <div className="ordering-status-actions">
-              <button
-                className="btn btn-outline"
-                type="button"
-                onClick={() => setOrder(null)}
-              >
-                再加點
-              </button>
-              {storefrontMode && context.line?.configured && !lineClicked && (
-                <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("order_success")}>加入店家 LINE</a>
-              )}
-              {order.status === "submitted" &&
-                context.customer_cancel_before_accept && (
-                  <button
-                    className="btn btn-ghost"
-                    type="button"
-                    onClick={async () => {
-                      const reason = window.confirm(
-                        "確定取消這筆尚未接單的訂單嗎？",
-                      )
-                        ? "顧客於店家接單前取消"
-                        : "";
-                      if (!reason) return;
-                      setSubmitting(true);
-                      try {
-                        const data = await orderingPublicApi<{
-                          order: OrderingOrder;
-                        }>(
-                          `/api/ordering/orders/${encodeURIComponent(order.order_code)}/cancel`,
-                          { method: "POST", body: JSON.stringify({ reason }) },
-                          token,
-                        );
-                        setOrder(data.order);
-                        setMessage("訂單已取消。");
-                      } catch (error) {
-                        setMessage(errorMessage(error));
-                      } finally {
-                        setSubmitting(false);
-                      }
-                    }}
-                  >
-                    取消訂單
-                  </button>
-                )}
+        <section className="ordering-confirmation" aria-label="訂單確認">
+          <header className="ordering-confirmation-hero">
+            <span className="ordering-confirmation-icon"><Check weight="bold" /></span>
+            <div>
+              <h2>訂單已成功送出</h2>
+              <p>餐點已開始為您準備</p>
             </div>
-          </div>
-          <strong>
-            {money(
-              order.pricing?.payable_total_minor ?? order.total_minor,
-              context.currency,
-            )}
-          </strong>
+            <span className={`ordering-status-pill tone-${statusTone(order.status)}`}>{orderStatusLabels[order.status]}</span>
+          </header>
+
+          <section className="ordering-confirmation-section">
+            <h3>訂購資訊</h3>
+            <dl className="ordering-confirmation-details">
+              <div><dt>商店名稱</dt><dd>{storefrontName}</dd></div>
+              <div><dt>訂單建立時間</dt><dd>{orderCreatedAtLabel(order.created_at)}</dd></div>
+              <div><dt>取餐方式</dt><dd>{order.order_type === "dine_in" ? "內用" : `外帶${order.pickup_number ? ` ${order.pickup_number}號` : ""}`}</dd></div>
+              {order.order_type === "dine_in" && <div><dt>桌號</dt><dd>{order.table_label}</dd></div>}
+              <div><dt>付款方式</dt><dd>{orderPaymentMethodLabel(order.payment_method)}</dd></div>
+              <div><dt>付款狀態</dt><dd className={order.payment_status === "paid" ? "is-paid" : "is-unpaid"}>{orderPaymentStatusLabel(order.payment_status)}</dd></div>
+            </dl>
+            {order.payment_status !== "paid" && <p className="ordering-payment-guidance">請依店家指示完成付款。</p>}
+          </section>
+
+          <section className="ordering-confirmation-section">
+            <h3>餐點明細</h3>
+            <div className="ordering-confirmation-items">
+              {order.items.map((item, index) => (
+                <article key={`${item.name}-${index}`}>
+                  <div className="ordering-confirmation-item-main">
+                    <span>{item.quantity}</span>
+                    <strong>{item.name}</strong>
+                    <b>{money(item.line_total_minor, context.currency)}</b>
+                  </div>
+                  {item.options?.map((option, optionIndex) => (
+                    <small key={`${option.group_name}-${option.value_name}-${optionIndex}`}>{option.group_name}：{option.value_name}{option.price_delta_minor ? ` +${money(option.price_delta_minor, context.currency)}` : ""}</small>
+                  ))}
+                  {item.note && <small>備註：{item.note}</small>}
+                </article>
+              ))}
+            </div>
+            {order.customer_note && <p className="ordering-confirmation-note">訂單備註：{order.customer_note}</p>}
+            <div className="ordering-confirmation-summary">
+              <div><span>{order.items.reduce((sum, item) => sum + item.quantity, 0)} 項商品</span><span>小計 {money(order.subtotal_minor, context.currency)}</span></div>
+              <div className="ordering-confirmation-total"><strong>總計金額</strong><strong>{money(order.pricing?.payable_total_minor ?? order.total_minor, context.currency)}</strong></div>
+            </div>
+          </section>
+
+          <footer className="ordering-confirmation-footer">
+            <small>系統單號：{order.order_code}</small>
+            <button className="btn btn-primary btn-lg" type="button" onClick={() => { setOrder(null); setMessage(""); }}>返回菜單</button>
+          </footer>
         </section>
       )}
 
-      {context.qr.purpose === "member_only" ? (
+      {!order && (context.qr.purpose === "member_only" ? (
         <section className="ordering-center-card ordering-success-card">
           <QrCode size={52} weight="duotone" />
           <h2>請掃描桌上點餐 QR</h2>
@@ -918,7 +910,7 @@ function QrOrderingView({ code }: { code: string }) {
             )}
           </section>
         </>
-      )}
+      ))}
 
       {cartCount > 0 && context.qr.purpose !== "member_only" && (
         <button
@@ -1076,17 +1068,16 @@ function QrOrderingView({ code }: { code: string }) {
                 {demoInvoiceMethod === "business_tax_id" && <><label>統一編號<input inputMode="numeric" value={invoiceTaxId} placeholder="12345678" maxLength={8} onChange={(event) => setInvoiceTaxId(event.target.value.replace(/\D/g, ""))} /></label><label>公司抬頭（選填）<input value={invoiceBuyerName} maxLength={160} onChange={(event) => setInvoiceBuyerName(event.target.value)} /></label></>}
                 {demoInvoiceMethod === "donation" && <label>捐贈碼<input value={invoiceDonationCode} maxLength={40} onChange={(event) => setInvoiceDonationCode(event.target.value)} /><small>正式驗證待電子發票服務啟用。</small></label>}
                 <p>電子發票服務尚未啟用。目前的訂單不會產生正式發票。</p>
-                {context.line?.configured && !lineClicked && !lineCheckoutSkipped && (
+                {context.line?.configured && lineFriendFlag === false && !lineClicked && !lineCheckoutSkipped && (
                   <div className="ordering-line-checkout-reminder">
-                    <strong>加入{context.line.display_name || "店家 LINE"}</strong>
-                    <span>加入後可接收店家優惠與最新消息，不加入也能繼續結帳。</span>
+                    <strong>接收店家最新消息</strong>
+                    <span>此為選填，不影響本次點餐與結帳。</span>
                     <div>
-                      <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("checkout_reminder")}>加入 LINE</a>
+                      <a className="btn btn-outline" href={context.line.add_friend_url} target="_blank" rel="noopener noreferrer" onClick={() => recordLineClick("checkout_reminder")}>加入好友</a>
                       <button type="button" className="btn btn-ghost" onClick={() => setLineCheckoutSkipped(true)}>先不用，繼續結帳</button>
                     </div>
                   </div>
                 )}
-                {!context.line?.configured && <p>LINE 官方帳號尚未設定；系統不會偽造加入好友結果。</p>}
               </section>
             )}
             <button

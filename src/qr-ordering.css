@@ -1265,6 +1265,40 @@
 .ordering-line-banner strong { color: #155e35; font-size: 14px; }
 .ordering-line-banner span, .ordering-line-unconfigured { color: #57615b; font-size: 12px; }
 .ordering-line-banner .btn { flex: 0 0 auto; min-height: 36px; padding: 7px 10px; font-size: 13px; }
+.ordering-line-banner-compact { justify-content: flex-end; background: transparent; border-color: transparent; padding-block: 4px; }
+.ordering-line-banner-compact > span { margin-right: auto; }
+.ordering-confirmation { width: min(100% - 40px, 760px); margin: 16px auto 42px; display: grid; gap: 16px; }
+.ordering-confirmation-hero,
+.ordering-confirmation-section,
+.ordering-confirmation-footer { border: 1px solid var(--ordering-line); border-radius: 20px; background: #fff; box-shadow: 0 10px 30px rgba(25, 45, 40, .07); }
+.ordering-confirmation-hero { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 22px; }
+.ordering-confirmation-hero h2 { margin: 0; color: var(--ordering-brand-dark); font-size: clamp(24px, 5vw, 32px); }
+.ordering-confirmation-hero p { margin: 5px 0 0; color: var(--ordering-muted); }
+.ordering-confirmation-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: #e8f7ef; color: #176b43; }
+.ordering-confirmation-icon svg { width: 28px; height: 28px; }
+.ordering-confirmation-section { padding: 22px; }
+.ordering-confirmation-section h3 { margin: 0 0 16px; font-size: 20px; }
+.ordering-confirmation-details { display: grid; gap: 0; margin: 0; }
+.ordering-confirmation-details > div { display: grid; grid-template-columns: minmax(110px, .7fr) minmax(0, 1.3fr); gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--ordering-line); }
+.ordering-confirmation-details > div:last-child { border-bottom: 0; }
+.ordering-confirmation-details dt { color: var(--ordering-muted); }
+.ordering-confirmation-details dd { margin: 0; text-align: right; font-weight: 800; }
+.ordering-confirmation-details .is-unpaid { color: #a45b08; }
+.ordering-confirmation-details .is-paid { color: #176b43; }
+.ordering-payment-guidance { margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: #fff7e8; color: #78500b; }
+.ordering-confirmation-items { display: grid; }
+.ordering-confirmation-items article { padding: 14px 0; border-bottom: 1px solid var(--ordering-line); }
+.ordering-confirmation-item-main { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
+.ordering-confirmation-item-main > span { font-weight: 850; }
+.ordering-confirmation-item-main > b { color: var(--ordering-brand-dark); white-space: nowrap; }
+.ordering-confirmation-items small { display: block; margin: 5px 0 0 38px; color: var(--ordering-muted); line-height: 1.45; }
+.ordering-confirmation-note { margin: 16px 0 0; padding: 13px 14px; border-radius: 12px; background: var(--ordering-soft); line-height: 1.55; }
+.ordering-confirmation-summary { display: grid; gap: 12px; padding-top: 18px; }
+.ordering-confirmation-summary > div { display: flex; justify-content: space-between; gap: 16px; }
+.ordering-confirmation-total { padding-top: 14px; border-top: 2px solid var(--ordering-brand-dark); color: var(--ordering-brand-dark); font-size: 22px; }
+.ordering-confirmation-footer { display: grid; gap: 14px; padding: 18px 22px; }
+.ordering-confirmation-footer small { color: var(--ordering-muted); overflow-wrap: anywhere; }
+.ordering-confirmation-footer .btn { width: 100%; }
 .ordering-line-unconfigured { width: min(100% - 40px, 960px); margin: 2px auto 12px; }
 .ordering-line-checkout-reminder { margin-top: 14px; padding: 12px; display: grid; gap: 7px; border-radius: 12px; background: #f4fbf6; border: 1px solid #c9e6d3; }
 .ordering-line-checkout-reminder > span { color: #53625a; font-size: 13px; }
@@ -1285,6 +1319,10 @@
   .ordering-storefront-meta { gap: 6px; font-size: 13px !important; }
   .ordering-line-banner, .ordering-line-unconfigured { width: min(100% - 28px, 960px); }
   .ordering-line-banner { align-items: flex-start; }
+  .ordering-confirmation { width: min(100% - 28px, 760px); }
+  .ordering-confirmation-hero { grid-template-columns: auto minmax(0, 1fr); padding: 18px; }
+  .ordering-confirmation-hero .ordering-status-pill { grid-column: 2; }
+  .ordering-confirmation-section { padding: 18px; }
   .ordering-member-chip-compact { width: auto; padding: 7px 9px; }
   .ordering-storefront-hero ~ .ordering-menu-section { width: min(100% - 28px, 960px); padding: 10px 0 24px; }
   .ordering-storefront-hero ~ .ordering-menu-section .ordering-category-tabs { top: 0; margin-inline: 0; padding-inline: 0; }
