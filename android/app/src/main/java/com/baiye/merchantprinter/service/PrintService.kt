@@ -54,7 +54,10 @@ class PrintService : Service() {
 
     private fun consumeOrderEvent(event: OrderEvent) {
         if (event.sequence > store.lastEventSequence()) store.setLastEventSequence(event.sequence)
-        if (event.eventType == "order_created") notifyNewOrder(event)
+        if (event.eventType == "order_created") {
+            notifyNewOrder(event)
+            if (store.printer()?.canAutoClaim == true) safeSync()
+        }
         sendBroadcast(Intent(ACTION_ORDER_EVENT).setPackage(packageName).putExtra("event_id", event.eventId))
     }
 

@@ -105,6 +105,7 @@ class MerchantApi(
         val body = JSONObject().put("status", status).apply { if (cancelReason.isNotBlank()) put("cancel_reason", cancelReason) }
         return queuedWhenOffline("PATCH", path, body, key.ifBlank { "order-$code-$status" })
     }
+    fun completeOrder(code: String, key: String) = request("/api/merchant-admin/ordering/orders/${enc(code)}/complete", "POST", JSONObject(), key)
     fun confirmPayment(code: String, method: String, key: String, note: String = "") = request("/api/merchant-admin/ordering/orders/${enc(code)}/payment", "POST", JSONObject().put("action", "confirmed").put("payment_method", method).put("reference", note), key)
     fun saveOrderingSettings(body: JSONObject) = request("/api/merchant-admin/ordering/settings", "PATCH", body)
     fun updateMenuItem(id: String, body: JSONObject) = request("/api/merchant-admin/ordering/items/${enc(id)}", "PATCH", body)

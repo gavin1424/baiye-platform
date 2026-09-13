@@ -66,10 +66,33 @@ test("auto-print OFF still receives orders but cannot auto-claim", () => {
   assert.match(service, /return/);
 });
 
+test("realtime order event triggers the guarded auto-print path immediately", () => {
+  const service = read("../android/app/src/main/java/com/baiye/merchantprinter/service/PrintService.kt");
+  assert.match(service, /event\.eventType == "order_created"[\s\S]*printer\(\)\?\.canAutoClaim == true[\s\S]*safeSync\(\)/);
+});
+
 test("manual print and reprint remain explicit and reprints are visibly labelled", () => {
   const printing = read("src/merchant-printing.js");
   const renderer = read("../android/app/src/main/java/com/baiye/merchantprinter/printer/EscPosRenderer.kt");
   assert.match(printing, /input\.manual === true/);
   assert.match(printing, /reprint_sequence/);
   assert.match(renderer, /【補印】/);
+});
+
+test("B mode migration enables only the official beef-noodle merchant", () => {
+  const sql = read("migrations/0036_b_scheme_one_tap_orders_v1.sql");
+  assert.match(sql, /accepted_by TEXT/);
+  assert.match(sql, /completed_by TEXT/);
+  assert.match(sql, /WHERE merchant_id='demo_beef_noodle'/);
+  assert.doesNotMatch(sql, /UPDATE merchant_ordering_settings\s+SET auto_accept_orders=1\s*;/);
+});
+
+test("Android B mode exposes one completion action and server payment confirmation", () => {
+  const ui = read("../android/app/src/main/java/com/baiye/merchantprinter/DiningSpiritApp.kt");
+  const api = read("../android/app/src/main/java/com/baiye/merchantprinter/network/MerchantApi.kt");
+  assert.match(ui, /完成訂單/);
+  assert.match(ui, /現金已收款並完成/);
+  assert.match(ui, /只完成訂單/);
+  assert.match(ui, /api\.confirmPayment[\s\S]*api\.completeOrder/);
+  assert.match(api, /\/complete/);
 });

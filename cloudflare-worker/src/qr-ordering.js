@@ -872,7 +872,11 @@ async function handleCreateOrder(request, env, db, context, cors) {
         (id,merchant_id,order_id,order_item_id,option_group_id,option_value_id,group_name_snapshot,value_name_snapshot,price_delta_minor)
       VALUES (?,?,?,?,?,?,?,?,?)
     `).bind(uid("foodoption"), context.merchant_id, orderId, line.order_item_id, option.option_group_id, option.option_value_id, option.group_name_snapshot, option.value_name_snapshot, option.price_delta_minor))),
-    ...(initialStatus === "accepted" ? [db.prepare("UPDATE merchant_food_orders SET accepted_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=?").bind(orderId, context.merchant_id)] : []),
+    ...(initialStatus === "accepted" ? [
+      db.prepare("UPDATE merchant_food_orders SET accepted_at=CURRENT_TIMESTAMP,accepted_by='system:b_scheme_auto_accept' WHERE id=? AND merchant_id=?").bind(orderId, context.merchant_id),
+      db.prepare(`INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata)
+        VALUES(?,?,'system','b_scheme_auto_accept','order_auto_accepted','order',?,?)`).bind(uid("ordaudit"), context.merchant_id, orderId, JSON.stringify({ from: "submitted", to: "accepted", source: lineContext ? "LINE" : "QR", idempotency_key: idempotencyKey })),
+    ] : []),
     ...(diningSessionId ? [db.prepare("UPDATE merchant_dining_sessions SET last_order_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status='open'").bind(diningSessionId, context.merchant_id)] : []),
     ...(lineContext ? [db.prepare("UPDATE merchant_line_ordering_sessions SET status='ordered',last_order_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status='active'").bind(orderId, lineContext.id, context.merchant_id)] : []),
     ...couponPricing.statements,
@@ -1252,7 +1256,7 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       const printerResult = await db.prepare("SELECT id,copies FROM printers WHERE merchant_id=? AND enabled=1").bind(merchantId).all();
       const kitchenPayload = buildKitchenPayload({ merchantName: settings.display_name, orderCode: code, tableLabel, orderType: requestedType, paymentMethod: "counter", totalMinor: calculation.total_minor, createdAt, customerNote: clean(input.customer_note, 500), items: calculation.lines });
       const statements = [
-        db.prepare(`INSERT INTO merchant_food_orders(id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,accepted_at) VALUES(?,?,?,?,?,?,?,'accepted','unpaid','counter','counter',?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(orderId, code, merchantId, systemMembershipId, systemQrId, tableLabel || null, orderType, calculation.subtotal_minor, calculation.total_minor, clean(input.customer_note,500) || null, idempotencyKey, diningSessionId),
+        db.prepare(`INSERT INTO merchant_food_orders(id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,accepted_at,accepted_by) VALUES(?,?,?,?,?,?,?,'accepted','unpaid','counter','counter',?,?,?,?,?,CURRENT_TIMESTAMP,?)`).bind(orderId, code, merchantId, systemMembershipId, systemQrId, tableLabel || null, orderType, calculation.subtotal_minor, calculation.total_minor, clean(input.customer_note,500) || null, idempotencyKey, diningSessionId, actorId),
         db.prepare(`INSERT INTO merchant_order_fulfillment(merchant_id,order_id,source,scheduled_for,pickup_number,fulfillment_status,delivery_address,delivery_contact,delivery_fee_minor) VALUES(?,?,'COUNTER',?,?,?,?,?,0)`).bind(merchantId, orderId, clean(input.scheduled_for,40) || null, `A${code.slice(-4)}`, input.scheduled_for ? "scheduled" : requestedType === "delivery" ? "delivery_pending" : "immediate", requestedType === "delivery" ? clean(input.delivery_address,500) || null : null, requestedType === "delivery" ? clean(input.delivery_contact,120) || null : null),
         ...calculation.lines.map((line) => { line.order_item_id = uid("fooditem"); return db.prepare("INSERT INTO merchant_food_order_items(id,order_id,menu_item_id,name_snapshot,unit_price_minor,quantity,line_total_minor,note,base_price_minor,option_delta_minor,unit_total_minor) VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(line.order_item_id, orderId, line.menu_item_id, line.name_snapshot, line.unit_price_minor, line.quantity, line.line_total_minor, line.note, line.base_price_minor, line.option_delta_minor, line.unit_total_minor); }),
         ...calculation.lines.flatMap((line) => line.options.map((option) => db.prepare("INSERT INTO merchant_food_order_item_options(id,merchant_id,order_id,order_item_id,option_group_id,option_value_id,group_name_snapshot,value_name_snapshot,price_delta_minor) VALUES(?,?,?,?,?,?,?,?,?)").bind(uid("foodoption"),merchantId,orderId,line.order_item_id,option.option_group_id,option.option_value_id,option.group_name_snapshot,option.value_name_snapshot,option.price_delta_minor))),
@@ -1612,6 +1616,35 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
     }
 
     const orderStatusMatch = url.pathname.match(/^\/api\/admin\/ordering\/orders\/([^/]+)\/status$/);
+
+    const oneTapComplete = url.pathname.match(/^\/api\/admin\/ordering\/orders\/([^/]+)\/complete$/);
+    if (oneTapComplete && request.method === "POST") {
+      const key = clean(request.headers.get("idempotency-key"), 100);
+      if (!key) return json({ error: "完成訂單需要 Idempotency-Key。" }, 400, cors);
+      const current = await db.prepare(`SELECT o.*,s.auto_accept_orders FROM merchant_food_orders o
+        JOIN merchant_ordering_settings s ON s.merchant_id=o.merchant_id
+        WHERE o.merchant_id=? AND o.order_code=? AND o.demo_reset_at IS NULL`).bind(merchantId, clean(oneTapComplete[1], 40)).first();
+      if (!current) return json({ error: "找不到此訂單。" }, 404, cors);
+      if (current.status === "completed") return json({ ok: true, status: "completed", replayed: true }, 200, cors);
+      if (Number(current.auto_accept_orders) !== 1) return json({ error: "此商家未啟用一鍵完成模式。", code: "ONE_TAP_COMPLETE_DISABLED" }, 409, cors);
+      if (!["submitted", "accepted", "preparing", "ready", "served"].includes(current.status)) return json({ error: "此訂單目前無法完成。" }, 409, cors);
+      const eventId = uid("ordevt");
+      await db.batch([
+        db.prepare(`UPDATE merchant_food_orders SET status='completed',
+          accepted_at=COALESCE(accepted_at,CURRENT_TIMESTAMP),accepted_by=COALESCE(accepted_by,'system:b_scheme_auto_accept'),
+          completed_at=CURRENT_TIMESTAMP,completed_by=?,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=? AND status=?`)
+          .bind(actorId, merchantId, current.id, current.status),
+        db.prepare(`INSERT INTO merchant_ordering_audit_logs(id,merchant_id,actor_type,actor_id,actor_role,action,resource_type,resource_id,metadata)
+          VALUES(?,?,?,?,?,'order_completed_one_tap','order',?,?)`).bind(uid("ordaudit"), merchantId, actorType, actorId, actorRole, current.id, JSON.stringify({ from: current.status, to: "completed", idempotency_key: key })),
+        db.prepare(`INSERT INTO merchant_order_events(event_id,merchant_id,event_type,order_id,order_code,table_label,status,payment_status,item_count,total_minor)
+          SELECT ?,merchant_id,'order_status_updated',id,order_code,table_label,'completed',payment_status,(SELECT COALESCE(SUM(quantity),0) FROM merchant_food_order_items WHERE order_id=?),total_minor FROM merchant_food_orders WHERE merchant_id=? AND id=?`)
+          .bind(eventId, current.id, merchantId, current.id),
+      ]);
+      const completedEvent = await db.prepare("SELECT * FROM merchant_order_events WHERE event_id=? AND merchant_id=?").bind(eventId, merchantId).first();
+      await publishMerchantOrderEvent(env, merchantId, completedEvent).catch(() => {});
+      return json({ ok: true, status: "completed", payment_status: current.payment_status }, 200, cors);
+    }
+
     if (orderStatusMatch && request.method === "PATCH") {
       const current = await db.prepare(`SELECT * FROM merchant_food_orders WHERE merchant_id=? AND order_code=? AND demo_reset_at IS NULL`).bind(merchantId, clean(orderStatusMatch[1], 40)).first();
       if (!current) return json({ error: "找不到此訂單。" }, 404, cors);

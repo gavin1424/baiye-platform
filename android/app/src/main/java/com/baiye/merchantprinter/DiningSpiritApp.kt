@@ -85,6 +85,7 @@ private enum class MainTab(val label: String) { HOME("首頁"), ORDERS("訂單")
 private enum class MorePage(val title: String) { ROOT("更多"), TABLES("桌位與 QR"), KDS("廚房看板"), MEMBERS("會員中心"), REPORTS("營運報表"), STORE("店舖設定"), PRINTER("印表機"), PRINT_HISTORY("列印紀錄"), PROMOTIONS("優惠與折扣"), CALLING("叫號"), STAFF("員工權限"), INTEGRATIONS("整合服務"), ABOUT("關於點餐靈") }
 private enum class OrderingState { ONLINE, OFFLINE, SYNCING }
 private enum class ReportsState { FRESH, STALE, ERROR }
+private val activeOrderStatuses = setOf("submitted", "accepted", "preparing", "ready", "served")
 
 @Composable
 fun DiningSpiritApp(store: LocalStore, api: MerchantApi) {
@@ -247,7 +248,7 @@ private fun ContentArea(
         if (ordering == OrderingState.OFFLINE) OfflineBanner(store.lastSync(), message, refresh)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (tab) {
-                MainTab.HOME -> DashboardScreen(overview, report, store, ordering) { action ->
+                MainTab.HOME -> DashboardScreen(overview, report, store, ordering, api, refresh) { action ->
                     when (action) {
                         "POS" -> setTab(MainTab.POS)
                         "MENU" -> setTab(MainTab.MENU)
@@ -318,12 +319,14 @@ private fun OfflineBanner(lastSync: Long, detail: String, retry: () -> Unit) {
 }
 
 @Composable
-private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, network: OrderingState, navigate: (String) -> Unit) {
+private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, network: OrderingState, api: MerchantApi, refresh: () -> Unit, navigate: (String) -> Unit) {
     val orders = o.array("orders")
     val settings = o.obj("settings")
     val k = r.obj("kpis")
     val printer = store.printer()
     val fontScale = LocalDensity.current.fontScale
+    val oneTapMode = settings.bool("auto_accept_orders")
+    var selected by remember { mutableStateOf<JSONObject?>(null) }
     LazyColumn(
         Modifier.fillMaxSize().testTag("home-screen"),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
@@ -347,10 +350,15 @@ private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, net
         }
         item {
             SectionTitle("訂單處理狀態")
-            ResponsiveRows(columns = if (fontScale >= 1.5f) 1 else 3) {
-                QueueButton("新訂單", orders.countStatus("submitted"), Modifier.fillMaxWidth())
-                QueueButton("製作中", orders.countStatuses("accepted", "preparing"), Modifier.fillMaxWidth())
-                QueueButton("待出餐", orders.countStatus("ready"), Modifier.fillMaxWidth())
+            ResponsiveRows(columns = if (fontScale >= 1.5f) 1 else if (oneTapMode) 2 else 3) {
+                if (oneTapMode) {
+                    QueueButton("進行中", orders.countStatuses("submitted", "accepted", "preparing", "ready", "served"), Modifier.fillMaxWidth())
+                    QueueButton("已完成", orders.countStatus("completed"), Modifier.fillMaxWidth())
+                } else {
+                    QueueButton("新訂單", orders.countStatus("submitted"), Modifier.fillMaxWidth())
+                    QueueButton("製作中", orders.countStatuses("accepted", "preparing"), Modifier.fillMaxWidth())
+                    QueueButton("待出餐", orders.countStatus("ready"), Modifier.fillMaxWidth())
+                }
             }
         }
         item {
@@ -377,15 +385,115 @@ private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, net
             }
         }
         item { SectionTitle("最近訂單") }
-        items(orders.take(5)) { OrderSummary(it, null) }
+        items(orders.take(5)) { OrderSummary(it, { selected = it }, oneTapMode) }
+    }
+    selected?.let { OrderDetail(it, api, oneTapMode, { selected = null; refresh() }, { selected = null }) }
+}
+
+@Composable
+private fun OrderCenter(o: JSONObject, api: MerchantApi, refresh: () -> Unit) {
+    val all = o.array("orders")
+    val oneTapMode = o.obj("settings").bool("auto_accept_orders")
+    var filter by remember { mutableStateOf("全部") }
+    var search by remember { mutableStateOf("") }
+    var selected by remember { mutableStateOf<JSONObject?>(null) }
+    val filters = if (oneTapMode) listOf("全部", "進行中", "完成", "取消") else listOf("全部", "新訂單", "製作中", "待出餐", "完成", "取消")
+    Column(Modifier.fillMaxSize().padding(14.dp).testTag("orders-screen")) {
+        Text("全通路訂單", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(filters) { FilterChip(filter == it, { filter = it }, label = { Text(it) }) } }
+        OutlinedTextField(search, { search = it }, label = { Text("搜尋訂單號、桌號、會員") }, modifier = Modifier.fillMaxWidth())
+        val visible = all.filter { q ->
+            (search.isBlank() || q.text("order_code").contains(search, true) || q.text("table_label").contains(search, true) || q.text("customer_name").contains(search, true)) && when (filter) {
+                "進行中" -> q.text("status") in activeOrderStatuses
+                "新訂單" -> q.text("status") == "submitted"
+                "製作中" -> q.text("status") in listOf("accepted", "preparing")
+                "待出餐" -> q.text("status") == "ready"
+                "完成" -> q.text("status") in listOf("served", "completed")
+                "取消" -> q.text("status") == "cancelled"
+                else -> true
+            }
+        }
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            if (visible.isEmpty()) item { EmptyState("目前沒有符合條件的訂單") }
+            items(visible, key = { it.text("order_code") }) { order -> OrderSummary(order, { selected = order }, oneTapMode) }
+        }
+    }
+    selected?.let { OrderDetail(it, api, oneTapMode, { selected = null; refresh() }, { selected = null }) }
+}
+
+@Composable
+private fun OrderSummary(o: JSONObject, onClick: (() -> Unit)?, oneTapMode: Boolean = false) {
+    val shownStatus = if (oneTapMode && o.text("status") in activeOrderStatuses) "進行中" else statusLabel(o.text("status"))
+    Card(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)) {
+        Row(Modifier.padding(14.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(Modifier.weight(1f)) {
+                Text(o.text("table_label").ifBlank { typeLabel(o.text("order_type")) }, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                Text("#${o.text("order_code")} • ${o.text("source").ifBlank { "QR" }}")
+                Text("${o.array("items").sumOf { it.int("quantity") }} 項餐點", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("付款：${paymentLabel(o.text("payment_status"))}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(money(o.int("total_minor")), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                StatusBadge(shownStatus, o.text("status") != "cancelled")
+            }
+        }
     }
 }
 
-@Composable private fun OrderCenter(o:JSONObject,api:MerchantApi,refresh:()->Unit){val all=o.array("orders");var filter by remember{mutableStateOf("全部")};var search by remember{mutableStateOf("")};var selected by remember{mutableStateOf<JSONObject?>(null)};val filters=listOf("全部","新訂單","製作中","待出餐","完成","取消");Column(Modifier.fillMaxSize().padding(14.dp).testTag("orders-screen")){Text("全通路訂單",fontSize=28.sp,fontWeight=FontWeight.Bold);LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){items(filters){FilterChip(filter==it,{filter=it},label={Text(it)})}};OutlinedTextField(search,{search=it},label={Text("搜尋訂單號、桌號、會員")},modifier=Modifier.fillMaxWidth());val visible=all.filter{q->(search.isBlank()||q.text("order_code").contains(search,true)||q.text("table_label").contains(search,true)||q.text("customer_name").contains(search,true))&&when(filter){"新訂單"->q.text("status")=="submitted";"製作中"->q.text("status") in listOf("accepted","preparing");"待出餐"->q.text("status")=="ready";"完成"->q.text("status") in listOf("served","completed");"取消"->q.text("status")=="cancelled";else->true}};LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(9.dp)){if(visible.isEmpty())item{EmptyState("目前沒有符合條件的訂單")};items(visible,key={it.text("order_code")}){OrderSummary(it){selected=it}}}};selected?.let{OrderDetail(it,api,{selected=null;refresh()},{selected=null})}}
-
-@Composable private fun OrderSummary(o:JSONObject,onClick:(()->Unit)?){Card(Modifier.fillMaxWidth().then(if(onClick!=null)Modifier.clickable{onClick()} else Modifier)){Row(Modifier.padding(14.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column(Modifier.weight(1f)){Text(o.text("table_label").ifBlank{typeLabel(o.text("order_type"))},fontSize=25.sp,fontWeight=FontWeight.Black);Text("#${o.text("order_code").takeLast(8)} • ${o.text("source").ifBlank{"QR"}}");Text("${o.array("items").sumOf{it.int("quantity")}} 項餐點",color=MaterialTheme.colorScheme.onSurfaceVariant)};Column(horizontalAlignment=Alignment.End){Text(money(o.int("total_minor")),fontSize=20.sp,fontWeight=FontWeight.Bold);StatusBadge(statusLabel(o.text("status")),o.text("status")!="cancelled")}}}}
-
-@Composable private fun OrderDetail(order:JSONObject,api:MerchantApi,onChanged:()->Unit,onClose:()->Unit){var cancel by remember{mutableStateOf(false)};var reason by remember{mutableStateOf("")};var paying by remember{mutableStateOf(false)};var received by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")};val scope=rememberCoroutineScope();fun transition(status:String){busy=true;scope.launch{try{withContext(Dispatchers.IO){api.updateOrder(order.text("order_code"),status,if(status=="cancelled")reason else "","app-${UUID.randomUUID()}")};onChanged()}catch(e:Exception){error=e.message.orEmpty()}finally{busy=false}}};AlertDialog(onDismissRequest=onClose,title={Text("訂單 ${order.text("order_code")}")},text={LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("${order.text("table_label").ifBlank{typeLabel(order.text("order_type"))}}・${order.text("source").ifBlank{"QR"}}");Text("會員：${order.text("customer_name").ifBlank{"散客"}}");Text("付款：${paymentLabel(order.text("payment_status"))}")};items(order.array("items")){i->Column{Text("${i.int("quantity")} × ${i.text("name")}",fontWeight=FontWeight.Bold);i.array("options").forEach{x->Text("　${x.text("group_name")}：${x.text("value_name")}")};if(i.text("note").isNotBlank())Text("※※ ${i.text("note")} ※※",color=MaterialTheme.colorScheme.error)}};item{HorizontalDivider();Text("總額 ${money(order.int("total_minor"))}",fontSize=22.sp,fontWeight=FontWeight.Black);if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error)}}},confirmButton={Column{val next=nextStatus(order.text("status"));if(next!=null)Button({transition(next)},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(statusAction(next))};if(order.text("payment_status")=="unpaid")OutlinedButton({paying=true},Modifier.fillMaxWidth()){Text("現金結帳")};if(order.text("status") !in listOf("completed","cancelled"))TextButton({cancel=true},Modifier.fillMaxWidth()){Text("取消訂單",color=MaterialTheme.colorScheme.error)}}},dismissButton={TextButton(onClose){Text("關閉")}});if(cancel)AlertDialog(onDismissRequest={cancel=false},title={Text("確認取消訂單")},text={OutlinedTextField(reason,{reason=it},label={Text("取消理由（必填）")})},confirmButton={Button({cancel=false;transition("cancelled")},enabled=reason.isNotBlank()){Text("確認取消")}},dismissButton={TextButton({cancel=false}){Text("返回")}});if(paying){val due=order.int("total_minor")/100;val got=received.toIntOrNull()?:0;AlertDialog(onDismissRequest={paying=false},title={Text("現金結帳")},text={Column{Text("應收 NT$ $due",fontSize=24.sp,fontWeight=FontWeight.Bold);OutlinedTextField(received,{received=it.filter(Char::isDigit)},label={Text("實收金額")});Text("找零 NT$ ${(got-due).coerceAtLeast(0)}")}},confirmButton={Button({scope.launch{busy=true;try{withContext(Dispatchers.IO){api.confirmPayment(order.text("order_code"),"cash","pay-${UUID.randomUUID()}")};paying=false;onChanged()}catch(e:Exception){error=e.message.orEmpty()}finally{busy=false}}},enabled=got>=due){Text("確認收款")}},dismissButton={TextButton({paying=false}){Text("取消")}})}}
+@Composable
+private fun OrderDetail(order: JSONObject, api: MerchantApi, oneTapMode: Boolean, onChanged: () -> Unit, onClose: () -> Unit) {
+    var cancel by remember { mutableStateOf(false) }
+    var paymentChoice by remember { mutableStateOf(false) }
+    var reason by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    fun finish(confirmCash: Boolean) {
+        busy = true
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    if (confirmCash) api.confirmPayment(order.text("order_code"), "cash", "pay-${UUID.randomUUID()}", "點餐靈完成訂單時確認現金收款")
+                    api.completeOrder(order.text("order_code"), "complete-${UUID.randomUUID()}")
+                }
+                paymentChoice = false
+                onChanged()
+            } catch (e: Exception) { error = e.message.orEmpty() }
+            finally { busy = false }
+        }
+    }
+    fun transition(status: String) {
+        busy = true
+        scope.launch {
+            try { withContext(Dispatchers.IO) { api.updateOrder(order.text("order_code"), status, if (status == "cancelled") reason else "", "app-${UUID.randomUUID()}") }; onChanged() }
+            catch (e: Exception) { error = e.message.orEmpty() }
+            finally { busy = false }
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("訂單 ${order.text("order_code")}") },
+        text = { LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { Text("${order.text("table_label").ifBlank { typeLabel(order.text("order_type")) }}・${order.text("source").ifBlank { "QR" }}"); Text("付款：${paymentLabel(order.text("payment_status"))}") }
+            items(order.array("items")) { i -> Column { Text("${i.int("quantity")} × ${i.text("name")}", fontWeight = FontWeight.Bold); i.array("options").forEach { x -> Text("　${x.text("group_name")}：${x.text("value_name")}") }; if (i.text("note").isNotBlank()) Text("※※ ${i.text("note")} ※※", color = MaterialTheme.colorScheme.error) } }
+            item { if (order.text("customer_note").isNotBlank()) Text("整單備註：${order.text("customer_note")}", color = MaterialTheme.colorScheme.error); HorizontalDivider(); Text("總額 ${money(order.int("total_minor"))}", fontSize = 22.sp, fontWeight = FontWeight.Black); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) }
+        } },
+        confirmButton = { Column {
+            if (oneTapMode && order.text("status") in activeOrderStatuses) Button({ if (order.text("payment_status") == "paid") finish(false) else paymentChoice = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("完成訂單") }
+            else if (!oneTapMode) nextStatus(order.text("status"))?.let { next -> Button({ transition(next) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(statusAction(next)) } }
+            if (order.text("status") !in listOf("completed", "cancelled")) TextButton({ cancel = true }, Modifier.fillMaxWidth()) { Text("取消訂單", color = MaterialTheme.colorScheme.error) }
+        } },
+        dismissButton = { TextButton(onClose) { Text("關閉") } },
+    )
+    if (cancel) AlertDialog(onDismissRequest = { cancel = false }, title = { Text("確認取消訂單") }, text = { OutlinedTextField(reason, { reason = it }, label = { Text("取消理由（必填）") }) }, confirmButton = { Button({ cancel = false; transition("cancelled") }, enabled = reason.isNotBlank()) { Text("確認取消") } }, dismissButton = { TextButton({ cancel = false }) { Text("返回") } })
+    if (paymentChoice) AlertDialog(
+        onDismissRequest = { paymentChoice = false },
+        title = { Text("此訂單尚未標記付款，是否已完成收款？") },
+        text = { Text("現金收款會先送至正式 Payment API，再完成訂單。") },
+        confirmButton = { Column { Button({ finish(true) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("現金已收款並完成") }; OutlinedButton({ finish(false) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("只完成訂單") } } },
+        dismissButton = { TextButton({ paymentChoice = false }) { Text("取消") } },
+    )
+}
 
 @Composable
 private fun PosScreen(o: JSONObject, api: MerchantApi, refresh: () -> Unit, network: OrderingState) {
@@ -655,7 +763,7 @@ private fun MoreHost(page: MorePage, setPage: (MorePage) -> Unit, o: JSONObject,
 
 @Composable private fun QrDialog(q:JSONObject,onClose:()->Unit){val context=LocalContext.current;val tableQr=q.text("table_label").isNotBlank();val liffUrl=q.text("liff_ordering_url");val url=if(tableQr)liffUrl else liffUrl.ifBlank{q.text("ordering_url")};val bitmap=remember(url){if(url.startsWith("https://liff.line.me/"))qrBitmap(url)else if(!tableQr&&url.startsWith("https://"))qrBitmap(url)else null};AlertDialog(onDismissRequest=onClose,title={Text(q.text("table_label").ifBlank{"點餐 QR"})},text={Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){if(bitmap!=null){Image(bitmap.asImageBitmap(),null,Modifier.size(240.dp));Text(url,fontSize=12.sp)}else{ErrorState(if(tableQr)"正式桌號 QR 僅允許 LINE LIFF，請先完成 LIFF ID 與 Channel 設定。" else "商家品牌點餐連結尚未載入，請關閉後重新整理。")};Button({context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="text/plain";putExtra(Intent.EXTRA_TEXT,url)},"分享安全點餐連結"))},enabled=bitmap!=null){Text("分享 QR 連結")}}},confirmButton={TextButton(onClose){Text("完成")}})}
 
-@Composable private fun KdsScreen(o:JSONObject,api:MerchantApi,refresh:()->Unit){val scope=rememberCoroutineScope();val columns=listOf("submitted" to "新單","preparing" to "製作中","ready" to "待出餐");BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp)){val horizontal=maxWidth>=720.dp;val content:@Composable (Pair<String,String>)->Unit={c->Column(Modifier.then(if(horizontal)Modifier.width((maxWidth-32.dp)/3)else Modifier.fillMaxWidth()).background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp)){Text(c.second,fontSize=23.sp,fontWeight=FontWeight.Black);o.array("orders").filter{if(c.first=="preparing")it.text("status") in listOf("accepted","preparing")else it.text("status")==c.first}.forEach{order->Card(Modifier.fillMaxWidth().padding(vertical=5.dp)){Column(Modifier.padding(12.dp)){Text(order.text("table_label").ifBlank{"外帶"},fontSize=30.sp,fontWeight=FontWeight.Black);Text("#${order.text("order_code").takeLast(6)}");order.array("items").forEach{Text("${it.int("quantity")}× ${it.text("name")}",fontSize=19.sp,fontWeight=FontWeight.Bold)};nextStatus(order.text("status"))?.let{next->Button({scope.launch{runCatching{withContext(Dispatchers.IO){api.updateOrder(order.text("order_code"),next,key="kds-${UUID.randomUUID()}")};refresh()}}},Modifier.fillMaxWidth()){Text(statusAction(next))}}}}}}};if(horizontal)Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){for(c in columns)content(c)}else LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){items(columns){content(it)}}}}
+@Composable private fun KdsScreen(o:JSONObject,api:MerchantApi,refresh:()->Unit){val scope=rememberCoroutineScope();val oneTap=o.obj("settings").bool("auto_accept_orders");val columns=if(oneTap)listOf("preparing" to "進行中")else listOf("submitted" to "新單","preparing" to "製作中","ready" to "待出餐");BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp)){val horizontal=maxWidth>=720.dp;val content:@Composable (Pair<String,String>)->Unit={c->Column(Modifier.then(if(horizontal)Modifier.width((maxWidth-32.dp)/columns.size.coerceAtLeast(1))else Modifier.fillMaxWidth()).background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp)){Text(c.second,fontSize=23.sp,fontWeight=FontWeight.Black);o.array("orders").filter{if(oneTap)it.text("status") in activeOrderStatuses else if(c.first=="preparing")it.text("status") in listOf("accepted","preparing")else it.text("status")==c.first}.forEach{order->Card(Modifier.fillMaxWidth().padding(vertical=5.dp)){Column(Modifier.padding(12.dp)){Text(order.text("table_label").ifBlank{"外帶"},fontSize=30.sp,fontWeight=FontWeight.Black);Text("#${order.text("order_code").takeLast(6)}");order.array("items").forEach{Text("${it.int("quantity")}× ${it.text("name")}",fontSize=19.sp,fontWeight=FontWeight.Bold)};if(oneTap)Text("請至訂單中心按「完成訂單」")else nextStatus(order.text("status"))?.let{next->Button({scope.launch{runCatching{withContext(Dispatchers.IO){api.updateOrder(order.text("order_code"),next,key="kds-${UUID.randomUUID()}")};refresh()}}},Modifier.fillMaxWidth()){Text(statusAction(next))}}}}}}};if(horizontal)Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){for(c in columns)content(c)}else LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){items(columns){content(it)}}}}
 
 @Composable private fun MembersScreen(api:MerchantApi,store:LocalStore){var payload by remember{mutableStateOf(store.cached("members")?.jsonOrNull() ?: if(store.demoMode()) demoMembers() else JSONObject().put("members",JSONArray()))};var query by remember{mutableStateOf("")};var loading by remember{mutableStateOf(true)};var error by remember{mutableStateOf("")};LaunchedEffect(Unit){try{if(!store.demoMode())payload=withContext(Dispatchers.IO){api.members()}}catch(e:Exception){error=e.message.orEmpty()}finally{loading=false}};Column(Modifier.fillMaxSize().padding(16.dp)){Text("會員中心",fontSize=28.sp,fontWeight=FontWeight.Bold);OutlinedTextField(query,{query=it},label={Text("搜尋姓名、手機、會員編號")},modifier=Modifier.fillMaxWidth());if(loading)LinearProgressIndicator(Modifier.fillMaxWidth());if(error.isNotBlank())Text("會員資料暫時無法更新") ;LazyColumn{items(payload.array("members").filter{query.isBlank()||it.text("display_name").contains(query,true)||it.text("name").contains(query,true)||it.text("phone_masked").contains(query)||it.text("membership_no").contains(query,true)}){m->ListItem(headlineContent={Text(m.text("display_name").ifBlank{m.text("name").ifBlank{"未命名會員"}})},supportingContent={Text("${m.text("phone_masked").ifBlank{m.text("phone")}}・消費 ${m.int("order_count")} 次")})}}}}
 
