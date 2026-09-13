@@ -111,7 +111,7 @@ function ScrollAndMetadata() {
     const title =
       PAGE_TITLES[path] ||
       (path.startsWith("/q/")
-        ? "掃碼加入會員與手機點餐｜創百業智慧鏈"
+        ? "百工牛肉麵｜桌邊 QR 點餐"
         : path.startsWith("/plans/")
           ? "方案合作契約｜創百業智慧鏈"
         : path.startsWith("/verify-contract/")

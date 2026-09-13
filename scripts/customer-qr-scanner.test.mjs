@@ -29,6 +29,8 @@ test("customer UI exposes guest ordering without a membership gate or camera UI"
   const entry = readFileSync(new URL("../src/pages/GeneralOrderingEntryPage.tsx", import.meta.url), "utf8");
   const storefront = readFileSync(new URL("../src/pages/BeefNoodleDemoPage.tsx", import.meta.url), "utf8");
   assert.match(app, /path="\/scan" element=\{<GeneralOrderingEntryPage \/>\}/);
+  assert.match(app, /百工牛肉麵｜桌邊 QR 點餐/);
+  assert.doesNotMatch(app, /掃碼加入會員與手機點餐/);
   for (const copy of ["百工牛肉麵", "手機點餐", "開始點餐", "不用下載 App"]) assert.match(entry, new RegExp(copy));
   assert.match(entry, /GENERAL_ORDERING_URL/);
   assert.match(entry, /baiye-beef-noodle-demo\.pages\.dev/);
