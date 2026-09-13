@@ -1043,7 +1043,13 @@ async function adminOverview(db, merchantId) {
     db.prepare(`SELECT * FROM merchant_menu_item_option_groups WHERE merchant_id=? ORDER BY sort_order`).bind(merchantId).all(),
     db.prepare(`SELECT * FROM merchant_dining_sessions WHERE merchant_id=? ORDER BY datetime(opened_at) DESC LIMIT 200`).bind(merchantId).all(),
     db.prepare(`
-      SELECT o.*,c.display_name customer_name,c.phone_normalized,f.source order_source,f.scheduled_for,f.pickup_number,f.fulfillment_status
+      SELECT o.*,c.display_name customer_name,c.phone_normalized,f.source order_source,f.scheduled_for,
+        COALESCE(f.pickup_number,CASE WHEN o.order_type='takeaway' THEN CAST((
+          SELECT COUNT(*) FROM merchant_food_orders daily
+          WHERE daily.merchant_id=o.merchant_id AND daily.order_type='takeaway' AND daily.demo_reset_at IS NULL
+            AND date(daily.created_at,'+8 hours')=date(o.created_at,'+8 hours')
+            AND (datetime(daily.created_at)<datetime(o.created_at) OR (datetime(daily.created_at)=datetime(o.created_at) AND daily.id<=o.id))
+        ) AS TEXT) END) pickup_number,f.fulfillment_status
       FROM merchant_food_orders o
       LEFT JOIN merchant_ordering_memberships m ON m.merchant_id=o.merchant_id AND m.id=o.membership_id
       LEFT JOIN ordering_customers c ON c.id=m.customer_id

@@ -320,7 +320,7 @@ private fun OfflineBanner(lastSync: Long, detail: String, retry: () -> Unit) {
 
 @Composable
 private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, network: OrderingState, api: MerchantApi, refresh: () -> Unit, navigate: (String) -> Unit) {
-    val orders = o.array("orders")
+    val orders = o.array("orders").withDailyTakeawayNumbers()
     val settings = o.obj("settings")
     val k = r.obj("kpis")
     val printer = store.printer()
@@ -392,7 +392,7 @@ private fun DashboardScreen(o: JSONObject, r: JSONObject, store: LocalStore, net
 
 @Composable
 private fun OrderCenter(o: JSONObject, api: MerchantApi, refresh: () -> Unit) {
-    val all = o.array("orders")
+    val all = o.array("orders").withDailyTakeawayNumbers()
     val oneTapMode = o.obj("settings").bool("auto_accept_orders")
     var filter by remember { mutableStateOf("全部") }
     var search by remember { mutableStateOf("") }
@@ -427,8 +427,8 @@ private fun OrderSummary(o: JSONObject, onClick: (() -> Unit)?, oneTapMode: Bool
     Card(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)) {
         Row(Modifier.padding(14.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
-                Text(o.text("table_label").ifBlank { typeLabel(o.text("order_type")) }, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                Text("#${o.text("order_code")} • ${o.text("source").ifBlank { "QR" }}")
+                Text(orderPrimaryLabel(o), fontSize = 25.sp, fontWeight = FontWeight.Black)
+                Text("訂單編號 ${o.text("order_code")}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("${o.array("items").sumOf { it.int("quantity") }} 項餐點", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("付款：${paymentLabel(o.text("payment_status"))}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -472,11 +472,11 @@ private fun OrderDetail(order: JSONObject, api: MerchantApi, oneTapMode: Boolean
     }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("訂單 ${order.text("order_code")}") },
+        title = { Text(orderPrimaryLabel(order)) },
         text = { LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { Text("${order.text("table_label").ifBlank { typeLabel(order.text("order_type")) }}・${order.text("source").ifBlank { "QR" }}"); Text("付款：${paymentLabel(order.text("payment_status"))}") }
-            items(order.array("items")) { i -> Column { Text("${i.int("quantity")} × ${i.text("name")}", fontWeight = FontWeight.Bold); i.array("options").forEach { x -> Text("　${x.text("group_name")}：${x.text("value_name")}") }; if (i.text("note").isNotBlank()) Text("※※ ${i.text("note")} ※※", color = MaterialTheme.colorScheme.error) } }
-            item { if (order.text("customer_note").isNotBlank()) Text("整單備註：${order.text("customer_note")}", color = MaterialTheme.colorScheme.error); HorizontalDivider(); Text("總額 ${money(order.int("total_minor"))}", fontSize = 22.sp, fontWeight = FontWeight.Black); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) }
+            item { Text("訂單編號 ${order.text("order_code")}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text("付款：${paymentLabel(order.text("payment_status"))}") }
+            items(order.array("items")) { i -> Column { Text("${i.int("quantity")} × ${i.text("name")}", fontWeight = FontWeight.Bold); i.array("options").forEach { x -> Text("　${x.text("group_name")}：${x.text("value_name")}") }; customerVisibleNote(i.text("note")).takeIf(String::isNotBlank)?.let { Text("備註：$it") } } }
+            item { customerVisibleNote(order.text("customer_note")).takeIf(String::isNotBlank)?.let { Text("備註：$it") }; HorizontalDivider(); Text("總額 ${money(order.int("total_minor"))}", fontSize = 22.sp, fontWeight = FontWeight.Black); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) }
         } },
         confirmButton = { Column {
             if (oneTapMode && order.text("status") in activeOrderStatuses) Button({ if (order.text("payment_status") == "paid") finish(false) else paymentChoice = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("完成訂單") }
@@ -759,11 +759,45 @@ private fun MoreHost(page: MorePage, setPage: (MorePage) -> Unit, o: JSONObject,
     }
 }
 
-@Composable private fun TablesScreen(o:JSONObject,api:MerchantApi,refresh:()->Unit){val qrs=o.array("qrs");val sessions=o.array("dining_sessions");var table by remember{mutableStateOf("")};var shown by remember{mutableStateOf<JSONObject?>(null)};var error by remember{mutableStateOf("")};val scope=rememberCoroutineScope();LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){item{Text("桌位與安全 QR",fontSize=28.sp,fontWeight=FontWeight.Bold);Text("沿用正式不可猜測 QR code，不以桌號當 token。")};item{Row(verticalAlignment=Alignment.CenterVertically){OutlinedTextField(table,{table=it.uppercase()},label={Text("新桌號，例如 A1")},modifier=Modifier.weight(1f));Button({scope.launch{try{withContext(Dispatchers.IO){api.createQr("桌號 $table",table)};table="";refresh()}catch(e:Exception){error=e.message.orEmpty()}}},enabled=table.isNotBlank()){Text("建立 QR")}}};items(qrs){q->val active=sessions.firstOrNull{it.text("qr_code")==q.text("code")&&it.text("status")=="open"};Card(Modifier.fillMaxWidth().clickable{shown=q}){Row(Modifier.padding(14.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Column{Text(q.text("table_label").ifBlank{q.text("label")},fontSize=23.sp,fontWeight=FontWeight.Black);Text(if(active==null)"空桌" else "用餐中・${money(active.int("total_minor"))}")};Text("查看 QR")}}};if(error.isNotBlank())item{Text(error,color=MaterialTheme.colorScheme.error)}};shown?.let{QrDialog(it){shown=null}}}
+@Composable
+private fun TablesScreen(o: JSONObject, api: MerchantApi, refresh: () -> Unit) {
+    val qrs = o.array("qrs").filter { validTableLabel(it).isNotBlank() }
+    var table by remember { mutableStateOf("") }
+    var shown by remember { mutableStateOf<JSONObject?>(null) }
+    var error by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Text("桌位與 QR", fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(table, { table = it.uppercase() }, label = { Text("新桌號，例如 A1") }, modifier = Modifier.weight(1f))
+                Button({
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) { api.createQr("桌號 $table", table) }
+                            table = ""
+                            refresh()
+                        } catch (e: Exception) { error = e.message.orEmpty() }
+                    }
+                }, enabled = table.isNotBlank()) { Text("建立 QR") }
+            }
+        }
+        items(qrs, key = { it.text("code") }) { q ->
+            Card(Modifier.fillMaxWidth().clickable { shown = q }) {
+                Row(Modifier.padding(14.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(validTableLabel(q), fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("查看 QR")
+                }
+            }
+        }
+        if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
+    }
+    shown?.let { QrDialog(it) { shown = null } }
+}
 
 @Composable private fun QrDialog(q:JSONObject,onClose:()->Unit){val context=LocalContext.current;val tableQr=q.text("table_label").isNotBlank();val liffUrl=q.text("liff_ordering_url");val url=if(tableQr)liffUrl else liffUrl.ifBlank{q.text("ordering_url")};val bitmap=remember(url){if(url.startsWith("https://liff.line.me/"))qrBitmap(url)else if(!tableQr&&url.startsWith("https://"))qrBitmap(url)else null};AlertDialog(onDismissRequest=onClose,title={Text(q.text("table_label").ifBlank{"點餐 QR"})},text={Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){if(bitmap!=null){Image(bitmap.asImageBitmap(),null,Modifier.size(240.dp));Text(url,fontSize=12.sp)}else{ErrorState(if(tableQr)"正式桌號 QR 僅允許 LINE LIFF，請先完成 LIFF ID 與 Channel 設定。" else "商家品牌點餐連結尚未載入，請關閉後重新整理。")};Button({context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="text/plain";putExtra(Intent.EXTRA_TEXT,url)},"分享安全點餐連結"))},enabled=bitmap!=null){Text("分享 QR 連結")}}},confirmButton={TextButton(onClose){Text("完成")}})}
 
-@Composable private fun KdsScreen(o:JSONObject,api:MerchantApi,refresh:()->Unit){val scope=rememberCoroutineScope();val oneTap=o.obj("settings").bool("auto_accept_orders");val columns=if(oneTap)listOf("preparing" to "進行中")else listOf("submitted" to "新單","preparing" to "製作中","ready" to "待出餐");BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp)){val horizontal=maxWidth>=720.dp;val content:@Composable (Pair<String,String>)->Unit={c->Column(Modifier.then(if(horizontal)Modifier.width((maxWidth-32.dp)/columns.size.coerceAtLeast(1))else Modifier.fillMaxWidth()).background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp)){Text(c.second,fontSize=23.sp,fontWeight=FontWeight.Black);o.array("orders").filter{if(oneTap)it.text("status") in activeOrderStatuses else if(c.first=="preparing")it.text("status") in listOf("accepted","preparing")else it.text("status")==c.first}.forEach{order->Card(Modifier.fillMaxWidth().padding(vertical=5.dp)){Column(Modifier.padding(12.dp)){Text(order.text("table_label").ifBlank{"外帶"},fontSize=30.sp,fontWeight=FontWeight.Black);Text("#${order.text("order_code").takeLast(6)}");order.array("items").forEach{Text("${it.int("quantity")}× ${it.text("name")}",fontSize=19.sp,fontWeight=FontWeight.Bold)};if(oneTap)Text("請至訂單中心按「完成訂單」")else nextStatus(order.text("status"))?.let{next->Button({scope.launch{runCatching{withContext(Dispatchers.IO){api.updateOrder(order.text("order_code"),next,key="kds-${UUID.randomUUID()}")};refresh()}}},Modifier.fillMaxWidth()){Text(statusAction(next))}}}}}}};if(horizontal)Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){for(c in columns)content(c)}else LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){items(columns){content(it)}}}}
+@Composable private fun KdsScreen(o:JSONObject,api:MerchantApi,refresh:()->Unit){val scope=rememberCoroutineScope();val oneTap=o.obj("settings").bool("auto_accept_orders");val orders=o.array("orders").withDailyTakeawayNumbers();val columns=if(oneTap)listOf("preparing" to "進行中")else listOf("submitted" to "新單","preparing" to "製作中","ready" to "待出餐");BoxWithConstraints(Modifier.fillMaxSize().padding(12.dp)){val horizontal=maxWidth>=720.dp;val content:@Composable (Pair<String,String>)->Unit={c->Column(Modifier.then(if(horizontal)Modifier.width((maxWidth-32.dp)/columns.size.coerceAtLeast(1))else Modifier.fillMaxWidth()).background(MaterialTheme.colorScheme.surfaceVariant).padding(10.dp)){Text(c.second,fontSize=23.sp,fontWeight=FontWeight.Black);orders.filter{if(oneTap)it.text("status") in activeOrderStatuses else if(c.first=="preparing")it.text("status") in listOf("accepted","preparing")else it.text("status")==c.first}.forEach{order->Card(Modifier.fillMaxWidth().padding(vertical=5.dp)){Column(Modifier.padding(12.dp)){Text(orderPrimaryLabel(order),fontSize=30.sp,fontWeight=FontWeight.Black);Text("訂單編號 ${order.text("order_code")}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);order.array("items").forEach{Text("${it.int("quantity")}× ${it.text("name")}",fontSize=19.sp,fontWeight=FontWeight.Bold)};if(oneTap)Text("請至訂單中心按「完成訂單」")else nextStatus(order.text("status"))?.let{next->Button({scope.launch{runCatching{withContext(Dispatchers.IO){api.updateOrder(order.text("order_code"),next,key="kds-${UUID.randomUUID()}")};refresh()}}},Modifier.fillMaxWidth()){Text(statusAction(next))}}}}}}};if(horizontal)Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){for(c in columns)content(c)}else LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){items(columns){content(it)}}}}
 
 @Composable private fun MembersScreen(api:MerchantApi,store:LocalStore){var payload by remember{mutableStateOf(store.cached("members")?.jsonOrNull() ?: if(store.demoMode()) demoMembers() else JSONObject().put("members",JSONArray()))};var query by remember{mutableStateOf("")};var loading by remember{mutableStateOf(true)};var error by remember{mutableStateOf("")};LaunchedEffect(Unit){try{if(!store.demoMode())payload=withContext(Dispatchers.IO){api.members()}}catch(e:Exception){error=e.message.orEmpty()}finally{loading=false}};Column(Modifier.fillMaxSize().padding(16.dp)){Text("會員中心",fontSize=28.sp,fontWeight=FontWeight.Bold);OutlinedTextField(query,{query=it},label={Text("搜尋姓名、手機、會員編號")},modifier=Modifier.fillMaxWidth());if(loading)LinearProgressIndicator(Modifier.fillMaxWidth());if(error.isNotBlank())Text("會員資料暫時無法更新") ;LazyColumn{items(payload.array("members").filter{query.isBlank()||it.text("display_name").contains(query,true)||it.text("name").contains(query,true)||it.text("phone_masked").contains(query)||it.text("membership_no").contains(query,true)}){m->ListItem(headlineContent={Text(m.text("display_name").ifBlank{m.text("name").ifBlank{"未命名會員"}})},supportingContent={Text("${m.text("phone_masked").ifBlank{m.text("phone")}}・消費 ${m.int("order_count")} 次")})}}}}
 
@@ -1066,6 +1100,39 @@ private fun List<JSONObject>.countStatuses(vararg status:String)=count{it.text("
 private fun money(minor:Int)="NT$ %,d".format(minor/100)
 private fun statusLabel(s:String)=when(s){"submitted"->"待接單";"accepted"->"已接單";"preparing"->"製作中";"ready"->"待出餐";"served"->"已出餐";"completed"->"完成";"cancelled"->"取消";"sold_out"->"售完";"active"->"販售中";else->s.ifBlank{"未知"}}
 private fun typeLabel(s:String)=when(s){"dine_in"->"內用";"takeaway"->"外帶";"delivery"->"外送";else->"訂單"}
+private val internalOrderNote = Regex("(?i)(line\\s*guest|production\\s*e2e|(?:^|\\s)debug(?:\\s|$)|(?:^|\\s)qa(?:\\s|$)|guest\\s*(?:order|test|[a-z]+\\d*)?)")
+internal fun customerVisibleNote(value: String) = value.trim().takeUnless { it.isBlank() || internalOrderNote.containsMatchIn(it) }.orEmpty()
+internal fun validTableText(vararg candidates: String) = candidates
+    .map(String::trim)
+    .firstOrNull { it.matches(Regex("(?i)^(?:[a-z]+\\d+|\\d+)$")) }
+    .orEmpty()
+internal fun validTableLabel(order: JSONObject): String {
+    val candidates = listOf(order.text("table_label"), order.text("table_no"))
+    return validTableText(*candidates.toTypedArray())
+}
+private fun orderDay(order: JSONObject): String {
+    val raw = order.text("created_at")
+    val instant = runCatching { if (raw.endsWith("Z") || raw.contains("+")) Instant.parse(raw) else LocalDateTime.parse(raw.replace(' ', 'T')).toInstant(ZoneOffset.UTC) }.getOrNull()
+    return instant?.atZone(java.time.ZoneId.of("Asia/Taipei"))?.toLocalDate()?.toString() ?: raw.take(10)
+}
+internal fun List<JSONObject>.withDailyTakeawayNumbers(): List<JSONObject> {
+    filter { it.text("order_type") in listOf("takeaway", "pickup") }
+        .groupBy(::orderDay)
+        .values
+        .forEach { daily -> daily.sortedWith(compareBy({ it.text("created_at") }, { it.text("order_code") })).forEachIndexed { index, order -> if (order.text("pickup_number").isBlank()) order.put("_display_takeaway_number", index + 1) } }
+    return this
+}
+internal fun primaryOrderLabel(orderType: String, tableLabel: String, pickupNumber: String): String = when (orderType) {
+    "dine_in" -> tableLabel.takeIf(String::isNotBlank)?.let { "內用 $it" } ?: "內用"
+    "takeaway", "pickup" -> "外帶 ${pickupNumber.ifBlank { "-" }}號"
+    "delivery" -> "外送"
+    else -> typeLabel(orderType)
+}
+private fun orderPrimaryLabel(order: JSONObject) = primaryOrderLabel(
+    order.text("order_type"),
+    validTableLabel(order),
+    order.text("pickup_number").ifBlank { order.int("_display_takeaway_number").takeIf { it > 0 }?.toString().orEmpty() },
+)
 private fun paymentLabel(s:String)=when(s){"paid"->"已付款";"unpaid"->"未付款";"refunded"->"已退款";else->s}
 private fun nextStatus(s:String)=when(s){"submitted"->"accepted";"accepted"->"preparing";"preparing"->"ready";"ready"->"served";"served"->"completed";else->null}
 private fun statusAction(s:String)=when(s){"accepted"->"接單";"preparing"->"開始製作";"ready"->"餐點完成";"served"->"待取餐 / 出餐";"completed"->"完成";else->s}
