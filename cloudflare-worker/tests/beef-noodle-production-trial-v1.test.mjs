@@ -69,6 +69,15 @@ test("LINE LIFF stays fail-closed until every Console setting is verified", asyn
   assert.equal(liffOrderingUrl("2000000002-BeefOrder", qr), a1.liff_ordering_url);
 });
 
+test("LINE LIFF preserves the table QR across the external Login callback", () => {
+  const source = readFileSync(new URL("../../src/pages/LineLiffOrderingEntryPage.tsx", import.meta.url), "utf8");
+  assert.match(source, /sessionStorage\.setItem\(PENDING_QR_KEY/);
+  assert.match(source, /return rememberedQrCode\(\)/);
+  assert.match(source, /PENDING_QR_MAX_AGE_MS = 10 \* 60 \* 1000/);
+  assert.match(source, /sessionStorage\.removeItem\(PENDING_QR_KEY\)/);
+  assert.match(source, /liff\.login\(\{ redirectUri: window\.location\.href \}\)/);
+});
+
 test("verified LINE Login creates an opaque table-bound ordering context", async () => {
   const sqlite = database();
   const db = new D1(sqlite);

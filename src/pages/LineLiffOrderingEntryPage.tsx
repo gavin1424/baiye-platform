@@ -25,19 +25,59 @@ type LineOrderingSession = {
   expires_at: string;
 };
 
+const PENDING_QR_KEY = "baiye_line_ordering_pending_qr_v1";
+const PENDING_QR_MAX_AGE_MS = 10 * 60 * 1000;
+
+function validQrCode(value: string) {
+  return /^[A-Za-z0-9_-]{8,64}$/.test(value);
+}
+
+function rememberQrCode(code: string) {
+  try {
+    window.sessionStorage.setItem(PENDING_QR_KEY, JSON.stringify({ code, saved_at: Date.now() }));
+  } catch {
+    // LIFF can still continue when storage is unavailable; the signed QR is
+    // validated again by the Backend before an ordering context is issued.
+  }
+  return code;
+}
+
+function rememberedQrCode() {
+  try {
+    const pending = JSON.parse(window.sessionStorage.getItem(PENDING_QR_KEY) || "{}") as {
+      code?: string;
+      saved_at?: number;
+    };
+    if (
+      validQrCode(pending.code || "") &&
+      Number.isFinite(pending.saved_at) &&
+      Date.now() - Number(pending.saved_at) <= PENDING_QR_MAX_AGE_MS
+    ) return pending.code || "";
+    window.sessionStorage.removeItem(PENDING_QR_KEY);
+  } catch {
+    window.sessionStorage.removeItem(PENDING_QR_KEY);
+  }
+  return "";
+}
+
 function qrCodeFromLocation() {
   const direct = new URLSearchParams(window.location.search).get("qr") || "";
-  if (/^[A-Za-z0-9_-]{8,64}$/.test(direct)) return direct;
+  if (validQrCode(direct)) return rememberQrCode(direct);
   const state = new URLSearchParams(window.location.search).get("liff.state") || "";
-  if (!state) return "";
-  try {
-    const nested = new URL(decodeURIComponent(state), window.location.origin);
-    const code = nested.searchParams.get("qr") || "";
-    return /^[A-Za-z0-9_-]{8,64}$/.test(code) ? code : "";
-  } catch { return ""; }
+  if (state) {
+    try {
+      const nested = new URL(decodeURIComponent(state), window.location.origin);
+      const code = nested.searchParams.get("qr") || "";
+      if (validQrCode(code)) return rememberQrCode(code);
+    } catch {
+      // Fall through to the short-lived value saved before LINE Login.
+    }
+  }
+  return rememberedQrCode();
 }
 
 function enterOrdering(code: string) {
+  try { window.sessionStorage.removeItem(PENDING_QR_KEY); } catch { /* no-op */ }
   window.location.replace(`${window.location.origin}/#/q/${encodeURIComponent(code)}`);
 }
 
