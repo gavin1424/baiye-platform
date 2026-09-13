@@ -607,7 +607,7 @@ function QrOrderingView({ code }: { code: string }) {
   };
 
   const submitOrder = async () => {
-    if (!context || !token || !cartLines.length) return;
+    if (!context || !cartLines.length) return;
     setSubmitting(true);
     setMessage("");
     if (!pendingOrderKey.current) {
@@ -678,7 +678,7 @@ function QrOrderingView({ code }: { code: string }) {
       pendingOrderKey.current = "";
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
-      if (errorStatus(error) === 401 && context) {
+      if (errorStatus(error) === 401 && context && token) {
         clearOrderingMemberToken(context.merchant_id);
         setToken("");
         setMember(null);
@@ -732,6 +732,7 @@ function QrOrderingView({ code }: { code: string }) {
   }
 
   const showJoin = !member || !token;
+  const membershipRequired = (Boolean(context.require_member) || context.qr.purpose === "member_only") && showJoin;
   const showTableInput = orderType === "dine_in" && !context.qr.table_label;
   const directMenu = context.qr.purpose !== "member_only";
   const generalOrderingEntry = context.qr.purpose === "member_order" && !context.qr.table_label;
@@ -898,7 +899,7 @@ function QrOrderingView({ code }: { code: string }) {
         </section>
       )}
 
-      {showJoin && !directMenu ? memberAuthCard() : context.qr.purpose === "member_only" ? (
+      {membershipRequired && !directMenu ? memberAuthCard() : context.qr.purpose === "member_only" ? (
         <section className="ordering-center-card ordering-success-card">
           <Check size={52} weight="bold" />
           <h2>會員加入完成</h2>
@@ -1106,22 +1107,22 @@ function QrOrderingView({ code }: { code: string }) {
               ))
             )}
           </section>
-          {showJoin && directMenu && memberAuthCard(true)}
+          {membershipRequired && directMenu && memberAuthCard(true)}
         </>
       )}
 
-      {cartCount > 0 && (!showJoin || directMenu) && (
+      {cartCount > 0 && (!membershipRequired || directMenu) && (
         <button
           type="button"
           className="ordering-cart-bar"
           onClick={() => {
-            if (showJoin) { setResumeCartAfterAuth(true); joinRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
+            if (membershipRequired) { setResumeCartAfterAuth(true); joinRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
             else setCartOpen(true);
           }}
         >
           <span>
             <ShoppingCart weight="fill" />
-            <b>{cartCount}</b> {showJoin ? "加入會員後結帳" : "查看購物車"}
+            <b>{cartCount}</b> {membershipRequired ? "加入會員後結帳" : "查看購物車"}
           </span>
           <strong>{money(subtotal, context.currency)}</strong>
         </button>

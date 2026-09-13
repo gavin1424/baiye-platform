@@ -513,7 +513,7 @@ async function handleMemberLogout(request, env, context, cors) {
 async function orderWithItems(db, merchantId, membershipId, orderCodeValue) {
   const row = await db.prepare(`
     SELECT * FROM merchant_food_orders
-    WHERE merchant_id=? AND membership_id=? AND order_code=? AND demo_reset_at IS NULL
+    WHERE merchant_id=? AND membership_id IS ? AND order_code=? AND demo_reset_at IS NULL
     LIMIT 1
   `).bind(merchantId, membershipId, clean(orderCodeValue, 40)).first();
   if (!row) return null;
@@ -748,7 +748,8 @@ async function handleCreateOrder(request, env, db, context, cors) {
   }
   if (!await publicRateLimit(db, request, context.merchant_id, "create_order", 20)) return json({ error: "送單過於頻繁，請稍後再試。" }, 429, cors);
   const session = await memberSession(db, request, context.merchant_id);
-  if (!session) return json({ error: "會員登入已失效，請重新掃描 QR Code 加入會員。", code: "MEMBER_REQUIRED" }, 401, cors);
+  if (!session && Number(context.require_member) === 1) return json({ error: "此商家目前僅開放會員點餐。", code: "MEMBER_REQUIRED" }, 401, cors);
+  const membershipId = session?.membership_id || null;
   const input = await request.json();
   if (clean(input?.coupon_id, 120)) return json({ error: "會員優惠券功能已停用。", code: "COUPON_FEATURE_DISABLED" }, 409, cors);
   const orderType = resolveOrderType(context, input?.order_type);
@@ -773,9 +774,9 @@ async function handleCreateOrder(request, env, db, context, cors) {
   const idempotencyKey = clean(request.headers.get("idempotency-key") || input?.idempotency_key, 80);
   if (!/^[A-Za-z0-9._:-]{8,80}$/.test(idempotencyKey)) return json({ error: "訂單識別碼格式不正確，請重新送出。" }, 400, cors);
 
-  const existing = await db.prepare(`SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id=? AND idempotency_key=? AND demo_reset_at IS NULL LIMIT 1`).bind(context.merchant_id, session.membership_id, idempotencyKey).first();
+  const existing = await db.prepare(`SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id IS ? AND idempotency_key=? AND demo_reset_at IS NULL LIMIT 1`).bind(context.merchant_id, membershipId, idempotencyKey).first();
   if (existing) {
-    const order = await orderWithItems(db, context.merchant_id, session.membership_id, existing.order_code);
+    const order = await orderWithItems(db, context.merchant_id, membershipId, existing.order_code);
     return json({ message: "訂單已建立。", order, replayed: true }, 200, cors);
   }
 
@@ -814,12 +815,14 @@ async function handleCreateOrder(request, env, db, context, cors) {
     const dining = await db.prepare("SELECT id FROM merchant_dining_sessions WHERE merchant_id=? AND table_label=? AND status='open' LIMIT 1").bind(context.merchant_id, tableLabel).first();
     diningSessionId = dining?.id || null;
   }
-  let couponPricing;
-  try {
-    couponPricing = await prepareCouponForOrder(db, { merchantId: context.merchant_id, membershipId: session.membership_id, couponId: clean(input?.coupon_id, 120), gross: calculation.subtotal_minor, orderId, idempotencyKey });
-  } catch (error) {
-    const messages = { COUPON_NOT_AVAILABLE: "此禮券目前無法使用。", COUPON_MINIMUM_NOT_MET: "此訂單尚未達到禮券最低消費。", PHONE_VERIFICATION_REQUIRED: "請先完成手機驗證再使用禮券。" };
-    return json({ error: messages[error instanceof Error ? error.message : ""] || "禮券驗證失敗。" }, 409, cors);
+  let couponPricing = { discount: 0, couponId: null, statements: [] };
+  if (membershipId) {
+    try {
+      couponPricing = await prepareCouponForOrder(db, { merchantId: context.merchant_id, membershipId, couponId: clean(input?.coupon_id, 120), gross: calculation.subtotal_minor, orderId, idempotencyKey });
+    } catch (error) {
+      const messages = { COUPON_NOT_AVAILABLE: "此禮券目前無法使用。", COUPON_MINIMUM_NOT_MET: "此訂單尚未達到禮券最低消費。", PHONE_VERIFICATION_REQUIRED: "請先完成手機驗證再使用禮券。" };
+      return json({ error: messages[error instanceof Error ? error.message : ""] || "禮券驗證失敗。" }, 409, cors);
+    }
   }
   // Queue one original kitchen task per enabled printer. If the migration is
   // being rolled out immediately before this Worker version, the compatibility
@@ -846,14 +849,14 @@ async function handleCreateOrder(request, env, db, context, cors) {
         (id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,line_context_id)
       VALUES (?,?,?,?,?,?,?,?,'unpaid','counter','counter',?,?,?,?,?,?)
     `).bind(
-      orderId, code, context.merchant_id, session.membership_id, context.id, tableLabel,
+      orderId, code, context.merchant_id, membershipId, context.id, tableLabel,
       orderType, initialStatus, calculation.subtotal_minor, calculation.total_minor, clean(input?.customer_note, 500) || null, idempotencyKey, diningSessionId, lineContext.id,
     ) : db.prepare(`
       INSERT INTO merchant_food_orders
         (id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id)
       VALUES (?,?,?,?,?,?,?,?,'unpaid','counter','counter',?,?,?,?,?)
     `).bind(
-      orderId, code, context.merchant_id, session.membership_id, context.id, tableLabel,
+      orderId, code, context.merchant_id, membershipId, context.id, tableLabel,
       orderType, initialStatus, calculation.subtotal_minor, calculation.total_minor, clean(input?.customer_note, 500) || null, idempotencyKey, diningSessionId,
     );
   const statements = [
@@ -866,7 +869,7 @@ async function handleCreateOrder(request, env, db, context, cors) {
       VALUES (?,?,?,?,?,?,?,?,?,?,?)
     `).bind(line.order_item_id, orderId, line.menu_item_id, line.name_snapshot, line.unit_price_minor, line.quantity, line.line_total_minor, line.note, line.base_price_minor, line.option_delta_minor, line.unit_total_minor);
     }),
-    ...deductionStatements(db, context.merchant_id, orderId, calculation.lines, session.membership_id),
+    ...deductionStatements(db, context.merchant_id, orderId, calculation.lines, membershipId || lineContext?.id || "guest"),
     ...calculation.lines.flatMap((line) => line.options.map((option) => db.prepare(`
       INSERT INTO merchant_food_order_item_options
         (id,merchant_id,order_id,order_item_id,option_group_id,option_value_id,group_name_snapshot,value_name_snapshot,price_delta_minor)
@@ -881,12 +884,12 @@ async function handleCreateOrder(request, env, db, context, cors) {
     ...(lineContext ? [db.prepare("UPDATE merchant_line_ordering_sessions SET status='ordered',last_order_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status='active'").bind(orderId, lineContext.id, context.merchant_id)] : []),
     ...couponPricing.statements,
     db.prepare(`INSERT INTO merchant_order_pricing(order_id,merchant_id,gross_subtotal_minor,coupon_discount_minor,payable_total_minor,coupon_id,merchant_funded_minor,platform_funded_minor) VALUES(?,?,?,?,?,?,?,0)`).bind(orderId, context.merchant_id, calculation.subtotal_minor, couponPricing.discount, Math.max(calculation.subtotal_minor - couponPricing.discount, 0), couponPricing.couponId, couponPricing.discount),
-    db.prepare(`UPDATE merchant_ordering_memberships SET order_count=order_count+1,last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?`).bind(context.merchant_id, session.membership_id),
+    ...(membershipId ? [db.prepare(`UPDATE merchant_ordering_memberships SET order_count=order_count+1,last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?`).bind(context.merchant_id, membershipId)] : []),
     db.prepare(`
       INSERT INTO merchant_ordering_audit_logs
         (id,merchant_id,actor_type,actor_id,action,resource_type,resource_id,metadata)
       VALUES (?,?,?,?,?,?,?,?)
-    `).bind(uid("ordaudit"), context.merchant_id, "customer", session.membership_id, "order_submitted", "order", orderId, JSON.stringify({ qr_id: context.id, order_type: orderType, line_context_id: lineContext?.id || null })),
+    `).bind(uid("ordaudit"), context.merchant_id, "customer", membershipId || lineContext?.id || "guest", "order_submitted", "order", orderId, JSON.stringify({ qr_id: context.id, order_type: orderType, line_context_id: lineContext?.id || null, guest: !membershipId })),
     db.prepare(`INSERT INTO merchant_order_events(event_id,merchant_id,event_type,order_id,order_code,table_label,status,payment_status,item_count,total_minor)
       VALUES(?,?,'order_created',?,?,?,?,?,?,?)`).bind(uid("ordevt"), context.merchant_id, orderId, code, tableLabel, initialStatus, "unpaid", calculation.lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0), calculation.total_minor),
     ...(printerResult.results || []).map((printer) => db.prepare(`
@@ -899,9 +902,9 @@ async function handleCreateOrder(request, env, db, context, cors) {
   try {
     await db.batch(statements);
   } catch (error) {
-    const replay = await db.prepare(`SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id=? AND idempotency_key=? AND demo_reset_at IS NULL LIMIT 1`).bind(context.merchant_id, session.membership_id, idempotencyKey).first();
+    const replay = await db.prepare(`SELECT order_code FROM merchant_food_orders WHERE merchant_id=? AND membership_id IS ? AND idempotency_key=? AND demo_reset_at IS NULL LIMIT 1`).bind(context.merchant_id, membershipId, idempotencyKey).first();
     if (replay) {
-      const order = await orderWithItems(db, context.merchant_id, session.membership_id, replay.order_code);
+      const order = await orderWithItems(db, context.merchant_id, membershipId, replay.order_code);
       return json({ message: "訂單已建立。", order, replayed: true }, 200, cors);
     }
     const detail = String(error instanceof Error ? error.message : error);
@@ -910,7 +913,7 @@ async function handleCreateOrder(request, env, db, context, cors) {
     throw error;
   }
 
-  const order = await orderWithItems(db, context.merchant_id, session.membership_id, code);
+  const order = await orderWithItems(db, context.merchant_id, membershipId, code);
   const createdEvent = await db.prepare("SELECT * FROM merchant_order_events WHERE merchant_id=? AND order_id=? AND event_type='order_created'").bind(context.merchant_id, orderId).first();
   await publishMerchantOrderEvent(env, context.merchant_id, createdEvent).catch(() => {});
   return json({ message: "訂單已送出，請留意店家處理狀態。", order, replayed: false }, 201, cors);
@@ -1042,8 +1045,8 @@ async function adminOverview(db, merchantId) {
     db.prepare(`
       SELECT o.*,c.display_name customer_name,c.phone_normalized,f.source order_source,f.scheduled_for,f.pickup_number,f.fulfillment_status
       FROM merchant_food_orders o
-      JOIN merchant_ordering_memberships m ON m.merchant_id=o.merchant_id AND m.id=o.membership_id
-      JOIN ordering_customers c ON c.id=m.customer_id
+      LEFT JOIN merchant_ordering_memberships m ON m.merchant_id=o.merchant_id AND m.id=o.membership_id
+      LEFT JOIN ordering_customers c ON c.id=m.customer_id
       LEFT JOIN merchant_order_fulfillment f ON f.merchant_id=o.merchant_id AND f.order_id=o.id
       WHERE o.merchant_id=? AND o.demo_reset_at IS NULL ORDER BY datetime(o.created_at) DESC LIMIT 200
     `).bind(merchantId).all(),
@@ -1115,8 +1118,8 @@ async function adminOverview(db, merchantId) {
     dining_sessions: sessions.results || [],
     orders: orderRows.map((row) => ({
       ...publicOrder(row, itemsByOrder.get(row.id) || []),
-      customer_name: row.customer_name,
-      phone_masked: maskPhone(row.phone_normalized),
+      customer_name: row.customer_name || "現場訪客",
+      phone_masked: row.phone_normalized ? maskPhone(row.phone_normalized) : "",
     })),
     summary: {
       active_members: Number(memberCount?.total || 0),

@@ -113,6 +113,17 @@ async function establishLineContext(config: LiffConfig) {
   saveLineOrderingContext(config.qr.code, session.context_id);
 }
 
+async function enterOrderingWithOptionalLineIdentity(config: LiffConfig) {
+  try {
+    await establishLineContext(config);
+  } catch (error) {
+    if (retryLineLoginOnce(config.qr.code, error)) return;
+    // LINE identity enriches the order when available, but a verified secure
+    // table QR remains sufficient for guest ordering.
+  }
+  enterOrdering(config.qr.code);
+}
+
 export function LineLiffOrderingEntryPage() {
   const [phase, setPhase] = useState<"loading" | "friend" | "error">("loading");
   const [config, setConfig] = useState<LiffConfig | null>(null);
@@ -144,13 +155,7 @@ export function LineLiffOrderingEntryPage() {
       const friendship = await liff.getFriendship();
       if (friendship.friendFlag) {
         setMessage(`已加入好友，正在開啟 ${next.qr.table_label || "桌邊"} 菜單…`);
-        try {
-          await establishLineContext(next);
-        } catch (error) {
-          if (retryLineLoginOnce(next.qr.code, error)) return;
-          throw error;
-        }
-        enterOrdering(next.qr.code);
+        await enterOrderingWithOptionalLineIdentity(next);
         return;
       }
       setPhase("friend");
@@ -180,13 +185,7 @@ export function LineLiffOrderingEntryPage() {
         return;
       }
       setMessage(`加好友完成，正在開啟 ${config.qr.table_label || "桌邊"} 菜單…`);
-      try {
-        await establishLineContext(config);
-      } catch (error) {
-        if (retryLineLoginOnce(config.qr.code, error)) return;
-        throw error;
-      }
-      enterOrdering(config.qr.code);
+      await enterOrderingWithOptionalLineIdentity(config);
     } catch (error) {
       setPhase("friend");
       setMessage(error instanceof Error ? error.message : "無法開啟加好友視窗，請稍後再試。");
