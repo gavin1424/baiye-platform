@@ -9,7 +9,6 @@ import {
   Receipt,
   ShoppingCart,
   Storefront,
-  Users,
   X,
 } from "@phosphor-icons/react";
 import {
@@ -18,13 +17,11 @@ import {
   useMemo,
   useRef,
   useState,
-  type FormEvent,
 } from "react";
 import { Link, useParams } from "react-router-dom";
 import { PlatformLogo } from "../components";
 import {
   clearOrderingMemberToken,
-  clearPlatformMemberToken,
   clearOrderingLastOrder,
   getOrderingLastOrder,
   getOrderingMemberToken,
@@ -44,7 +41,6 @@ import {
   type OrderingCategory,
   type OrderingContext,
   type OrderingDeliveryLink,
-  type OrderingMember,
   type OrderingMenuItem,
   type OrderingOptionGroup,
   type OrderingOptionValue,
@@ -131,7 +127,6 @@ export function QrOrderingPage() {
 
 function QrOrderingView({ code }: { code: string }) {
   const [context, setContext] = useState<OrderingContext | null>(null);
-  const [member, setMember] = useState<OrderingMember | null>(null);
   const [token, setToken] = useState("");
   const [categories, setCategories] = useState<OrderingCategory[]>([]);
   const [items, setItems] = useState<OrderingMenuItem[]>([]);
@@ -163,17 +158,6 @@ function QrOrderingView({ code }: { code: string }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
-  const [joinForm, setJoinForm] = useState({
-    phone: "",
-    password: "",
-    password_confirm: "",
-    consent: false,
-  });
-  const [loginForm, setLoginForm] = useState({ phone: "", password: "", consent: false });
-  const [authTab, setAuthTab] = useState<"join" | "login">("join");
-  const [memberPasswordSet, setMemberPasswordSet] = useState<boolean | null>(null);
-  const [memberPasswordForm, setMemberPasswordForm] = useState({ password: "", password_confirm: "" });
-  const [resumeCartAfterAuth, setResumeCartAfterAuth] = useState(false);
   const [orderType, setOrderType] = useState<OrderingOrderType>("dine_in");
   const [tableLabel, setTableLabel] = useState("");
   const [customerNote, setCustomerNote] = useState("");
@@ -186,7 +170,6 @@ function QrOrderingView({ code }: { code: string }) {
   const [lineCheckoutSkipped, setLineCheckoutSkipped] = useState(false);
   const [demoAdministrator, setDemoAdministrator] = useState(false);
   const pendingOrderKey = useRef("");
-  const joinRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!IS_BEEF_NOODLE_DEMO) return;
@@ -226,8 +209,6 @@ function QrOrderingView({ code }: { code: string }) {
       setOptionGroups(data.option_groups || []);
       setOptionValues(data.option_values || []);
       setItemOptionGroups(data.item_option_groups || []);
-      if (data.member) setMember(data.member);
-      if (data.member) setMemberPasswordSet(Boolean(data.member_password_set));
     },
     [code],
   );
@@ -236,8 +217,6 @@ function QrOrderingView({ code }: { code: string }) {
     setLoading(true);
     setMessage("");
     setContext(null);
-    setMember(null);
-    setMemberPasswordSet(null);
     setToken("");
     setOrder(null);
     setCategories([]);
@@ -259,8 +238,6 @@ function QrOrderingView({ code }: { code: string }) {
       );
       const ctx = data.context;
       setContext(ctx);
-      setMember(data.member);
-      if (data.member) setMemberPasswordSet(Boolean(data.member_password_set));
       setTableLabel(ctx.qr.table_label || "");
       if (ctx.qr.purpose === "takeaway") setOrderType("takeaway");
       else if (ctx.qr.purpose === "dine_in") setOrderType("dine_in");
@@ -303,7 +280,6 @@ function QrOrderingView({ code }: { code: string }) {
           if (errorStatus(error) === 401) {
             clearOrderingMemberToken(ctx.merchant_id);
             setToken("");
-            setMember(null);
           } else {
             throw error;
           }
@@ -311,7 +287,6 @@ function QrOrderingView({ code }: { code: string }) {
       } else {
         try {
           const reused = await orderingPublicApi<{
-            member: OrderingMember;
             session: { token: string; expires_at: string };
             platform_session?: { token: string; expires_at: string } | null;
             member_password_set: boolean;
@@ -319,9 +294,7 @@ function QrOrderingView({ code }: { code: string }) {
             method: "POST",
             headers: { "x-platform-member-token": getPlatformMemberToken(), "x-device-id": getPlatformDeviceId() },
           });
-          setMember(reused.member);
           setToken(reused.session.token);
-          setMemberPasswordSet(reused.member_password_set);
           saveOrderingMemberToken(ctx.merchant_id, reused.session.token);
           if (reused.platform_session?.token) savePlatformMemberToken(reused.platform_session.token);
           await loadMenu(ctx, reused.session.token);
@@ -477,125 +450,6 @@ function QrOrderingView({ code }: { code: string }) {
     });
   };
 
-  const join = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!context) return;
-    setSubmitting(true);
-    setMessage("");
-    try {
-      const data = await orderingPublicApi<{
-        member: OrderingMember;
-        session: { token: string; expires_at: string };
-        message: string;
-        platform_session?: { token: string; expires_at: string } | null;
-        welcome?: { show: boolean; title?: string; message?: string };
-      }>(`/api/ordering/qr/${encodeURIComponent(code)}/join`, {
-        method: "POST",
-        headers: {
-          "x-platform-member-token": getPlatformMemberToken(),
-          "x-device-id": getPlatformDeviceId(),
-        },
-        body: JSON.stringify({
-          phone: joinForm.phone,
-          password: joinForm.password,
-          password_confirm: joinForm.password_confirm,
-          privacy_consent: joinForm.consent,
-          consent_version: context.consent_version,
-          device_id: getPlatformDeviceId(),
-        }),
-      });
-      setMember(data.member);
-      setToken(data.session.token);
-      saveOrderingMemberToken(context.merchant_id, data.session.token);
-      if (data.platform_session?.token) savePlatformMemberToken(data.platform_session.token);
-      setMemberPasswordSet(true);
-      setMessage(data.welcome?.show ? `${data.welcome.title} ${data.welcome.message}` : "會員登入成功");
-      await loadBenefits(data.session.token);
-      if (context.qr.purpose !== "member_only")
-        await loadMenu(context, data.session.token);
-      if (resumeCartAfterAuth && cartCount > 0) setCartOpen(true);
-      setResumeCartAfterAuth(false);
-    } catch (error) {
-      setMessage(errorMessage(error));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const login = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!context) return;
-    setSubmitting(true);
-    setMessage("");
-    try {
-      const data = await orderingPublicApi<{
-        member: OrderingMember;
-        session: { token: string; expires_at: string };
-        platform_session: { token: string; expires_at: string };
-      }>(`/api/ordering/qr/${encodeURIComponent(code)}/login`, {
-        method: "POST",
-        headers: { "x-device-id": getPlatformDeviceId() },
-        body: JSON.stringify({ ...loginForm, merchant_consent: loginForm.consent, device_id: getPlatformDeviceId() }),
-      });
-      setMember(data.member);
-      setToken(data.session.token);
-      setMemberPasswordSet(true);
-      saveOrderingMemberToken(context.merchant_id, data.session.token);
-      savePlatformMemberToken(data.platform_session.token);
-      setMessage("會員登入成功");
-      await loadMenu(context, data.session.token);
-      await loadBenefits(data.session.token);
-      if (resumeCartAfterAuth && cartCount > 0) setCartOpen(true);
-      setResumeCartAfterAuth(false);
-    } catch (error) {
-      setMessage(errorMessage(error));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const setMemberPassword = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!context || !token) return;
-    setSubmitting(true);
-    setMessage("");
-    try {
-      await orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/member-password`, {
-        method: "POST",
-        headers: { "x-platform-member-token": getPlatformMemberToken() },
-        body: JSON.stringify(memberPasswordForm),
-      }, token);
-      setMemberPasswordSet(true);
-      setMemberPasswordForm({ password: "", password_confirm: "" });
-      setMessage("會員登入密碼設定完成。");
-    } catch (error) {
-      setMessage(errorMessage(error));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const logoutMember = async () => {
-    if (!context) return;
-    setSubmitting(true);
-    try {
-      if (token) await orderingPublicApi(`/api/ordering/qr/${encodeURIComponent(code)}/logout`, {
-        method: "POST",
-        headers: { "x-platform-member-token": getPlatformMemberToken() },
-      }, token);
-    } catch {
-      // Local logout still completes when the previous session is already expired.
-    } finally {
-      clearOrderingMemberToken(context.merchant_id);
-      clearPlatformMemberToken();
-      setToken("");
-      setMember(null);
-      setMemberPasswordSet(null);
-      setMessage("已登出會員。");
-      setSubmitting(false);
-    }
-  };
-
   const recordLineClick = (source: "menu_banner" | "checkout_reminder" | "order_success") => {
     if (!context?.line?.configured) return;
     saveOrderingLineClicked(code);
@@ -681,7 +535,6 @@ function QrOrderingView({ code }: { code: string }) {
       if (errorStatus(error) === 401 && context && token) {
         clearOrderingMemberToken(context.merchant_id);
         setToken("");
-        setMember(null);
       }
       if (errorStatus(error) === 409 && (error as { code?: string })?.code === "INVENTORY_INSUFFICIENT") await loadMenu(context, token).catch(() => undefined);
       setMessage(errorMessage(error));
@@ -731,10 +584,7 @@ function QrOrderingView({ code }: { code: string }) {
     );
   }
 
-  const showJoin = !member || !token;
-  const membershipRequired = (Boolean(context.require_member) || context.qr.purpose === "member_only") && showJoin;
   const showTableInput = orderType === "dine_in" && !context.qr.table_label;
-  const directMenu = context.qr.purpose !== "member_only";
   const generalOrderingEntry = context.qr.purpose === "member_order" && !context.qr.table_label;
   const officialProductionDemo = context.merchant_id === "demo_beef_noodle";
   const storefrontMode = Boolean(context.storefront_url) || IS_BEEF_NOODLE_DEMO;
@@ -747,30 +597,6 @@ function QrOrderingView({ code }: { code: string }) {
       : context.qr.purpose === "takeaway"
       ? "外帶｜手機點餐"
       : `${(context.qr.table_label || context.qr.label).endsWith("桌") ? (context.qr.table_label || context.qr.label) : `${context.qr.table_label || context.qr.label} 桌`}｜手機點餐`;
-
-  const memberAuthCard = (afterMenu = false) => (
-    <section className={`ordering-join-card ${afterMenu ? "ordering-join-after-menu" : ""}`} ref={afterMenu ? joinRef : undefined}>
-      <div className="ordering-section-heading"><Users weight="duotone" /><div><span>手機點餐</span><h2>加入會員後即可送出訂單</h2><p>加入會員後即可查看菜單、送出訂單並追蹤出餐進度。</p></div></div>
-      <div className="ordering-auth-tabs" role="tablist" aria-label="會員操作">
-        <button type="button" role="tab" aria-selected={authTab === "join"} className={authTab === "join" ? "active" : ""} onClick={() => setAuthTab("join")}>新會員加入</button>
-        <button type="button" role="tab" aria-selected={authTab === "login"} className={authTab === "login" ? "active" : ""} onClick={() => setAuthTab("login")}>已有會員登入</button>
-      </div>
-      {authTab === "join" ? <form onSubmit={join} className="ordering-form-grid">
-        <p className="ordering-auth-copy ordering-form-wide">第一次來嗎？用手機建立會員即可開始點餐。</p>
-        <label>手機號碼<input required inputMode="tel" autoComplete="tel" value={joinForm.phone} onChange={(event) => setJoinForm({ ...joinForm, phone: event.target.value })} placeholder="09xxxxxxxx" /></label>
-        <label>設定 8 位數字會員密碼<input required type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={joinForm.password} onChange={(event) => setJoinForm({ ...joinForm, password: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-        <label>再次確認會員密碼<input required type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={joinForm.password_confirm} onChange={(event) => setJoinForm({ ...joinForm, password_confirm: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-        <label className="ordering-consent ordering-form-wide"><input type="checkbox" checked={joinForm.consent} onChange={(event) => setJoinForm({ ...joinForm, consent: event.target.checked })} /><span>我已閱讀並同意會員服務與<Link to="/privacy">隱私權政策</Link>。</span></label>
-        <button className="btn btn-primary btn-lg ordering-form-wide" type="submit" disabled={submitting}>{submitting ? "正在加入…" : "加入會員並開始點餐"}</button>
-      </form> : <form onSubmit={login} className="ordering-form-grid">
-        <p className="ordering-auth-copy ordering-form-wide">已經加入過？輸入手機與會員密碼即可登入。</p>
-        <label>手機號碼<input required inputMode="tel" autoComplete="tel" value={loginForm.phone} onChange={(event) => setLoginForm({ ...loginForm, phone: event.target.value })} placeholder="09xxxxxxxx" /></label>
-        <label>8 位數字會員密碼<input required type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-        <label className="ordering-consent ordering-form-wide"><input type="checkbox" checked={loginForm.consent} onChange={(event) => setLoginForm({ ...loginForm, consent: event.target.checked })} /><span>我同意加入此店會員，並接受<Link to="/privacy">隱私權政策</Link>。</span></label>
-        <button className="btn btn-primary btn-lg ordering-form-wide" type="submit" disabled={submitting}>{submitting ? "正在登入…" : "會員登入並開始點餐"}</button>
-      </form>}
-    </section>
-  );
 
   return (
     <main className="ordering-page">
@@ -790,10 +616,6 @@ function QrOrderingView({ code }: { code: string }) {
             {!storefrontMode && <Link className="btn btn-outline ordering-rescan" to="/scan"><QrCode />{generalOrderingEntry ? "返回點餐入口" : "改用線上點餐"}</Link>}
           </div>
         </div>
-        {member && <div className="ordering-member-tools">
-          <div className="ordering-member-chip ordering-member-chip-compact"><Check weight="bold" /><span><strong>已登入會員</strong><small>{member.phone_masked}</small></span></div>
-          <button className="btn btn-ghost" type="button" onClick={() => void logoutMember()} disabled={submitting}>登出會員</button>
-        </div>}
         {IS_BEEF_NOODLE_DEMO && demoAdministrator && <Link className="btn btn-outline ordering-admin-return" to="/merchant/dashboard">返回管理中心</Link>}
       </section>
 
@@ -815,15 +637,6 @@ function QrOrderingView({ code }: { code: string }) {
           {message}
         </div>
       )}
-
-      {member && memberPasswordSet === false && <section className="ordering-join-card ordering-member-password-card">
-        <div className="ordering-section-heading"><Users weight="duotone" /><div><span>您已經是會員</span><h2>設定會員登入密碼</h2><p>設定後可在其他裝置使用手機號碼與會員密碼登入。</p></div></div>
-        <form className="ordering-form-grid" onSubmit={setMemberPassword}>
-          <label>設定 8 位數字會員密碼<input required type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={memberPasswordForm.password} onChange={(event) => setMemberPasswordForm({ ...memberPasswordForm, password: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-          <label>再次確認會員密碼<input required type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{8}" minLength={8} maxLength={8} value={memberPasswordForm.password_confirm} onChange={(event) => setMemberPasswordForm({ ...memberPasswordForm, password_confirm: event.target.value.replace(/\D/g, "").slice(0, 8) })} /></label>
-          <button className="btn btn-primary ordering-form-wide" disabled={submitting}>設定會員登入密碼</button>
-        </form>
-      </section>}
 
       {order && (
         <section className="ordering-order-status-card">
@@ -899,14 +712,11 @@ function QrOrderingView({ code }: { code: string }) {
         </section>
       )}
 
-      {membershipRequired && !directMenu ? memberAuthCard() : context.qr.purpose === "member_only" ? (
+      {context.qr.purpose === "member_only" ? (
         <section className="ordering-center-card ordering-success-card">
-          <Check size={52} weight="bold" />
-          <h2>會員加入完成</h2>
-          <p>
-            {member?.display_name || "您"}，您已成為「{storefrontName}」快速會員。
-          </p>
-          <small>手機：{member?.phone_masked || ""}</small>
+          <QrCode size={52} weight="duotone" />
+          <h2>請掃描桌上點餐 QR</h2>
+          <p>此連結不提供點餐，請使用桌上 QR 開啟菜單。</p>
         </section>
       ) : (
         <>
@@ -1107,22 +917,18 @@ function QrOrderingView({ code }: { code: string }) {
               ))
             )}
           </section>
-          {membershipRequired && directMenu && memberAuthCard(true)}
         </>
       )}
 
-      {cartCount > 0 && (!membershipRequired || directMenu) && (
+      {cartCount > 0 && context.qr.purpose !== "member_only" && (
         <button
           type="button"
           className="ordering-cart-bar"
-          onClick={() => {
-            if (membershipRequired) { setResumeCartAfterAuth(true); joinRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
-            else setCartOpen(true);
-          }}
+          onClick={() => setCartOpen(true)}
         >
           <span>
             <ShoppingCart weight="fill" />
-            <b>{cartCount}</b> {membershipRequired ? "加入會員後結帳" : "查看購物車"}
+            <b>{cartCount}</b> 查看購物車
           </span>
           <strong>{money(subtotal, context.currency)}</strong>
         </button>

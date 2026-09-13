@@ -748,7 +748,8 @@ async function handleCreateOrder(request, env, db, context, cors) {
   }
   if (!await publicRateLimit(db, request, context.merchant_id, "create_order", 20)) return json({ error: "送單過於頻繁，請稍後再試。" }, 429, cors);
   const session = await memberSession(db, request, context.merchant_id);
-  if (!session && Number(context.require_member) === 1) return json({ error: "此商家目前僅開放會員點餐。", code: "MEMBER_REQUIRED" }, 401, cors);
+  // Public ordering QR codes are valid guest checkout credentials. Membership
+  // may enrich an order, but it must never be required to create one.
   const membershipId = session?.membership_id || null;
   const input = await request.json();
   if (clean(input?.coupon_id, 120)) return json({ error: "會員優惠券功能已停用。", code: "COUPON_FEATURE_DISABLED" }, 409, cors);
