@@ -1,4 +1,4 @@
-# 點餐靈 Launcher Icon 2.1.1
+# 免pos機智慧點餐 Launcher Icon 2.1.1
 
 ## Scope
 
@@ -14,7 +14,7 @@ remains legible at launcher size.
 
 The image-generation prompt used for the source artwork was:
 
-> Create a polished square mobile app icon asset based on the attached reference for the Taiwanese restaurant SaaS app 點餐靈. Preserve the recognizable concept: a deep teal dining bowl, two rising steam shapes, a pair of warm amber chopsticks, and a white fingertip tapping a circular touch target on the front of the bowl. Remove all words, letters, captions, borders, drop shadows, mockup frame, and background. Use clean modern vector-like geometry, strong silhouettes, minimal subtle highlights, no tiny details. Center the entire symbol with generous transparent padding so every important element stays within the Android adaptive icon safe zone under circle, rounded-square, and squircle masks. Output a single isolated foreground symbol on a truly transparent alpha background, 1024x1024 PNG, no checkerboard pattern baked into the image.
+> Create a polished square mobile app icon asset based on the attached reference for the Taiwanese restaurant SaaS app 免pos機智慧點餐. Preserve the recognizable concept: a deep teal dining bowl, two rising steam shapes, a pair of warm amber chopsticks, and a white fingertip tapping a circular touch target on the front of the bowl. Remove all words, letters, captions, borders, drop shadows, mockup frame, and background. Use clean modern vector-like geometry, strong silhouettes, minimal subtle highlights, no tiny details. Center the entire symbol with generous transparent padding so every important element stays within the Android adaptive icon safe zone under circle, rounded-square, and squircle masks. Output a single isolated foreground symbol on a truly transparent alpha background, 1024x1024 PNG, no checkerboard pattern baked into the image.
 
 Generation mode: built-in image generation. Because the generated PNG encoded a
 checkerboard as RGB rather than alpha, the final foreground alpha and density
@@ -38,7 +38,7 @@ Source and masters:
 ## QA
 
 - Circle, rounded-square, and squircle mask preview: no clipping.
-- Pixel API 37 app drawer: icon and `點餐靈` label displayed at launcher size.
+- Pixel API 37 app drawer: icon and `免pos機智慧點餐` label displayed at launcher size.
 - Light and dark launcher: full-color icon remains readable.
 - Splash screen: centered mark on warm cream, no text or advertising.
 - APK resource inspection: v26/v33 adaptive, round, and monochrome resources are

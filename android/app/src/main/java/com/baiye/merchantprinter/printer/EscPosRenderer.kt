@@ -63,7 +63,7 @@ class EscPosRenderer(private val mode: ChineseRenderMode = ChineseRenderMode.BIT
     fun testReceipt(now: Date = Date()): ByteArray {
         return raster(listOf(
             Line("==============================", 25f, Paint.Align.CENTER, true),
-            Line("點餐靈", 42f, Paint.Align.CENTER, true),
+            Line("免pos機智慧點餐", 42f, Paint.Align.CENTER, true),
             Line("百工牛肉麵", 38f, Paint.Align.CENTER, true),
             Line("==============================", 25f, Paint.Align.CENTER, true),
             Line("", 24f), Line("Xprinter XP-N160II", 30f, Paint.Align.CENTER, true),

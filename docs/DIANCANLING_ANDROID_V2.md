@@ -1,6 +1,8 @@
-# 點餐靈 Android v2
+# 免pos機智慧點餐 Android v2
 
-點餐靈是「創百業智慧餐飲管理系統」的商家主 App。它直接延伸 `baiye-platform` 正式 ordering domain，不另建商家、會員、菜單或訂單資料庫。Android `applicationId` 保留 `com.baiye.merchantprinter`，確保既有安裝可覆蓋升級並保留 Session、印表機設定與本機工作狀態。
+免pos機智慧點餐是「創百業智慧餐飲管理系統」的商家主 App。它直接延伸 `baiye-platform` 正式 ordering domain，不另建商家、會員、菜單或訂單資料庫。Android `applicationId` 保留 `com.baiye.merchantprinter`，確保既有安裝可覆蓋升級並保留 Session、印表機設定與本機工作狀態。
+
+B 方案正式組合：LINE 掃碼點餐＋免pos機智慧點餐＋熱感印表機。
 
 ## 架構
 

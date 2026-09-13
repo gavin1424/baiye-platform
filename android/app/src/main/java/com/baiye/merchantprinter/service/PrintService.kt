@@ -103,7 +103,7 @@ class PrintService : Service() {
         val table = event.table.ifBlank { "外帶" }
         val intent = PendingIntent.getActivity(this, event.orderCode.hashCode(), Intent(this, MainActivity::class.java).putExtra("order_code", event.orderCode), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val message = "$table 新訂單｜${event.itemCount} 項商品"
-        val notification = NotificationCompat.Builder(this, ORDER_CHANNEL_ID).setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("點餐靈・新訂單").setContentText(message).setAutoCancel(true).setContentIntent(intent).setPriority(NotificationCompat.PRIORITY_HIGH).setDefaults(NotificationCompat.DEFAULT_ALL).build()
+        val notification = NotificationCompat.Builder(this, ORDER_CHANNEL_ID).setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("免pos機智慧點餐・新訂單").setContentText(message).setAutoCancel(true).setContentIntent(intent).setPriority(NotificationCompat.PRIORITY_HIGH).setDefaults(NotificationCompat.DEFAULT_ALL).build()
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(event.orderCode.hashCode(), notification)
     }
 
@@ -156,10 +156,10 @@ class PrintService : Service() {
         } catch (_: Exception) { }
     }
 
-    private fun createChannel() { (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).apply { createNotificationChannel(NotificationChannel(CHANNEL_ID, "點餐靈營運服務", NotificationManager.IMPORTANCE_LOW)); createNotificationChannel(NotificationChannel(ORDER_CHANNEL_ID, "點餐靈新訂單", NotificationManager.IMPORTANCE_HIGH).apply { enableVibration(true) }) } }
+    private fun createChannel() { (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).apply { createNotificationChannel(NotificationChannel(CHANNEL_ID, "免pos機智慧點餐營運服務", NotificationManager.IMPORTANCE_LOW)); createNotificationChannel(NotificationChannel(ORDER_CHANNEL_ID, "免pos機智慧點餐新訂單", NotificationManager.IMPORTANCE_HIGH).apply { enableVibration(true) }) } }
     private fun notification(text: String): Notification {
         val intent = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        return NotificationCompat.Builder(this, CHANNEL_ID).setSmallIcon(android.R.drawable.stat_notify_sync).setContentTitle("點餐靈營運服務運作中").setContentText("${store.merchantName().ifBlank { "商家" }} • $text").setOngoing(true).setContentIntent(intent).build()
+        return NotificationCompat.Builder(this, CHANNEL_ID).setSmallIcon(android.R.drawable.stat_notify_sync).setContentTitle("免pos機智慧點餐營運服務運作中").setContentText("${store.merchantName().ifBlank { "商家" }} • $text").setOngoing(true).setContentIntent(intent).build()
     }
     private fun updateNotification(text: String) { (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification(text)) }
 

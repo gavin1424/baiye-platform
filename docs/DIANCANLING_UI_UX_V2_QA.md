@@ -1,4 +1,4 @@
-# 點餐靈 UI／UX 全面修正 V2
+# 免pos機智慧點餐 UI／UX 全面修正 V2
 
 ## Scope
 

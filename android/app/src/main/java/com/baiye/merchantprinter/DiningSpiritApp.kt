@@ -82,7 +82,7 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 private enum class MainTab(val label: String) { HOME("首頁"), ORDERS("訂單"), POS("開單"), MENU("菜單"), MORE("更多") }
-private enum class MorePage(val title: String) { ROOT("更多"), TABLES("桌位與 QR"), KDS("廚房看板"), MEMBERS("會員中心"), REPORTS("營運報表"), STORE("店舖設定"), PRINTER("印表機"), PRINT_HISTORY("列印紀錄"), PROMOTIONS("優惠與折扣"), CALLING("叫號"), STAFF("員工權限"), INTEGRATIONS("整合服務"), ABOUT("關於點餐靈") }
+private enum class MorePage(val title: String) { ROOT("更多"), TABLES("桌位與 QR"), KDS("廚房看板"), MEMBERS("會員中心"), REPORTS("營運報表"), STORE("店舖設定"), PRINTER("印表機"), PRINT_HISTORY("列印紀錄"), PROMOTIONS("優惠與折扣"), CALLING("叫號"), STAFF("員工權限"), INTEGRATIONS("整合服務"), ABOUT("關於免pos機智慧點餐") }
 private enum class OrderingState { ONLINE, OFFLINE, SYNCING }
 private enum class ReportsState { FRESH, STALE, ERROR }
 private val activeOrderStatuses = setOf("submitted", "accepted", "preparing", "ready", "served")
@@ -107,7 +107,7 @@ fun DiningSpiritApp(store: LocalStore, api: MerchantApi) {
 @Composable private fun SpiritLogin(api: MerchantApi,onSuccess:()->Unit) {
     var phone by remember{mutableStateOf("")}; var password by remember{mutableStateOf("")}; var busy by remember{mutableStateOf(false)}; var error by remember{mutableStateOf("")}; var selection by remember{mutableStateOf("")}; var merchants by remember{mutableStateOf(emptyList<Pair<String,String>>())}; val scope=rememberCoroutineScope()
     Surface(Modifier.fillMaxSize().testTag("login-screen")) { Box(Modifier.fillMaxSize().padding(28.dp),contentAlignment=Alignment.Center) { Card(Modifier.widthIn(max=480.dp)) { Column(Modifier.padding(28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Text("點餐靈",fontSize=40.sp,fontWeight=FontWeight.Black,color=MaterialTheme.colorScheme.primary); Text("創百業智慧餐飲管理系統",fontSize=18.sp,fontWeight=FontWeight.SemiBold); Text("登入後開始管理今天的訂單",color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("免pos機智慧點餐",fontSize=32.sp,fontWeight=FontWeight.Black,color=MaterialTheme.colorScheme.primary,maxLines=1,overflow=TextOverflow.Ellipsis); Text("創百業智慧餐飲管理系統",fontSize=18.sp,fontWeight=FontWeight.SemiBold); Text("登入後開始管理今天的訂單",color=MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(phone,{phone=it.filter(Char::isDigit).take(10)},label={Text("手機號碼")},singleLine=true,modifier=Modifier.fillMaxWidth().testTag("login-phone"))
         OutlinedTextField(password,{password=it.filter(Char::isDigit).take(8)},label={Text("8 位數字密碼")},singleLine=true,visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth().testTag("login-password"))
         Button({busy=true;error="";scope.launch{try{withContext(Dispatchers.IO){api.login(phone,password)};onSuccess()}catch(e:MerchantSelectionRequired){selection=e.selectionToken;merchants=e.merchants}catch(e:Exception){error=e.message?:"登入未完成，請稍後再試。"}finally{busy=false}}},enabled=!busy&&phone.length>=10&&password.length==8,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).testTag("login-submit")){Text(if(busy)"正在登入…" else "登入")}
@@ -118,7 +118,7 @@ fun DiningSpiritApp(store: LocalStore, api: MerchantApi) {
 
 @Composable private fun Onboarding(store:LocalStore,onDone:()->Unit) {
     val steps=listOf("確認商店資料" to "確認名稱、地址與聯絡資訊","建立菜單" to "設定分類、商品、規格與售價","建立桌號 QR" to "每桌使用不可猜測的安全點餐碼","設定 XP-N160II" to "輸入區域網路 IP 與 Port","測試訂單" to "確認接單、廚房單與切紙流程"); var step by remember{mutableIntStateOf(0)}
-    Surface(Modifier.fillMaxSize()) { Column(Modifier.padding(28.dp).fillMaxSize(),verticalArrangement=Arrangement.Center) { Text("點餐靈開店導覽",fontSize=30.sp,fontWeight=FontWeight.Bold); LinearProgressIndicator({(step+1)/steps.size.toFloat()},Modifier.fillMaxWidth().padding(vertical=20.dp)); Text("Step ${step+1}",color=MaterialTheme.colorScheme.primary); Text(steps[step].first,fontSize=28.sp,fontWeight=FontWeight.Bold); Text(steps[step].second,Modifier.padding(vertical=12.dp),color=MaterialTheme.colorScheme.onSurfaceVariant); Button({if(step<steps.lastIndex)step++ else onDone()},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(if(step==steps.lastIndex)"點餐靈已準備完成" else "下一步")}; if(step>0)TextButton({step--},Modifier.fillMaxWidth()){Text("上一步")} } }
+    Surface(Modifier.fillMaxSize()) { Column(Modifier.padding(28.dp).fillMaxSize(),verticalArrangement=Arrangement.Center) { Text("免pos機智慧點餐開店導覽",fontSize=28.sp,fontWeight=FontWeight.Bold); LinearProgressIndicator({(step+1)/steps.size.toFloat()},Modifier.fillMaxWidth().padding(vertical=20.dp)); Text("Step ${step+1}",color=MaterialTheme.colorScheme.primary); Text(steps[step].first,fontSize=28.sp,fontWeight=FontWeight.Bold); Text(steps[step].second,Modifier.padding(vertical=12.dp),color=MaterialTheme.colorScheme.onSurfaceVariant); Button({if(step<steps.lastIndex)step++ else onDone()},Modifier.fillMaxWidth().heightIn(min=52.dp)){Text(if(step==steps.lastIndex)"免pos機智慧點餐已準備完成" else "下一步")}; if(step>0)TextButton({step--},Modifier.fillMaxWidth()){Text("上一步")} } }
 }
 
 @Composable
@@ -282,10 +282,10 @@ private fun TopBrand(merchant: String, ordering: OrderingState, pending: Int, re
                     }
                 }
                 if (stacked) {
-                    Text("點餐靈", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("免pos機智慧點餐", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) { status() }
                 } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("點餐靈", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                    Text("免pos機智慧點餐", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     status()
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -458,7 +458,7 @@ private fun OrderDetail(order: JSONObject, api: MerchantApi, oneTapMode: Boolean
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    if (confirmCash) api.confirmPayment(order.text("order_code"), "cash", "pay-${UUID.randomUUID()}", "點餐靈完成訂單時確認現金收款")
+                    if (confirmCash) api.confirmPayment(order.text("order_code"), "cash", "pay-${UUID.randomUUID()}", "免pos機智慧點餐完成訂單時確認現金收款")
                     api.completeOrder(order.text("order_code"), "complete-${UUID.randomUUID()}")
                 }
                 paymentChoice = false
@@ -1059,7 +1059,7 @@ private fun PrinterScreen(store: LocalStore, api: MerchantApi) {
 
 @Composable private fun IntegrationsScreen(api:MerchantApi){var p by remember{mutableStateOf(JSONObject())};LaunchedEffect(Unit){runCatching{p=withContext(Dispatchers.IO){api.integrations()}}};val cards=listOf("LINE OA" to if(p.obj("line").bool("connected"))"已連線" else "需要設定","XP-N160II" to if(p.array("printers").isNotEmpty())"已連線" else "需要設定","Google" to "尚未支援","LINE Pay / 信用卡" to "未設定","電子發票" to "尚未啟用","Uber Eats" to "尚未連線","foodpanda" to "尚未連線","第三方物流" to "尚未支援");LazyColumn(Modifier.fillMaxSize().padding(16.dp)){item{Text("整合服務",fontSize=28.sp,fontWeight=FontWeight.Bold)};items(cards){(name,status)->ListItem(headlineContent={Text(name,fontWeight=FontWeight.Bold)},trailingContent={StatusBadge(status,status=="已連線")})};item{Text("外送平台不使用爬蟲或逆向工程；取得正式授權與 credentials 後才會啟用。",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 
-@Composable private fun AboutScreen(store:LocalStore,onLogout:()->Unit){Column(Modifier.fillMaxSize().padding(20.dp).testTag("history-screen"),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("點餐靈",fontSize=38.sp,fontWeight=FontWeight.Black);Text("創百業智慧餐飲管理系統",fontSize=18.sp);Text("版本 ${BuildConfig.VERSION_NAME}");Text("正式登入只顯示目前商家的雲端資料。",color=MaterialTheme.colorScheme.onSurfaceVariant);Button(onLogout,Modifier.fillMaxWidth()){Text("登出")}}}
+@Composable private fun AboutScreen(store:LocalStore,onLogout:()->Unit){Column(Modifier.fillMaxSize().padding(20.dp).testTag("history-screen"),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("免pos機智慧點餐",fontSize=32.sp,fontWeight=FontWeight.Black);Text("創百業智慧餐飲管理系統",fontSize=18.sp);Text("版本 ${BuildConfig.VERSION_NAME}");Text("正式登入只顯示目前商家的雲端資料。",color=MaterialTheme.colorScheme.onSurfaceVariant);Button(onLogout,Modifier.fillMaxWidth()){Text("登出")}}}
 
 @Composable private fun SettingSwitch(label:String,checked:Boolean,onChange:(Boolean)->Unit){Row(Modifier.fillMaxWidth().heightIn(min=52.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Text(label,fontWeight=FontWeight.SemiBold,modifier=Modifier.weight(1f));Switch(checked,onChange)}}
 
@@ -1240,7 +1240,7 @@ private fun notifyNewOrder(context: Context, store: LocalStore, order: JSONObjec
     val channelId = "baiye_new_orders_v1"
     val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-        manager.createNotificationChannel(NotificationChannel(channelId, "點餐靈新訂單", NotificationManager.IMPORTANCE_HIGH))
+        manager.createNotificationChannel(NotificationChannel(channelId, "免pos機智慧點餐新訂單", NotificationManager.IMPORTANCE_HIGH))
     }
     val intent = Intent(context, MainActivity::class.java).putExtra("order_code", orderCode)
     val pendingIntent = PendingIntent.getActivity(context, orderCode.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)

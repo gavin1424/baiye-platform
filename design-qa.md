@@ -1,4 +1,4 @@
-# 點餐靈 UI／UX V2 — Design QA
+# 免pos機智慧點餐 UI／UX V2 — Design QA
 
 ## Evidence
 

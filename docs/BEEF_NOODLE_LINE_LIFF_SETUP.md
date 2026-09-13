@@ -51,15 +51,15 @@ Messaging API、LINE Login 與 LIFF。正式桌號 QR 僅回傳 LINE LIFF URL；
 
 ## 正式驗收
 
-1. 點餐靈「桌位與 QR」確認顯示上述 LIFF URL。
+1. 免pos機智慧點餐「桌位與 QR」確認顯示上述 LIFF URL。
 2. 在 LINE 掃 A1 QR，完成 LINE Login。
 3. 非好友應顯示加入好友確認；完成後直接進入 A1 `QrOrderingPage`。
 4. 選品、購物車並以原有 `POST /api/ordering/qr/:code/orders` 送單。
-5. 確認 Customer 與點餐靈訂單中心的 `order_code` 完全相同。
+5. 確認 Customer 與免pos機智慧點餐訂單中心的 `order_code` 完全相同。
 
 LIFF 登入後，前端會將 LINE ID token 交由 Worker 向 LINE 驗證；前端傳入的 userId
 不會被信任。D1 只保存 LINE userId 的不可逆雜湊，以及綁定 merchant、QR、桌號、
 訂單的短效 context。A1 context 無法用於 A2 訂單。
 
 桌號 QR 是正式營運入口，只允許 `https://liff.line.me/...`。LIFF 尚未完成時，商家後台
-與點餐靈會停用桌號 QR 的顯示、分享、下載與列印；一般網站點餐 URL 仍保留供開發測試。
+與免pos機智慧點餐會停用桌號 QR 的顯示、分享、下載與列印；一般網站點餐 URL 仍保留供開發測試。

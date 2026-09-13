@@ -1,4 +1,4 @@
-# 點餐靈 Android App（創百業智慧餐飲管理系統）
+# 免pos機智慧點餐 Android App（創百業智慧餐飲管理系統）
 
 ## Architecture
 
