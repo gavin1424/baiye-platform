@@ -11,23 +11,23 @@
 
 .features-group-card-link:hover .features-group-card-clickable,
 .features-group-card-link:focus-visible .features-group-card-clickable {
-  transform: translateY(-5px);
+  transform: translateY(-4px);
   border-color: rgba(48, 72, 157, 0.3);
-  box-shadow: 0 30px 72px rgba(31, 45, 77, 0.14);
+  box-shadow: 0 24px 56px rgba(31, 45, 77, 0.12);
 }
 
 .features-group-card-link:focus-visible {
   outline: 3px solid rgba(48, 72, 157, 0.24);
-  outline-offset: 5px;
-  border-radius: 1.5rem;
+  outline-offset: 4px;
+  border-radius: 1.35rem;
 }
 
 .features-group-detail-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.5rem 1.2rem;
+  gap: 0.8rem;
+  padding: 0.82rem 1.25rem 0.92rem;
   border-top: 1px solid rgba(22, 31, 54, 0.08);
   background: linear-gradient(135deg, #f7f9ff 0%, #f4efff 100%);
   color: #2c4597;
@@ -39,7 +39,7 @@
 }
 
 .feature-detail-hero-card {
-  padding: clamp(1.6rem, 3vw, 2.4rem);
+  padding: clamp(1.25rem, 2vw, 1.8rem);
   border: 1px solid rgba(48, 72, 157, 0.13);
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(239, 243, 255, 0.94));
 }
@@ -47,38 +47,38 @@
 .feature-detail-hero-icon {
   display: grid;
   place-items: center;
-  width: 4.2rem;
-  height: 4.2rem;
-  border-radius: 1.35rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1.05rem;
   background: #e9eeff;
   color: #30489d;
 }
 
 .feature-detail-hero-icon svg {
-  width: 2.35rem;
-  height: 2.35rem;
+  width: 2rem;
+  height: 2rem;
 }
 
 .feature-detail-hero-card strong {
   display: block;
-  margin: 1.2rem 0 0.6rem;
-  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  margin: 0.8rem 0 0.4rem;
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
 }
 
 .feature-detail-hero-card p {
   margin: 0;
-  line-height: 1.8;
+  line-height: 1.62;
 }
 
 .feature-detail-back-section {
-  padding-top: 1.2rem;
-  padding-bottom: 0;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0 !important;
 }
 
 .feature-detail-back {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   color: #30489d;
   font-weight: 800;
   text-decoration: none;
@@ -88,6 +88,40 @@
   text-decoration: underline;
 }
 
+.feature-detail-pain-section,
+.feature-detail-benefit-section,
+.feature-detail-items-section,
+.feature-detail-scenarios-section,
+.feature-detail-ideal-section {
+  padding-top: clamp(2.2rem, 4vw, 3.2rem) !important;
+  padding-bottom: clamp(2.2rem, 4vw, 3.2rem) !important;
+}
+
+.feature-detail-pain-section .section-heading,
+.feature-detail-benefit-section .section-heading,
+.feature-detail-items-section .section-heading,
+.feature-detail-scenarios-section .section-heading,
+.feature-detail-ideal-section .section-heading {
+  margin-bottom: clamp(1.15rem, 2vw, 1.6rem) !important;
+}
+
+.feature-detail-pain-section .section-heading h2,
+.feature-detail-benefit-section .section-heading h2,
+.feature-detail-items-section .section-heading h2,
+.feature-detail-scenarios-section .section-heading h2,
+.feature-detail-ideal-section .section-heading h2 {
+  margin-top: 0.42rem !important;
+  margin-bottom: 0.45rem !important;
+}
+
+.feature-detail-pain-section .section-heading p,
+.feature-detail-benefit-section .section-heading p,
+.feature-detail-items-section .section-heading p,
+.feature-detail-scenarios-section .section-heading p,
+.feature-detail-ideal-section .section-heading p {
+  margin-top: 0 !important;
+}
+
 .feature-detail-pain-section {
   background: #fffaf3;
 }
@@ -95,28 +129,28 @@
 .feature-detail-pain-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .feature-detail-pain-card {
-  padding: 1.5rem;
+  padding: 1.15rem;
   border-color: rgba(174, 111, 34, 0.16);
   background: linear-gradient(155deg, #ffffff 0%, #fff8ed 100%);
 }
 
 .feature-detail-pain-card > span {
   display: inline-block;
-  margin-bottom: 1rem;
+  margin-bottom: 0.55rem;
   color: #a26b28;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 900;
   letter-spacing: 0.12em;
 }
 
 .feature-detail-pain-card p {
   margin: 0;
-  font-size: 1.03rem;
-  line-height: 1.75;
+  font-size: 1rem;
+  line-height: 1.58;
   color: #3f4656;
 }
 
@@ -127,11 +161,11 @@
 .feature-detail-benefit-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .feature-detail-benefit-card {
-  padding: 1.45rem;
+  padding: 1.15rem;
 }
 
 .feature-detail-benefit-card > svg {
@@ -139,14 +173,14 @@
 }
 
 .feature-detail-benefit-card h3 {
-  margin: 0.9rem 0 0.5rem;
-  font-size: 1.12rem;
+  margin: 0.65rem 0 0.35rem;
+  font-size: 1.08rem;
 }
 
 .feature-detail-benefit-card p {
   margin: 0;
   color: #687185;
-  line-height: 1.7;
+  line-height: 1.56;
 }
 
 .feature-detail-items-section {
@@ -156,53 +190,53 @@
 .feature-detail-items-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .feature-detail-item-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 1.1rem;
-  padding: 1.5rem;
+  gap: 0.9rem;
+  padding: 1.15rem;
 }
 
 .feature-detail-item-number {
   display: grid;
   place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 1rem;
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 0.85rem;
   background: #eef2ff;
   color: #30489d;
   font-weight: 900;
 }
 
 .feature-detail-item-card h3 {
-  margin: 0.1rem 0 0.55rem;
-  font-size: 1.15rem;
+  margin: 0.08rem 0 0.35rem;
+  font-size: 1.1rem;
 }
 
 .feature-detail-item-card p {
   margin: 0;
   color: #687185;
-  line-height: 1.72;
+  line-height: 1.58;
 }
 
 .feature-detail-selling-point {
   display: flex;
   align-items: flex-start;
-  gap: 0.4rem;
-  margin-top: 0.95rem;
-  padding: 0.85rem 0.95rem;
-  border-radius: 1rem;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.85rem;
   background: #f8f5ea;
   color: #5f4c20;
-  line-height: 1.55;
+  line-height: 1.48;
 }
 
 .feature-detail-selling-point svg {
   flex: 0 0 auto;
-  margin-top: 0.15rem;
+  margin-top: 0.12rem;
   color: #b68124;
 }
 
@@ -217,11 +251,11 @@
 .feature-detail-scenarios-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .feature-detail-scenario-card {
-  padding: 1.35rem;
+  padding: 1.05rem;
 }
 
 .feature-detail-scenario-card svg {
@@ -229,8 +263,8 @@
 }
 
 .feature-detail-scenario-card p {
-  margin: 0.75rem 0 0;
-  line-height: 1.65;
+  margin: 0.55rem 0 0;
+  line-height: 1.52;
   color: #50586b;
 }
 
@@ -241,11 +275,11 @@
 .feature-detail-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.7rem;
+  gap: 0.55rem;
 }
 
 .feature-detail-tags span {
-  padding: 0.65rem 0.9rem;
+  padding: 0.52rem 0.75rem;
   border: 1px solid rgba(48, 72, 157, 0.14);
   border-radius: 999px;
   background: #fff;
@@ -256,33 +290,33 @@
 .feature-detail-final-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2rem;
+  gap: 1.4rem;
   align-items: center;
-  margin-top: 2rem;
-  padding: clamp(1.5rem, 4vw, 2.5rem);
+  margin-top: 1.2rem;
+  padding: clamp(1.25rem, 3vw, 1.9rem);
   background: linear-gradient(135deg, #1f2e61 0%, #3d2f79 100%);
   color: #fff;
 }
 
 .feature-detail-final-eyebrow {
   display: inline-block;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.4rem;
   color: #d9dcff;
   font-weight: 900;
   letter-spacing: 0.08em;
 }
 
 .feature-detail-final-card h2 {
-  margin: 0 0 0.7rem;
+  margin: 0 0 0.45rem;
   color: #fff;
-  font-size: clamp(1.55rem, 3vw, 2.25rem);
+  font-size: clamp(1.45rem, 2.5vw, 2rem);
 }
 
 .feature-detail-final-card p {
   max-width: 850px;
   margin: 0;
   color: rgba(255, 255, 255, 0.82);
-  line-height: 1.8;
+  line-height: 1.58;
 }
 
 .feature-detail-final-card .btn {
@@ -307,7 +341,16 @@
 
 @media (max-width: 640px) {
   .features-group-detail-cta {
-    padding: 0.95rem 1.2rem 1.05rem;
+    padding: 0.78rem 1rem 0.85rem;
+  }
+
+  .feature-detail-pain-section,
+  .feature-detail-benefit-section,
+  .feature-detail-items-section,
+  .feature-detail-scenarios-section,
+  .feature-detail-ideal-section {
+    padding-top: 1.8rem !important;
+    padding-bottom: 1.8rem !important;
   }
 
   .feature-detail-benefit-grid,
@@ -316,7 +359,8 @@
   }
 
   .feature-detail-item-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 1rem;
   }
 
   .feature-detail-selling-point {
@@ -325,7 +369,7 @@
 
   .feature-detail-selling-point svg {
     display: inline-block;
-    margin-right: 0.35rem;
+    margin-right: 0.3rem;
   }
 
   .feature-detail-final-card .btn {
