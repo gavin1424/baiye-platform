@@ -1,0 +1,334 @@
+.features-group-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.features-group-card-clickable {
+  height: 100%;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.features-group-card-link:hover .features-group-card-clickable,
+.features-group-card-link:focus-visible .features-group-card-clickable {
+  transform: translateY(-5px);
+  border-color: rgba(48, 72, 157, 0.3);
+  box-shadow: 0 30px 72px rgba(31, 45, 77, 0.14);
+}
+
+.features-group-card-link:focus-visible {
+  outline: 3px solid rgba(48, 72, 157, 0.24);
+  outline-offset: 5px;
+  border-radius: 1.5rem;
+}
+
+.features-group-detail-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem 1.2rem;
+  border-top: 1px solid rgba(22, 31, 54, 0.08);
+  background: linear-gradient(135deg, #f7f9ff 0%, #f4efff 100%);
+  color: #2c4597;
+  font-weight: 900;
+}
+
+.features-group-detail-cta svg {
+  flex: 0 0 auto;
+}
+
+.feature-detail-hero-card {
+  padding: clamp(1.6rem, 3vw, 2.4rem);
+  border: 1px solid rgba(48, 72, 157, 0.13);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(239, 243, 255, 0.94));
+}
+
+.feature-detail-hero-icon {
+  display: grid;
+  place-items: center;
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 1.35rem;
+  background: #e9eeff;
+  color: #30489d;
+}
+
+.feature-detail-hero-icon svg {
+  width: 2.35rem;
+  height: 2.35rem;
+}
+
+.feature-detail-hero-card strong {
+  display: block;
+  margin: 1.2rem 0 0.6rem;
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+}
+
+.feature-detail-hero-card p {
+  margin: 0;
+  line-height: 1.8;
+}
+
+.feature-detail-back-section {
+  padding-top: 1.2rem;
+  padding-bottom: 0;
+}
+
+.feature-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #30489d;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.feature-detail-back:hover {
+  text-decoration: underline;
+}
+
+.feature-detail-pain-section {
+  background: #fffaf3;
+}
+
+.feature-detail-pain-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.feature-detail-pain-card {
+  padding: 1.5rem;
+  border-color: rgba(174, 111, 34, 0.16);
+  background: linear-gradient(155deg, #ffffff 0%, #fff8ed 100%);
+}
+
+.feature-detail-pain-card > span {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #a26b28;
+  font-size: 0.84rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.feature-detail-pain-card p {
+  margin: 0;
+  font-size: 1.03rem;
+  line-height: 1.75;
+  color: #3f4656;
+}
+
+.feature-detail-benefit-section {
+  background: #f4f8f6;
+}
+
+.feature-detail-benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.feature-detail-benefit-card {
+  padding: 1.45rem;
+}
+
+.feature-detail-benefit-card > svg {
+  color: #16885f;
+}
+
+.feature-detail-benefit-card h3 {
+  margin: 0.9rem 0 0.5rem;
+  font-size: 1.12rem;
+}
+
+.feature-detail-benefit-card p {
+  margin: 0;
+  color: #687185;
+  line-height: 1.7;
+}
+
+.feature-detail-items-section {
+  background: #ffffff;
+}
+
+.feature-detail-items-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.feature-detail-item-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.1rem;
+  padding: 1.5rem;
+}
+
+.feature-detail-item-number {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  background: #eef2ff;
+  color: #30489d;
+  font-weight: 900;
+}
+
+.feature-detail-item-card h3 {
+  margin: 0.1rem 0 0.55rem;
+  font-size: 1.15rem;
+}
+
+.feature-detail-item-card p {
+  margin: 0;
+  color: #687185;
+  line-height: 1.72;
+}
+
+.feature-detail-selling-point {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-top: 0.95rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 1rem;
+  background: #f8f5ea;
+  color: #5f4c20;
+  line-height: 1.55;
+}
+
+.feature-detail-selling-point svg {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  color: #b68124;
+}
+
+.feature-detail-selling-point strong {
+  white-space: nowrap;
+}
+
+.feature-detail-scenarios-section {
+  background: #f7f8fc;
+}
+
+.feature-detail-scenarios-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.feature-detail-scenario-card {
+  padding: 1.35rem;
+}
+
+.feature-detail-scenario-card svg {
+  color: #30489d;
+}
+
+.feature-detail-scenario-card p {
+  margin: 0.75rem 0 0;
+  line-height: 1.65;
+  color: #50586b;
+}
+
+.feature-detail-ideal-section {
+  background: linear-gradient(180deg, #fff 0%, #f7f4ff 100%);
+}
+
+.feature-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.feature-detail-tags span {
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgba(48, 72, 157, 0.14);
+  border-radius: 999px;
+  background: #fff;
+  color: #31416f;
+  font-weight: 800;
+}
+
+.feature-detail-final-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2rem;
+  align-items: center;
+  margin-top: 2rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  background: linear-gradient(135deg, #1f2e61 0%, #3d2f79 100%);
+  color: #fff;
+}
+
+.feature-detail-final-eyebrow {
+  display: inline-block;
+  margin-bottom: 0.55rem;
+  color: #d9dcff;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.feature-detail-final-card h2 {
+  margin: 0 0 0.7rem;
+  color: #fff;
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+}
+
+.feature-detail-final-card p {
+  max-width: 850px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.8;
+}
+
+.feature-detail-final-card .btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .feature-detail-benefit-grid,
+  .feature-detail-scenarios-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .feature-detail-pain-grid,
+  .feature-detail-items-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-detail-final-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .features-group-detail-cta {
+    padding: 0.95rem 1.2rem 1.05rem;
+  }
+
+  .feature-detail-benefit-grid,
+  .feature-detail-scenarios-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-detail-item-card {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-detail-selling-point {
+    display: block;
+  }
+
+  .feature-detail-selling-point svg {
+    display: inline-block;
+    margin-right: 0.35rem;
+  }
+
+  .feature-detail-final-card .btn {
+    width: 100%;
+  }
+}
