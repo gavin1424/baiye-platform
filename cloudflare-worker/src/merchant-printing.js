@@ -23,7 +23,7 @@ function publicPrinter(row) {
 
 function publicJob(row, includePayload = false) {
   const result = {
-    id: row.id, order_code: row.order_code, printer_id: row.printer_id, print_type: row.print_type,
+    id: row.id, merchant_id: row.merchant_id, order_id: row.order_id, order_code: row.order_code, printer_id: row.printer_id, print_type: row.print_type,
     status: row.status, copies: Number(row.copies), attempt_count: Number(row.attempt_count),
     created_at: row.created_at, available_at: row.available_at, claimed_at: row.claimed_at,
     printed_at: row.printed_at, failed_at: row.failed_at, last_error: row.last_error,
@@ -35,11 +35,11 @@ function publicJob(row, includePayload = false) {
   return result;
 }
 
-export function buildKitchenPayload({ merchantName, orderCode, tableLabel, orderType, paymentMethod, paymentStatus = "unpaid", totalMinor, createdAt, acceptedAt = "", items, customerNote }) {
+export function buildKitchenPayload({ merchantName, orderId, orderCode, receiptNumber, tableLabel, orderType, paymentMethod, paymentStatus = "unpaid", totalMinor, createdAt, acceptedAt = "", items, customerNote }) {
   const printMerchantName = clean(merchantName, 120).replace(/｜完整功能試用店$/, "").trim();
   return {
-    schema_version: 1, print_type: "kitchen", merchant_name: printMerchantName,
-    order_code: orderCode, table_label: tableLabel || "", order_type: orderType,
+    schema_version: 2, print_type: "kitchen", merchant_name: printMerchantName,
+    order_id: orderId, order_code: orderCode, receipt_number: Number(receiptNumber), table_label: tableLabel || "", order_type: orderType,
     payment_method: paymentMethod, payment_status: paymentStatus, total_minor: Number(totalMinor), created_at: createdAt, accepted_at: acceptedAt,
     customer_note: customerNote || "",
     items: items.map((item) => ({ name: item.name_snapshot, quantity: Number(item.quantity), note: item.note || "", options: (item.options || []).map((option) => ({ group_name: option.group_name_snapshot, value_name: option.value_name_snapshot })) })),

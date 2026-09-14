@@ -82,6 +82,18 @@ function validImageUrl(value) {
   }
 }
 
+function taipeiBusinessDate(value = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
+}
+
+async function nextReceiptNumber(db, merchantId, businessDate) {
+  const row = await db.prepare(`INSERT INTO merchant_order_receipt_sequences(merchant_id,business_date,last_value,updated_at)
+    VALUES(?,?,1,CURRENT_TIMESTAMP)
+    ON CONFLICT(merchant_id,business_date) DO UPDATE SET last_value=last_value+1,updated_at=CURRENT_TIMESTAMP
+    RETURNING last_value`).bind(merchantId, businessDate).first();
+  return Number(row?.last_value || 1);
+}
+
 function publicStorefrontUrl(value) {
   const raw = clean(value, 600).replace(/\/+$/, "");
   if (!raw) return "";
@@ -513,12 +525,12 @@ async function handleMemberLogout(request, env, context, cors) {
 async function orderWithItems(db, merchantId, membershipId, orderCodeValue) {
   const row = await db.prepare(`
     SELECT o.*,f.source order_source,f.scheduled_for,
-      COALESCE(f.pickup_number,CASE WHEN o.order_type='takeaway' THEN CAST((
+      COALESCE(f.pickup_number,CASE WHEN o.order_type='takeaway' THEN COALESCE(CAST(o.receipt_number AS TEXT),CAST((
         SELECT COUNT(*) FROM merchant_food_orders daily
         WHERE daily.merchant_id=o.merchant_id AND daily.order_type='takeaway' AND daily.demo_reset_at IS NULL
           AND date(daily.created_at,'+8 hours')=date(o.created_at,'+8 hours')
           AND (datetime(daily.created_at)<datetime(o.created_at) OR (datetime(daily.created_at)=datetime(o.created_at) AND daily.id<=o.id))
-      ) AS TEXT) END) pickup_number,f.fulfillment_status
+      ) AS TEXT)) END) pickup_number,f.fulfillment_status
     FROM merchant_food_orders o
     LEFT JOIN merchant_order_fulfillment f ON f.merchant_id=o.merchant_id AND f.order_id=o.id
     WHERE o.merchant_id=? AND o.membership_id IS ? AND o.order_code=? AND o.demo_reset_at IS NULL
@@ -771,7 +783,7 @@ async function handleCreateOrder(request, env, db, context, cors) {
     try {
       lineContext = await db.prepare(`SELECT id,merchant_id,qr_id,table_label,status,expires_at
         FROM merchant_line_ordering_sessions
-        WHERE id=? AND merchant_id=? AND qr_id=? AND status='active' AND datetime(expires_at)>datetime('now')
+        WHERE id=? AND merchant_id=? AND qr_id=? AND status IN('active','ordered') AND datetime(expires_at)>datetime('now')
         LIMIT 1`).bind(lineContextId, context.merchant_id, context.id).first();
     } catch (error) {
       if (!String(error instanceof Error ? error.message : error).includes("no such table")) throw error;
@@ -817,6 +829,8 @@ async function handleCreateOrder(request, env, db, context, cors) {
   const initialStatus = Number(context.auto_accept_orders) === 1 ? "accepted" : "submitted";
   const code = `${clean(context.order_number_prefix || "BY", 8).replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "BY"}-${new Date().toISOString().slice(0,10).replaceAll("-","")}-${randomCode(6).toUpperCase()}`;
   const createdAt = new Date().toISOString();
+  const receiptBusinessDate = taipeiBusinessDate(new Date(createdAt));
+  const receiptNumber = await nextReceiptNumber(db, context.merchant_id, receiptBusinessDate);
   let diningSessionId = null;
   if (orderType === "dine_in" && Number(context.table_session_enabled ?? 1) === 1) {
     const candidate = uid("dining");
@@ -844,7 +858,9 @@ async function handleCreateOrder(request, env, db, context, cors) {
   }
   const kitchenPayload = buildKitchenPayload({
     merchantName: context.display_name,
+    orderId,
     orderCode: code,
+    receiptNumber,
     tableLabel,
     orderType,
     paymentMethod: "counter",
@@ -855,18 +871,18 @@ async function handleCreateOrder(request, env, db, context, cors) {
   });
   const orderInsert = lineContext ? db.prepare(`
       INSERT INTO merchant_food_orders
-        (id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,line_context_id)
-      VALUES (?,?,?,?,?,?,?,?,'unpaid','counter','counter',?,?,?,?,?,?)
+        (id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,line_context_id,receipt_number,receipt_business_date)
+      VALUES (?,?,?,?,?,?,?,?,'unpaid','counter','counter',?,?,?,?,?,?,?,?)
     `).bind(
       orderId, code, context.merchant_id, membershipId, context.id, tableLabel,
-      orderType, initialStatus, calculation.subtotal_minor, calculation.total_minor, clean(input?.customer_note, 500) || null, idempotencyKey, diningSessionId, lineContext.id,
+      orderType, initialStatus, calculation.subtotal_minor, calculation.total_minor, clean(input?.customer_note, 500) || null, idempotencyKey, diningSessionId, lineContext.id, receiptNumber, receiptBusinessDate,
     ) : db.prepare(`
       INSERT INTO merchant_food_orders
-        (id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id)
-      VALUES (?,?,?,?,?,?,?,?,'unpaid','counter','counter',?,?,?,?,?)
+        (id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,receipt_number,receipt_business_date)
+      VALUES (?,?,?,?,?,?,?,?,'unpaid','counter','counter',?,?,?,?,?,?,?)
     `).bind(
       orderId, code, context.merchant_id, membershipId, context.id, tableLabel,
-      orderType, initialStatus, calculation.subtotal_minor, calculation.total_minor, clean(input?.customer_note, 500) || null, idempotencyKey, diningSessionId,
+      orderType, initialStatus, calculation.subtotal_minor, calculation.total_minor, clean(input?.customer_note, 500) || null, idempotencyKey, diningSessionId, receiptNumber, receiptBusinessDate,
     );
   const statements = [
     orderInsert,
@@ -890,7 +906,7 @@ async function handleCreateOrder(request, env, db, context, cors) {
         VALUES(?,?,'system','b_scheme_auto_accept','order_auto_accepted','order',?,?)`).bind(uid("ordaudit"), context.merchant_id, orderId, JSON.stringify({ from: "submitted", to: "accepted", source: lineContext ? "LINE" : "QR", idempotency_key: idempotencyKey })),
     ] : []),
     ...(diningSessionId ? [db.prepare("UPDATE merchant_dining_sessions SET last_order_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status='open'").bind(diningSessionId, context.merchant_id)] : []),
-    ...(lineContext ? [db.prepare("UPDATE merchant_line_ordering_sessions SET status='ordered',last_order_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status='active'").bind(orderId, lineContext.id, context.merchant_id)] : []),
+    ...(lineContext ? [db.prepare("UPDATE merchant_line_ordering_sessions SET status='active',last_order_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND merchant_id=? AND status IN('active','ordered')").bind(orderId, lineContext.id, context.merchant_id)] : []),
     ...couponPricing.statements,
     db.prepare(`INSERT INTO merchant_order_pricing(order_id,merchant_id,gross_subtotal_minor,coupon_discount_minor,payable_total_minor,coupon_id,merchant_funded_minor,platform_funded_minor) VALUES(?,?,?,?,?,?,?,0)`).bind(orderId, context.merchant_id, calculation.subtotal_minor, couponPricing.discount, Math.max(calculation.subtotal_minor - couponPricing.discount, 0), couponPricing.couponId, couponPricing.discount),
     ...(membershipId ? [db.prepare(`UPDATE merchant_ordering_memberships SET order_count=order_count+1,last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE merchant_id=? AND id=?`).bind(context.merchant_id, membershipId)] : []),
@@ -1053,12 +1069,12 @@ async function adminOverview(db, merchantId) {
     db.prepare(`SELECT * FROM merchant_dining_sessions WHERE merchant_id=? ORDER BY datetime(opened_at) DESC LIMIT 200`).bind(merchantId).all(),
     db.prepare(`
       SELECT o.*,c.display_name customer_name,c.phone_normalized,f.source order_source,f.scheduled_for,
-        COALESCE(f.pickup_number,CASE WHEN o.order_type='takeaway' THEN CAST((
+        COALESCE(f.pickup_number,CASE WHEN o.order_type='takeaway' THEN COALESCE(CAST(o.receipt_number AS TEXT),CAST((
           SELECT COUNT(*) FROM merchant_food_orders daily
           WHERE daily.merchant_id=o.merchant_id AND daily.order_type='takeaway' AND daily.demo_reset_at IS NULL
             AND date(daily.created_at,'+8 hours')=date(o.created_at,'+8 hours')
             AND (datetime(daily.created_at)<datetime(o.created_at) OR (datetime(daily.created_at)=datetime(o.created_at) AND daily.id<=o.id))
-        ) AS TEXT) END) pickup_number,f.fulfillment_status
+        ) AS TEXT)) END) pickup_number,f.fulfillment_status
       FROM merchant_food_orders o
       LEFT JOIN merchant_ordering_memberships m ON m.merchant_id=o.merchant_id AND m.id=o.membership_id
       LEFT JOIN ordering_customers c ON c.id=m.customer_id
@@ -1266,15 +1282,17 @@ export async function handleOrderingAdminRequest(request, env, url, cors = {}, a
       const orderId = uid("foodorder");
       const code = `${clean(settings.order_number_prefix || "BY", 8).replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "BY"}-${new Date().toISOString().slice(0,10).replaceAll("-","")}-${randomCode(6).toUpperCase()}`;
       const createdAt = new Date().toISOString();
+      const receiptBusinessDate = taipeiBusinessDate(new Date(createdAt));
+      const receiptNumber = await nextReceiptNumber(db, merchantId, receiptBusinessDate);
       let diningSessionId = null;
       if (orderType === "dine_in" && Number(settings.table_session_enabled ?? 1) === 1) {
         await db.prepare("INSERT OR IGNORE INTO merchant_dining_sessions(id,merchant_id,table_label,status,last_order_at) VALUES(?,?,?,'open',CURRENT_TIMESTAMP)").bind(uid("dining"), merchantId, tableLabel).run();
         diningSessionId = (await db.prepare("SELECT id FROM merchant_dining_sessions WHERE merchant_id=? AND table_label=? AND status='open'").bind(merchantId, tableLabel).first())?.id || null;
       }
       const printerResult = await db.prepare("SELECT id,copies FROM printers WHERE merchant_id=? AND enabled=1").bind(merchantId).all();
-      const kitchenPayload = buildKitchenPayload({ merchantName: settings.display_name, orderCode: code, tableLabel, orderType: requestedType, paymentMethod: "counter", totalMinor: calculation.total_minor, createdAt, customerNote: clean(input.customer_note, 500), items: calculation.lines });
+      const kitchenPayload = buildKitchenPayload({ merchantName: settings.display_name, orderId, orderCode: code, receiptNumber, tableLabel, orderType: requestedType, paymentMethod: "counter", totalMinor: calculation.total_minor, createdAt, customerNote: clean(input.customer_note, 500), items: calculation.lines });
       const statements = [
-        db.prepare(`INSERT INTO merchant_food_orders(id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,accepted_at,accepted_by) VALUES(?,?,?,?,?,?,?,'accepted','unpaid','counter','counter',?,?,?,?,?,CURRENT_TIMESTAMP,?)`).bind(orderId, code, merchantId, systemMembershipId, systemQrId, tableLabel || null, orderType, calculation.subtotal_minor, calculation.total_minor, clean(input.customer_note,500) || null, idempotencyKey, diningSessionId, actorId),
+        db.prepare(`INSERT INTO merchant_food_orders(id,order_code,merchant_id,membership_id,qr_id,table_label,order_type,status,payment_status,payment_method,payment_method_v1,subtotal_minor,total_minor,customer_note,idempotency_key,dining_session_id,accepted_at,accepted_by,receipt_number,receipt_business_date) VALUES(?,?,?,?,?,?,?,'accepted','unpaid','counter','counter',?,?,?,?,?,CURRENT_TIMESTAMP,?,?,?)`).bind(orderId, code, merchantId, systemMembershipId, systemQrId, tableLabel || null, orderType, calculation.subtotal_minor, calculation.total_minor, clean(input.customer_note,500) || null, idempotencyKey, diningSessionId, actorId, receiptNumber, receiptBusinessDate),
         db.prepare(`INSERT INTO merchant_order_fulfillment(merchant_id,order_id,source,scheduled_for,pickup_number,fulfillment_status,delivery_address,delivery_contact,delivery_fee_minor) VALUES(?,?,'COUNTER',?,?,?,?,?,0)`).bind(merchantId, orderId, clean(input.scheduled_for,40) || null, `A${code.slice(-4)}`, input.scheduled_for ? "scheduled" : requestedType === "delivery" ? "delivery_pending" : "immediate", requestedType === "delivery" ? clean(input.delivery_address,500) || null : null, requestedType === "delivery" ? clean(input.delivery_contact,120) || null : null),
         ...calculation.lines.map((line) => { line.order_item_id = uid("fooditem"); return db.prepare("INSERT INTO merchant_food_order_items(id,order_id,menu_item_id,name_snapshot,unit_price_minor,quantity,line_total_minor,note,base_price_minor,option_delta_minor,unit_total_minor) VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(line.order_item_id, orderId, line.menu_item_id, line.name_snapshot, line.unit_price_minor, line.quantity, line.line_total_minor, line.note, line.base_price_minor, line.option_delta_minor, line.unit_total_minor); }),
         ...calculation.lines.flatMap((line) => line.options.map((option) => db.prepare("INSERT INTO merchant_food_order_item_options(id,merchant_id,order_id,order_item_id,option_group_id,option_value_id,group_name_snapshot,value_name_snapshot,price_delta_minor) VALUES(?,?,?,?,?,?,?,?,?)").bind(uid("foodoption"),merchantId,orderId,line.order_item_id,option.option_group_id,option.option_value_id,option.group_name_snapshot,option.value_name_snapshot,option.price_delta_minor))),

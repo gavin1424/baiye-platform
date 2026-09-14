@@ -2,6 +2,8 @@ package com.baiye.merchantprinter
 
 import com.baiye.merchantprinter.data.LocalJobState
 import com.baiye.merchantprinter.data.PrinterConfig
+import com.baiye.merchantprinter.data.PrintJob
+import com.baiye.merchantprinter.data.originalPrintKey
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -15,6 +17,14 @@ class ArchitectureTest {
     @Test fun disabledAutoPrintCannotClaimJobs() = assertFalse(PrinterConfig(enabled = true, autoPrint = false).canAutoClaim)
     @Test fun disabledPrinterCannotClaimJobs() = assertFalse(PrinterConfig(enabled = false, autoPrint = true).canAutoClaim)
     @Test fun enabledAutoPrintCanClaimJobs() = assertTrue(PrinterConfig(enabled = true, autoPrint = true).canAutoClaim)
+    @Test fun originalPrintDedupeUsesMerchantAndBackendOrderId() {
+        val first = PrintJob("job-1", "merchant-a", "order-1", "BN-1", "printer-1", "pending", 1, 0, "{}")
+        val duplicateDelivery = first.copy(id = "job-replayed")
+        val nextOrder = first.copy(id = "job-2", orderId = "order-2")
+        assertEquals("merchant-a:order-1", first.originalPrintKey())
+        assertEquals(first.originalPrintKey(), duplicateDelivery.originalPrintKey())
+        assertNotEquals(first.originalPrintKey(), nextOrder.originalPrintKey())
+    }
     @Test fun tableLabelsUseNaturalSort() {
         val labels = listOf("A10", "B1", "A2", "A1")
         assertEquals(listOf("A1", "A2", "A10", "B1"), labels.sortedWith(Comparator(::compareTableLabels)))

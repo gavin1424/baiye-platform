@@ -20,14 +20,21 @@ class EscPosRenderer(private val mode: ChineseRenderMode = ChineseRenderMode.BIT
 
     fun kitchen(payloadJson: String): ByteArray {
         val payload = JSONObject(payloadJson)
-        val lines = buildList {
+        val lines = kitchenLines(payload)
+        return if (mode == ChineseRenderMode.NATIVE_BIG5_EXPERIMENTAL) native(lines) else raster(lines)
+    }
+
+    internal fun kitchenText(payloadJson: String): List<String> = kitchenLines(JSONObject(payloadJson)).map(Line::text)
+
+    private fun kitchenLines(payload: JSONObject): List<Line> = buildList {
             add(Line("================================", 25f, Paint.Align.CENTER, true))
             add(Line(payload.optString("merchant_name", "百工牛肉麵"), 42f, Paint.Align.CENTER, true))
             add(Line(if (payload.optBoolean("reprint")) "【補印】" else "【新單】", 42f, Paint.Align.CENTER, true))
             add(Line("================================", 25f, Paint.Align.CENTER, true))
+            val receiptNumber = payload.optInt("receipt_number").takeIf { it > 0 }?.toString() ?: "—"
+            add(Line(receiptNumber, 88f, Paint.Align.CENTER, true))
             val table = payload.optString("table_label").ifBlank { if (payload.optString("order_type") == "takeaway") "外帶" else "無桌號" }
-            add(Line(table, 76f, Paint.Align.CENTER, true))
-            add(Line("訂單：${payload.optString("order_code")}", 30f, Paint.Align.LEFT, true))
+            add(Line(table, 52f, Paint.Align.CENTER, true))
             add(Line("時間：${formatTime(payload.optString("created_at"))}", 26f))
             add(Line("類型：${if (payload.optString("order_type") == "takeaway") "外帶" else "內用"}", 28f))
             add(Line("--------------------------------", 25f))
@@ -41,12 +48,12 @@ class EscPosRenderer(private val mode: ChineseRenderMode = ChineseRenderMode.BIT
                     val option = options!!.getJSONObject(optionIndex)
                     add(Line("    ${option.optString("group_name")}：${option.optString("value_name")}", 28f))
                 }
-                val note = item.optString("note")
-                if (note.isNotBlank()) add(Line("※※ $note ※※", 34f, Paint.Align.LEFT, true))
+                val note = printableNote(item.optString("note"))
+                if (note.isNotBlank()) add(Line("備註：$note", 30f, Paint.Align.LEFT, true))
                 add(Line("--------------------------------", 25f))
             }
-            val customerNote = payload.optString("customer_note")
-            if (customerNote.isNotBlank()) { add(Line("整單備註：", 30f, bold = true)); add(Line("※※ $customerNote ※※", 34f, bold = true)) }
+            val customerNote = printableNote(payload.optString("customer_note")).ifBlank { "無" }
+            add(Line("整單備註：$customerNote", 30f, bold = true))
             add(Line("================================", 25f))
             add(Line("共 $totalQuantity 項", 34f, bold = true))
             add(Line("付款：${paymentName(payload.optString("payment_method"))}", 30f))
@@ -57,8 +64,6 @@ class EscPosRenderer(private val mode: ChineseRenderMode = ChineseRenderMode.BIT
             add(Line(if (payload.optBoolean("reprint")) "補印" else "新單", 44f, Paint.Align.CENTER, true))
             add(Line("================================", 25f)); add(Line("", 26f)); add(Line("", 26f))
         }
-        return if (mode == ChineseRenderMode.NATIVE_BIG5_EXPERIMENTAL) native(lines) else raster(lines)
-    }
 
     fun testReceipt(now: Date = Date()): ByteArray {
         return raster(listOf(
@@ -112,5 +117,13 @@ class EscPosRenderer(private val mode: ChineseRenderMode = ChineseRenderMode.BIT
     }
     private fun formatTime(value: String) = value.replace('T', ' ').take(16).replace('-', '/')
     private fun paymentName(value: String) = when(value) { "cash" -> "現金"; "card" -> "刷卡"; "line_pay" -> "LINE Pay"; else -> "櫃台付款" }
+    private fun printableNote(value: String): String {
+        val normalized = value.trim()
+        return normalized.takeUnless { it.isBlank() || INTERNAL_NOTE_MARKER.containsMatchIn(it) }.orEmpty()
+    }
     private data class Line(val text: String, val size: Float, val align: Paint.Align = Paint.Align.LEFT, val bold: Boolean = false)
+
+    private companion object {
+        val INTERNAL_NOTE_MARKER = Regex("(?:\\bE2E\\b|Guest\\s+Production|Production\\s+E2E|\\bQA\\b|\\bDEBUG\\b|測試標記|測試\\s*Fixture|\\bFixture\\b)", RegexOption.IGNORE_CASE)
+    }
 }

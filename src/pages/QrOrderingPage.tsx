@@ -558,6 +558,20 @@ function QrOrderingView({ code }: { code: string }) {
     }
   };
 
+  const continueOrdering = () => {
+    pendingOrderKey.current = "";
+    setOrder(null);
+    setCart({});
+    setItemSelections({});
+    setCustomerNote("");
+    setCartOpen(false);
+    setSubmitting(false);
+    setMessage("");
+    clearPersistedOrderingCart(code);
+    if (context) clearOrderingLastOrder(context.merchant_id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   if (loading) {
     return (
       <main className="ordering-page">
@@ -699,7 +713,7 @@ function QrOrderingView({ code }: { code: string }) {
 
           <footer className="ordering-confirmation-footer">
             <small>系統單號：{order.order_code}</small>
-            <button className="btn btn-primary btn-lg" type="button" onClick={() => { setOrder(null); setMessage(""); }}>返回菜單</button>
+            <button className="btn btn-primary btn-lg" type="button" onClick={continueOrdering}>繼續點餐</button>
           </footer>
         </section>
       )}

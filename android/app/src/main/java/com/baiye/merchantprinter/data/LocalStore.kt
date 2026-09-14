@@ -6,18 +6,25 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import java.util.UUID
 
-class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "baiye_printer_v1.db", null, 3) {
+class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext, "baiye_printer_v1.db", null, 4) {
     val applicationContext: Context = context.applicationContext
     private val preferences = context.getSharedPreferences("baiye_session_v1", Context.MODE_PRIVATE)
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("""CREATE TABLE printer_config(id TEXT PRIMARY KEY,name TEXT NOT NULL,model TEXT NOT NULL,host TEXT NOT NULL,port INTEGER NOT NULL,paper_width_mm INTEGER NOT NULL,enabled INTEGER NOT NULL,auto_print INTEGER NOT NULL,copies INTEGER NOT NULL,updated_at INTEGER NOT NULL)""")
-        db.execSQL("""CREATE TABLE local_print_jobs(id TEXT PRIMARY KEY,order_code TEXT NOT NULL,printer_id TEXT NOT NULL,status TEXT NOT NULL,copies INTEGER NOT NULL,attempt_count INTEGER NOT NULL,payload_json TEXT NOT NULL,claim_token TEXT NOT NULL,local_state TEXT NOT NULL,delivery_outcome TEXT NOT NULL,last_error TEXT NOT NULL,updated_at INTEGER NOT NULL,claim_request_id TEXT NOT NULL)""")
+        db.execSQL("""CREATE TABLE local_print_jobs(id TEXT PRIMARY KEY,order_code TEXT NOT NULL,printer_id TEXT NOT NULL,status TEXT NOT NULL,copies INTEGER NOT NULL,attempt_count INTEGER NOT NULL,payload_json TEXT NOT NULL,claim_token TEXT NOT NULL,local_state TEXT NOT NULL,delivery_outcome TEXT NOT NULL,last_error TEXT NOT NULL,updated_at INTEGER NOT NULL,claim_request_id TEXT NOT NULL,merchant_id TEXT NOT NULL,order_id TEXT NOT NULL,is_reprint INTEGER NOT NULL DEFAULT 0)""")
         db.execSQL("""CREATE TABLE local_print_attempts(id INTEGER PRIMARY KEY AUTOINCREMENT,job_id TEXT NOT NULL,state TEXT NOT NULL,detail TEXT NOT NULL,created_at INTEGER NOT NULL)""")
         db.execSQL("CREATE INDEX idx_local_jobs_state ON local_print_jobs(local_state,updated_at)")
         createOperationsTables(db)
     }
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) { if (oldVersion < 2) createOperationsTables(db) }
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) createOperationsTables(db)
+        if (oldVersion < 4) {
+            db.execSQL("ALTER TABLE local_print_jobs ADD COLUMN merchant_id TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE local_print_jobs ADD COLUMN order_id TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE local_print_jobs ADD COLUMN is_reprint INTEGER NOT NULL DEFAULT 0")
+        }
+    }
 
     private fun createOperationsTables(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS app_cache(cache_key TEXT PRIMARY KEY,payload_json TEXT NOT NULL,updated_at INTEGER NOT NULL)")
@@ -61,7 +68,7 @@ class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext
     fun mutationSynced(id: String) = writableDatabase.delete("pending_mutations", "id=?", arrayOf(id))
     fun mutationFailed(id: String, error: String) = writableDatabase.update("pending_mutations", ContentValues().apply { put("last_error", error.take(300)); put("updated_at", System.currentTimeMillis()) }, "id=?", arrayOf(id))
     fun pendingCount(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM pending_mutations WHERE state='pending'", null).use { it.moveToFirst(); it.getInt(0) }
-    fun markNotified(orderCode: String): Boolean = writableDatabase.insertWithOnConflict("notified_orders", null, ContentValues().apply { put("order_code",orderCode); put("notified_at",System.currentTimeMillis()) }, SQLiteDatabase.CONFLICT_IGNORE) != -1L
+    fun markNotified(orderIdentity: String): Boolean = writableDatabase.insertWithOnConflict("notified_orders", null, ContentValues().apply { put("order_code",orderIdentity); put("notified_at",System.currentTimeMillis()) }, SQLiteDatabase.CONFLICT_IGNORE) != -1L
 
     fun savePrinter(config: PrinterConfig) {
         writableDatabase.insertWithOnConflict("printer_config", null, ContentValues().apply {
@@ -80,6 +87,7 @@ class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext
             put("attempt_count", job.attemptCount); put("payload_json", job.payloadJson); put("claim_token", job.claimToken); put("local_state", job.localState)
             put("delivery_outcome", job.deliveryOutcome); put("last_error", job.lastError); put("updated_at", System.currentTimeMillis())
             put("claim_request_id", job.claimRequestId)
+            put("merchant_id", job.merchantId); put("order_id", job.orderId); put("is_reprint", if (job.isReprint) 1 else 0)
         }, SQLiteDatabase.CONFLICT_REPLACE)
     }
     fun updateJobState(id: String, state: String, error: String = "") {
@@ -89,8 +97,13 @@ class LocalStore(context: Context) : SQLiteOpenHelper(context.applicationContext
     fun jobsIn(vararg states: String): List<PrintJob> {
         if (states.isEmpty()) return emptyList()
         val marks = states.joinToString(",") { "?" }
-        return readableDatabase.rawQuery("SELECT * FROM local_print_jobs WHERE local_state IN($marks) ORDER BY updated_at", states).use { c -> buildList {
-            while (c.moveToNext()) add(PrintJob(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getInt(4), c.getInt(5), c.getString(6), c.getString(7), c.getString(8), c.getString(9), c.getString(10), c.getString(12)))
+        return readableDatabase.rawQuery("SELECT id,merchant_id,order_id,order_code,printer_id,status,copies,attempt_count,payload_json,claim_token,local_state,delivery_outcome,last_error,claim_request_id,is_reprint FROM local_print_jobs WHERE local_state IN($marks) ORDER BY updated_at", states).use { c -> buildList {
+            while (c.moveToNext()) add(PrintJob(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5), c.getInt(6), c.getInt(7), c.getString(8), c.getString(9), c.getString(10), c.getString(11), c.getString(12), c.getString(13), c.getInt(14) == 1))
         } }
+    }
+
+    fun hasTerminalOriginal(merchantId: String, orderId: String, printerId: String): Boolean {
+        if (merchantId.isBlank() || orderId.isBlank()) return false
+        return readableDatabase.rawQuery("SELECT 1 FROM local_print_jobs WHERE merchant_id=? AND order_id=? AND printer_id=? AND is_reprint=0 AND local_state IN(?,?) LIMIT 1", arrayOf(merchantId, orderId, printerId, LocalJobState.PRINTED_ACKED, LocalJobState.AMBIGUOUS)).use { it.moveToFirst() }
     }
 }

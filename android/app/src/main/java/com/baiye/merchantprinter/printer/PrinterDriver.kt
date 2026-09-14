@@ -9,7 +9,7 @@ import java.net.Socket
 interface PrinterConnection { fun test(config: PrinterConfig, timeoutMs: Int = 3000) }
 interface PrinterDriver : PrinterConnection { fun print(config: PrinterConfig, bytes: ByteArray): Int }
 
-class LanEscPosPrinter : PrinterDriver {
+class LanEscPosPrinter(private val onConnected: (() -> Unit)? = null) : PrinterDriver {
     override fun test(config: PrinterConfig, timeoutMs: Int) {
         Socket().use { it.connect(InetSocketAddress(config.host, config.port), timeoutMs) }
     }
@@ -17,6 +17,7 @@ class LanEscPosPrinter : PrinterDriver {
         val socket = Socket()
         try {
             socket.connect(InetSocketAddress(config.host, config.port), 5000)
+            onConnected?.invoke()
         } catch (error: Exception) {
             socket.close()
             throw PrinterIoException("${config.host}:${config.port} ${error.message ?: "printer offline"}", false, error)

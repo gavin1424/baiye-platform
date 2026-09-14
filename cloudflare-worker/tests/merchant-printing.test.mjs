@@ -49,13 +49,13 @@ test("claims are merchant scoped and token protected", () => {
   assert.match(index, /authorization\.session\.merchant_id/);
 });
 
-test("kitchen payload snapshots Chinese, options, notes, quantities and takeaway", () => {
-  const payload = buildKitchenPayload({ merchantName: "\u767e\u5de5\u725b\u8089\u9eb5", orderCode: "A1-0086", tableLabel: "", orderType: "takeaway", paymentMethod: "counter", totalMinor: 57000, createdAt: "2026-09-08T06:42:00+08:00", customerNote: "\u4e0d\u8981\u8471", items: [{ name_snapshot: "\u8d85\u9577\u7684\u62db\u724c\u7d05\u71d2\u534a\u7b4b\u534a\u8089\u725b\u8089\u9eb5", quantity: 20, note: "\u4e0d\u8981\u8471", options: [{ group_name_snapshot: "\u9eb5\u689d", value_name_snapshot: "\u7c97\u9eb5" }, { group_name_snapshot: "\u8fa3\u5ea6", value_name_snapshot: "\u5c0f\u8fa3" }] }] });
-  assert.equal(payload.items[0].quantity, 20); assert.equal(payload.items[0].options.length, 2); assert.equal(payload.order_type, "takeaway"); assert.equal(payload.customer_note, "\u4e0d\u8981\u8471");
+test("kitchen payload snapshots canonical identity, readable receipt number, Chinese, options and notes", () => {
+  const payload = buildKitchenPayload({ merchantName: "\u767e\u5de5\u725b\u8089\u9eb5", orderId: "foodorder-1", orderCode: "A1-0086", receiptNumber: 3, tableLabel: "", orderType: "takeaway", paymentMethod: "counter", totalMinor: 57000, createdAt: "2026-09-08T06:42:00+08:00", customerNote: "\u4e0d\u8981\u8471", items: [{ name_snapshot: "\u8d85\u9577\u7684\u62db\u724c\u7d05\u71d2\u534a\u7b4b\u534a\u8089\u725b\u8089\u9eb5", quantity: 20, note: "\u4e0d\u8981\u8471", options: [{ group_name_snapshot: "\u9eb5\u689d", value_name_snapshot: "\u7c97\u9eb5" }, { group_name_snapshot: "\u8fa3\u5ea6", value_name_snapshot: "\u5c0f\u8fa3" }] }] });
+  assert.equal(payload.order_id, "foodorder-1"); assert.equal(payload.order_code, "A1-0086"); assert.equal(payload.receipt_number, 3); assert.equal(payload.items[0].quantity, 20); assert.equal(payload.items[0].options.length, 2); assert.equal(payload.order_type, "takeaway"); assert.equal(payload.customer_note, "\u4e0d\u8981\u8471");
 });
 
 test("kitchen payload removes the official trial qualifier from physical receipts", () => {
-  const payload = buildKitchenPayload({ merchantName: "百工牛肉麵｜完整功能試用店", orderCode: "A1-0087", tableLabel: "A1", orderType: "dine_in", paymentMethod: "counter", totalMinor: 2000, createdAt: "2026-09-09T11:35:27Z", customerNote: "", items: [] });
+  const payload = buildKitchenPayload({ merchantName: "百工牛肉麵｜完整功能試用店", orderId: "foodorder-2", orderCode: "A1-0087", receiptNumber: 4, tableLabel: "A1", orderType: "dine_in", paymentMethod: "counter", totalMinor: 2000, createdAt: "2026-09-09T11:35:27Z", customerNote: "", items: [] });
   assert.equal(payload.merchant_name, "百工牛肉麵");
   assert.doesNotMatch(JSON.stringify(payload), /Demo|完整功能試用店|測試 Fixture/);
 });

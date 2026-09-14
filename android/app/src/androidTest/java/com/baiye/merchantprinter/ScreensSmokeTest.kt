@@ -10,6 +10,7 @@ import com.baiye.merchantprinter.printer.EscPosRenderer
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -72,8 +73,14 @@ class ScreensSmokeTest {
     @Test fun traditionalChineseLongReceiptRendersRasterAndCut() {
         val options = JSONArray().put(JSONObject().put("group_name", "麵條").put("value_name", "粗麵")).put(JSONObject().put("group_name", "辣度").put("value_name", "小辣"))
         val item = JSONObject().put("name", "超長品名招牌紅燒半筋半肉牛肉麵加大份").put("quantity", 20).put("note", "不要蔥不要蒜而且湯與麵分開放").put("options", options)
-        val payload = JSONObject().put("merchant_name", "百工牛肉麵").put("order_code", "A1-0086").put("table_label", "A1").put("order_type", "dine_in").put("payment_method", "counter").put("total_minor", 57000).put("created_at", "2026-09-08T06:42:00+08:00").put("items", JSONArray().put(item))
-        val bytes = EscPosRenderer().kitchen(payload.toString())
+        val payload = JSONObject().put("merchant_name", "百工牛肉麵").put("order_id", "foodorder-1").put("order_code", "BN-20260913-9Z3VOP").put("receipt_number", 3).put("table_label", "A1").put("order_type", "dine_in").put("payment_method", "counter").put("total_minor", 57000).put("created_at", "2026-09-08T06:42:00+08:00").put("items", JSONArray().put(item))
+        val renderer = EscPosRenderer()
+        val text = renderer.kitchenText(payload.toString()).joinToString("\n")
+        assertTrue(text.contains("\n3\n"))
+        assertTrue(text.contains("整單備註：無"))
+        assertFalse(text.contains("BN-20260913-9Z3VOP"))
+        assertFalse(text.contains("E2E"))
+        val bytes = renderer.kitchen(payload.toString())
         assertTrue(bytes.size > 10_000)
         assertTrue(bytes.takeLast(4).toByteArray().contentEquals(byteArrayOf(0x1D,0x56,0x42,0x00)))
     }

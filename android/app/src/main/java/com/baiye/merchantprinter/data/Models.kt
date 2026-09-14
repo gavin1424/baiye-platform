@@ -25,12 +25,14 @@ data class OrderEvent(
 )
 
 data class PrintJob(
-    val id: String, val orderCode: String, val printerId: String, val status: String,
+    val id: String, val merchantId: String, val orderId: String, val orderCode: String, val printerId: String, val status: String,
     val copies: Int, val attemptCount: Int, val payloadJson: String,
     val claimToken: String = "", val localState: String = "DISCOVERED",
     val deliveryOutcome: String = "not_started", val lastError: String = "",
-    val claimRequestId: String = "",
+    val claimRequestId: String = "", val isReprint: Boolean = false,
 )
+
+fun PrintJob.originalPrintKey(): String = "$merchantId:$orderId"
 
 enum class PrinterReachability { UNKNOWN, NETWORK_REACHABLE, OFFLINE, ERROR }
 

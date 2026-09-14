@@ -4,6 +4,7 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.baiye.merchantprinter.MainActivity
 import com.baiye.merchantprinter.data.*
@@ -23,6 +24,8 @@ class PrintService : Service() {
     @Volatile private var syncing = false
     @Volatile private var realtimeConnected = false
     private val reconnectScheduled = AtomicBoolean(false)
+    private val printSyncScheduled = AtomicBoolean(false)
+    @Volatile private var nextPrintAllowedAtMs = 0L
     private var webSocket: WebSocket? = null
 
     override fun onCreate() {
@@ -55,6 +58,7 @@ class PrintService : Service() {
     private fun consumeOrderEvent(event: OrderEvent) {
         if (event.sequence > store.lastEventSequence()) store.setLastEventSequence(event.sequence)
         if (event.eventType == "order_created") {
+            Log.i(TAG, "ORDER_RECEIVED order_id=${event.orderId} order_code=${event.orderCode}")
             notifyNewOrder(event)
             if (store.printer()?.canAutoClaim == true) safeSync()
         }
@@ -83,23 +87,52 @@ class PrintService : Service() {
                 store.setLastSync(System.currentTimeMillis())
                 return
             }
-            recover(printer)
-            api.pendingJobs().forEach { discovered ->
-                if (store.jobsIn(LocalJobState.PRINTED_ACKED, LocalJobState.AMBIGUOUS).none { it.id == discovered.id }) {
-                    val requestId = "claim-${java.util.UUID.randomUUID()}"
-                    store.saveJob(discovered.copy(claimRequestId = requestId))
-                    val claimed = api.claim(discovered.id, requestId)
-                    store.saveJob(claimed) // claim token is durable before any physical side effect
-                    process(claimed, printer)
+            if (recoverOnePhysicalJob(printer)) {
+                nextPrintAllowedAtMs = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(PRINTER_COOLDOWN_SECONDS)
+                schedulePrintSync(PRINTER_COOLDOWN_SECONDS)
+                store.setLastSync(System.currentTimeMillis())
+                return
+            }
+            val pending = api.pendingJobs()
+            val cooldownRemaining = nextPrintAllowedAtMs - System.currentTimeMillis()
+            if (pending.isNotEmpty() && cooldownRemaining > 0) {
+                schedulePrintSync((cooldownRemaining + 999L) / 1000L)
+                return
+            }
+            var processedOne = false
+            for (discovered in pending) {
+                if (!discovered.isReprint && store.hasTerminalOriginal(discovered.merchantId, discovered.orderId, discovered.printerId)) {
+                    Log.i(TAG, "PRINT_SKIPPED reason=ALREADY_PRINTED print_key=${discovered.originalPrintKey()} order_id=${discovered.orderId}")
+                    continue
                 }
+                if (store.jobsIn(LocalJobState.PRINTED_ACKED, LocalJobState.AMBIGUOUS).any { it.id == discovered.id }) {
+                    Log.i(TAG, "PRINT_SKIPPED reason=ALREADY_PRINTED job_id=${discovered.id} order_id=${discovered.orderId}")
+                    continue
+                }
+                Log.i(TAG, "AUTO_PRINT_ELIGIBLE print_key=${discovered.originalPrintKey()} order_id=${discovered.orderId}")
+                val requestId = "claim-${java.util.UUID.randomUUID()}"
+                store.saveJob(discovered.copy(claimRequestId = requestId))
+                Log.i(TAG, "PRINT_QUEUED order_id=${discovered.orderId} job_id=${discovered.id}")
+                val claimed = api.claim(discovered.id, requestId)
+                store.saveJob(claimed) // claim token is durable before any physical side effect
+                process(claimed, printer)
+                nextPrintAllowedAtMs = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(PRINTER_COOLDOWN_SECONDS)
+                processedOne = true
+                break
             }
             store.setLastSync(System.currentTimeMillis())
+            if (processedOne && pending.size > 1) schedulePrintSync(PRINTER_COOLDOWN_SECONDS)
         } catch (_: Exception) { /* transient backend failures are retried by the next bounded poll */ }
         finally { syncing = false }
     }
 
+    private fun schedulePrintSync(delaySeconds: Long) {
+        if (!printSyncScheduled.compareAndSet(false, true)) return
+        executor.schedule({ printSyncScheduled.set(false); safeSync() }, delaySeconds.coerceAtLeast(1), TimeUnit.SECONDS)
+    }
+
     private fun notifyNewOrder(event: OrderEvent) {
-        if (!store.markNotified(event.orderCode)) return
+        if (!store.markNotified(event.orderId.ifBlank { event.orderCode })) return
         val table = event.table.ifBlank { "外帶" }
         val intent = PendingIntent.getActivity(this, event.orderCode.hashCode(), Intent(this, MainActivity::class.java).putExtra("order_code", event.orderCode), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val message = "$table 新訂單｜${event.itemCount} 項商品"
@@ -107,10 +140,7 @@ class PrintService : Service() {
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(event.orderCode.hashCode(), notification)
     }
 
-    private fun recover(printer: PrinterConfig) {
-        store.jobsIn("DISCOVERED").filter { it.claimRequestId.isNotBlank() }.forEach { discovered ->
-            try { val claimed = api.claim(discovered.id, discovered.claimRequestId); store.saveJob(claimed); process(claimed, printer) } catch (_: Exception) { }
-        }
+    private fun recoverOnePhysicalJob(printer: PrinterConfig): Boolean {
         // A completed write is never printed again; only its backend ACK is retried.
         store.jobsIn(LocalJobState.WRITE_COMPLETED_AWAITING_ACK).forEach { job ->
             try { api.printed(job, 0); store.updateJobState(job.id, LocalJobState.PRINTED_ACKED) } catch (_: Exception) { }
@@ -122,7 +152,21 @@ class PrintService : Service() {
             try { api.failed(job, true, failure) } catch (_: Exception) { }
             store.updateJobState(job.id, LocalJobState.AMBIGUOUS, failure.message.orEmpty())
         }
-        store.jobsIn(LocalJobState.CLAIMED_DURABLE).forEach { process(it, printer) }
+        val durable = store.jobsIn(LocalJobState.CLAIMED_DURABLE).firstOrNull()
+        if (durable != null) {
+            process(durable, printer)
+            return true
+        }
+        val discovered = store.jobsIn("DISCOVERED").firstOrNull { it.claimRequestId.isNotBlank() }
+        if (discovered != null) {
+            try {
+                val claimed = api.claim(discovered.id, discovered.claimRequestId)
+                store.saveJob(claimed)
+                process(claimed, printer)
+                return true
+            } catch (_: Exception) { }
+        }
+        return false
     }
 
     private fun process(job: PrintJob, printer: PrinterConfig) {
@@ -133,13 +177,24 @@ class PrintService : Service() {
             store.updateJobState(job.id, LocalJobState.PRINTING_INTENT)
             physicalIntent = true
             val bytes = EscPosRenderer().kitchen(job.payloadJson)
-            repeat(job.copies.coerceIn(1, 5)) { bytesWritten += LanEscPosPrinter().print(printer, bytes) }
+            repeat(job.copies.coerceIn(1, 5)) {
+                bytesWritten += LanEscPosPrinter { Log.i(TAG, "TCP_CONNECTED order_id=${job.orderId} host=${printer.host}:${printer.port}") }.print(printer, bytes)
+                Log.i(TAG, "PRINT_SENT order_id=${job.orderId} bytes=${bytes.size}")
+            }
             store.updateJobState(job.id, LocalJobState.WRITE_COMPLETED_AWAITING_ACK)
-            try { api.printed(job, bytesWritten); store.updateJobState(job.id, LocalJobState.PRINTED_ACKED) } catch (_: Exception) { /* ACK-only recovery; never reprint */ }
+            try {
+                api.printed(job, bytesWritten)
+                store.updateJobState(job.id, LocalJobState.PRINTED_ACKED)
+                Log.i(TAG, "PRINT_SUCCESS order_id=${job.orderId} job_id=${job.id}")
+            } catch (error: Exception) {
+                Log.w(TAG, "PRINT_FAILED reason=ACK_FAILED order_id=${job.orderId} message=${error.message.orEmpty()}")
+                // ACK-only recovery; never reprint.
+            }
         } catch (error: Exception) {
             val ambiguous = ((error as? PrinterIoException)?.ambiguous ?: physicalIntent) || bytesWritten > 0
             try { api.failed(job, ambiguous, error) } catch (_: Exception) { }
             store.updateJobState(job.id, if (ambiguous) LocalJobState.AMBIGUOUS else LocalJobState.SAFE_FAILURE, error.message.orEmpty())
+            Log.e(TAG, "PRINT_FAILED reason=${if (ambiguous) "AMBIGUOUS" else "SAFE_FAILURE"} order_id=${job.orderId} message=${error.message.orEmpty()}")
         }
     }
 
@@ -164,6 +219,8 @@ class PrintService : Service() {
     private fun updateNotification(text: String) { (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification(text)) }
 
     companion object {
+        private const val TAG = "BaiyePrintFlow"
+        internal const val PRINTER_COOLDOWN_SECONDS = 5L
         private const val CHANNEL_ID = "baiye_print_service_v1"; private const val ORDER_CHANNEL_ID = "baiye_new_orders_v1"; private const val NOTIFICATION_ID = 1602
         private const val ACTION_MANUAL_PRINT = "com.baiye.merchantprinter.MANUAL_PRINT"
         const val ACTION_ORDER_EVENT = "com.baiye.merchantprinter.ORDER_EVENT"
