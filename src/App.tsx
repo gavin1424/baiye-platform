@@ -28,6 +28,7 @@ import { MerchantAccountPage, MerchantAdminDashboardPage, MerchantBookingsPage, 
 import { BeefNoodleBookingPage } from "./pages/BeefNoodleBookingPage";
 import { GeneralOrderingEntryPage } from "./pages/GeneralOrderingEntryPage";
 import { PlanContractPage } from "./pages/PlanContractPage";
+import { SoftPosExperiencePage, SoftPosGuidePage, SoftPosIntroPage } from "./pages/SoftPosPages";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -60,6 +61,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/plans": "方案合作契約｜創百業智慧鏈",
   "/features": "全部功能總覽｜創百業智慧鏈",
   "/pos-comparison": "Web-POS 效益與成本比較｜創百業智慧鏈",
+  "/pos-ordering": "免 POS 機智慧點餐｜創百業智慧鏈",
+  "/pos-ordering/guide": "免 POS 機點餐操作教學｜創百業智慧鏈",
+  "/pos-ordering/experience": "體驗免 POS 機點餐｜創百業智慧鏈",
   "/demo-sites": "五大產業示範網站｜創百業智慧鏈",
   "/about": "關於平台｜創百業智慧鏈",
   "/how-it-works": "商家數位升級如何運作｜創百業智慧鏈",
@@ -279,6 +283,9 @@ export function App() {
         <Route path="/plans/:planSlug/contract" element={<PlanContractPage />} />
         <Route path="/features" element={<FeaturesPage />} />
         <Route path="/pos-comparison" element={<PosComparisonPage />} />
+        <Route path="/pos-ordering" element={<SoftPosIntroPage />} />
+        <Route path="/pos-ordering/guide" element={<SoftPosGuidePage />} />
+        <Route path="/pos-ordering/experience" element={<SoftPosExperiencePage />} />
         <Route path="/services/deposit-settlement" element={<DepositSettlementPage />} />
         <Route path="/merchant/settlements" element={<MerchantSettlementsUnavailablePage />} />
         <Route path="/about" element={<Navigate to="/" replace />} />
