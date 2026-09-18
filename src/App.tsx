@@ -99,12 +99,14 @@ const PAGE_TITLES: Record<string, string> = {
   "/member/welcome": "歡迎成為創百業會員｜創百業智慧鏈",
   "/member": "我的會員｜創百業智慧鏈",
   "/demo/beef-noodle": "百工牛肉麵｜手機點餐",
+  "/booking/beef-noodle-demo": "百工牛肉麵網站預約｜創百業智慧鏈",
   "/merchant/login": "商家管理者登入｜創百業智慧鏈",
   "/merchant/register": "商家免費註冊｜創百業智慧鏈",
   "/merchant/password-setup": "設定商家登入密碼｜創百業智慧鏈",
   "/merchant/dashboard": "百工牛肉麵商家管理中心",
   "/merchant/inventory": "百工牛肉麵庫存管理",
   "/merchant-admin/ordering/kitchen": "百工牛肉麵出餐看板",
+  "/merchant/google-maps-booking": "網站預約｜百工牛肉麵商家管理中心",
   "/scan": "百工牛肉麵｜手機點餐入口",
 };
 
