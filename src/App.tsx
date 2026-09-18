@@ -156,7 +156,9 @@ function ScrollAndMetadata() {
       ? "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。"
       : publicDescription;
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
-    document.querySelector('meta[name="robots"]')?.setAttribute("content", IS_BEEF_NOODLE_DEMO || IS_STAGING || path.startsWith("/owner-admin") ? "noindex,nofollow" : "index,follow");
+    let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!robots) { robots = document.createElement("meta"); robots.name = "robots"; document.head.appendChild(robots); }
+    robots.content = IS_BEEF_NOODLE_DEMO || IS_STAGING || path.startsWith("/owner-admin") ? "noindex,nofollow" : "index,follow";
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", activeTitle);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
   }, [location.pathname]);
