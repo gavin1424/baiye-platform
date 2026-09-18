@@ -25,6 +25,7 @@ const parseSecretStatus = (value) => {
 
 const safeFilename=(value)=>clean(value,180).normalize('NFKC').replace(/[\\/\0-\x1f\x7f<>:"|?*]+/g,'_').replace(/\.{2,}/g,'_').replace(/^[_ .]+/,'').replace(/\s+/g,' ')||'document';
 const extension=(name)=>name.includes('.')?name.split('.').pop().toLowerCase():'';
+const validMagic=(ext,bytes)=>{const b=new Uint8Array(bytes);if(ext==='pdf')return String.fromCharCode(...b.slice(0,5))==='%PDF-';if(ext==='png')return [137,80,78,71,13,10,26,10].every((x,i)=>b[i]===x);if(ext==='jpg'||ext==='jpeg')return b[0]===255&&b[1]===216&&b[2]===255;if(ext==='webp')return String.fromCharCode(...b.slice(0,4))==='RIFF'&&String.fromCharCode(...b.slice(8,12))==='WEBP';if(ext==='docx'||ext==='xlsx')return b[0]===80&&b[1]===75&&(b[2]===3||b[2]===5||b[2]===7)&&(b[3]===4||b[3]===6||b[3]===8);return false;};
 const isForbiddenHost=(host)=>{
   const h=host.toLowerCase().replace(/^\[|\]$/g,'');
   if(h==='localhost'||h.endsWith('.localhost')||h.endsWith('.local')||h==='0.0.0.0'||h==='::1'||h==='169.254.169.254')return true;
@@ -121,8 +122,8 @@ export async function handleOwnerAdmin(request, env, url, cors, owner) {
     const filename=safeFilename(file.name),ext=extension(filename),expected=documentMime[ext];
     if(!expected||file.type!==expected)return json({error:"檔案格式或 MIME type 不允許。"},415,cors);
     if(!file.size||file.size>maxDocumentBytes)return json({error:"檔案大小必須介於 1 byte 與 15 MB。"},413,cors);
-    const id=`odoc_${crypto.randomUUID()}`,key=`owner-documents/${merchantId}/${id}/${filename}`;
-    try{await env.OWNER_DOCUMENTS_BUCKET.put(key,await file.arrayBuffer(),{httpMetadata:{contentType:expected,contentDisposition:`attachment; filename*=UTF-8''${encodeURIComponent(filename)}`},customMetadata:{documentId:id,merchantId}});await db.prepare("INSERT INTO owner_documents(id,merchant_id,type,filename,storage_key,mime_type,size,uploaded_by) VALUES(?,?,?,?,?,?,?,?)").bind(id,merchantId,type,filename,key,expected,file.size,owner.admin_user_id).run();}catch(error){await env.OWNER_DOCUMENTS_BUCKET.delete(key).catch(()=>undefined);return json({error:"文件上傳失敗。"},500,cors);}
+    const bytes=await file.arrayBuffer();if(!validMagic(ext,bytes))return json({error:"檔案內容與副檔名不符。"},415,cors);const id=`odoc_${crypto.randomUUID()}`,key=`owner-documents/${merchantId}/${id}/${filename}`;
+    try{await env.OWNER_DOCUMENTS_BUCKET.put(key,bytes,{httpMetadata:{contentType:expected,contentDisposition:`attachment; filename*=UTF-8''${encodeURIComponent(filename)}`},customMetadata:{documentId:id,merchantId}});await db.prepare("INSERT INTO owner_documents(id,merchant_id,type,filename,storage_key,mime_type,size,uploaded_by) VALUES(?,?,?,?,?,?,?,?)").bind(id,merchantId,type,filename,key,expected,file.size,owner.admin_user_id).run();}catch(error){await env.OWNER_DOCUMENTS_BUCKET.delete(key).catch(()=>undefined);return json({error:"文件上傳失敗。"},500,cors);}
     const after=await db.prepare("SELECT id,merchant_id,type,filename,mime_type,size,uploaded_at,uploaded_by FROM owner_documents WHERE id=?").bind(id).first();await audit(db,request,owner.admin_user_id,"DOCUMENT_UPLOAD","document",id,null,after);return json({item:after},201,cors);
   }
   const documentMatch=url.pathname.match(/^\/api\/owner\/documents\/([^/]+)(?:\/(download))?$/);
