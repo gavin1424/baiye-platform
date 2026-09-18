@@ -6,6 +6,8 @@ import { deriveAdminPassword } from "../src/admin-auth.js";
 import { handleOwnerAuth, ownerTotp, requireOwner } from "../src/owner-auth.js";
 import { handleOwnerAdmin } from "../src/owner-admin.js";
 
+const read=(path)=>readFileSync(new URL(`../../${path}`,import.meta.url),"utf8");
+
 class Statement {
   constructor(statement){this.statement=statement;this.values=[];}
   bind(...values){this.values=values;return this;}
@@ -41,6 +43,8 @@ test("OA01 migration creates isolated OWNER_ADMIN role and core tables",()=>{
   const db=new D1();
   for(const name of ["owner_admin_users","owner_admin_sessions","merchant_owner_profiles","owner_contracts","website_projects","merchant_services","owner_receivables","owner_tasks","owner_documents","owner_system_monitors","owner_audit_logs"]) assert.ok(db.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name));
   assert.throws(()=>db.sqlite.prepare("INSERT INTO owner_admin_users(admin_user_id,role) VALUES('x','ADMIN')").run(),/CHECK|FOREIGN KEY/);
+  assert.match(read("index.html"),/<meta name="robots" content="index,follow"/);
+  assert.match(read("src/App.tsx"),/path\.startsWith\("\/owner-admin"\) \? "noindex,nofollow"/);
 });
 
 test("OA02 unauthenticated and merchant cookies cannot authorize Owner API",async()=>{
