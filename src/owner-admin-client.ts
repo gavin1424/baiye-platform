@@ -2,7 +2,7 @@ const API=(import.meta.env.VITE_OWNER_API_URL||"https://baiye-owner-admin-api.ba
 let csrf="";
 async function request(path:string,init:RequestInit={}){
   const method=String(init.method||"GET").toUpperCase();
-  const response=await fetch(`${API}${path}`,{...init,credentials:"include",headers:{...(init.body?{"content-type":"application/json"}:{}),...(csrf&&!['GET','HEAD','OPTIONS'].includes(method)?{"x-csrf-token":csrf}:{}),...(init.headers||{})}});
+  const response=await fetch(`${API}${path}`,{...init,credentials:"include",headers:{...(init.body&&!(init.body instanceof FormData)?{"content-type":"application/json"}:{}),...(csrf&&!['GET','HEAD','OPTIONS'].includes(method)?{"x-csrf-token":csrf}:{}),...(init.headers||{})}});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw Object.assign(new Error(data.error||"Owner Admin 服務暫時無法使用。"),{status:response.status,code:data.code});
   if(typeof data.csrf_token==="string")csrf=data.csrf_token;
@@ -12,3 +12,5 @@ export const ownerSession=()=>request("/api/owner/auth/session");
 export const ownerLogin=(email:string,password:string,otp:string)=>request("/api/owner/auth/login",{method:"POST",body:JSON.stringify({email,password,otp})});
 export const ownerLogout=async()=>{try{await request("/api/owner/auth/logout",{method:"POST"});}finally{csrf="";}};
 export const ownerApi=(path:string,init:RequestInit={})=>request(path,init);
+export const ownerUploadDocument=(form:FormData)=>request("/api/owner/documents",{method:"POST",body:form});
+export async function ownerDownloadDocument(id:string,filename:string){const response=await fetch(`${API}/api/owner/documents/${encodeURIComponent(id)}/download`,{credentials:"include"});if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||"文件下載失敗。");}const href=URL.createObjectURL(await response.blob()),anchor=document.createElement("a");anchor.href=href;anchor.download=filename;anchor.click();URL.revokeObjectURL(href);}

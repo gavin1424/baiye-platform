@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { deriveAdminPassword } from "../src/admin-auth.js";
 import { handleOwnerAuth, ownerTotp, requireOwner } from "../src/owner-auth.js";
-import { handleOwnerAdmin } from "../src/owner-admin.js";
+import { checkOwnerProductionSite, handleOwnerAdmin, validatedProductionUrl } from "../src/owner-admin.js";
 
 const read=(path)=>readFileSync(new URL(`../../${path}`,import.meta.url),"utf8");
 
@@ -18,13 +18,19 @@ class Statement {
 class D1 {
   constructor(){
     this.sqlite=new DatabaseSync(":memory:");
-    for(const name of ["0001_finance_core.sql","0002_partner_portal.sql","0009_production_admin_auth.sql","0032_owner_admin_v1.sql"]) this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
+    for(const name of ["0001_finance_core.sql","0002_partner_portal.sql","0009_production_admin_auth.sql","0032_owner_admin_v1.sql","0033_owner_documents_monitor.sql"]) this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
   }
   prepare(sql){return new Statement(this.sqlite.prepare(sql));}
   async batch(statements){return Promise.all(statements.map((statement)=>statement.run()));}
 }
 const cors={"access-control-allow-origin":"https://admin.baiyeconnect.com","access-control-allow-credentials":"true"};
 const secret="JBSWY3DPEHPK3PXP";
+class R2 {
+  constructor(){this.objects=new Map();}
+  async put(key,value,options){this.objects.set(key,{body:value,options});}
+  async get(key){const item=this.objects.get(key);return item?{body:item.body}:null;}
+  async delete(key){this.objects.delete(key);}
+}
 
 async function setup(){
   const db=new D1(),salt="MDEyMzQ1Njc4OWFiY2RlZg",hash=await deriveAdminPassword("Owner-secure-password-2026",salt);
@@ -100,4 +106,19 @@ test("OA08 projects, contracts, services and receivables are real audited writes
 
 test("OA09 payment edits require a recently reauthenticated Owner session",async()=>{
   const {db,env}=await setup();db.sqlite.prepare("INSERT INTO merchants(id,merchant_code,name,status) VALUES('m-pay','MP','付款商家','active')").run();db.sqlite.prepare("INSERT INTO owner_receivables(id,merchant_id,amount_due,amount_paid,balance) VALUES('r1','m-pay',10000,0,10000)").run();const {body,cookie}=await login(env);db.sqlite.prepare("UPDATE owner_admin_sessions SET reauth_at='2000-01-01'").run();const request=new Request("https://worker.test/api/owner/receivables/r1",{method:"PATCH",headers:{cookie,"x-csrf-token":body.csrf_token,"content-type":"application/json"},body:JSON.stringify({amount_paid:10000})}),owner=await requireOwner(request,env),response=await handleOwnerAdmin(request,env,new URL(request.url),cors,owner);assert.equal(response.status,428);assert.equal((await response.json()).code,"reauth_required");
+});
+
+test("OA10 private document upload validates MIME, sanitizes path and audits lifecycle",async()=>{
+  const {db,env}=await setup();env.OWNER_DOCUMENTS_BUCKET=new R2();db.sqlite.prepare("INSERT INTO merchants(id,merchant_code,name,status) VALUES('m-doc','MD','文件商家','active')").run();const {body,cookie}=await login(env);
+  const call=async(path,method,form)=>{const request=new Request(`https://worker.test${path}`,{method,headers:{cookie,"x-csrf-token":body.csrf_token},body:form}),owner=await requireOwner(request,env);return handleOwnerAdmin(request,env,new URL(request.url),cors,owner);};
+  const invalid=new FormData();invalid.set('merchant_id','m-doc');invalid.set('type','OTHER');invalid.set('file',new File(['<script>'],'evil.html',{type:'text/html'}));assert.equal((await call('/api/owner/documents','POST',invalid)).status,415);
+  const form=new FormData();form.set('merchant_id','m-doc');form.set('type','CONTRACT');form.set('file',new File(['%PDF-1.7'],'../../正式合約.pdf',{type:'application/pdf'}));const uploaded=await call('/api/owner/documents','POST',form);assert.equal(uploaded.status,201);const item=(await uploaded.json()).item;assert.equal(item.filename,'正式合約.pdf');assert.equal(item.size,8);const row=db.sqlite.prepare("SELECT * FROM owner_documents WHERE id=?").get(item.id);assert.match(row.storage_key,/^owner-documents\/m-doc\/odoc_/);assert.doesNotMatch(row.storage_key,/\.\.\/|\.\.\\/);assert.equal(env.OWNER_DOCUMENTS_BUCKET.objects.size,1);
+  const download=await call(`/api/owner/documents/${item.id}/download`,'GET');assert.equal(download.status,200);assert.match(download.headers.get('content-disposition'),/attachment/);
+  const archived=await call(`/api/owner/documents/${item.id}`,'DELETE');assert.equal(archived.status,200);assert.equal(db.sqlite.prepare("SELECT COUNT(*) c FROM owner_audit_logs WHERE action IN ('DOCUMENT_UPLOAD','DOCUMENT_DOWNLOAD','DOCUMENT_ARCHIVE')").get().c,3);
+});
+
+test("OA11 monitor accepts only registered public HTTPS and requires repeated failure for DOWN",async()=>{
+  for(const bad of ['http://example.com','https://localhost','https://127.0.0.1','https://10.0.0.1','https://169.254.169.254/latest','file:///etc/passwd','ftp://example.com'])assert.equal(validatedProductionUrl(bad),null);
+  const {db,env}=await setup();db.sqlite.prepare("INSERT INTO merchants(id,merchant_code,name,status) VALUES('m-mon','MM','監控商家','active')").run();db.sqlite.prepare("INSERT INTO merchant_system_assets(merchant_id,production_url) VALUES('m-mon','https://example.com/')").run();
+  const fail=async()=>{throw new Error('timeout')};assert.equal((await checkOwnerProductionSite(env,'m-mon',fail)).health_status,'WARNING');assert.equal((await checkOwnerProductionSite(env,'m-mon',fail)).health_status,'DOWN');const healthy=await checkOwnerProductionSite(env,'m-mon',async()=>new Response('ok',{status:200}));assert.equal(healthy.health_status,'HEALTHY');assert.equal(healthy.failure_count,0);assert.equal(db.sqlite.prepare("SELECT COUNT(*) c FROM owner_monitor_checks WHERE merchant_id='m-mon'").get().c,3);
 });

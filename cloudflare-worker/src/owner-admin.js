@@ -4,6 +4,9 @@ const safeStatus = (value, allowed, fallback) => allowed.includes(value) ? value
 const metadata = (request) => JSON.stringify({ ip:request.headers.get("CF-Connecting-IP")||"unknown", user_agent:(request.headers.get("user-agent")||"").slice(0,300) });
 const checklistCodes=['CLIENT_DATA','LOGO','BRAND','DOMAIN','HOME','PRODUCTS_SERVICES','LINE_OA','AI_CUSTOMER_SERVICE','WEBSITE_BOOKING','MEMBERSHIP','POSLESS_ORDERING','PAYMENT','PRODUCTION','CLIENT_ACCEPTANCE'];
 const serviceCodes=['website','ai_customer_service','line_oa','membership','website_booking','posless_ordering','contract_system','payment','inventory','other'];
+const documentTypes=['CONTRACT','QUOTE','CLIENT_DATA','LOGO','QR_CODE','IMAGE','ACCEPTANCE','PAYMENT_PROOF','GUIDE','OTHER'];
+const documentMime={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
+const maxDocumentBytes=15*1024*1024;
 const clean=(value,max=1000)=>String(value??'').trim().slice(0,max);
 const optional=(value,max=1000)=>clean(value,max)||null;
 const integer=(value)=>Number.isSafeInteger(Number(value))&&Number(value)>=0?Number(value):null;
@@ -19,6 +22,29 @@ const parseSecretStatus = (value) => {
   let parsed={}; try { parsed=JSON.parse(value||"{}"); } catch {}
   return Object.fromEntries(Object.entries(parsed).map(([key,status])=>[key,["Configured","Missing","Invalid","Unknown"].includes(status)?status:"Unknown"]));
 };
+
+const safeFilename=(value)=>clean(value,180).normalize('NFKC').replace(/[\\/\0-\x1f\x7f<>:"|?*]+/g,'_').replace(/\.{2,}/g,'_').replace(/^[_ .]+/,'').replace(/\s+/g,' ')||'document';
+const extension=(name)=>name.includes('.')?name.split('.').pop().toLowerCase():'';
+const isForbiddenHost=(host)=>{
+  const h=host.toLowerCase().replace(/^\[|\]$/g,'');
+  if(h==='localhost'||h.endsWith('.localhost')||h.endsWith('.local')||h==='0.0.0.0'||h==='::1'||h==='169.254.169.254')return true;
+  const parts=h.split('.').map(Number);if(parts.length!==4||parts.some(x=>!Number.isInteger(x)||x<0||x>255))return false;
+  return parts[0]===10||parts[0]===127||parts[0]===0||(parts[0]===169&&parts[1]===254)||(parts[0]===172&&parts[1]>=16&&parts[1]<=31)||(parts[0]===192&&parts[1]===168)||(parts[0]===100&&parts[1]>=64&&parts[1]<=127);
+};
+export const validatedProductionUrl=(value)=>{try{const url=new URL(String(value||''));if(url.protocol!=='https:'||url.username||url.password||url.port||isForbiddenHost(url.hostname))return null;url.hash='';return url;}catch{return null;}};
+
+export async function checkOwnerProductionSite(env,merchantId,fetcher=fetch){
+  const db=env.FINANCE_DB,asset=await db.prepare("SELECT production_url FROM merchant_system_assets WHERE merchant_id=?").bind(merchantId).first();
+  const target=validatedProductionUrl(asset?.production_url);if(!target)throw new Error('REGISTERED_HTTPS_URL_REQUIRED');
+  const before=await db.prepare("SELECT failure_count FROM owner_system_monitors WHERE merchant_id=?").bind(merchantId).first(),started=Date.now();let status=null,errorCode=null,ssl='UNKNOWN';
+  try{const response=await fetcher(target.toString(),{method:'GET',redirect:'manual',headers:{'user-agent':'BaiyeOwnerMonitor/1.0'},signal:AbortSignal.timeout(8000)});status=response.status;ssl='VALID';}catch(error){errorCode=String(error?.name||'FETCH_FAILED').slice(0,80);ssl=/tls|certificate/i.test(String(error?.message||''))?'INVALID':'UNKNOWN';}
+  const latency=Math.max(0,Date.now()-started),success=status!==null&&status>=200&&status<400,failures=success?0:Number(before?.failure_count||0)+1,health=success?'HEALTHY':failures>=2?'DOWN':'WARNING',id=`omc_${crypto.randomUUID()}`;
+  await db.batch([
+    db.prepare("INSERT INTO owner_system_monitors(merchant_id,url,http_status,health_status,ssl_status,last_checked_at,last_success_at,failure_count,response_latency_ms,last_error) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP,CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END,?,?,?) ON CONFLICT(merchant_id) DO UPDATE SET url=excluded.url,http_status=excluded.http_status,health_status=excluded.health_status,ssl_status=excluded.ssl_status,last_checked_at=CURRENT_TIMESTAMP,last_success_at=CASE WHEN excluded.health_status='HEALTHY' THEN CURRENT_TIMESTAMP ELSE owner_system_monitors.last_success_at END,failure_count=excluded.failure_count,response_latency_ms=excluded.response_latency_ms,last_error=excluded.last_error,updated_at=CURRENT_TIMESTAMP").bind(merchantId,target.toString(),status,health,ssl,success?1:0,failures,latency,errorCode),
+    db.prepare("INSERT INTO owner_monitor_checks(id,merchant_id,url,http_status,response_latency_ms,ssl_status,health_status,error_code) VALUES(?,?,?,?,?,?,?,?)").bind(id,merchantId,target.toString(),status,latency,ssl,health,errorCode)
+  ]);
+  return db.prepare("SELECT * FROM owner_system_monitors WHERE merchant_id=?").bind(merchantId).first();
+}
 
 export async function handleOwnerAdmin(request, env, url, cors, owner) {
   const db=env.FINANCE_DB;
@@ -56,7 +82,7 @@ export async function handleOwnerAdmin(request, env, url, cors, owner) {
       db.prepare("SELECT * FROM website_projects WHERE merchant_id=?").bind(id).first(),
       rows(db.prepare("SELECT c.* FROM website_project_checklist c JOIN website_projects p ON p.id=c.project_id WHERE p.merchant_id=? ORDER BY c.item_code").bind(id)),
       rows(db.prepare("SELECT * FROM merchant_services WHERE merchant_id=? ORDER BY service_code").bind(id)),
-      rows(db.prepare("SELECT id,type,filename,mime_type,uploaded_at,uploaded_by FROM owner_documents WHERE merchant_id=? AND archived_at IS NULL ORDER BY uploaded_at DESC").bind(id)),
+      rows(db.prepare("SELECT id,type,filename,mime_type,size,uploaded_at,uploaded_by FROM owner_documents WHERE merchant_id=? AND archived_at IS NULL ORDER BY uploaded_at DESC").bind(id)),
       rows(db.prepare("SELECT * FROM owner_tasks WHERE merchant_id=? ORDER BY updated_at DESC").bind(id)),
       db.prepare("SELECT production_url,staging_url,domain,domain_provider,domain_expiry,github_repo,cloudflare_project,deployment_id,latest_commit_sha,line_oa_name,line_basic_id,liff_id,google_business,secret_status_json,notes,updated_at FROM merchant_system_assets WHERE merchant_id=?").bind(id).first(),
       db.prepare("SELECT * FROM owner_system_monitors WHERE merchant_id=?").bind(id).first(),
@@ -83,9 +109,35 @@ export async function handleOwnerAdmin(request, env, url, cors, owner) {
   if (url.pathname==="/api/owner/services" && request.method==="GET") return json({items:await rows(db.prepare("SELECT s.*,m.name merchant_name FROM merchant_services s JOIN merchants m ON m.id=s.merchant_id ORDER BY m.name,s.service_code"))},200,cors);
   if (url.pathname==="/api/owner/receivables" && request.method==="GET") return json({items:await rows(db.prepare("SELECT r.*,m.name merchant_name FROM owner_receivables r JOIN merchants m ON m.id=r.merchant_id ORDER BY COALESCE(r.due_date,'9999-12-31'),r.updated_at DESC"))},200,cors);
   if (url.pathname==="/api/owner/tasks" && request.method==="GET") return json({items:await rows(db.prepare("SELECT t.*,m.name merchant_name FROM owner_tasks t LEFT JOIN merchants m ON m.id=t.merchant_id ORDER BY CASE t.status WHEN 'DONE' THEN 2 ELSE 1 END,due_date,updated_at DESC"))},200,cors);
-  if (url.pathname==="/api/owner/documents" && request.method==="GET") return json({items:await rows(db.prepare("SELECT d.id,d.merchant_id,m.name merchant_name,d.type,d.filename,d.mime_type,d.uploaded_at,d.uploaded_by FROM owner_documents d JOIN merchants m ON m.id=d.merchant_id WHERE d.archived_at IS NULL ORDER BY d.uploaded_at DESC"))},200,cors);
-  if (url.pathname==="/api/owner/monitors" && request.method==="GET") return json({items:await rows(db.prepare("SELECT s.*,m.name merchant_name FROM owner_system_monitors s JOIN merchants m ON m.id=s.merchant_id ORDER BY CASE s.health_status WHEN 'DOWN' THEN 1 WHEN 'WARNING' THEN 2 WHEN 'UNKNOWN' THEN 3 ELSE 4 END,s.last_checked_at"))},200,cors);
+  if (url.pathname==="/api/owner/documents" && request.method==="GET") return json({items:await rows(db.prepare("SELECT d.id,d.merchant_id,m.name merchant_name,d.type,d.filename,d.mime_type,d.size,d.uploaded_at,d.uploaded_by FROM owner_documents d JOIN merchants m ON m.id=d.merchant_id WHERE d.archived_at IS NULL ORDER BY d.uploaded_at DESC"))},200,cors);
+  if (url.pathname==="/api/owner/monitors" && request.method==="GET") return json({items:await rows(db.prepare("SELECT a.merchant_id,m.name merchant_name,a.production_url url,s.http_status,COALESCE(s.health_status,'UNKNOWN') health_status,COALESCE(s.ssl_status,'UNKNOWN') ssl_status,s.last_checked_at,s.last_success_at,COALESCE(s.failure_count,0) failure_count,s.response_latency_ms,s.last_error,s.last_deployment_at,s.latest_commit_sha FROM merchant_system_assets a JOIN merchants m ON m.id=a.merchant_id LEFT JOIN owner_system_monitors s ON s.merchant_id=a.merchant_id WHERE a.production_url IS NOT NULL AND trim(a.production_url)!='' ORDER BY CASE COALESCE(s.health_status,'UNKNOWN') WHEN 'DOWN' THEN 1 WHEN 'WARNING' THEN 2 WHEN 'UNKNOWN' THEN 3 ELSE 4 END,s.last_checked_at"))},200,cors);
   if (url.pathname==="/api/owner/audit" && request.method==="GET") return json({items:await rows(db.prepare("SELECT * FROM owner_audit_logs ORDER BY created_at DESC LIMIT 200"))},200,cors);
+
+  if(url.pathname==="/api/owner/documents"&&request.method==="POST"){
+    if(!env.OWNER_DOCUMENTS_BUCKET)return json({error:"文件儲存空間尚未設定。"},503,cors);let form;try{form=await request.formData();}catch{return json({error:"請使用 multipart/form-data 上傳。"},400,cors);}
+    const merchantId=clean(form.get('merchant_id'),100),type=safeStatus(String(form.get('type')||''),documentTypes,'OTHER'),file=form.get('file');
+    if(!merchantId||!file||typeof file.arrayBuffer!=='function')return json({error:"商家與檔案不可空白。"},400,cors);
+    if(!await db.prepare("SELECT id FROM merchants WHERE id=?").bind(merchantId).first())return json({error:"找不到商家。"},404,cors);
+    const filename=safeFilename(file.name),ext=extension(filename),expected=documentMime[ext];
+    if(!expected||file.type!==expected)return json({error:"檔案格式或 MIME type 不允許。"},415,cors);
+    if(!file.size||file.size>maxDocumentBytes)return json({error:"檔案大小必須介於 1 byte 與 15 MB。"},413,cors);
+    const id=`odoc_${crypto.randomUUID()}`,key=`owner-documents/${merchantId}/${id}/${filename}`;
+    try{await env.OWNER_DOCUMENTS_BUCKET.put(key,await file.arrayBuffer(),{httpMetadata:{contentType:expected,contentDisposition:`attachment; filename*=UTF-8''${encodeURIComponent(filename)}`},customMetadata:{documentId:id,merchantId}});await db.prepare("INSERT INTO owner_documents(id,merchant_id,type,filename,storage_key,mime_type,size,uploaded_by) VALUES(?,?,?,?,?,?,?,?)").bind(id,merchantId,type,filename,key,expected,file.size,owner.admin_user_id).run();}catch(error){await env.OWNER_DOCUMENTS_BUCKET.delete(key).catch(()=>undefined);return json({error:"文件上傳失敗。"},500,cors);}
+    const after=await db.prepare("SELECT id,merchant_id,type,filename,mime_type,size,uploaded_at,uploaded_by FROM owner_documents WHERE id=?").bind(id).first();await audit(db,request,owner.admin_user_id,"DOCUMENT_UPLOAD","document",id,null,after);return json({item:after},201,cors);
+  }
+  const documentMatch=url.pathname.match(/^\/api\/owner\/documents\/([^/]+)(?:\/(download))?$/);
+  if(documentMatch&&request.method==="GET"&&documentMatch[2]==='download'){
+    const id=decodeURIComponent(documentMatch[1]),doc=await db.prepare("SELECT * FROM owner_documents WHERE id=? AND archived_at IS NULL").bind(id).first();if(!doc)return json({error:"找不到文件。"},404,cors);const object=await env.OWNER_DOCUMENTS_BUCKET?.get(doc.storage_key);if(!object)return json({error:"文件內容不存在。"},404,cors);await audit(db,request,owner.admin_user_id,"DOCUMENT_DOWNLOAD","document",id,null,{merchant_id:doc.merchant_id});return new Response(object.body,{status:200,headers:{...cors,'content-type':doc.mime_type,'content-length':String(doc.size),'content-disposition':`attachment; filename*=UTF-8''${encodeURIComponent(doc.filename)}`,'cache-control':'private, no-store','x-content-type-options':'nosniff'}});
+  }
+  if(documentMatch&&request.method==="DELETE"&&!documentMatch[2]){
+    const id=decodeURIComponent(documentMatch[1]),before=await db.prepare("SELECT * FROM owner_documents WHERE id=? AND archived_at IS NULL").bind(id).first();if(!before)return json({error:"找不到文件。"},404,cors);await db.prepare("UPDATE owner_documents SET archived_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();const after=await db.prepare("SELECT id,merchant_id,type,filename,mime_type,size,uploaded_at,uploaded_by,archived_at FROM owner_documents WHERE id=?").bind(id).first();await audit(db,request,owner.admin_user_id,"DOCUMENT_ARCHIVE","document",id,before,after);return json({item:after},200,cors);
+  }
+  const monitorMatch=url.pathname.match(/^\/api\/owner\/monitors\/([^/]+)\/check$/);
+  if(monitorMatch&&request.method==="POST"){
+    const merchantId=decodeURIComponent(monitorMatch[1]);try{const item=await checkOwnerProductionSite(env,merchantId);await audit(db,request,owner.admin_user_id,"SYSTEM_MONITOR_CHECK","system_monitor",merchantId,null,{health_status:item.health_status,http_status:item.http_status});return json({item},200,cors);}catch(error){return json({error:error?.message==='REGISTERED_HTTPS_URL_REQUIRED'?"此商家沒有可安全監控的 HTTPS Production URL。":"網站檢查失敗。"},422,cors);}
+  }
+  const monitorHistory=url.pathname.match(/^\/api\/owner\/monitors\/([^/]+)\/history$/);
+  if(monitorHistory&&request.method==="GET")return json({items:await rows(db.prepare("SELECT id,merchant_id,url,http_status,response_latency_ms,ssl_status,health_status,error_code,checked_at FROM owner_monitor_checks WHERE merchant_id=? ORDER BY checked_at DESC LIMIT 50").bind(decodeURIComponent(monitorHistory[1])))},200,cors);
 
   if(url.pathname==="/api/owner/projects"&&request.method==="POST"){
     let input={};try{input=await request.json();}catch{} const merchantId=clean(input.merchant_id,100);if(!merchantId)return json({error:"merchant_id 不可空白。"},400,cors);

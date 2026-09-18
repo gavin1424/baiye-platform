@@ -10,6 +10,15 @@
       "database_id": "1662c6ab-57d7-4df7-8056-935fbead2d8c"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "OWNER_DOCUMENTS_BUCKET",
+      "bucket_name": "baiye-owner-documents"
+    }
+  ],
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
   "vars": {
     "ALLOWED_ORIGINS": "https://admin.baiyeconnect.com,https://baiyeconnect.com,https://www.baiyeconnect.com"
   }
