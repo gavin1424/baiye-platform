@@ -51,6 +51,7 @@ test("OA01 migration creates isolated OWNER_ADMIN role and core tables",()=>{
   assert.throws(()=>db.sqlite.prepare("INSERT INTO owner_admin_users(admin_user_id,role) VALUES('x','ADMIN')").run(),/CHECK|FOREIGN KEY/);
   assert.match(read("index.html"),/<meta name="robots" content="index,follow"/);
   assert.match(read("src/App.tsx"),/path\.startsWith\("\/owner-admin"\) \? "noindex,nofollow"/);
+  assert.match(read("public/_headers"),/connect-src[^\n]*https:\/\/baiye-owner-admin-api\.baiye-platform\.workers\.dev/);
 });
 
 test("OA02 unauthenticated and merchant cookies cannot authorize Owner API",async()=>{
