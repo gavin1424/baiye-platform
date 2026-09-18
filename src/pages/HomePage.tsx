@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpenText, CalendarCheck, ChartLineUp, CheckCircle, GlobeHemisphereWest, GoogleLogo, Handshake, LineSegments, QrCode, Robot, ShieldCheck, ShoppingCart, Storefront, User, X } from "@phosphor-icons/react";
+import { ArrowRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, GlobeHemisphereWest, Handshake, LineSegments, QrCode, Robot, ShieldCheck, ShoppingCart, Storefront, User, X } from "@phosphor-icons/react";
 import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import heroScene from "../assets/baiye-multi-industry-isometric-hero.png";
@@ -13,7 +13,7 @@ const features: Feature[] = [
   { name: "會員回購", icon: User, summary: "用一致會員識別整理顧客關係、消費與回購歷程。", audience: "重視熟客、回訪率與長期留存的商家", value: "不靠短期促銷，從資料與互動建立長期會員經營能力。", items: ["會員資料管理", "消費與回購追蹤", "顧客標籤", "會員分級規劃與 LINE 再行銷導流"], cta: "了解會員經營", to: "/member-benefits" },
   { name: "預約管理", icon: CalendarCheck, summary: "讓顧客線上選時段，商家在同一後台管理預約。", audience: "美業、服務業、顧問、教室與個人工作室", value: "降低來回確認成本，讓時段、狀態與異動更清楚。", items: ["線上預約", "時段與狀態管理", "改期與取消", "行事曆式後台檢視"], cta: "了解預約功能", to: "/features" },
   { name: "免POS機點餐", icon: QrCode, summary: "免專用 POS 主機，顧客掃碼、商家用手機或平板接單。", audience: "餐廳、早餐店、攤販、小吃與外帶商家", value: "降低專用硬體門檻，串起菜單、訂單、出餐看板、庫存與財務。", items: ["QR 掃碼點餐", "手機／平板接單", "桌號、外帶、規格與加料", "出餐看板與訂單流程整合"], cta: "了解免 POS 機點餐", to: "/pos-ordering" },
-  { name: "Google地圖預約", icon: GoogleLogo, summary: "從 Google 商家資訊把在地搜尋流量導入預約流程。", audience: "美業、工作室與實體店家", value: "縮短顧客從找到商家到完成預約的距離，提高在地曝光轉換。", items: ["Google 地圖商家資訊導流", "快速進入預約頁", "網站預約資料整合", "在地曝光轉換規劃"], cta: "洽詢導入方式", to: "/contact" },
+  { name: "網站預約", icon: CalendarBlank, summary: "建立專屬線上預約頁面，顧客可直接透過網站選擇服務、日期與時間，快速完成預約。", audience: "美業、工作室、課程、顧問與各類預約型商家", value: "顧客直接透過網站完成線上預約，商家用手機即可查看紀錄與管理狀態。", items: ["線上選擇預約日期", "選擇預約時段", "選擇服務項目", "填寫顧客資料", "預約備註", "商家查看預約紀錄", "預約狀態管理", "手機即可操作", "不需另外下載 App"], cta: "了解網站預約", to: "/features?module=booking" },
   { name: "承攬 / 商家簽約", icon: Handshake, summary: "平台合作、商家加入與契約留存的一體化手機流程。", audience: "承攬夥伴、商家負責人與受授權代表", value: "從身分確認、閱讀到電子簽署與文件下載，都能安全留存。", items: ["承攬夥伴合作契約", "商家平台服務契約", "線上簽署與證據留存", "私人 PDF 契約下載"], cta: "查看合作入口", to: "/partner" },
 ];
 
