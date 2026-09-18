@@ -14,9 +14,10 @@ import {
 } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 import { PublicLayout } from "../components";
+import { BEEF_NOODLE_GUEST_ORDERING_URL } from "../config/orderingDemo";
 import "../softpos-pages.css";
 
-export const SOFTPOS_DEMO_URL = "https://baiye-beef-noodle-demo.pages.dev/";
+export const SOFTPOS_DEMO_URL = BEEF_NOODLE_GUEST_ORDERING_URL;
 
 const benefits = [
   "不需要購買傳統 POS 主機",

@@ -1,6 +1,7 @@
 import { BowlFood, CheckCircle, ShoppingCart } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
 import { PlatformLogo } from "../components";
+import { BEEF_NOODLE_GUEST_ORDERING_URL } from "../config/orderingDemo";
 
 export function GeneralOrderingEntryPage() {
   return (
@@ -12,7 +13,7 @@ export function GeneralOrderingEntryPage() {
         <h1>百工牛肉麵</h1>
         <strong className="ordering-order-entry-subtitle">手機點餐</strong>
         <p>線上查看菜單、選擇餐點並送出訂單</p>
-        <a className="btn btn-primary btn-lg ordering-order-entry-cta" href="https://baiye-beef-noodle-demo.pages.dev/">
+        <a className="btn btn-primary btn-lg ordering-order-entry-cta" href={BEEF_NOODLE_GUEST_ORDERING_URL}>
           <ShoppingCart weight="fill" />開始點餐
         </a>
         <p className="ordering-order-entry-detail">點選後即可查看完整菜單並開始點餐。</p>
