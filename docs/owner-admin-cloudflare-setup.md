@@ -30,7 +30,7 @@ Set the Access session duration to four hours or less. The internal Owner sessio
 
 ## 7. MFA
 
-Require MFA in the Access identity policy. Separately generate a standard Base32 TOTP secret, enroll it in the Owner's authenticator, and save it as the Worker secret `OWNER_ADMIN_TOTP_SECRET` using Cloudflare's secret management UI or `wrangler secret put`. Never store or commit the TOTP secret in source, D1, a normal environment variable file, screenshots, or tickets.
+Require MFA in the Access identity policy. Separately generate a standard Base32 TOTP secret, enroll it in the Owner's authenticator, and save it on the dedicated `baiye-owner-admin-api` Worker as the secret `OWNER_ADMIN_TOTP_SECRET` using Cloudflare's secret management UI or `wrangler secret put`. Never store or commit the TOTP secret in source, D1, a normal environment variable file, screenshots, or tickets.
 
 After setup, validate:
 

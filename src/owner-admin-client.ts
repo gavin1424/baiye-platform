@@ -1,4 +1,4 @@
-const API=(import.meta.env.VITE_PLATFORM_API_URL||"https://chuang-baiye-ai.baiye-platform.workers.dev").replace(/\/$/,"");
+const API=(import.meta.env.VITE_OWNER_API_URL||"https://baiye-owner-admin-api.baiye-platform.workers.dev").replace(/\/$/,"");
 let csrf="";
 async function request(path:string,init:RequestInit={}){
   const method=String(init.method||"GET").toUpperCase();
