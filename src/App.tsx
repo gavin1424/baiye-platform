@@ -29,6 +29,7 @@ import { BeefNoodleBookingPage } from "./pages/BeefNoodleBookingPage";
 import { GeneralOrderingEntryPage } from "./pages/GeneralOrderingEntryPage";
 import { PlanContractPage } from "./pages/PlanContractPage";
 import { SoftPosExperiencePage, SoftPosGuidePage, SoftPosIntroPage } from "./pages/SoftPosPages";
+import { OwnerDashboard, OwnerLoginPage, OwnerMerchantDetail, OwnerMerchants, OwnerModulePage, OwnerRoute, OwnerStaticPage } from "./pages/OwnerAdminPage";
 
 const IS_BEEF_NOODLE_DEMO = import.meta.env.VITE_APP_VARIANT === "beef-noodle-demo";
 const IS_STAGING = import.meta.env.VITE_APP_MODE === "staging";
@@ -107,6 +108,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/merchant/inventory": "百工牛肉麵庫存管理",
   "/merchant-admin/ordering/kitchen": "百工牛肉麵出餐看板",
   "/merchant/google-maps-booking": "網站預約｜百工牛肉麵商家管理中心",
+  "/owner-admin/login": "Owner Login｜創百業總管理中心",
+  "/owner-admin": "創百業智慧鏈｜總管理中心",
   "/scan": "百工牛肉麵｜手機點餐入口",
 };
 
@@ -153,7 +156,7 @@ function ScrollAndMetadata() {
       ? "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。"
       : publicDescription;
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
-    document.querySelector('meta[name="robots"]')?.setAttribute("content", IS_BEEF_NOODLE_DEMO || IS_STAGING ? "noindex,nofollow" : "index,follow");
+    document.querySelector('meta[name="robots"]')?.setAttribute("content", IS_BEEF_NOODLE_DEMO || IS_STAGING || path.startsWith("/owner-admin") ? "noindex,nofollow" : "index,follow");
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", activeTitle);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
   }, [location.pathname]);
@@ -195,11 +198,13 @@ function AdminRoute({ children }: { children: ReactNode }) {
 
 function ContextualAiChatWidget() {
   const location = useLocation();
-  if (location.pathname.startsWith("/q/") || location.pathname === "/scan") return null;
+  if (location.pathname.startsWith("/q/") || location.pathname === "/scan" || location.pathname.startsWith("/owner-admin")) return null;
   return <AiChatWidget />;
 }
 
 export function App() {
+  const location = useLocation();
+  if (typeof window !== "undefined" && window.location.hostname === "admin.baiyeconnect.com" && location.pathname === "/") return <Navigate to="/owner-admin" replace />;
   if (IS_BEEF_NOODLE_DEMO) {
     return (
       <>
@@ -318,6 +323,12 @@ export function App() {
         <Route path="/admin/financing" element={<AdminRoute><AdminFinancingPage /></AdminRoute>} />
         <Route path="/admin/partners" element={<AdminRoute><AdminPartners /></AdminRoute>} />
         <Route path="/admin/contracts" element={<AdminRoute><AdminContractsPage /></AdminRoute>} />
+        <Route path="/owner-admin/login" element={<OwnerLoginPage />} />
+        <Route path="/owner-admin" element={<OwnerRoute><OwnerDashboard /></OwnerRoute>} />
+        <Route path="/owner-admin/merchants" element={<OwnerRoute><OwnerMerchants /></OwnerRoute>} />
+        <Route path="/owner-admin/merchants/:id" element={<OwnerRoute><OwnerMerchantDetail /></OwnerRoute>} />
+        {(["contracts","projects","services","receivables","tasks","documents","monitors","audit"] as const).map((kind)=><Route key={kind} path={`/owner-admin/${kind}`} element={<OwnerRoute><OwnerModulePage kind={kind}/></OwnerRoute>} />)}
+        {(["reports","alerts","settings","security"] as const).map((kind)=><Route key={kind} path={`/owner-admin/${kind}`} element={<OwnerRoute><OwnerStaticPage kind={kind}/></OwnerRoute>} />)}
         <Route path="*" element={<ProductionNotFoundPage />} />
       </Routes>
       <ContextualAiChatWidget />
