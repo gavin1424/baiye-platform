@@ -60,6 +60,10 @@ test("OA03 Owner login requires valid password and TOTP",async()=>{
   const {response}=await login(env); assert.equal(response.status,200); assert.match(response.headers.get("set-cookie"),/HttpOnly; Secure; SameSite=None/);
 });
 
+test("OA03b TOTP matches the RFC 6238 SHA-1 reference vector",async()=>{
+  assert.equal(await ownerTotp("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",59000),"287082");
+});
+
 test("OA04 Owner state changes require CSRF and expired sessions fail",async()=>{
   const {db,env}=await setup(),{body,cookie}=await login(env);
   const unsafe=new Request("https://worker.test/api/owner/tasks",{method:"POST",headers:{cookie}}); assert.equal(await requireOwner(unsafe,env),null);
