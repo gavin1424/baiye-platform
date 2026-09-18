@@ -37,7 +37,7 @@ test("phone auth stays server-scoped and auto-resolves the sole merchant", () =>
 test("merchant dashboard presents normal merchant language and 出餐看板", () => {
   const dashboard = read("src/pages/MerchantAdminPages.tsx");
   const kds = read("src/pages/MerchantKitchenDisplayPage.tsx");
-  for (const label of ["商品／菜單", "庫存管理", "訂單管理", "出餐看板", "預約管理", "會員管理", "Google 地圖預約", "LINE 官方帳號", "商家設定", "帳戶", "商家狀態", "正常"]) assert.match(dashboard, new RegExp(label));
+  for (const label of ["商品／菜單", "庫存管理", "訂單管理", "出餐看板", "預約管理", "會員管理", "網站預約", "LINE 官方帳號", "商家設定", "帳戶", "商家狀態", "正常"]) assert.match(dashboard, new RegExp(label));
   for (const forbidden of ["百工官方示範", "試用商家", "開始試用", "廚房 KDS", "KDS 廚房看板", "重置試用資料"]) assert.doesNotMatch(`${dashboard}\n${kds}`, new RegExp(forbidden));
   assert.match(kds, /<h1>出餐看板<\/h1>/);
   assert.match(kds, /即時查看接單、製作與出餐進度/);
@@ -60,9 +60,10 @@ test("all merchant-visible frontend source excludes legacy meal-board names", ()
   assert.doesNotMatch(frontend, /KDS|Kitchen Display System|廚房 KDS|KDS 廚房看板|廚房看板/);
 });
 
-test("latest additive D1 migration preserves internal safety flags", () => {
+test("additive D1 migrations preserve merchant safety flags", () => {
   const migrations = readdirSync(new URL("../migrations/", import.meta.url)).filter((name) => /^\d+.*\.sql$/.test(name));
-  assert.equal(migrations.at(-1), "0031_pricing_plan_contracts_production.sql");
+  assert.ok(migrations.includes("0031_pricing_plan_contracts_production.sql"));
+  assert.ok(migrations.includes("0032_owner_admin_v1.sql"));
   const login = read("cloudflare-worker/src/demo-merchant.js");
   const admin = read("cloudflare-worker/src/merchant-admin.js");
   assert.match(login, /official_demo/);

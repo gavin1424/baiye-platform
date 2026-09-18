@@ -4,6 +4,8 @@ import { handlePartnerRequest, runPartnerDailyMaintenance } from "./partner.js";
 import { handleAiAdminRequest, handleMeilingWebsiteChat, processMeilingLineText } from "./meiling-ai.js";
 import { handleBookingAdminRequest, handleBookingRequest, runBookingReminders } from "./booking.js";
 import { handleAdminAuth, requireAdmin } from "./admin-auth.js";
+import { handleOwnerAuth, requireOwner } from "./owner-auth.js";
+import { handleOwnerAdmin } from "./owner-admin.js";
 import { handleOrderingAdminRequest, handleOrderingRequest } from "./qr-ordering.js";
 import { handleMemberIntegrationsAdmin, handleMemberIntegrationsPublic } from "./member-integrations.js";
 import { authorizeMerchant, handleMerchantAuth, handleMerchantCredentialAdmin, merchantOperationsAllowed } from "./merchant-auth.js";
@@ -223,6 +225,20 @@ export default {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
       if (!origin) return json({ error: "Origin not allowed" }, 403);
       return (await handleAdminAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname.startsWith("/api/owner/auth/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      return (await handleOwnerAuth(request, env, url, cors)) || json({ error: "Not found" }, 404, cors);
+    }
+
+    if (url.pathname.startsWith("/api/owner/")) {
+      if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
+      if (!origin) return json({ error: "Origin not allowed" }, 403);
+      const owner = await requireOwner(request, env);
+      if (!owner) return json({ error: "需要 OWNER_ADMIN 授權。" }, 403, { ...cors, "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" });
+      return (await handleOwnerAdmin(request, env, url, cors, owner)) || json({ error: "Not found" }, 404, cors);
     }
 
     if (url.pathname.startsWith("/api/merchant-auth/")) {

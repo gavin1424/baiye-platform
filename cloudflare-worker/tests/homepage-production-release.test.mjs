@@ -6,7 +6,7 @@ const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "
 
 test("production homepage exposes all eight interactive features", () => {
   const source = read("src/pages/HomePage.tsx");
-  for (const label of ["官網建置", "AI智能客服", "LINE官方帳號", "會員回購", "預約管理", "免POS機點餐", "Google地圖預約", "承攬 / 商家簽約"]) {
+  for (const label of ["官網建置", "AI智能客服", "LINE官方帳號", "會員回購", "預約管理", "免POS機點餐", "網站預約", "承攬 / 商家簽約"]) {
     assert.match(source, new RegExp(label.replace("/", "\\/")));
   }
   assert.match(source, /setSelected\(feature\)/);
