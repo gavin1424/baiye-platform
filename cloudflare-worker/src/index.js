@@ -219,7 +219,7 @@ export default {
 
     if (url.pathname === "/api/public/commercial-catalog") {
       if (request.method === "OPTIONS") return origin ? new Response(null, { status: 204, headers: cors }) : json({ error: "Origin not allowed" }, 403);
-      return handleCommercialCatalog(request, cors);
+      return await handleCommercialCatalog(request, env, cors);
     }
 
     if (url.pathname.startsWith("/api/public/plan-contracts/")) {

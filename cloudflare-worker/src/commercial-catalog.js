@@ -1,4 +1,4 @@
-export const COMMERCIAL_CATALOG_VERSION = "2026-09-08.contracts-v1";
+export const COMMERCIAL_CATALOG_VERSION = "2026-09-20.ai-commerce-50000-v1";
 
 export const MERCHANT_PLANS = Object.freeze([
   Object.freeze({
@@ -32,19 +32,19 @@ export const MERCHANT_PLANS = Object.freeze([
   Object.freeze({
     plan_id: "baiye_commerce_ai_45000",
     plan_slug: "ai-commerce-45000",
-    contract_template_id: "plan_contract_commerce_production_v1_0",
-    plan_contract_version: "v1.0",
+    contract_template_id: "plan_contract_commerce_production_v1_1_50000",
+    plan_contract_version: "v1.1",
     display_name: "AI 智慧商城完整版",
     short_name: "AI 智慧商城",
-    price_minor: 4500000,
-    list_price_minor: 4500000,
+    price_minor: 5000000,
+    list_price_minor: 5000000,
     currency: "TWD",
     term_months: 24,
     trial_months: 0,
     activation_fee_minor: 0,
     deposit_minor: 0,
-    first_cycle_balance_minor: 4500000,
-    contract_version: "merchant_commerce_ai_v1_0_45000",
+    first_cycle_balance_minor: 5000000,
+    contract_version: "merchant_commerce_ai_v1_1_50000",
     contract_review_status: "approved",
     merchant_content_editable: true,
     merchant_product_editable: true,
@@ -96,20 +96,40 @@ export const STANDARD_ADDONS = Object.freeze([
   Object.freeze({ code: "new_product_listing", label: "全新商品少量上架", pricing_model: "tiered_minimum", minimum_minor: 60000, per_unit_minor: 20000, display_price: "NT$200／件，最低 NT$600" }),
 ]);
 
-export function publicCommercialCatalog() {
+export function publicCommercialCatalog(plans = MERCHANT_PLANS) {
   return {
     version: COMMERCIAL_CATALOG_VERSION,
     currency: "TWD",
     server_authoritative: true,
     final_contract_amount_server_calculated: true,
     legal_gate_preserved: true,
-    plans: MERCHANT_PLANS,
+    plans,
     standard_addons: STANDARD_ADDONS,
     installment_disclosure: "實際分期方案依合作銀行／金流服務商核准及當時可用條件為準。",
   };
 }
 
-export function handleCommercialCatalog(request, cors = {}) {
+export async function handleCommercialCatalog(request, env, cors = {}) {
   if (request.method !== "GET") return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { "content-type": "application/json; charset=UTF-8", ...cors } });
-  return new Response(JSON.stringify(publicCommercialCatalog()), { headers: { "content-type": "application/json; charset=UTF-8", "cache-control": "public, max-age=60, s-maxage=300", ...cors } });
+  try {
+    const result = await env.FINANCE_DB.prepare("SELECT id,plan_id,plan_slug,contract_version,plan_details_snapshot FROM service_plan_contract_templates WHERE is_active=1 AND status='approved'").all();
+    const current = new Map((result.results || []).map((row) => [row.plan_slug, row]));
+    const plans = MERCHANT_PLANS.map((config) => {
+      const row = current.get(config.plan_slug);
+      if (!row) throw new Error(`Missing active plan: ${config.plan_slug}`);
+      const snapshot = JSON.parse(row.plan_details_snapshot);
+      return Object.freeze({
+        ...config,
+        contract_template_id: row.id,
+        plan_contract_version: row.contract_version,
+        price_minor: Number(snapshot.plan_price_minor),
+        list_price_minor: Number(snapshot.plan_price_minor),
+        first_cycle_balance_minor: Number(snapshot.first_cycle_balance_minor ?? snapshot.plan_price_minor),
+      });
+    });
+    return new Response(JSON.stringify(publicCommercialCatalog(plans)), { headers: { "content-type": "application/json; charset=UTF-8", "cache-control": "no-store", ...cors } });
+  } catch (error) {
+    console.error(JSON.stringify({ service: "commercial_catalog", error: error instanceof Error ? error.message : "unknown" }));
+    return new Response(JSON.stringify({ error: "方案資料暫時無法載入" }), { status: 503, headers: { "content-type": "application/json; charset=UTF-8", "cache-control": "no-store", ...cors } });
+  }
 }

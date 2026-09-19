@@ -62,7 +62,7 @@ test("all merchant-visible frontend source excludes legacy meal-board names", ()
 
 test("latest additive D1 migration preserves internal safety flags", () => {
   const migrations = readdirSync(new URL("../migrations/", import.meta.url)).filter((name) => /^\d+.*\.sql$/.test(name));
-  assert.equal(migrations.at(-1), "0038_order_receipt_sequence_v1.sql");
+  assert.equal(migrations.at(-1), "0039_ai_commerce_current_50000.sql");
   const login = read("cloudflare-worker/src/demo-merchant.js");
   const admin = read("cloudflare-worker/src/merchant-admin.js");
   assert.match(login, /official_demo/);

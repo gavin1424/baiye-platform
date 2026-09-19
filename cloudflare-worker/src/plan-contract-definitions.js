@@ -10,7 +10,7 @@ const SPECIFIC_TERMS = Object.freeze({
     limitations: ["網站主要內容由百工協助維護，不開放完整 CMS。", "基礎協助上架以 20 項商品／服務為限。", "超過 20 項或原方案外功能，以加購報價及補充協議辦理。"],
   }),
   baiye_commerce_ai_45000: Object.freeze({
-    payment_terms: "方案費用 NT$45,000；實際付款方式由雙方於既有申請／付款流程另行確認，不因本草稿自動扣款。",
+    payment_terms: "方案費用 NT$50,000；實際付款方式由雙方於既有申請／付款流程另行確認，不因本草稿自動扣款。",
     service_period: "自雙方確認之服務啟用日起 24 個月。",
     delivery_items: ["AI 智慧營運", "完整商城", "商品、價格與圖片管理", "分類、規格與上下架", "購物車與訂單管理", "標準金流串接能力"],
     limitations: ["商家可自行管理商品、價格、圖片、分類、規格與上下架。", "實際金流啟用仍依 Provider readiness、第三方審核及服務條件。", "非標準客製、第三方費用與額外 AI 用量另行確認。"],
@@ -23,8 +23,8 @@ const SPECIFIC_TERMS = Object.freeze({
   }),
 });
 
-export function planContractSnapshot(plan) {
-  const specific = SPECIFIC_TERMS[plan.plan_id];
+export function planContractSnapshot(plan, termsOverride) {
+  const specific = termsOverride || SPECIFIC_TERMS[plan.plan_id];
   if (!specific) throw new Error(`Unknown plan contract mapping: ${plan.plan_id}`);
   return {
     plan_id: plan.plan_id,
@@ -51,8 +51,8 @@ export function planContractSnapshot(plan) {
 const list = (items) => `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
 const agreementName = (planName) => `${planName}${planName.endsWith("方案") ? "" : "方案"}合作契約`;
 
-function reviewedTerms(plan) {
-  const snapshot = planContractSnapshot(plan);
+function reviewedTerms(plan, termsOverride) {
+  const snapshot = planContractSnapshot(plan, termsOverride);
   return [
     `<h1>創百業智慧鏈｜${agreementName(snapshot.plan_name)} v1.0</h1>`,
     `<h2>一、契約雙方與所選方案</h2><p>甲方：陳靈有限公司（創百業智慧鏈）；乙方：完成電子簽署之商家或其合法授權代表。乙方所選方案為「${snapshot.plan_name}」，方案識別碼為 ${snapshot.plan_id}。</p>`,
@@ -67,12 +67,12 @@ function reviewedTerms(plan) {
   ];
 }
 
-export function approvedPlanContractHtml(plan) {
-  return reviewedTerms(plan).join("");
+export function approvedPlanContractHtml(plan, termsOverride) {
+  return reviewedTerms(plan, termsOverride).join("");
 }
 
-export function planContractHtml(plan) {
-  const terms = reviewedTerms(plan);
+export function planContractHtml(plan, termsOverride) {
+  const terms = reviewedTerms(plan, termsOverride);
   return [
     terms[0],
     "<p><strong>法律審閱草稿｜pending_review｜目前不可於 Production 正式簽署</strong></p>",
@@ -94,8 +94,14 @@ export const PLAN_CONTRACT_DRAFTS = Object.freeze(MERCHANT_PLANS.map((plan) => O
   plan_slug: plan.plan_slug,
   contract_name: `創百業智慧鏈｜${agreementName(plan.display_name)}`,
   contract_version: "draft-v1.0-20260908",
-  plan_snapshot: planContractSnapshot(plan),
-  contract_snapshot: planContractHtml(plan),
+  plan_snapshot: planContractSnapshot(
+    plan.plan_id === "baiye_commerce_ai_45000" ? { ...plan, price_minor: 4500000, list_price_minor: 4500000, first_cycle_balance_minor: 4500000 } : plan,
+    plan.plan_id === "baiye_commerce_ai_45000" ? { ...SPECIFIC_TERMS[plan.plan_id], payment_terms: "方案費用 NT$45,000；實際付款方式由雙方於既有申請／付款流程另行確認，不因本草稿自動扣款。" } : undefined,
+  ),
+  contract_snapshot: planContractHtml(
+    plan.plan_id === "baiye_commerce_ai_45000" ? { ...plan, price_minor: 4500000, list_price_minor: 4500000, first_cycle_balance_minor: 4500000 } : plan,
+    plan.plan_id === "baiye_commerce_ai_45000" ? { ...SPECIFIC_TERMS[plan.plan_id], payment_terms: "方案費用 NT$45,000；實際付款方式由雙方於既有申請／付款流程另行確認，不因本草稿自動扣款。" } : undefined,
+  ),
   effective_at: "2026-09-08",
   status: "pending_review",
 })));
