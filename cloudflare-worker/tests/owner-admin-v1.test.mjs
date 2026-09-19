@@ -18,7 +18,7 @@ class Statement {
 class D1 {
   constructor(){
     this.sqlite=new DatabaseSync(":memory:");
-    for(const name of ["0001_finance_core.sql","0002_partner_portal.sql","0009_production_admin_auth.sql","0014_merchant_contracts.sql","0030_pricing_plan_contracts_phase1.sql","0031_pricing_plan_contracts_production.sql","0032_owner_admin_v1.sql","0033_owner_documents_monitor.sql","0034_ai_commerce_current_50000.sql"]) this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
+    for(const name of ["0001_finance_core.sql","0002_partner_portal.sql","0009_production_admin_auth.sql","0014_merchant_contracts.sql","0030_pricing_plan_contracts_phase1.sql","0031_pricing_plan_contracts_production.sql","0032_owner_admin_v1.sql","0033_owner_documents_monitor.sql","0039_ai_commerce_current_50000.sql"]) this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
   }
   prepare(sql){return new Statement(this.sqlite.prepare(sql));}
   async batch(statements){return Promise.all(statements.map((statement)=>statement.run()));}
