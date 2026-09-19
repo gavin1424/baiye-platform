@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
+import { readFileSync, readdirSync } from "node:fs";
 import { handleCommercialCatalog, MERCHANT_PLANS, STANDARD_ADDONS } from "../src/commercial-catalog.js";
 
+class Statement { constructor(statement){this.statement=statement;this.values=[];} bind(...values){this.values=values;return this;} async all(){return{results:this.statement.all(...this.values)};} }
+class D1 { constructor(){this.sqlite=new DatabaseSync(":memory:");for(const file of readdirSync(new URL("../migrations",import.meta.url)).filter(name=>/^\d+.*\.sql$/.test(name)).sort())this.sqlite.exec(readFileSync(new URL(`../migrations/${file}`,import.meta.url),"utf8"));} prepare(sql){return new Statement(this.sqlite.prepare(sql));} }
+
 test("public catalog exposes exactly the three approved commercial definitions", async () => {
-  const response = handleCommercialCatalog(new Request("https://worker.test/api/public/commercial-catalog"));
+  const response = await handleCommercialCatalog(new Request("https://worker.test/api/public/commercial-catalog"), { FINANCE_DB: new D1() });
   const data = await response.json();
   assert.equal(response.status, 200);
   assert.deepEqual(data.plans.map((plan) => [plan.plan_id, plan.price_minor, plan.term_months]), [
     ["baiye_standard_18000_addons", 1800000, 24],
-    ["baiye_commerce_ai_45000", 4500000, 24],
+    ["baiye_commerce_ai_45000", 5000000, 24],
     ["baiye_softpos_24000", 2400000, 24],
   ]);
   assert.equal(data.server_authoritative, true);
@@ -20,7 +25,8 @@ test("catalog values stay consistent with immutable contract commercial definiti
   assert.equal(standard.contract_version, "merchant_service_v1_2_18000_addons");
   assert.equal(standard.base_product_limit, 20);
   assert.equal(standard.merchant_content_editable, false);
-  assert.equal(commerce.contract_version, "merchant_commerce_ai_v1_0_45000");
+  assert.equal(commerce.contract_version, "merchant_commerce_ai_v1_1_50000");
+  assert.equal(commerce.price_minor, 5000000);
   assert.equal(commerce.merchant_product_editable, true);
   assert.equal(commerce.commerce_full, true);
   assert.equal(softpos.contract_version, "merchant_softpos_v1_0_24000");

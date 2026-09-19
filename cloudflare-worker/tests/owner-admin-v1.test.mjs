@@ -18,7 +18,7 @@ class Statement {
 class D1 {
   constructor(){
     this.sqlite=new DatabaseSync(":memory:");
-    for(const name of ["0001_finance_core.sql","0002_partner_portal.sql","0009_production_admin_auth.sql","0032_owner_admin_v1.sql","0033_owner_documents_monitor.sql"]) this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
+    for(const name of ["0001_finance_core.sql","0002_partner_portal.sql","0009_production_admin_auth.sql","0014_merchant_contracts.sql","0030_pricing_plan_contracts_phase1.sql","0031_pricing_plan_contracts_production.sql","0032_owner_admin_v1.sql","0033_owner_documents_monitor.sql","0034_ai_commerce_current_50000.sql"]) this.sqlite.exec(readFileSync(new URL(`../migrations/${name}`,import.meta.url),"utf8"));
   }
   prepare(sql){return new Statement(this.sqlite.prepare(sql));}
   async batch(statements){return Promise.all(statements.map((statement)=>statement.run()));}
@@ -103,6 +103,13 @@ test("OA08 projects, contracts, services and receivables are real audited writes
   assert.equal((await call("/api/owner/receivables","POST",{merchant_id:"m-write",amount_due:3000000,amount_paid:1000000})).status,201);
   assert.equal(db.sqlite.prepare("SELECT payment_status FROM owner_receivables").get().payment_status,"PARTIAL");
   assert.ok(db.sqlite.prepare("SELECT COUNT(*) count FROM owner_audit_logs WHERE action IN ('WEBSITE_PROJECT_CREATE','SERVICE_UPDATE','CONTRACT_CREATE','RECEIVABLE_CREATE')").get().count>=4);
+});
+
+test("OA08b Owner contracts exposes the same current AI commerce price as D1",async()=>{
+  const {env}=await setup(),{cookie}=await login(env),request=new Request("https://worker.test/api/owner/contracts",{headers:{cookie}}),owner=await requireOwner(request,env),response=await handleOwnerAdmin(request,env,new URL(request.url),cors,owner),body=await response.json();
+  const plan=body.current_plans.find((item)=>item.plan_id==="baiye_commerce_ai_45000");
+  assert.equal(plan.price_minor,5000000);
+  assert.equal(plan.contract_version,"v1.1");
 });
 
 test("OA09 payment edits require a recently reauthenticated Owner session",async()=>{
