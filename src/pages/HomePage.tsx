@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, DeviceMobile, ForkKnife, GlobeHemisphereWest, Handshake, LineSegments, QrCode, Receipt, Robot, ShieldCheck, ShoppingCart, Storefront, User, X } from "@phosphor-icons/react";
+import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, CaretDown, ChartLineUp, CheckCircle, DeviceMobile, ForkKnife, GlobeHemisphereWest, Handshake, LineSegments, QrCode, Receipt, Robot, ShieldCheck, ShoppingCart, Storefront, User, X } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
@@ -9,7 +9,7 @@ import cultureImage from "../assets/news/culture.jpg";
 import economicDailyImage from "../assets/news/economic-daily.jpg";
 import taisoundsImage from "../assets/news/taisounds.jpg";
 import yahooImage from "../assets/news/yahoo.webp";
-import { Header, MobileBottomNav } from "../components";
+import { Footer, Header, MobileBottomNav } from "../components";
 import { BEEF_NOODLE_GUEST_ORDERING_URL } from "../config/orderingDemo";
 import "../home-media.css";
 import "../home-ordering-experience.css";
@@ -84,23 +84,7 @@ export function HomePage() {
     document.body.classList.add("home-detail-open"); window.addEventListener("keydown", close);
     return () => { document.body.classList.remove("home-detail-open"); window.removeEventListener("keydown", close); };
   }, [selected]);
-  useEffect(() => {
-    const section = document.querySelector<HTMLElement>(".home-media-section");
-    if (!section) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) {
-      section.classList.add("is-visible");
-      return;
-    }
-    section.classList.add("is-entering");
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry?.isIntersecting) return;
-      section.classList.add("is-visible");
-      observer.disconnect();
-    }, { threshold: 0.08 });
-    observer.observe(section);
-    return () => observer.disconnect();
-  }, []);
-  return <div className="app-shell"><a className="skip-link" href="#home-content">跳到主要內容</a><Header />
+  return <div className="app-shell home-page-shell"><a className="skip-link" href="#home-content">跳到主要內容</a><Header />
     <main className="immersive-home" id="home-content">
     <section className="immersive-home-hero">
       <div className="immersive-home-heading"><span className="eyebrow hero-enter hero-enter-1">百工數位營運平台</span><h1 className="hero-enter hero-enter-2">全業態數位升級，<em>一站完成</em></h1><p className="hero-enter hero-enter-3">餐飲 × 美業 × 零售，多產業整合的智慧經營平台</p></div>
@@ -113,9 +97,14 @@ export function HomePage() {
       </div>
 
       <section className="immersive-values baiye-reveal is-visible" aria-label="品牌價值">{values.map(([Icon, title, text]) => <article className="premium-card" key={title}><Icon weight="duotone" /><strong>{title}</strong><span>{text}</span></article>)}</section>
+
+      <button className="home-scroll-cue" type="button" aria-label="往下查看媒體報導" onClick={() => document.getElementById("media-news")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" })}>
+        <span>媒體報導</span>
+        <CaretDown weight="bold" aria-hidden="true" />
+      </button>
     </section>
 
-    <section className="home-media-section" aria-labelledby="home-media-title">
+    <section className="home-media-section" id="media-news" aria-labelledby="home-media-title">
       <div className="home-media-inner">
         <header className="home-media-heading">
           <p>Media &amp; News</p>
@@ -174,7 +163,7 @@ export function HomePage() {
     </section>
 
     {selected && <div className="home-feature-detail" role="dialog" aria-modal="true" aria-labelledby="home-feature-title"><button type="button" className="home-feature-backdrop" aria-label="關閉功能介紹" onClick={() => setSelected(null)} /><article className={`home-feature-panel ${selected.name === "免POS機點餐" ? "softpos-feature-panel" : ""}`}><button type="button" className="home-feature-close" aria-label="關閉" onClick={() => setSelected(null)}><X /></button><span className="home-feature-panel-icon"><selected.icon weight="duotone" /></span><p className="home-feature-label">百工數位服務</p><h2 id="home-feature-title">{selected.name}</h2><p className="home-feature-summary">{selected.summary}</p>{selected.name === "免POS機點餐" ? <><div className="softpos-entry-grid"><Link to="/pos-ordering"><span><Storefront weight="duotone" /></span>免POS機點餐介紹<ArrowRight /></Link><Link to="/pos-ordering/guide"><span><BookOpenText weight="duotone" /></span>免POS機點餐教學<ArrowRight /></Link><Link to="/pos-ordering/experience"><span><ShoppingCart weight="duotone" /></span>體驗點餐<ArrowRight /></Link></div><small>選擇要了解的內容，或直接進入目前正式運作的 Demo 點餐流程。</small></> : <><dl><dt>適用對象</dt><dd>{selected.audience}</dd><dt>核心價值</dt><dd>{selected.value}</dd></dl><h3>主要功能</h3><ul>{selected.items.map((item) => <li key={item}><CheckCircle weight="fill" />{item}</li>)}</ul>{selected.name === "承攬 / 商家簽約" ? <div className="home-feature-contract-actions"><Link className="btn btn-primary btn-lg" to="/join?mode=merchant">商家方案簽約 <ArrowRight /></Link><Link className="btn btn-outline btn-lg" to="/partner/apply">承攬夥伴簽約 <ArrowRight /></Link></div> : <Link className="btn btn-primary btn-lg" to={selected.to}>{selected.cta} <ArrowRight /></Link>}</>}</article></div>}
-    </main><MobileBottomNav />
+    </main><Footer /><MobileBottomNav />
   </div>;
 }
 

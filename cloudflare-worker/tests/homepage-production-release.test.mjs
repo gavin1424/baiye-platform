@@ -56,6 +56,25 @@ test("immersive homepage restores the historical five-item mobile navigation", (
   assert.doesNotMatch(styles, /body:has\(\.immersive-home\) \.ai-chat\{display:none\}/);
 });
 
+test("mobile homepage keeps media news in the document flow and exposes a router-safe scroll cue", () => {
+  const home = read("src/pages/HomePage.tsx");
+  const mediaStyles = read("src/home-media.css");
+  const styles = read("src/styles.css");
+  for (const source of ["太報 TaiSounds", "Yahoo新聞", "百工百業AI服務列車", "工商時報", "經濟日報", "中華新台文化協會"]) {
+    assert.match(home, new RegExp(source));
+  }
+  assert.match(home, /id="media-news"/);
+  assert.match(home, /className="home-scroll-cue" type="button"/);
+  assert.match(home, /getElementById\("media-news"\)\?\.scrollIntoView/);
+  assert.doesNotMatch(home, /className="home-scroll-cue" href="#media-news"/);
+  assert.match(home, /<Footer \/><MobileBottomNav \/>/);
+  assert.match(mediaStyles, /height:70dvh/);
+  assert.match(mediaStyles, /\.home-page-shell \.immersive-home\{overflow:visible\}/);
+  assert.match(mediaStyles, /\.home-page-shell \.immersive-home-hero\{overflow:clip\}/);
+  assert.doesNotMatch(mediaStyles, /home-media-section\.is-entering\{opacity:0/);
+  assert.match(styles, /68px \+ env\(safe-area-inset-bottom\) \+ 24px/);
+});
+
 test("public membership and contract UI no longer presents coupons", () => {
   const publicUi = [
     "src/pages/HomePage.tsx",
