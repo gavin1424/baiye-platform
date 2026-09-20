@@ -332,6 +332,14 @@ function QrOrderingView({ code }: { code: string }) {
   }, [initialize]);
 
   useEffect(() => {
+    if (!context) return;
+    const name = context.merchant_id === "demo_beef_noodle"
+      ? "百工牛肉麵"
+      : context.display_name.split("｜")[0];
+    document.title = `${name}｜手機線上點餐`;
+  }, [context]);
+
+  useEffect(() => {
     if (!context || loading || order) return;
     savePersistedOrderingCart(code, { cart, itemSelections, customerNote, orderType, tableLabel });
   }, [cart, code, context, customerNote, itemSelections, loading, order, orderType, tableLabel]);
