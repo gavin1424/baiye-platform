@@ -269,7 +269,8 @@ function QrOrderingView({ code }: { code: string }) {
         try {
           setToken(savedToken);
           await loadMenu(ctx, savedToken);
-          await loadBenefits(savedToken);
+          // 會員權益與外送連結是附加資訊；單一附加端點不可讓已成功載入的菜單顯示錯誤。
+          await loadBenefits(savedToken).catch(() => undefined);
           const lastOrderCode = getOrderingLastOrder(ctx.merchant_id);
           if (lastOrderCode) {
             try {
@@ -313,7 +314,7 @@ function QrOrderingView({ code }: { code: string }) {
           saveOrderingMemberToken(ctx.merchant_id, reused.session.token);
           if (reused.platform_session?.token) savePlatformMemberToken(reused.platform_session.token);
           await loadMenu(ctx, reused.session.token);
-          await loadBenefits(reused.session.token);
+          await loadBenefits(reused.session.token).catch(() => undefined);
         } catch (error) {
           if (![401, 409].includes(errorStatus(error))) throw error;
           await loadMenu(ctx, "");
