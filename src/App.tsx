@@ -146,8 +146,8 @@ function ScrollAndMetadata() {
                         ? "商家後台｜創百業智慧鏈"
       : "找不到頁面｜創百業智慧鏈");
     const demoTitle = path.startsWith("/q/")
-      ? "百工牛肉麵手機點餐｜創百業智慧鏈 QR 點餐示範"
-      : "QR 手機點餐示範｜百工牛肉麵｜創百業智慧鏈";
+      ? "百工牛肉麵｜手機線上點餐"
+      : "百工牛肉麵｜牛肉麵・乾麵・小菜・湯品";
     const activeTitle = IS_BEEF_NOODLE_DEMO ? demoTitle : title;
     document.title = activeTitle;
     const publicDescription = path === "/pricing"
@@ -156,12 +156,12 @@ function ScrollAndMetadata() {
         ? "透過會員資料、消費紀錄、優惠券、LINE互動、網站預約與顧客喚回，協助商家建立熟客與會員回購經營系統。"
         : "創百業智慧鏈整合商家網站、AI 智能客服、LINE、會員、預約、智慧商城與免 POS 機點餐，協助百業完成數位升級。";
     const description = IS_BEEF_NOODLE_DEMO
-      ? "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。"
+      ? "百工牛肉麵線上菜單：牛肉麵、乾麵、拌麵、小菜、湯品與飲品，手機即可查看菜單並點餐。"
       : publicDescription;
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
     let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
     if (!robots) { robots = document.createElement("meta"); robots.name = "robots"; document.head.appendChild(robots); }
-    robots.content = IS_BEEF_NOODLE_DEMO || IS_STAGING || path.startsWith("/owner-admin") ? "noindex,nofollow" : "index,follow";
+    robots.content = IS_STAGING || path.startsWith("/owner-admin") ? "noindex,nofollow" : "index,follow";
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", activeTitle);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
   }, [location.pathname]);
@@ -214,9 +214,6 @@ export function App() {
     return (
       <>
         <ScrollAndMetadata />
-        <div className="beef-demo-env-banner" role="status">
-          創百業智慧鏈 QR 點餐示範店｜此為功能展示環境，非實際營業店家
-        </div>
         <Routes>
           <Route path="/" element={<BeefNoodleDemoPage />} />
           <Route path="/q/:code" element={<QrOrderingPage />} />

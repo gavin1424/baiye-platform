@@ -1386,7 +1386,7 @@ body:has(.ordering-restaurant-page) .ai-chat { display: none; }
 .ordering-restaurant-page .ordering-category { scroll-margin-top: 140px; }
 .ordering-restaurant-page .ordering-category-title h3 { font-family: "Noto Serif TC", serif; color: var(--ordering-brown); font-size: 26px; }
 .ordering-restaurant-page .ordering-menu-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
-.ordering-restaurant-page .ordering-menu-item { min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--ordering-border); border-radius: 22px; background: #fff; box-shadow: 0 12px 30px rgba(65,37,25,.08); }
+.ordering-restaurant-page .ordering-menu-item { min-width: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--ordering-border); border-radius: 22px; background: #fff; box-shadow: 0 12px 30px rgba(65,37,25,.08); }
 .ordering-restaurant-page .ordering-menu-item > img { width: 100%; height: auto; aspect-ratio: 4 / 3; display: block; flex: 0 0 auto; object-fit: cover; border-radius: 0; }
 .ordering-restaurant-page .ordering-menu-body { min-height: 190px; padding: 19px 20px 20px; display: flex; flex: 1; flex-direction: column; }
 .ordering-restaurant-page .ordering-menu-copy h4 { color: var(--ordering-brown); font-size: 20px; }
