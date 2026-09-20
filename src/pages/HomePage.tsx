@@ -1,8 +1,15 @@
-import { ArrowRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, GlobeHemisphereWest, Handshake, LineSegments, QrCode, Robot, ShieldCheck, ShoppingCart, Storefront, User, X } from "@phosphor-icons/react";
+import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, GlobeHemisphereWest, Handshake, LineSegments, QrCode, Robot, ShieldCheck, ShoppingCart, Storefront, User, X } from "@phosphor-icons/react";
 import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import heroScene from "../assets/baiye-multi-industry-isometric-hero.png";
+import aiServiceTrainImage from "../assets/news/ai-service-train.png";
+import cteeImage from "../assets/news/ctee.jpg";
+import cultureImage from "../assets/news/culture.jpg";
+import economicDailyImage from "../assets/news/economic-daily.jpg";
+import taisoundsImage from "../assets/news/taisounds.jpg";
+import yahooImage from "../assets/news/yahoo.webp";
 import { Header, MobileBottomNav } from "../components";
+import "../home-media.css";
 
 type Feature = { name: string; summary: string; audience: string; value: string; items: string[]; cta: string; to: string; icon: ComponentType<{ weight?: "duotone" | "fill" }> };
 
@@ -19,6 +26,53 @@ const features: Feature[] = [
 
 const values = [[QrCode, "多業態整合", "一站式管理"], [ChartLineUp, "智慧經營", "數據驅動決策"], [ShieldCheck, "安全穩定", "企業級防護"], [Handshake, "專業服務", "陪伴成長"]] as const;
 
+type NewsItem = { source: string; title: string; summary: string; href: string; image: string };
+
+const newsItems: NewsItem[] = [
+  {
+    source: "太報 TaiSounds",
+    title: "加速建構百工百業AI化生態鏈　工研院院士提5招",
+    summary: "工研院提出臺灣產業生成式 AI 發展倡議，從技術、治理、資料環境、人才與國際合作等面向，加速產業應用。",
+    href: "https://share.google/sbx5xEldEEMhspHsL",
+    image: taisoundsImage,
+  },
+  {
+    source: "Yahoo新聞",
+    title: "加速建構百工百業AI化生態鏈　工研院院士提AI發展倡議五大策略",
+    summary: "工研院院士會議聚焦生成式 AI 產業落地，提出五大策略，推進 AI 產業在地化與百工百業應用。",
+    href: "https://share.google/sxpKdrbUBGUurFXgF",
+    image: yahooImage,
+  },
+  {
+    source: "百工百業AI服務列車",
+    title: "百工百業AI館－找AI解決方案",
+    summary: "中華軟體公會整合多領域技術與場域資源，推動 AI 導入、跨域交流與產業數位轉型。",
+    href: "https://share.google/hJqcRz9WL6aLe50lj",
+    image: aiServiceTrainImage,
+  },
+  {
+    source: "工商時報",
+    title: "2026智慧創新大賞　加速AI落地百工百業",
+    summary: "經濟部啟動 2026 智慧創新大賞，以 AI 應用與 IC 設計競賽促進創新成果落地產業。",
+    href: "https://share.google/urLFDsMZ8zbw1H1s4",
+    image: cteeImage,
+  },
+  {
+    source: "經濟日報",
+    title: "國發會推百工百業AI落地　TIE秀智慧應用",
+    summary: "國發會於臺灣創新技術博覽會呈現百工百業智慧應用等政策成果，推動 AI 走進產業與生活場域。",
+    href: "https://share.google/xm7bzdac9XYYlm9J1",
+    image: economicDailyImage,
+  },
+  {
+    source: "中華新台文化協會",
+    title: "「布」可思「藝」的巧手～陳美玲",
+    summary: "介紹百變布玩工作室負責人陳美玲，以及她投入布藝與專業手作發展的歷程。",
+    href: "https://share.google/o2lrvea5iSsBrRmOD",
+    image: cultureImage,
+  },
+];
+
 export function HomePage() {
   const [selected, setSelected] = useState<Feature | null>(null);
   useEffect(() => {
@@ -27,6 +81,22 @@ export function HomePage() {
     document.body.classList.add("home-detail-open"); window.addEventListener("keydown", close);
     return () => { document.body.classList.remove("home-detail-open"); window.removeEventListener("keydown", close); };
   }, [selected]);
+  useEffect(() => {
+    const section = document.querySelector<HTMLElement>(".home-media-section");
+    if (!section) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) {
+      section.classList.add("is-visible");
+      return;
+    }
+    section.classList.add("is-entering");
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      section.classList.add("is-visible");
+      observer.disconnect();
+    }, { threshold: 0.08 });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
   return <div className="app-shell"><a className="skip-link" href="#home-content">跳到主要內容</a><Header />
     <main className="immersive-home" id="home-content">
     <section className="immersive-home-hero">
@@ -42,9 +112,38 @@ export function HomePage() {
       <section className="immersive-values baiye-reveal is-visible" aria-label="品牌價值">{values.map(([Icon, title, text]) => <article className="premium-card" key={title}><Icon weight="duotone" /><strong>{title}</strong><span>{text}</span></article>)}</section>
     </section>
 
+    <section className="home-media-section" aria-labelledby="home-media-title">
+      <div className="home-media-inner">
+        <header className="home-media-heading">
+          <p>Media &amp; News</p>
+          <h2 id="home-media-title">媒體報導</h2>
+          <span>從專業技藝、文化傳承到 AI 創新應用，持續受到各界媒體與平台關注。</span>
+        </header>
+        <div className="home-media-grid">
+          {newsItems.map((item) => <NewsCard item={item} key={`${item.source}-${item.title}`} />)}
+        </div>
+      </div>
+    </section>
+
     {selected && <div className="home-feature-detail" role="dialog" aria-modal="true" aria-labelledby="home-feature-title"><button type="button" className="home-feature-backdrop" aria-label="關閉功能介紹" onClick={() => setSelected(null)} /><article className={`home-feature-panel ${selected.name === "免POS機點餐" ? "softpos-feature-panel" : ""}`}><button type="button" className="home-feature-close" aria-label="關閉" onClick={() => setSelected(null)}><X /></button><span className="home-feature-panel-icon"><selected.icon weight="duotone" /></span><p className="home-feature-label">百工數位服務</p><h2 id="home-feature-title">{selected.name}</h2><p className="home-feature-summary">{selected.summary}</p>{selected.name === "免POS機點餐" ? <><div className="softpos-entry-grid"><Link to="/pos-ordering"><span><Storefront weight="duotone" /></span>免POS機點餐介紹<ArrowRight /></Link><Link to="/pos-ordering/guide"><span><BookOpenText weight="duotone" /></span>免POS機點餐教學<ArrowRight /></Link><Link to="/pos-ordering/experience"><span><ShoppingCart weight="duotone" /></span>體驗點餐<ArrowRight /></Link></div><small>選擇要了解的內容，或直接進入目前正式運作的 Demo 點餐流程。</small></> : <><dl><dt>適用對象</dt><dd>{selected.audience}</dd><dt>核心價值</dt><dd>{selected.value}</dd></dl><h3>主要功能</h3><ul>{selected.items.map((item) => <li key={item}><CheckCircle weight="fill" />{item}</li>)}</ul>{selected.name === "承攬 / 商家簽約" ? <div className="home-feature-contract-actions"><Link className="btn btn-primary btn-lg" to="/join?mode=merchant">商家方案簽約 <ArrowRight /></Link><Link className="btn btn-outline btn-lg" to="/partner/apply">承攬夥伴簽約 <ArrowRight /></Link></div> : <Link className="btn btn-primary btn-lg" to={selected.to}>{selected.cta} <ArrowRight /></Link>}</>}</article></div>}
     </main><MobileBottomNav />
   </div>;
 }
 
 function FeatureButton({ feature, index, onClick }: { feature: Feature; index: number; onClick: () => void }) { const Icon = feature.icon; return <button className={`immersive-feature feature-${index}`} type="button" onClick={onClick} aria-haspopup="dialog"><span><Icon weight="duotone" /></span><strong>{feature.name}</strong></button>; }
+
+function NewsCard({ item }: { item: NewsItem }) {
+  return <article className="home-media-card">
+    <a href={item.href} target="_blank" rel="noopener noreferrer" aria-label={`閱讀${item.source}報導：${item.title}（另開新視窗）`}>
+      <div className="home-media-image">
+        <img src={item.image} alt={`${item.source}報導：${item.title}`} width="1200" height="675" loading="lazy" decoding="async" />
+      </div>
+      <div className="home-media-content">
+        <span className="home-media-source">{item.source}</span>
+        <h3>{item.title}</h3>
+        <p>{item.summary}</p>
+        <span className="home-media-read">閱讀完整報導 <ArrowUpRight weight="bold" aria-hidden="true" /></span>
+      </div>
+    </a>
+  </article>;
+}
