@@ -17,7 +17,8 @@ import { FeaturesPage } from "./pages/FeaturesPage";
 import { QrOrderingPage } from "./pages/QrOrderingPage";
 import { AdminQrOrderingPage } from "./pages/AdminQrOrderingPage";
 import { MerchantOrderingPage } from "./pages/MerchantOrderingPage";
-import { AdminFinancingPage, BusinessFinancingPage, MemberBenefitsPage } from "./pages/GrowthIntegrationPages";
+import { AdminFinancingPage, BusinessFinancingPage } from "./pages/GrowthIntegrationPages";
+import { MemberBenefitsPage } from "./pages/MemberBenefitsPage";
 import { BeefNoodleDemoPage } from "./pages/BeefNoodleDemoPage";
 import { MerchantContractActivate, MerchantContractPage, MerchantContractsPage, VerifyContractPage } from "./pages/MerchantContractPages";
 import { AdminContractsPage } from "./pages/AdminContractsPage";
@@ -80,7 +81,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/bookings": "預約管理｜創百業智慧鏈",
   "/admin/ordering": "掃碼會員與手機點餐｜創百業智慧鏈",
   "/merchant-admin/ordering": "商家 QR 點餐管理｜創百業智慧鏈",
-  "/member-benefits": "會員回購｜創百業智慧鏈",
+  "/member-benefits": "會員回購經營｜創百業智慧鏈",
   "/business-financing": "商家融資合作專區｜創百業智慧鏈",
   "/admin/financing": "商家融資合作管理｜創百業智慧鏈",
   "/services/deposit-settlement": "訂金代收與月結對帳服務｜創百業智慧鏈",
@@ -151,7 +152,9 @@ function ScrollAndMetadata() {
     document.title = activeTitle;
     const publicDescription = path === "/pricing"
       ? "比較百工標準網站、AI 智慧商城與免 POS 機智慧點餐方案，清楚了解價格、服務期間、加購、試用與保證金。"
-      : "創百業智慧鏈整合商家網站、AI 智能客服、LINE、會員、預約、智慧商城與免 POS 機點餐，協助百業完成數位升級。";
+      : path === "/member-benefits"
+        ? "透過會員資料、消費紀錄、優惠券、LINE互動、網站預約與顧客喚回，協助商家建立熟客與會員回購經營系統。"
+        : "創百業智慧鏈整合商家網站、AI 智能客服、LINE、會員、預約、智慧商城與免 POS 機點餐，協助百業完成數位升級。";
     const description = IS_BEEF_NOODLE_DEMO
       ? "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。"
       : publicDescription;
