@@ -72,7 +72,13 @@ test("mobile homepage keeps media news in the document flow and exposes a router
   assert.match(mediaStyles, /\.home-page-shell \.immersive-home\{overflow:visible\}/);
   assert.match(mediaStyles, /\.home-page-shell \.immersive-home-hero\{overflow:clip\}/);
   assert.doesNotMatch(mediaStyles, /home-media-section\.is-entering\{opacity:0/);
-  assert.match(styles, /68px \+ env\(safe-area-inset-bottom\) \+ 24px/);
+  assert.match(styles, /--mobile-bottom-nav-height: 69px/);
+  assert.match(styles, /--mobile-content-safe-bottom: calc\(/);
+  assert.match(styles, /env\(safe-area-inset-bottom\)/);
+  assert.match(styles, /\.app-shell:has\(> \.mobile-bottom-nav\)/);
+  assert.match(styles, /body:has\(\.home-page-shell\) \.ai-chat-launcher/);
+  assert.match(styles, /max-width: min\(var\(--mobile-ai-launcher-size\), 42vw\)/);
+  assert.match(mediaStyles, /#media-news\{position:relative;z-index:auto;padding-top:32px;padding-bottom:32px\}/);
 });
 
 test("public membership and contract UI no longer presents coupons", () => {

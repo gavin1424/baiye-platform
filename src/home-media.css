@@ -4,3 +4,4 @@
 @keyframes home-scroll-cue{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
 @media(prefers-reduced-motion:reduce){.home-scroll-cue svg,.home-media-card,.home-media-image img,.home-media-read svg{opacity:1!important;transform:none!important;transition:none!important;animation:none!important}}
 @media(max-width:620px){.home-page-shell .immersive-home{overflow:visible}.home-page-shell .immersive-home-hero{overflow:clip}}
+@media(max-width:620px){#media-news{position:relative;z-index:auto;padding-top:32px;padding-bottom:32px}}
