@@ -1,5 +1,6 @@
 import {
   ArrowClockwise,
+  BowlFood,
   Check,
   CookingPot,
   ForkKnife,
@@ -94,7 +95,13 @@ function statusTone(status: OrderingOrderStatus) {
   return "info";
 }
 
-function OrderingTopbar() {
+function OrderingTopbar({ restaurant = false }: { restaurant?: boolean }) {
+  if (restaurant) return (
+    <header className="ordering-topbar ordering-restaurant-topbar">
+      <Link className="ordering-restaurant-brand" to="/demo/beef-noodle"><span><BowlFood weight="fill" /></span><div><strong>百工牛肉麵</strong><small>牛肉麵・乾麵・小菜・湯品</small></div></Link>
+      <small>Powered by 創百業智慧鏈</small>
+    </header>
+  );
   if (IS_BEEF_NOODLE_DEMO) return null;
   return (
     <header className="ordering-topbar">
@@ -138,6 +145,7 @@ function QrOrderingView({ code }: { code: string }) {
     note: string;
   }>({ option_value_ids: [], note: "" });
   const [query, setQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [order, setOrder] = useState<OrderingOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -750,13 +758,13 @@ function QrOrderingView({ code }: { code: string }) {
   );
 
   return (
-    <main className="ordering-page">
-      <OrderingTopbar />
-      <section className={`ordering-merchant-hero ${IS_BEEF_NOODLE_DEMO ? "ordering-storefront-hero" : ""}`}>
+    <main className={`ordering-page ${officialProductionDemo ? "ordering-restaurant-page" : ""}`}>
+      <OrderingTopbar restaurant={officialProductionDemo} />
+      <section className={`ordering-merchant-hero ${(IS_BEEF_NOODLE_DEMO || officialProductionDemo) ? "ordering-storefront-hero" : ""}`}>
         <div className="ordering-storefront-brand">
-          {IS_BEEF_NOODLE_DEMO && <span className="ordering-storefront-logo" aria-hidden="true"><CookingPot weight="fill" /></span>}
+          {(IS_BEEF_NOODLE_DEMO || officialProductionDemo) && <span className="ordering-storefront-logo" aria-hidden="true"><CookingPot weight="fill" /></span>}
           <div>
-            {!IS_BEEF_NOODLE_DEMO && (
+            {!IS_BEEF_NOODLE_DEMO && !officialProductionDemo && (
               <span className="ordering-purpose">
                 <QrCode weight="fill" /> {purposeLabels[context.qr.purpose]}
               </span>
@@ -774,7 +782,7 @@ function QrOrderingView({ code }: { code: string }) {
         {IS_BEEF_NOODLE_DEMO && demoAdministrator && <Link className="btn btn-outline ordering-admin-return" to="/merchant/dashboard">返回管理中心</Link>}
       </section>
 
-      {officialProductionDemo && <div className="ordering-demo-privacy-note"><strong>付款服務尚未啟用</strong>｜目前不進行真實交易，也不會發生真實扣款。</div>}
+      {officialProductionDemo && <div className="ordering-demo-privacy-note"><strong>本店採現場付款</strong><span>餐點備妥後請依現場指示付款取餐。</span></div>}
 
       {IS_BEEF_NOODLE_DEMO && (
         context.line?.configured ? (
@@ -953,9 +961,9 @@ function QrOrderingView({ code }: { code: string }) {
             {!IS_BEEF_NOODLE_DEMO && <div className="ordering-section-heading">
               <ForkKnife weight="duotone" />
               <div>
-                <span>手機菜單</span>
-                <h2>選擇餐點</h2>
-                <p>價格與供應狀態以送單當下的店家資料為準。</p>
+                <span>{officialProductionDemo ? "百工牛肉麵菜單" : "手機菜單"}</span>
+                <h2>{officialProductionDemo ? "今天想吃什麼？" : "選擇餐點"}</h2>
+                <p>{officialProductionDemo ? "選好餐點後，可在購物車確認數量與金額。" : "價格與供應狀態以送單當下的店家資料為準。"}</p>
               </div>
             </div>}
             {!context.accepting_orders && (
@@ -983,7 +991,8 @@ function QrOrderingView({ code }: { code: string }) {
                   <button
                     type="button"
                     key={category.id}
-                    onClick={() => document.getElementById(`ordering-category-${category.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    className={activeCategory === category.id || (!activeCategory && category === categories.filter((entry) => entry.active !== false)[0]) ? "active" : ""}
+                    onClick={() => { setActiveCategory(category.id); document.getElementById(`ordering-category-${category.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
                   >
                     {category.name}
                   </button>

@@ -1333,3 +1333,98 @@
 .ordering-scan-page{min-height:100vh;background:linear-gradient(180deg,#f4fbf8,#fff 52%);color:#203336}.ordering-scan-card{display:grid;justify-items:center;width:min(100% - 32px,520px);margin:40px auto;padding:30px;border:1px solid #d8e6e3;border-radius:24px;background:#fff;box-shadow:0 18px 50px rgba(28,72,65,.1);text-align:center}.ordering-scan-card h1{margin:5px 0 10px;font-size:clamp(30px,8vw,42px)}.ordering-scan-card>p{line-height:1.65}.ordering-scan-icon{display:grid;place-items:center;width:72px;height:72px;border-radius:22px;background:#e6f5ef;color:#176b43}.ordering-scan-icon svg{width:42px;height:42px}.ordering-camera-frame{position:relative;display:grid;place-items:center;width:min(100%,360px);aspect-ratio:1;margin:22px 0;border:2px dashed #98b9b0;border-radius:22px;overflow:hidden;background:#152421;color:#91b8ad}.ordering-camera-frame>svg{width:88px;height:88px}.ordering-camera-frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.ordering-camera-frame:not(.is-active) video{display:none}.ordering-scan-card>.btn{width:min(100%,360px);margin-top:9px}.ordering-scan-help{color:#657774;font-size:13px}.ordering-scan-security{display:flex;align-items:center;gap:7px;margin-top:12px;color:#176b43;font-size:13px;font-weight:750}.ordering-scan-home{display:flex;align-items:center;gap:6px;margin-top:22px;color:#536a65;font-size:13px}.ordering-scan-card .ordering-message{width:100%;margin:14px 0 0}
 .ordering-order-entry-card{margin-top:clamp(20px,6vh,56px);padding-block:clamp(24px,6vh,48px)}.ordering-order-entry-logo{width:84px;height:84px;border-radius:26px}.ordering-order-entry-logo svg{width:50px;height:50px}.ordering-order-entry-subtitle{font-size:20px;color:#176b43}.ordering-order-entry-cta{min-height:52px;margin-top:18px}.ordering-order-entry-detail{margin:10px 0 0;color:#536a65;font-size:14px}
 @media(max-width:640px){.ordering-storefront-hero{align-items:flex-start;flex-wrap:wrap}.ordering-storefront-brand{align-items:flex-start}.ordering-member-tools{width:100%;grid-template-columns:1fr auto;align-items:center;justify-items:stretch}.ordering-member-tools .btn{justify-self:end}.ordering-auth-tabs{position:sticky;top:0;z-index:5}.ordering-scan-card{margin:20px auto;padding:22px 18px}.ordering-camera-frame{margin:16px 0}.ordering-rescan{width:100%;justify-content:center}}
+
+/* 百工牛肉麵：消費者端餐廳視覺系統 */
+.ordering-restaurant-page {
+  --ordering-brand: #8a2f25;
+  --ordering-brand-dark: #5f1f19;
+  --ordering-cream: #fbf5e9;
+  --ordering-paper: #fffdf8;
+  --ordering-brown: #35231c;
+  --ordering-muted: #76635b;
+  --ordering-gold: #c59b55;
+  --ordering-green: #455f43;
+  --ordering-border: rgba(83, 49, 35, .13);
+  min-height: 100vh;
+  color: var(--ordering-brown);
+  background: linear-gradient(180deg, #f4e8d7 0, var(--ordering-cream) 430px);
+  font-family: "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+}
+body:has(.ordering-restaurant-page) .ai-chat { display: none; }
+.ordering-restaurant-topbar { min-height: 68px; padding: 10px max(18px, calc((100vw - 1180px) / 2)); background: rgba(255,253,248,.96); border-color: var(--ordering-border); backdrop-filter: blur(14px); }
+.ordering-restaurant-topbar > small { color: var(--ordering-muted); font-size: 11px; }
+.ordering-restaurant-brand { display: flex; align-items: center; gap: 10px; color: var(--ordering-brown); text-decoration: none; }
+.ordering-restaurant-brand > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--ordering-brand); }
+.ordering-restaurant-brand svg { width: 24px; height: 24px; }
+.ordering-restaurant-brand strong, .ordering-restaurant-brand small { display: block; }
+.ordering-restaurant-brand strong { font-family: "Noto Serif TC", serif; font-size: 18px; letter-spacing: .08em; }
+.ordering-restaurant-brand small { margin-top: 1px; color: var(--ordering-muted); font-size: 10px; }
+.ordering-restaurant-page .ordering-merchant-hero { max-width: 1180px; margin: 24px auto 12px; padding: 28px 32px; border: 1px solid var(--ordering-border); border-radius: 26px; color: var(--ordering-brown); background: rgba(255,253,248,.94); box-shadow: 0 16px 42px rgba(65,37,25,.09); }
+.ordering-restaurant-page .ordering-storefront-logo { color: #fff; background: var(--ordering-brand); }
+.ordering-restaurant-page .ordering-merchant-hero h1 { font-family: "Noto Serif TC", serif; font-size: clamp(30px, 4vw, 44px); letter-spacing: .08em; }
+.ordering-restaurant-page .ordering-storefront-meta span { color: #fff; background: var(--ordering-green); }
+.ordering-restaurant-page .ordering-qr-confirmed { color: var(--ordering-green); }
+.ordering-restaurant-page .btn-primary { border-color: var(--ordering-brand); background: var(--ordering-brand); box-shadow: 0 8px 18px rgba(138,47,37,.18); }
+.ordering-restaurant-page .btn-primary:hover { background: var(--ordering-brand-dark); }
+.ordering-restaurant-page .btn-outline { border-color: rgba(138,47,37,.28); color: var(--ordering-brand); background: #fff; }
+.ordering-restaurant-page .ordering-demo-privacy-note { max-width: 1180px; margin: 0 auto 18px; padding: 13px 18px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(69,95,67,.16); border-radius: 14px; color: var(--ordering-green); background: rgba(69,95,67,.08); }
+.ordering-restaurant-page .ordering-demo-privacy-note span { color: var(--ordering-muted); }
+.ordering-restaurant-page .ordering-controls-card,
+.ordering-restaurant-page .ordering-menu-section,
+.ordering-restaurant-page .ordering-join-card,
+.ordering-restaurant-page .ordering-order-status-card { max-width: 1180px; border: 1px solid var(--ordering-border); border-radius: 24px; background: var(--ordering-paper); box-shadow: 0 14px 36px rgba(65,37,25,.07); }
+.ordering-restaurant-page .ordering-section-heading > svg { color: var(--ordering-brand); }
+.ordering-restaurant-page .ordering-section-heading span { color: var(--ordering-brand); letter-spacing: .08em; }
+.ordering-restaurant-page .ordering-section-heading h2 { font-family: "Noto Serif TC", serif; font-size: clamp(28px, 4vw, 40px); }
+.ordering-restaurant-page .ordering-section-heading p { color: var(--ordering-muted); }
+.ordering-restaurant-page .ordering-segmented { background: #f0e4d3; }
+.ordering-restaurant-page .ordering-segmented button.active { color: #fff; background: var(--ordering-brand); }
+.ordering-restaurant-page .ordering-menu-search input { border-color: var(--ordering-border); background: #fff; }
+.ordering-restaurant-page .ordering-category-tabs { top: 68px; z-index: 18; padding-block: 10px; background: rgba(251,245,233,.96); border-bottom: 1px solid var(--ordering-border); backdrop-filter: blur(12px); }
+.ordering-restaurant-page .ordering-category-tabs button { min-height: 44px; border: 1px solid var(--ordering-border); border-radius: 999px; color: var(--ordering-brown); background: #fff; }
+.ordering-restaurant-page .ordering-category-tabs button.active { border-color: var(--ordering-brand); color: #fff; background: var(--ordering-brand); box-shadow: 0 6px 14px rgba(138,47,37,.18); }
+.ordering-restaurant-page .ordering-category { scroll-margin-top: 140px; }
+.ordering-restaurant-page .ordering-category-title h3 { font-family: "Noto Serif TC", serif; color: var(--ordering-brown); font-size: 26px; }
+.ordering-restaurant-page .ordering-menu-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.ordering-restaurant-page .ordering-menu-item { min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--ordering-border); border-radius: 22px; background: #fff; box-shadow: 0 12px 30px rgba(65,37,25,.08); }
+.ordering-restaurant-page .ordering-menu-item > img { width: 100%; height: auto; aspect-ratio: 4 / 3; display: block; flex: 0 0 auto; object-fit: cover; border-radius: 0; }
+.ordering-restaurant-page .ordering-menu-body { min-height: 190px; padding: 19px 20px 20px; display: flex; flex: 1; flex-direction: column; }
+.ordering-restaurant-page .ordering-menu-copy h4 { color: var(--ordering-brown); font-size: 20px; }
+.ordering-restaurant-page .ordering-menu-copy p { color: var(--ordering-muted); line-height: 1.6; }
+.ordering-restaurant-page .ordering-menu-footer { margin-top: auto; padding-top: 18px; align-items: center; }
+.ordering-restaurant-page .ordering-menu-price { color: var(--ordering-brand); font-size: 21px; }
+.ordering-restaurant-page .ordering-quantity { border-color: rgba(138,47,37,.18); background: #fbf3e8; }
+.ordering-restaurant-page .ordering-quantity button { min-width: 44px; min-height: 44px; color: var(--ordering-brand); }
+.ordering-restaurant-page .ordering-cart-fab { border-color: var(--ordering-brand); background: var(--ordering-brand); box-shadow: 0 12px 28px rgba(95,31,25,.28); }
+.ordering-restaurant-page .ordering-cart-sheet { border-color: var(--ordering-border); background: var(--ordering-paper); }
+.ordering-restaurant-page .ordering-cart-summary strong { color: var(--ordering-brand); }
+
+@media (max-width: 900px) {
+  .ordering-restaurant-page .ordering-menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .ordering-restaurant-topbar { min-height: 62px; padding: 9px 14px; }
+  .ordering-restaurant-topbar > small { display: none; }
+  .ordering-restaurant-brand > span { width: 38px; height: 38px; }
+  .ordering-restaurant-brand strong { font-size: 17px; }
+  .ordering-restaurant-page .ordering-merchant-hero { margin: 12px 12px 10px; padding: 20px; border-radius: 20px; }
+  .ordering-restaurant-page .ordering-storefront-brand { gap: 13px; }
+  .ordering-restaurant-page .ordering-storefront-logo { width: 48px; height: 48px; }
+  .ordering-restaurant-page .ordering-merchant-hero h1 { font-size: 29px; }
+  .ordering-restaurant-page .ordering-demo-privacy-note { margin: 0 12px 12px; padding: 12px 14px; display: block; font-size: 13px; }
+  .ordering-restaurant-page .ordering-demo-privacy-note span { display: block; margin-top: 3px; }
+  .ordering-restaurant-page .ordering-controls-card,
+  .ordering-restaurant-page .ordering-menu-section,
+  .ordering-restaurant-page .ordering-join-card,
+  .ordering-restaurant-page .ordering-order-status-card { margin: 12px; padding: 20px 16px; border-radius: 20px; }
+  .ordering-restaurant-page .ordering-category-tabs { top: 62px; margin-inline: -16px; padding: 9px 16px; }
+  .ordering-restaurant-page .ordering-menu-grid { grid-template-columns: 1fr; gap: 20px; }
+  .ordering-restaurant-page .ordering-menu-item { border-radius: 22px; }
+  .ordering-restaurant-page .ordering-menu-item > img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+  .ordering-restaurant-page .ordering-menu-body { min-height: 172px; padding: 18px; }
+  .ordering-restaurant-page .ordering-menu-copy h4 { font-size: 20px; }
+  .ordering-restaurant-page .ordering-menu-footer { display: flex; }
+  .ordering-restaurant-page .ordering-menu-price { font-size: 20px; }
+  .ordering-restaurant-page .ordering-quantity button { width: 46px; height: 46px; }
+}

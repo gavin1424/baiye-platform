@@ -11,16 +11,13 @@ if (!/^https:\/\/baiye-beef-noodle-demo\.pages\.dev$/.test(publicUrl)) throw new
 const distDir = path.resolve("dist/client");
 const indexPath = path.join(distDir, "index.html");
 let html = await readFile(indexPath, "utf8");
-const title = "QR 手機點餐示範｜百工牛肉麵｜創百業智慧鏈";
-const description = "體驗創百業智慧鏈 QR 手機點餐：掃碼加入會員、查看菜單、選擇加料、桌邊送單與即時訂單狀態。";
+const title = "百工牛肉麵｜牛肉麵・乾麵・小菜・湯品";
+const description = "百工牛肉麵線上菜單：牛肉麵、乾麵、拌麵、小菜、湯品與飲品，手機即可查看菜單並點餐。";
 html = html
   .replace(/<title>.*?<\/title>/s, `<title>${title}</title>`)
   .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${description}">`)
-  .replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="noindex,nofollow">')
-  .replace(/<link rel="canonical"[^>]*>/, '<link rel="canonical" href="https://baiyeconnect.com/#/features">');
-if (!html.includes('name="robots"')) {
-  html = html.replace("</head>", '    <meta name="robots" content="noindex,nofollow">\n  </head>');
-}
+  .replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="index,follow">')
+  .replace(/<link rel="canonical"[^>]*>/, '<link rel="canonical" href="https://baiye-beef-noodle-demo.pages.dev/">');
 await writeFile(indexPath, html, "utf8");
 
 const headersPath = path.join(distDir, "_headers");
@@ -30,4 +27,4 @@ headers = headers.replace(
   expectedWorker,
 );
 await writeFile(headersPath, headers, "utf8");
-await writeFile(path.join(distDir, "robots.txt"), "User-agent: *\nDisallow: /\n", "utf8");
+await writeFile(path.join(distDir, "robots.txt"), "User-agent: *\nAllow: /\n", "utf8");
