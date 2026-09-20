@@ -29,6 +29,7 @@ import {
   type OrderingPurpose,
 } from "../qr-ordering-client";
 import { normalizeOrderingSection, ORDERING_SECTION_TABS, scrollToOrderingSection, type OrderingSection } from "../ordering-sections";
+import { formatOrderingMoney as money, orderingDollarsToMinor, orderingMinorToDollars } from "../ordering-money";
 
 const orderStatusLabels: Record<OrderingOrderStatus, string> = {
   submitted: "已送出",
@@ -46,14 +47,6 @@ const purposeLabels: Record<OrderingPurpose, string> = {
   dine_in: "內用桌號點餐",
   takeaway: "外帶點餐",
 };
-
-function money(minor: number, currency = "TWD") {
-  return new Intl.NumberFormat("zh-TW", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(Number(minor || 0) / 100);
-}
 
 function escapeHtml(value: string) {
   return value.replace(
@@ -77,13 +70,13 @@ function statusTone(status: OrderingOrderStatus) {
 }
 
 function MerchantMenuItemEditor({ item, categories, onSave }: { item: any; categories: any[]; onSave: (payload: Record<string, unknown>) => Promise<void> }) {
-  const [draft, setDraft] = useState({ category_id: item.category_id || "", name: item.name || "", price: String(Number(item.price_minor || 0) / 100), description: item.description || "", image_url: item.image_url || "", sku: item.sku || "", status: item.status || "active" });
+  const [draft, setDraft] = useState({ category_id: item.category_id || "", name: item.name || "", price: String(orderingMinorToDollars(item.price_minor)), description: item.description || "", image_url: item.image_url || "", sku: item.sku || "", status: item.status || "active" });
   const [imageFile, setImageFile] = useState<File>();
   const [imagePreview, setImagePreview] = useState(item.image_url || "");
   const [uploadNotice, setUploadNotice] = useState("");
   useEffect(() => () => { if (imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
   const chooseImage = (file?: File) => { setUploadNotice(""); if (!file) return; if (!["image/jpeg","image/png","image/webp"].includes(file.type)) return setUploadNotice("只允許 JPEG、PNG 或 WebP 圖片。"); if (file.size > 5 * 1024 * 1024) return setUploadNotice("圖片大小不可超過 5 MB。"); if (imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview); setImageFile(file); setImagePreview(URL.createObjectURL(file)); };
-  const submit = async (event: FormEvent) => { event.preventDefault(); const amount = Number(draft.price); if (!Number.isFinite(amount) || amount < 0) return; setUploadNotice(""); try { let imageUrl = draft.image_url; if (imageFile) { const body = new FormData(); body.append("image", imageFile); const uploaded = await merchantOrderingApi<{ image_url: string }>(`/api/merchant-admin/products/${encodeURIComponent(item.id)}/image`, { method: "POST", body }); imageUrl = uploaded.image_url; setImageFile(undefined); setImagePreview(imageUrl); } await onSave({ ...draft, image_url: imageUrl, price_minor: Math.round(amount * 100) }); setDraft((current) => ({ ...current, image_url: imageUrl })); } catch (error) { setUploadNotice(errorMessage(error)); } };
+  const submit = async (event: FormEvent) => { event.preventDefault(); const priceMinor = orderingDollarsToMinor(draft.price); if (priceMinor === null) return; setUploadNotice(""); try { let imageUrl = draft.image_url; if (imageFile) { const body = new FormData(); body.append("image", imageFile); const uploaded = await merchantOrderingApi<{ image_url: string }>(`/api/merchant-admin/products/${encodeURIComponent(item.id)}/image`, { method: "POST", body }); imageUrl = uploaded.image_url; setImageFile(undefined); setImagePreview(imageUrl); } await onSave({ ...draft, image_url: imageUrl, price_minor: priceMinor }); setDraft((current) => ({ ...current, image_url: imageUrl })); } catch (error) { setUploadNotice(errorMessage(error)); } };
   return <details className="ordering-item-editor"><summary>編輯商品資料與圖片</summary><form className="ordering-admin-form" onSubmit={submit}><label>分類<select value={draft.category_id} onChange={(event) => setDraft({ ...draft, category_id: event.target.value })}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label>商品名稱<input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label>售價（NT$）<input required min="0" step="1" inputMode="numeric" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} /></label><label>SKU<input value={draft.sku} onChange={(event) => setDraft({ ...draft, sku: event.target.value })} /></label><label className="ordering-admin-form-wide">商品介紹<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><div className="ordering-admin-form-wide ordering-product-image-picker"><strong>商品圖片</strong>{imagePreview ? <img src={imagePreview} alt={`${item.name} 圖片預覽`} /> : <div className="ordering-product-image-empty">尚未設定圖片</div>}<div><label className="btn btn-outline">上傳／更換圖片<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => chooseImage(event.target.files?.[0])} /></label>{imagePreview && <button type="button" className="btn btn-ghost" onClick={() => { if (imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview); setImageFile(undefined); setImagePreview(""); setDraft((current) => ({ ...current, image_url: "" })); }}>移除</button>}</div><small>手機可選相簿或相機。選取後先預覽，按「儲存商品」才會上傳並同步前台；最大 5 MB。</small>{uploadNotice && <span role="alert">{uploadNotice}</span>}</div><label>銷售狀態<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}><option value="active">上架</option><option value="sold_out">售完</option><option value="hidden">下架</option></select></label><button className="btn btn-primary ordering-admin-form-wide">儲存商品</button></form></details>;
 }
 

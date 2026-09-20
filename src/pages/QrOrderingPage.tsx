@@ -22,6 +22,7 @@ import {
 } from "react";
 import { Link, useParams } from "react-router-dom";
 import { PlatformLogo } from "../components";
+import { formatOrderingMoney as money } from "../ordering-money";
 import {
   clearOrderingMemberToken,
   clearPlatformMemberToken,
@@ -77,14 +78,6 @@ const purposeLabels: Record<OrderingPurpose, string> = {
   dine_in: "內用桌號點餐",
   takeaway: "外帶點餐",
 };
-
-function money(minor: number, currency = "TWD") {
-  return new Intl.NumberFormat("zh-TW", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(Number(minor || 0) / 100);
-}
 
 function errorMessage(error: unknown, fallback = "操作失敗，請稍後再試。") {
   return error instanceof Error ? error.message : fallback;
@@ -1039,42 +1032,46 @@ function QrOrderingView({ code }: { code: string }) {
                               loading="lazy"
                             />
                           )}
-                          <div className="ordering-menu-copy">
-                            <h4>{item.name}</h4>
-                            {item.description && <p>{item.description}</p>}
-                            <strong>
-                              {money(item.price_minor, context.currency)}
-                            </strong>
-                            {soldOut && (
-                              <span className="ordering-soldout">售完</span>
-                            )}
-                          </div>
-                          <div
-                            className="ordering-quantity"
-                            aria-label={`${item.name}數量`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => changeQuantity(item.id, -1)}
-                              disabled={quantity === 0}
-                              aria-label={`減少${item.name}`}
-                            >
-                              <Minus />
-                            </button>
-                            <span>{quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                groupsForItem(item.id).length ||
-                                item.allow_customer_note
-                                  ? openItem(item)
-                                  : changeQuantity(item.id, 1)
-                              }
-                              disabled={soldOut || quantity >= (item.inventory_enabled ? Math.min(20, Number(item.stock_on_hand || 0)) : 20)}
-                              aria-label={`增加${item.name}`}
-                            >
-                              <Plus />
-                            </button>
+                          <div className="ordering-menu-body">
+                            <div className="ordering-menu-copy">
+                              <h4>{item.name}</h4>
+                              {item.description && <p>{item.description}</p>}
+                              {soldOut && (
+                                <span className="ordering-soldout">售完</span>
+                              )}
+                            </div>
+                            <div className="ordering-menu-footer">
+                              <strong className="ordering-menu-price" data-testid={`menu-price-${item.id}`}>
+                                {money(item.price_minor, context.currency)}
+                              </strong>
+                              <div
+                                className="ordering-quantity"
+                                aria-label={`${item.name}數量`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => changeQuantity(item.id, -1)}
+                                  disabled={quantity === 0}
+                                  aria-label={`減少${item.name}`}
+                                >
+                                  <Minus />
+                                </button>
+                                <span>{quantity}</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    groupsForItem(item.id).length ||
+                                    item.allow_customer_note
+                                      ? openItem(item)
+                                      : changeQuantity(item.id, 1)
+                                  }
+                                  disabled={soldOut || quantity >= (item.inventory_enabled ? Math.min(20, Number(item.stock_on_hand || 0)) : 20)}
+                                  aria-label={`增加${item.name}`}
+                                >
+                                  <Plus />
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </article>
                       );
