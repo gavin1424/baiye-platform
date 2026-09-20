@@ -1,4 +1,5 @@
-import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, GlobeHemisphereWest, Handshake, LineSegments, QrCode, Robot, ShieldCheck, ShoppingCart, Storefront, User, X } from "@phosphor-icons/react";
+import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, DeviceMobile, ForkKnife, GlobeHemisphereWest, Handshake, LineSegments, QrCode, Receipt, Robot, ShieldCheck, ShoppingCart, Storefront, User, X } from "@phosphor-icons/react";
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import heroScene from "../assets/baiye-multi-industry-isometric-hero.png";
@@ -9,7 +10,9 @@ import economicDailyImage from "../assets/news/economic-daily.jpg";
 import taisoundsImage from "../assets/news/taisounds.jpg";
 import yahooImage from "../assets/news/yahoo.webp";
 import { Header, MobileBottomNav } from "../components";
+import { BEEF_NOODLE_GUEST_ORDERING_URL } from "../config/orderingDemo";
 import "../home-media.css";
+import "../home-ordering-experience.css";
 
 type Feature = { name: string; summary: string; audience: string; value: string; items: string[]; cta: string; to: string; icon: ComponentType<{ weight?: "duotone" | "fill" }> };
 
@@ -122,6 +125,51 @@ export function HomePage() {
         <div className="home-media-grid">
           {newsItems.map((item) => <NewsCard item={item} key={`${item.source}-${item.title}`} />)}
         </div>
+      </div>
+    </section>
+
+    <section className="home-ordering-experience" aria-labelledby="home-ordering-title">
+      <div className="home-ordering-inner">
+        <a className="home-ordering-poster" href={BEEF_NOODLE_GUEST_ORDERING_URL} aria-label="立即前往百工牛肉麵免 POS 機智慧點餐體驗頁">
+          <div className="home-ordering-copy">
+            <span className="home-ordering-kicker"><QrCode weight="duotone" /> 免 POS 機智慧點餐</span>
+            <h2 id="home-ordering-title">體驗點餐</h2>
+            <p className="home-ordering-lead">掃碼即可點餐，快速體驗免 POS 機智慧點餐流程</p>
+            <p className="home-ordering-detail">提供門市掃碼點餐、線上訂單管理，協助提升營運效率、降低人力負擔。</p>
+            <div className="home-ordering-benefits" aria-label="智慧點餐重點功能">
+              <span><QrCode weight="duotone" />掃碼點餐</span>
+              <span><Receipt weight="duotone" />線上訂單</span>
+              <span><ChartLineUp weight="duotone" />提升效率</span>
+              <span><DeviceMobile weight="duotone" />手機接單</span>
+            </div>
+            <span className="home-ordering-cta">立即體驗點餐 <ArrowRight weight="bold" /></span>
+          </div>
+
+          <div className="home-ordering-visual" aria-label="百工牛肉麵手機點餐畫面與體驗 QR Code">
+            <div className="home-ordering-qr-card">
+              <QRCodeSVG value={BEEF_NOODLE_GUEST_ORDERING_URL} size={126} level="M" bgColor="#ffffff" fgColor="#08263d" title="掃碼立即體驗點餐" />
+              <strong>掃碼立即體驗</strong>
+              <small>免下載 App</small>
+            </div>
+            <div className="home-ordering-phone">
+              <div className="home-ordering-phone-bar"><span>9:41</span><i /><span>5G</span></div>
+              <div className="home-ordering-phone-head"><span><ForkKnife weight="fill" /></span><div><small>手機菜單</small><strong>百工牛肉麵</strong></div></div>
+              <div className="home-ordering-phone-tabs"><span className="is-active">招牌牛肉麵</span><span>乾麵</span><span>小菜</span></div>
+              <article className="home-ordering-menu-item">
+                <img src="/assets/demo-beef-noodle/braised-bowl.svg" alt="招牌紅燒牛肉麵示意圖" width="214" height="150" />
+                <div><strong>招牌紅燒牛肉麵</strong><small>慢燉紅燒湯頭・厚切牛腱</small><b>NT$180</b></div>
+                <span>＋</span>
+              </article>
+              <article className="home-ordering-menu-item is-small">
+                <img src="/assets/demo-beef-noodle/tendon-bowl.svg" alt="半筋半肉牛肉麵示意圖" width="214" height="150" />
+                <div><strong>半筋半肉牛肉麵</strong><small>牛腱與牛筋雙重口感</small><b>NT$220</b></div>
+                <span>＋</span>
+              </article>
+              <div className="home-ordering-cart"><ShoppingCart weight="fill" /><span>查看購物車</span><strong>1</strong></div>
+            </div>
+            <span className="home-ordering-float-badge"><ChartLineUp weight="duotone" />訂單即時掌握</span>
+          </div>
+        </a>
       </div>
     </section>
 
