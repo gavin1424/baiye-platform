@@ -25,6 +25,37 @@ footer{display:grid;grid-template-columns:1.3fr .7fr 1fr 1fr;gap:32px;padding:56
 .drawer{position:fixed;top:0;right:0;z-index:90;width:min(420px,92vw);height:100dvh;background:#fff;box-shadow:-20px 0 50px rgba(0,0,0,.18);padding:24px;transform:translateX(105%);transition:.28s;display:flex;flex-direction:column}.drawer.open{transform:none}.carthead{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee}.carthead button{border:0;background:transparent;font-size:28px}.items{flex:1;overflow:auto}.row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:14px 0;border-bottom:1px solid #eee}.row p{margin:0}.row small{color:#8c7b6c}.row button{border:0;background:transparent;color:#8b5c39}.sum{display:flex;justify-content:space-between;font-size:18px;padding:18px 0}.checkout{width:100%}.scrim{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:.25s}.scrim.show{opacity:1;pointer-events:auto}.toast{position:fixed;left:50%;bottom:28px;z-index:100;transform:translate(-50%,20px);opacity:0;background:#2d251f;color:#fff;padding:10px 16px;border-radius:999px;transition:.25s}.toast.show{opacity:1;transform:translate(-50%,0)}
 @media(max-width:1000px){nav{position:fixed;top:67px;left:0;right:0;background:#fbf8f3;display:none;flex-direction:column;padding:20px 28px}nav.open{display:flex}.menubtn{display:block;justify-self:end}.hero{grid-template-columns:1fr}.hero-visual{order:-1;min-height:420px}.grid{grid-template-columns:repeat(2,1fr)}.story{grid-template-columns:1fr 1fr}.story-img.right{display:none}.features{grid-template-columns:repeat(2,1fr)}footer{grid-template-columns:1fr 1fr}}
 @media(max-width:680px){header{padding:10px 16px}.brand strong{font-size:18px}.mark{width:36px;height:36px}.actions{display:none}.hero-visual{min-height:300px}.hero-copy{padding:48px 22px}.hero h1{font-size:42px}.section{padding:60px 16px}.head a{display:none}.grid{grid-template-columns:1fr}.card img{height:260px}.story{grid-template-columns:1fr}.story-img{min-height:290px}.story-copy{padding:42px 20px}.features{grid-template-columns:1fr}.features div+div{border-left:0;border-top:1px solid var(--line)}.reviews-grid{grid-template-columns:1fr}.promo{grid-template-columns:1fr}.promo-img{min-height:245px}.badge{right:20px;top:auto;bottom:192px;width:90px;height:90px}footer{grid-template-columns:1fr}.copyright{grid-column:auto}}
+
+/* mobile hotfix 2026-09-23 */
+.card{display:block!important;height:auto!important;min-height:0!important}
+.card img{display:none!important}
+.card::before{
+  content:"";
+  display:block;
+  width:100%;
+  aspect-ratio:16/9;
+  background-image:url("assets/hero.jpg");
+  background-repeat:no-repeat;
+  background-size:cover;
+  background-position:center top;
+}
+.card:nth-child(1)::before{background-position:15% top}
+.card:nth-child(2)::before{background-position:45% top}
+.card:nth-child(3)::before{background-position:70% top}
+.card:nth-child(4)::before{background-position:90% top}
+.info{position:static!important;min-height:0!important;margin:0!important}
+@media(max-width:680px){
+  header{grid-template-columns:1fr auto!important}
+  .menubtn{display:block!important;position:relative;z-index:72;padding:8px 10px;font-size:28px;line-height:1}
+  nav{z-index:70;top:66px;max-height:calc(100dvh - 66px);overflow:auto;box-shadow:0 18px 40px rgba(50,35,25,.16)}
+  nav.open{display:flex!important}
+  nav a{font-size:17px;padding:13px 4px;border-bottom:1px solid var(--line)}
+  .card::before{aspect-ratio:16/10;background-size:cover}
+  .card{border-radius:16px}
+  .info{padding:18px 18px 20px!important}
+  .section{overflow:hidden}
+}
+
 </style>
 </head>
 <body>
@@ -51,15 +82,5 @@ footer{display:grid;grid-template-columns:1.3fr .7fr 1fr 1fr;gap:32px;padding:56
 </main>
 <footer id="contact"><div class="footbrand"><a class="brand" href="#top"><span class="mark">☁</span><span><strong>檀香雲境</strong><small>一縷檀香・一方心境</small></span></a><p>以天然檀香連結人與自然，讓香氣成為生活中的寧靜力量。</p></div><div><h3>快速連結</h3><a href="#products">商品</a><a href="#story">品牌故事</a><a href="#faq">常見問題</a></div><div><h3>聯絡我們</h3><p>service@tanxiang.com.tw</p><p>客服時間 09:00–18:00</p></div><div><h3>追蹤我們</h3><p>LINE／Instagram／Facebook</p></div><p class="copyright">© 2026 檀香雲境｜天然檀香・美好生活</p></footer>
 <aside class="drawer" id="drawer"><div class="carthead"><h2>購物車</h2><button id="close">×</button></div><div class="items" id="items"><p>購物車目前是空的。</p></div><div class="sum"><span>合計</span><strong id="total">NT$ 0</strong></div><button class="btn primary checkout" id="checkout">前往結帳</button></aside><div class="scrim" id="scrim"></div><div class="toast" id="toast"></div>
-<script>
-const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)],cart=new Map();
-const money=n=>"NT$ "+n.toLocaleString("zh-TW"),drawer=q("#drawer"),scrim=q("#scrim");
-function toast(m){const t=q("#toast");t.textContent=m;t.classList.add("show");clearTimeout(window.tt);window.tt=setTimeout(()=>t.classList.remove("show"),1800)}
-function openCart(){drawer.classList.add("open");scrim.classList.add("show");document.body.classList.add("lock")}
-function closeCart(){drawer.classList.remove("open");scrim.classList.remove("show");document.body.classList.remove("lock")}
-function render(){let c=0,t=0;for(const v of cart.values()){c+=v.qty;t+=v.qty*v.price}q("#count").textContent=c;q("#total").textContent=money(t);q("#items").innerHTML=c?[...cart.entries()].map(([id,v])=>'<div class="row"><div><p><strong>'+v.name+'</strong></p><small>'+money(v.price)+' × '+v.qty+'</small></div><button data-r="'+id+'">移除</button></div>').join(""):"<p>購物車目前是空的。</p>";qa("[data-r]").forEach(b=>b.onclick=()=>{cart.delete(b.dataset.r);render()})}
-qa(".add").forEach(b=>b.onclick=e=>{const c=e.currentTarget.closest(".card"),id=c.dataset.id,v=cart.get(id)||{name:c.dataset.name,price:+c.dataset.price,qty:0};v.qty++;cart.set(id,v);render();toast("已加入："+v.name)});
-q("#cartBtn").onclick=openCart;q("#close").onclick=closeCart;scrim.onclick=closeCart;q("#checkout").onclick=()=>toast("目前為網站展示版，可再串接正式金流與訂單系統。");
-q(".menubtn").onclick=()=>q("nav").classList.toggle("open");qa("nav a").forEach(a=>a.onclick=()=>q("nav").classList.remove("open"));document.addEventListener("keydown",e=>{if(e.key==="Escape")closeCart()});render();
-</script>
+<script src="app.js?v=2" defer></script>
 </body></html>
