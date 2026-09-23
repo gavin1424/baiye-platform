@@ -72,7 +72,7 @@ export function assertContractSignable(contract, env = {}) {
 
 export function validateExplicitConsents(consents, partyType) {
   const required = partyType === "partner"
-    ? ["read", "electronic", "independent"]
+    ? ["read", "independent", "commission_terms", "direct_only", "privacy", "electronic"]
     : partyType === "service_plan"
       ? ["read", "plan_details", "electronic"]
     : ["read", "electronic", "commercial_terms", "authority", "signature_evidence"];
@@ -88,6 +88,7 @@ export async function buildSignedAgreement(input) {
   const signatureHash = await sha256(signature.serialized);
   const documentId = input.documentId;
   const signedAt = input.signedAt || new Date().toISOString();
+  const signedContentHtml = input.contentHtmlOverride || input.contract.content_html;
   const canonicalDocument = {
     document_id: documentId,
     contract_name: input.contract.title || input.title,
@@ -119,7 +120,7 @@ export async function buildSignedAgreement(input) {
     signatory,
     signatoryRole: input.signatoryRole,
     signedAt,
-    contentHtml: input.contract.content_html,
+    contentHtml: signedContentHtml,
     attachments: input.attachments || [],
     contractHash: input.contract.content_hash,
     commercialTermsHash: input.commercialTermsHash || null,
@@ -133,7 +134,7 @@ export async function buildSignedAgreement(input) {
   const evidence = {
     ...canonicalDocument,
     public_id: input.publicId,
-    contract_snapshot: input.contract.content_html,
+    contract_snapshot: signedContentHtml,
     pdf_hash: pdf.pdfHash,
     ip: input.ip || null,
     user_agent: input.userAgent || null,
