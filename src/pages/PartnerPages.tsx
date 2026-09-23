@@ -671,6 +671,7 @@ export function PartnerContract() {
   const [mailingAddress, setMailingAddress] = useState("");
   const [email, setEmail] = useState("");
   const [checks, setChecks] = useState([false, false, false, false, false, false]);
+  const [finalConfirmed, setFinalConfirmed] = useState(false);
   const [message, setMessage] = useState("");
   const [signature, setSignature] = useState<SignatureValue>({ strokes: [] });
   const [signatureKey, setSignatureKey] = useState(0);
@@ -702,13 +703,14 @@ export function PartnerContract() {
     electronic: checks[5],
     signature,
   };
-  const ready =
+  const requirementsReady =
     name.trim().length > 0 &&
     identityNo.trim().length >= 6 &&
     mailingAddress.trim().length >= 5 &&
     email.trim().length > 3 &&
     checks.every(Boolean) &&
     hasUsableSignature(signature);
+  const ready = requirementsReady && finalConfirmed;
   const openPreview = async () => {
     setMessage("");
     if (!name.trim()) return setMessage("請輸入乙方正楷姓名");
@@ -717,6 +719,7 @@ export function PartnerContract() {
     if (!email.trim()) return setMessage("請輸入電子郵件");
     if (!checks.every(Boolean)) return setMessage("請由本人逐項完成六項重要條款確認");
     if (!signature.strokes.length) return setMessage("請完成手寫簽名");
+    if (!finalConfirmed) return setMessage("請完成送出前最終確認");
     if (!hasUsableSignature(signature)) return setMessage("簽名尚未完成，請重新簽名");
     setBusy(true);
     try {
@@ -826,6 +829,10 @@ export function PartnerContract() {
                 <input readOnly value={contract.partner?.phone || ""} />
               </label>
               <label>
+                手機驗證碼
+                <input readOnly value="由登入驗證流程處理；驗證碼不寫入契約副本" />
+              </label>
+              <label>
                 手機驗證結果
                 <input readOnly value={contract.phone_verification?.label || "尚無驗證紀錄"} />
               </label>
@@ -855,8 +862,13 @@ export function PartnerContract() {
 
             <h2>六、送出前最終確認</h2>
             <label className="partner-consent contract-final-consent">
-              <input type="checkbox" checked={ready} readOnly />
-              本人確認已完成必要資料、六項重要條款確認及手寫簽名；按下「確認簽署並建立契約」後，系統將鎖定本次契約內容並建立電子契約紀錄。
+              <input
+                type="checkbox"
+                checked={finalConfirmed}
+                disabled={!requirementsReady}
+                onChange={(event) => setFinalConfirmed(event.target.checked)}
+              />
+              本人確認即將正式簽署本契約，並同意送出後由系統鎖定本次契約內容及建立電子契約紀錄。
             </label>
             <button className="btn btn-primary" disabled={!ready || busy} onClick={() => void openPreview()}>
               {busy ? "處理中…" : "進行送出前最終確認"}
@@ -864,7 +876,7 @@ export function PartnerContract() {
           </section>
           {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最終確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions">
                 <button className="btn btn-outline" disabled={busy} onClick={() => setPreview(undefined)}>返回檢查</button>
-                <button className="btn btn-outline" disabled={busy} onClick={() => { setPreview(undefined); setSignature({ strokes: [] }); setSignatureKey((value) => value + 1); }}>清除重簽</button>
+                <button className="btn btn-outline" disabled={busy} onClick={() => { setPreview(undefined); setSignature({ strokes: [] }); setSignatureKey((value) => value + 1); setFinalConfirmed(false); }}>清除重簽</button>
                 <button className="btn btn-primary" disabled={busy} onClick={() => void sign()}>{busy ? "正式簽署中…" : "確認簽署並建立契約"}</button>
               </div></div></div>}
           </> : (
