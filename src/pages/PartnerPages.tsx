@@ -667,24 +667,55 @@ export function PartnerDashboard() {
 export function PartnerContract() {
   const [contract, setContract] = useState<any>();
   const [name, setName] = useState("");
-  const [checks, setChecks] = useState([false, false, false]);
+  const [identityNo, setIdentityNo] = useState("");
+  const [mailingAddress, setMailingAddress] = useState("");
+  const [email, setEmail] = useState("");
+  const [checks, setChecks] = useState([false, false, false, false, false, false]);
   const [message, setMessage] = useState("");
   const [signature, setSignature] = useState<SignatureValue>({ strokes: [] });
+  const [signatureKey, setSignatureKey] = useState(0);
   const [preview, setPreview] = useState<any>();
   const [memberWelcome, setMemberWelcome] = useState<any>();
   const [busy, setBusy] = useState(false);
   const signingIntent = useRef(sessionStorage.getItem("partner_contract_signing_intent") || crypto.randomUUID());
-  const load = () => api("/api/partner/contract/current").then(setContract);
+  const load = async () => {
+    const result = await api("/api/partner/contract/current");
+    setContract(result);
+    setName((value) => value || result.partner?.legal_name || "");
+    setEmail((value) => value || result.partner?.email || "");
+    return result;
+  };
   useEffect(() => {
     sessionStorage.setItem("partner_contract_signing_intent", signingIntent.current);
     load().catch((error) => setMessage(errorText(error)));
   }, []);
-  const payload = { legal_name: name, read: checks[0], electronic: checks[1], independent: checks[2], signature };
-  const ready = name.trim().length > 0 && checks.every(Boolean) && hasUsableSignature(signature);
+  const payload = {
+    legal_name: name,
+    identity_no: identityNo,
+    mailing_address: mailingAddress,
+    email,
+    read: checks[0],
+    independent: checks[1],
+    commission_terms: checks[2],
+    direct_only: checks[3],
+    privacy: checks[4],
+    electronic: checks[5],
+    signature,
+  };
+  const ready =
+    name.trim().length > 0 &&
+    identityNo.trim().length >= 6 &&
+    mailingAddress.trim().length >= 5 &&
+    email.trim().length > 3 &&
+    checks.every(Boolean) &&
+    hasUsableSignature(signature);
   const openPreview = async () => {
     setMessage("");
-    if (!name.trim()) return setMessage("請輸入法定姓名");
-    if (!checks.every(Boolean)) return setMessage("請完成所有必要確認項目");
+    if (!name.trim()) return setMessage("請輸入乙方正楷姓名");
+    if (identityNo.trim().length < 6) return setMessage("請輸入身分證／居留證號");
+    if (mailingAddress.trim().length < 5) return setMessage("請輸入完整通訊地址");
+    if (!email.trim()) return setMessage("請輸入電子郵件");
+    if (!checks.every(Boolean)) return setMessage("請由本人逐項完成六項重要條款確認");
     if (!signature.strokes.length) return setMessage("請完成手寫簽名");
     if (!hasUsableSignature(signature)) return setMessage("簽名尚未完成，請重新簽名");
     setBusy(true);
@@ -739,62 +770,109 @@ export function PartnerContract() {
     <main className="partner-shell partner-contract">
       <style>{"body:has(.partner-contract) .ai-chat{display:none}"}</style>
       <p className="partner-eyebrow">正式電子契約</p>
-      <h1>創百業智慧鏈｜承攬夥伴合作契約</h1>
+      <h1>創百業智慧鏈｜承攬夥伴合作契約書 {contract?.version || "v1.6"}</h1>
       {contract && (
         <>
           <article className="contract-document" dangerouslySetInnerHTML={{ __html: contract.content_html }} />
           {contract.signature ? (
-            <section className="partner-status success contract-signed-actions">
-              <strong>正式契約已完成簽署</strong>
-              <span>{formatDate(contract.signature.signed_at)} · PDF SHA-256：{contract.signature.pdf_hash}</span>
+            <section className="partner-status success contract-signed-actions contract-completion">
+              <p className="partner-eyebrow">簽署完成頁面</p>
+              <h2>簽署成功！</h2>
+              <p>您已完成《創百業智慧鏈｜承攬夥伴合作契約書 {contract.version}》電子簽署。</p>
+              <dl className="contract-completion-meta">
+                <dt>契約識別碼</dt><dd>{contract.signature.contract_id}</dd>
+                <dt>簽署人</dt><dd>{contract.partner?.legal_name || name}</dd>
+                <dt>簽署時間</dt><dd>{formatDate(contract.signature.signed_at)}</dd>
+                <dt>契約版本</dt><dd>{contract.version}</dd>
+              </dl>
+              <p className="partner-guidance-note">
+                完整契約副本已建立並可下載保存。網站目前未設定正式寄信服務，因此不會假裝已寄送 Email；郵件服務啟用後再提供重新寄送。
+              </p>
               <div className="partner-workflow-actions">
-                <button className="btn btn-primary" disabled={busy} onClick={() => void openPdf(false)}>查看正式契約</button>
-                <button className="btn btn-outline" disabled={busy} onClick={() => void openPdf(true)}>下載已簽署 PDF</button>
+                <button className="btn btn-primary" disabled={busy} onClick={() => void openPdf(true)}>下載完整契約PDF</button>
+                <button className="btn btn-outline" disabled title="正式郵件寄送服務尚未設定">重新寄送契約副本</button>
+                <Link className="btn btn-outline" to={`/verify-contract/${contract.signature.contract_id}`}>查看簽署紀錄</Link>
+                <Link className="btn btn-outline" to="/member">返回會員中心</Link>
               </div>
             </section>
           ) : contract.production_signing_enabled ? <>
-          <label>
-            法定姓名
-            <input
-              required
-              autoComplete="name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          {[
-            "本人已閱讀並理解本承攬夥伴合作契約全部內容。",
-            "本人同意以電子方式簽署本契約。",
-            "本人了解本合作為獨立承攬／居間合作，非僱傭關係。",
-          ].map((text, index) => (
-            <label className="partner-consent" key={text}>
-              <input
-                type="checkbox"
-                checked={checks[index]}
-                onChange={(event) =>
-                  setChecks(
-                    checks.map((value, itemIndex) =>
-                      itemIndex === index ? event.target.checked : value,
-                    ),
-                  )
-                }
-              />
-              {text}
+          <section className="contract-signing-fields">
+            <h2>三、重要條款確認</h2>
+            <p className="partner-guidance-note">以下項目不得由系統預先勾選，應由乙方本人逐項確認。</p>
+            {[
+              "本人已完整閱讀並同意《創百業智慧鏈｜承攬夥伴合作契約書v1.6》全部內容。",
+              "本人了解本合作屬獨立承攬及商機居間合作，並非僱傭關係，不提供底薪、固定工資、勞健保或保證收入。",
+              "本人了解案件獎勵必須符合有效成交、全額付款及甲方審核條件；取消、退款、拒付或無效案件，可能不予計算或辦理沖回。",
+              "本人了解獎勵僅依本人直接推薦之有效成交計算，不建立上下線、團隊層級或多層級獎金制度。",
+              "本人已閱讀並同意上述個人資料蒐集告知事項。",
+              "本人同意使用電子文件及電子方式完成本契約。",
+            ].map((text, index) => (
+              <label className="partner-consent" key={text}>
+                <input
+                  type="checkbox"
+                  checked={checks[index]}
+                  onChange={(event) =>
+                    setChecks(checks.map((value, itemIndex) => itemIndex === index ? event.target.checked : value))
+                  }
+                />
+                {text}
+              </label>
+            ))}
+
+            <h2>四、身分驗證</h2>
+            <div className="contract-form-grid">
+              <label>
+                乙方手機號碼
+                <input readOnly value={contract.partner?.phone || ""} />
+              </label>
+              <label>
+                手機驗證結果
+                <input readOnly value={contract.phone_verification?.label || "尚無驗證紀錄"} />
+              </label>
+              <label>
+                乙方正楷姓名
+                <input required autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} />
+              </label>
+              <label>
+                身分證／居留證號
+                <input required autoComplete="off" value={identityNo} onChange={(event) => setIdentityNo(event.target.value)} />
+              </label>
+              <label className="contract-form-wide">
+                通訊地址
+                <input required autoComplete="street-address" value={mailingAddress} onChange={(event) => setMailingAddress(event.target.value)} />
+              </label>
+              <label className="contract-form-wide">
+                電子郵件
+                <input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+              </label>
+            </div>
+            <p className="partner-guidance-note">手機驗證碼本身不寫入契約副本；系統僅保留必要的驗證結果、Session 與稽核證據。</p>
+
+            <h2>五、手寫電子簽名</h2>
+            <p>本人確認以上資料均由本人填寫且內容正確，並確認已完整閱讀、理解及同意本契約全部條款。</p>
+            <ContractSignatureCanvas key={signatureKey} onChange={setSignature} />
+            <p className="partner-guidance-note">手寫簽名軌跡與系統紀錄作為線上契約查驗證據；不宣稱為憑證式數位簽章或政府認證電子簽章。</p>
+
+            <h2>六、送出前最終確認</h2>
+            <label className="partner-consent contract-final-consent">
+              <input type="checkbox" checked={ready} readOnly />
+              本人確認已完成必要資料、六項重要條款確認及手寫簽名；按下「確認簽署並建立契約」後，系統將鎖定本次契約內容並建立電子契約紀錄。
             </label>
-          ))}
-          <p><strong>手寫簽署證據</strong></p>
-          <ContractSignatureCanvas onChange={setSignature} />
-          <p className="partner-guidance-note">手寫簽名軌跡與系統紀錄作為線上契約查驗證據；不宣稱為憑證式數位簽章或政府認證電子簽章。</p>
-          <button className="btn btn-primary" disabled={!ready || busy} onClick={() => void openPreview()}>
-            {busy ? "處理中…" : "進行最終確認"}
-          </button>
-          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最終確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions"><button className="btn btn-outline" disabled={busy} onClick={() => setPreview(undefined)}>返回修改</button><button className="btn btn-primary" disabled={busy} onClick={() => void sign()}>{busy ? "正式簽署中…" : "同意契約並正式簽署"}</button></div></div></div>}
+            <button className="btn btn-primary" disabled={!ready || busy} onClick={() => void openPreview()}>
+              {busy ? "處理中…" : "進行送出前最終確認"}
+            </button>
+          </section>
+          {preview && <div className="contract-confirm-dialog" role="dialog" aria-modal="true"><div><h2>簽署前最終確認</h2><dl><dt>契約版本</dt><dd>{preview.version}</dd><dt>甲方</dt><dd>{preview.party_a}</dd><dt>乙方</dt><dd>{preview.party_b}</dd><dt>簽署姓名</dt><dd>{preview.signatory}</dd><dt>合作身份</dt><dd>{preview.relationship}</dd><dt>簽署時間</dt><dd>{formatDate(preview.signed_at)}</dd></dl><h3>重要條款摘要</h3><ul>{preview.important_terms?.map((item: string) => <li key={item}>{item}</li>)}</ul><div className="partner-workflow-actions">
+                <button className="btn btn-outline" disabled={busy} onClick={() => setPreview(undefined)}>返回檢查</button>
+                <button className="btn btn-outline" disabled={busy} onClick={() => { setPreview(undefined); setSignature({ strokes: [] }); setSignatureKey((value) => value + 1); }}>清除重簽</button>
+                <button className="btn btn-primary" disabled={busy} onClick={() => void sign()}>{busy ? "正式簽署中…" : "確認簽署並建立契約"}</button>
+              </div></div></div>}
           </> : (
             <section className="partner-status warning">
               <span>此契約版本目前尚未開放正式簽署，請稍後再試。</span>
             </section>
           )}
-          {memberWelcome && <div className="contract-confirm-dialog member-welcome-modal" role="dialog" aria-modal="true"><div><div className="member-celebration">🎉</div><h2>{memberWelcome.title}</h2><p>您的會員資格已建立，可前往會員中心查看資料與消費歷程。</p><div className="partner-workflow-actions"><Link className="btn btn-primary" to="/member">前往會員中心</Link><Link className="btn btn-outline" to="/partner/dashboard">繼續前往承攬夥伴中心</Link></div></div></div>}
+          {memberWelcome && contract?.signature && <p className="partner-guidance-note">🎉 {memberWelcome.title}，可前往會員中心查看資料與消費歷程。</p>}
         </>
       )}
       {message && (
