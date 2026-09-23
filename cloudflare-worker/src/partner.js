@@ -48,6 +48,76 @@ function contractFailure(error, cors) {
   return json({ error: "契約系統暫時無法完成此操作。" }, 503, cors);
 }
 function validEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "")); }
+function escapeContractHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+function validateIdentityDocument(value) {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (normalized.length < 6 || normalized.length > 24 || /[\u0000-\u001F\u007F<>]/.test(normalized)) {
+    throw new ContractError("IDENTITY_DOCUMENT_INVALID", "請輸入正確的身分證／居留證號", 422);
+  }
+  return normalized;
+}
+function validateMailingAddress(value) {
+  const normalized = String(value || "").trim();
+  if (normalized.length < 5 || normalized.length > 300 || /[\u0000-\u001F\u007F<>]/.test(normalized)) {
+    throw new ContractError("MAILING_ADDRESS_INVALID", "請輸入完整通訊地址", 422);
+  }
+  return normalized;
+}
+function partnerContractConsents(input) {
+  return validateExplicitConsents({
+    read: input.read,
+    independent: input.independent,
+    commission_terms: input.commission_terms,
+    direct_only: input.direct_only,
+    privacy: input.privacy,
+    electronic: input.electronic,
+  }, "partner");
+}
+function taipeiDateParts(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date);
+  const pick = (type) => Number(parts.find((part) => part.type === type)?.value || 0);
+  return { year: pick("year"), month: pick("month"), day: pick("day"), hour: pick("hour"), minute: pick("minute") };
+}
+function rocDateLabel(parts) {
+  return `民國${parts.year - 1911}年${parts.month}月${parts.day}日`;
+}
+function addCalendarMonths(parts, months) {
+  const date = new Date(Date.UTC(parts.year, parts.month - 1 + months, parts.day, 12, 0, 0));
+  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(), hour: parts.hour, minute: parts.minute };
+}
+function renderPartnerContractHtml(template, context) {
+  const signed = taipeiDateParts(context.signedAt || new Date());
+  const periodEnd = addCalendarMonths(signed, 3);
+  const replacements = {
+    "{{PARTNER_LEGAL_NAME}}": context.legalName || "____________________________",
+    "{{PARTNER_IDENTITY_NO}}": context.identityNo || "___________________",
+    "{{PARTNER_ADDRESS}}": context.address || "____________________________",
+    "{{PARTNER_PHONE}}": context.phone || "________________________",
+    "{{PARTNER_EMAIL}}": context.email || "____________________________",
+    "{{PHONE_VERIFICATION_RESULT}}": context.phoneVerificationResult || "□ 尚未完成手機驗證",
+    "{{SIGNED_DATE_ROC}}": rocDateLabel(signed),
+    "{{SIGNED_TIME}}": `${String(signed.hour).padStart(2, "0")}時${String(signed.minute).padStart(2, "0")}分`,
+    "{{CONTRACT_PUBLIC_ID}}": context.publicId || "______________________",
+  };
+  let rendered = String(template || "");
+  for (const [token, value] of Object.entries(replacements)) rendered = rendered.replaceAll(token, escapeContractHtml(value));
+  rendered = rendered.replace(
+    "本契約以三個月為一期，自民國____年____月____日起至民國____年____月____日止。",
+    `本契約以三個月為一期，自${rocDateLabel(signed)}起至${rocDateLabel(periodEnd)}止。`,
+  );
+  return rendered;
+}
 async function uniquePartnerCode(db) {
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const code = `AG${String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0")}`;
@@ -900,12 +970,28 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
   if (path === "/api/partner/me") return json({ id: partner.id, partner_code: partner.partner_code, legal_name: partner.legal_name, display_name: partner.display_name, status: partner.status, referral_code: partner.referral_code }, 200, cors);
   if (path === "/api/partner/contract/current" && request.method === "GET") {
     const contract = await activeContract(db);
-    const signature = contract ? await db.prepare("SELECT id,public_id,signed_at,status,pdf_hash,document_hash FROM contract_signatures WHERE partner_id=? AND contract_version_id=? AND status='VALID' LIMIT 1").bind(partnerId, contract.id).first() : null;
+    const signature = contract ? await db.prepare("SELECT id,public_id,signed_at,status,pdf_hash,document_hash,contract_snapshot FROM contract_signatures WHERE partner_id=? AND contract_version_id=? AND status='VALID' LIMIT 1").bind(partnerId, contract.id).first() : null;
+    const phoneVerified = partnerSession.assurance_level === "verified_phone";
+    const verificationLabel = phoneVerified
+      ? "☑ 已完成手機驗證"
+      : "□ 本次 Session 未記錄手機 OTP 驗證；已完成承攬夥伴帳號登入驗證";
+    const displayHtml = signature?.contract_snapshot || (contract ? renderPartnerContractHtml(contract.content_html, {
+      legalName: partner.legal_name,
+      identityNo: "___________________",
+      address: "____________________________",
+      phone: partner.phone,
+      email: partner.email,
+      phoneVerificationResult: verificationLabel,
+      publicId: "______________________",
+    }) : null);
     await audit(db, request, "partner", partnerId, "partner.contract.opened", "contract_version", contract?.id || "none", { version: contract?.version || null, signed: Boolean(signature) });
     return json({
       ...contract,
+      content_html: displayHtml,
       contract_name: contract?.title,
       contract_status: contract?.legal_review_status,
+      partner: { legal_name: partner.legal_name, email: partner.email, phone: partner.phone },
+      phone_verification: { completed: phoneVerified, assurance_level: partnerSession.assurance_level, label: verificationLabel },
       legal_review_approved: contract?.legal_review_status === "approved" && contract?.approved_content_hash === contract?.content_hash,
       production_signing_enabled: contract?.is_active === 1 && contract?.legal_review_status === "approved" && contract?.approved_content_hash === contract?.content_hash,
       signature: signature ? { contract_id: signature.public_id, signature_id: signature.id, signed_at: signature.signed_at, status: signature.status, pdf_hash: signature.pdf_hash, document_hash: signature.document_hash } : null,
@@ -916,14 +1002,31 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       const input = await body(request), contract = await activeContract(db);
       assertContractSignable(contract, env);
       const legalName = validateLegalName(input.legal_name);
-      const consents = validateExplicitConsents({ read: input.read, electronic: input.electronic, independent: input.independent }, "partner");
+      const identityNo = validateIdentityDocument(input.identity_no);
+      const mailingAddress = validateMailingAddress(input.mailing_address);
+      const email = String(input.email || partner.email || "").trim();
+      if (!validEmail(email)) throw new ContractError("EMAIL_INVALID", "請輸入正確的電子郵件", 422);
+      const consents = partnerContractConsents(input);
       const validatedSignature = parseAndValidateSignature(input.signature);
       await db.batch([
         contractAuditInsert(db, request, partnerId, "partner.contract.consent_accepted", contract.id, { version: contract.version, legal_name: legalName, consents }),
         contractAuditInsert(db, request, partnerId, "partner.contract.signature_completed", contract.id, { version: contract.version, legal_name: legalName, point_count: validatedSignature.pointCount, movement_distance: validatedSignature.distance }),
         contractAuditInsert(db, request, partnerId, "partner.contract.final_confirmation", contract.id, { version: contract.version, legal_name: legalName }),
       ]);
-      return json({ version: contract.version, party_a: "平台契約正式設定法律主體", party_b: partner.legal_name, signatory: legalName, relationship: "獨立承攬／居間合作，非僱傭關係", signed_at: now(), important_terms: ["有效成交與五級獎勵", "每月合作資格維持", "退款與佣金沖回", "禁止私收款、假交易與未授權承諾", "線上簽署證據不等同憑證式數位簽章"] }, 200, cors);
+      return json({
+        version: contract.version,
+        party_a: "陳靈有限公司（統一編號：42868714）",
+        party_b: partner.legal_name,
+        signatory: legalName,
+        identity_no_masked: identityNo.length > 4 ? `${"*".repeat(Math.max(4, identityNo.length - 4))}${identityNo.slice(-4)}` : "****",
+        mailing_address: mailingAddress,
+        email,
+        phone: partner.phone,
+        phone_verification: partnerSession.assurance_level === "verified_phone" ? "已完成手機驗證" : "本次 Session 未記錄手機 OTP 驗證",
+        relationship: "獨立承攬／商機居間合作，非僱傭關係",
+        signed_at: now(),
+        important_terms: ["三個月合作期間", "有效成交與五級案件獎勵", "每月資格維持與次月降級", "VIP 三年週期百萬特別獎勵", "退款及獎勵沖回", "僅本人直接推薦，不建立多層級組織", "個人資料蒐集告知與電子簽署證據"],
+      }, 200, cors);
     } catch (error) { return contractFailure(error, cors); }
   }
   if (path === "/api/partner/contract/sign" && request.method === "POST") {
@@ -931,8 +1034,12 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       const input = await body(request), contract = await activeContract(db);
       const staging = assertContractSignable(contract, env).staging;
       const legalName = validateLegalName(input.legal_name);
+      const identityNo = validateIdentityDocument(input.identity_no);
+      const mailingAddress = validateMailingAddress(input.mailing_address);
+      const email = String(input.email || partner.email || "").trim();
+      if (!validEmail(email)) throw new ContractError("EMAIL_INVALID", "請輸入正確的電子郵件", 422);
       if (!normalizeTaiwanMobile(partner.phone)) throw new ContractError("PARTNER_PHONE_REQUIRED", "承攬夥伴手機資料不完整，請先聯絡平台更新後再簽署。", 422);
-      const consents = validateExplicitConsents({ read: input.read, electronic: input.electronic, independent: input.independent }, "partner");
+      const consents = partnerContractConsents(input);
       parseAndValidateSignature(input.signature);
       const cookieToken = (request.headers.get("cookie") || "").match(/(?:^|;\s*)partner_session=([^;]+)/)?.[1] || "unknown";
       const operation = await beginContractOperation(db, { partyType: "partner", partyId: partnerId, operationType: "sign", idempotencyKey: request.headers.get("idempotency-key") || "" });
@@ -946,14 +1053,52 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       const signatureId = id("sign"), publicId = `BYPC-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
       const sessionHash = await sessionEvidenceHash(cookieToken);
       const submittedAt = now(), metadata = deviceMetadata(request);
-      const agreement = await buildSignedAgreement({ title: "創百業智慧鏈｜承攬夥伴合作契約", documentId: signatureId, publicId, verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`, contract, partyType: "partner", partyId: partnerId, partyLabel: `甲方：陳靈有限公司　乙方：${partner.legal_name}`, signatory: legalName, signatoryRole: "承攬夥伴", signature: input.signature, consents, consentVersion: "partner-contract-consent-v1.0", ip: clientIp(request), userAgent: request.headers.get("user-agent"), deviceMetadata: metadata, timezone: "Asia/Taipei", finalConfirmedAt: submittedAt, submittedAt, sessionEvidence: sessionHash, staging });
+      const phoneVerificationResult = partnerSession.assurance_level === "verified_phone"
+        ? "☑ 已完成手機驗證"
+        : "□ 本次 Session 未記錄手機 OTP 驗證；已完成承攬夥伴帳號登入驗證";
+      const signedContentHtml = renderPartnerContractHtml(contract.content_html, {
+        legalName, identityNo, address: mailingAddress, phone: partner.phone, email,
+        phoneVerificationResult, signedAt: submittedAt, publicId,
+      });
+      const agreement = await buildSignedAgreement({
+        title: "創百業智慧鏈｜承攬夥伴合作契約書",
+        documentId: signatureId,
+        publicId,
+        verificationUrl: `https://baiyeconnect.com/#/verify-contract/${publicId}`,
+        contract,
+        partyType: "partner",
+        partyId: partnerId,
+        partyLabel: `甲方：陳靈有限公司　乙方：${partner.legal_name}`,
+        signatory: legalName,
+        signatoryRole: "承攬夥伴",
+        signature: input.signature,
+        consents,
+        consentVersion: "partner-contract-consent-v1.6",
+        contentHtmlOverride: signedContentHtml,
+        documentContext: {
+          identity_document: identityNo,
+          mailing_address: mailingAddress,
+          phone: partner.phone,
+          email,
+          phone_verification_assurance: partnerSession.assurance_level,
+          phone_verification_completed: partnerSession.assurance_level === "verified_phone",
+        },
+        ip: clientIp(request),
+        userAgent: request.headers.get("user-agent"),
+        deviceMetadata: metadata,
+        timezone: "Asia/Taipei",
+        finalConfirmedAt: submittedAt,
+        submittedAt,
+        sessionEvidence: sessionHash,
+        staging,
+      });
       const prefix = `contracts/partners/${partnerId}/${contract.version}/${signatureId}`;
       const stored = await storePrivateAgreementArtifacts(env.CONTRACTS_BUCKET, prefix, agreement);
       const membershipBatch = await preparePlatformMembershipBatch(db, { phone: partner.phone, source: "partner_contract", originVerified: true, deviceId: cookieToken || "partner-contract" });
       try {
         await db.batch([
           db.prepare("INSERT INTO contract_signatures(id,partner_id,contract_version_id,legal_name,signed_at,ip_address,user_agent,contract_content_hash,signature_hash,signature_data,pdf_object_key,pdf_hash,document_hash,consent_version,signature_assurance_level,public_id,evidence_object_key,session_id_hash,status,contract_name,contract_version_snapshot,contract_snapshot,timezone,consents_json,device_metadata_json,final_confirmed_at,submitted_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-            .bind(signatureId, partnerId, contract.id, legalName, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.0", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID", contract.title, contract.version, contract.content_html, "Asia/Taipei", JSON.stringify(agreement.consents), JSON.stringify(metadata), submittedAt, submittedAt),
+            .bind(signatureId, partnerId, contract.id, legalName, agreement.signedAt, clientIp(request), request.headers.get("user-agent"), contract.content_hash, agreement.signatureHash, agreement.signatureData, stored.pdfKey, agreement.pdfHash, agreement.documentHash, "partner-contract-consent-v1.6", STANDARD_ASSURANCE, publicId, stored.evidenceKey, sessionHash, "VALID", contract.title, contract.version, agreement.evidence.contract_snapshot, "Asia/Taipei", JSON.stringify(agreement.consents), JSON.stringify(metadata), submittedAt, submittedAt),
           db.prepare("UPDATE partners SET contract_status='signed',contract_version=?,contract_signed_at=?,updated_at=? WHERE id=?").bind(contract.version, agreement.signedAt, now(), partnerId),
           ...membershipBatch.statements,
           contractAuditInsert(db, request, partnerId, "partner.contract.submit_requested", signatureId, { version: contract.version, legal_name: legalName, idempotency_key_present: true }),
@@ -963,7 +1108,21 @@ export async function handlePartnerRequest(request, env, url, cors, adminAuthori
       } catch (error) { await stored.cleanup(); throw error; }
       await audit(db, request, "partner", partnerId, "contract_signed", "contract_signature", signatureId, { version: contract.version, legal_name: legalName, signature_hash: agreement.signatureHash, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, assurance: STANDARD_ASSURANCE });
       const membership = await finalizePlatformMembershipBatch(db, membershipBatch);
-      const result = { ok: true, contract_id: publicId, contract_version: contract.version, signature_id: signatureId, public_id: publicId, signed_at: agreement.signedAt, pdf_hash: agreement.pdfHash, document_hash: agreement.documentHash, membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created }, member_session: membership.session, welcome: membership.welcome };
+      const result = {
+        ok: true,
+        contract_id: publicId,
+        contract_version: contract.version,
+        signature_id: signatureId,
+        public_id: publicId,
+        signed_at: agreement.signedAt,
+        signatory: legalName,
+        pdf_hash: agreement.pdfHash,
+        document_hash: agreement.documentHash,
+        email_delivery: { enabled: false, sent: false, reason: "EMAIL_PROVIDER_NOT_CONFIGURED" },
+        membership: { member_id: membership.member.id, member_no: membership.member.member_no, created: membership.created },
+        member_session: membership.session,
+        welcome: membership.welcome,
+      };
       await completeContractOperation(db, operation.operation.id, result);
       return json(result, 201, cors);
     } catch (error) { return contractFailure(error, cors); }
