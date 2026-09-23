@@ -769,6 +769,7 @@ export function PartnerContract() {
     }
     finally { setBusy(false); }
   };
+  const v16Ready = contract?.version === "v1.6";
   return (
     <main className="partner-shell partner-contract">
       <style>{"body:has(.partner-contract) .ai-chat{display:none}"}</style>
@@ -798,7 +799,7 @@ export function PartnerContract() {
                 <Link className="btn btn-outline" to="/member">返回會員中心</Link>
               </div>
             </section>
-          ) : contract.production_signing_enabled ? <>
+          ) : contract.production_signing_enabled && v16Ready ? <>
           <section className="contract-signing-fields">
             <h2>三、重要條款確認</h2>
             <p className="partner-guidance-note">以下項目不得由系統預先勾選，應由乙方本人逐項確認。</p>
@@ -881,7 +882,12 @@ export function PartnerContract() {
               </div></div></div>}
           </> : (
             <section className="partner-status warning">
-              <span>此契約版本目前尚未開放正式簽署，請稍後再試。</span>
+              <strong>{v16Ready ? "此契約版本目前尚未開放正式簽署" : "正式契約 v1.6 正在同步至簽署服務"}</strong>
+              <span>
+                {v16Ready
+                  ? "目前有效版本尚未開放正式簽署，請勿送出簽名。"
+                  : `目前簽署 API 回報版本為 ${contract.version || "未知"}；為避免誤簽舊版，系統已鎖定簽署，直到後端正式啟用 v1.6。`}
+              </span>
             </section>
           )}
           {memberWelcome && contract?.signature && <p className="partner-guidance-note">🎉 {memberWelcome.title}，可前往會員中心查看資料與消費歷程。</p>}
