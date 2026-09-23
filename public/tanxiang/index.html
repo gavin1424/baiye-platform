@@ -35,8 +35,8 @@ footer{display:grid;grid-template-columns:1.3fr .7fr 1fr 1fr;gap:32px;padding:56
   width:100%;
   aspect-ratio:16/9;
   background-image:url("assets/hero.jpg");
-  background-repeat:no-repeat;
-  background-size:cover;
+  background-repeat:no-repeat;\n  background-color:#f2eadf;
+  background-size:contain;
   background-position:center top;
 }
 .card:nth-child(1)::before{background-position:15% top}
@@ -50,7 +50,7 @@ footer{display:grid;grid-template-columns:1.3fr .7fr 1fr 1fr;gap:32px;padding:56
   nav{z-index:70;top:66px;max-height:calc(100dvh - 66px);overflow:auto;box-shadow:0 18px 40px rgba(50,35,25,.16)}
   nav.open{display:flex!important}
   nav a{font-size:17px;padding:13px 4px;border-bottom:1px solid var(--line)}
-  .card::before{aspect-ratio:16/10;background-size:cover}
+  .card::before{aspect-ratio:16/10;background-size:contain}
   .card{border-radius:16px}
   .info{padding:18px 18px 20px!important}
   .section{overflow:hidden}
