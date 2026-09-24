@@ -67,9 +67,9 @@ import type { Business, CollaborationNeed, Product } from "./types";
 // is rendered only by the verified production directory.
 const businesses: Business[] = [];
 
-export function PlatformLogo({ compact = false }: { compact?: boolean }) {
+export function PlatformLogo({ compact = false, homeVariant = false }: { compact?: boolean; homeVariant?: boolean }) {
   return (
-    <Link to="/" className="platform-logo" aria-label="創百業智慧鏈首頁">
+    <Link to="/" className="platform-logo" aria-label={homeVariant ? "百工數位營運平台首頁" : "創百業智慧鏈首頁"}>
       <img
         src={`${import.meta.env.BASE_URL}brand/chuang-baiye-header-logo.png`}
         alt="創百業智慧鏈藍金 AI 智慧鏈圖騰"
@@ -77,8 +77,8 @@ export function PlatformLogo({ compact = false }: { compact?: boolean }) {
       />
       {!compact && (
         <span className="brand-copy">
-          <strong>創百業智慧鏈</strong>
-          <small>AI INDUSTRY SMART CHAIN</small>
+          <strong>{homeVariant ? "百工數位營運平台" : "創百業智慧鏈"}</strong>
+          <small>{homeVariant ? "串連百工・創造新機會" : "AI INDUSTRY SMART CHAIN"}</small>
         </span>
       )}
     </Link>
@@ -117,7 +117,7 @@ export function Header() {
   return (
     <header className={`site-header ${location.pathname === "/" ? "site-header-home" : ""} ${scrolled ? "is-scrolled" : ""}`}>
       <div className="header-inner">
-        <PlatformLogo />
+        <PlatformLogo homeVariant={location.pathname === "/"} />
         <nav className="desktop-nav" aria-label="主要導覽">
           {navItems.map(([label, to]) => (
             <NavLink key={to} to={to}>
