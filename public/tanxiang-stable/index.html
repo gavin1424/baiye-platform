@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="檀香雲境｜天然檀香、線香、盤香、精油與禮盒。">
+<title>檀香雲境｜穩定版</title>
+<style>
+:root{--ink:#2c241e;--brown:#5f4938;--gold:#a8743e;--bg:#faf7f1;--soft:#efe5d8;--line:#e3d5c4}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.65}a{color:inherit;text-decoration:none}img{display:block;width:100%;height:auto}
+header{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fffaf4;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}.mark{width:42px;height:42px;border:1px solid #856e5c;border-radius:50%;display:grid;place-items:center;font-size:24px}.brand strong{display:block;font-family:serif;font-size:21px;letter-spacing:.08em}.brand small{display:block;font-size:10px;color:#806f61}
+.desktop{display:flex;gap:22px;font-size:14px}.mobile{display:none;position:relative}.mobile summary{list-style:none;font-size:30px;cursor:pointer;padding:5px 8px}.mobile summary::-webkit-details-marker{display:none}.menu{position:absolute;right:0;top:54px;width:260px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 38px rgba(40,28,20,.18);padding:8px}.menu a{display:block;padding:13px 12px;border-bottom:1px solid #eee}.menu a:last-child{border-bottom:0}
+.hero{display:grid;grid-template-columns:46% 54%;background:#46352a;color:#fff}.hero-copy{padding:70px clamp(24px,6vw,88px);display:flex;flex-direction:column;justify-content:center}.hero h1{font-family:serif;font-size:clamp(40px,5vw,68px);line-height:1.2;margin:8px 0 18px}.hero p{color:#eaded3}.hero img{width:100%;height:100%;object-fit:cover;min-height:420px}
+.btn{display:inline-flex;padding:12px 20px;border-radius:9px;background:var(--gold);color:#fff;font-weight:700}
+.section{padding:66px clamp(16px,5vw,72px)}.title{text-align:center;margin-bottom:28px}.title small{color:var(--gold);letter-spacing:.2em}.title h2{font-family:serif;font-size:32px;margin:6px 0}.title p{margin:0;color:#806f61}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.card{background:#fff;border:1px solid #eee3d6;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(55,40,29,.06)}.card .photo{background:var(--soft)}.card .photo img{width:100%;height:auto;object-fit:contain}.body{padding:17px}.tag{font-size:12px;color:var(--gold)}.body h3{font-family:serif;font-size:21px;margin:4px 0}.body p{margin:0;color:#806f61;font-size:14px}.price{display:flex;align-items:center;justify-content:space-between;margin-top:16px}.price strong{font-size:20px;color:#936536}.plus{width:40px;height:40px;border:1px solid #dac7b1;border-radius:11px;display:grid;place-items:center;font-size:24px}
+.story{display:grid;grid-template-columns:1fr 1fr;background:var(--soft)}.story img{height:100%;object-fit:cover}.story-text{padding:48px clamp(22px,5vw,62px);display:flex;flex-direction:column;justify-content:center}.story-text h2{font-family:serif;font-size:32px;margin:6px 0 16px}.story-text p{color:#6e5e51}
+.features{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.feature{text-align:center;padding:28px 20px}.feature+.feature{border-left:1px solid var(--line)}.feature span{font-size:28px}.feature h3{font-family:serif;margin:8px 0}.feature p{font-size:14px;color:#78695d;margin:0}
+.faq{max-width:900px;margin:auto}.faq details{padding:17px 0;border-top:1px solid var(--line)}.faq details:last-child{border-bottom:1px solid var(--line)}.faq summary{font-weight:700;cursor:pointer}.faq p{color:#75665a}
+footer{padding:42px 18px;text-align:center;background:#eadfD2;color:#705e50}
+@media(max-width:900px){.desktop{display:none}.mobile{display:block}.hero{grid-template-columns:1fr}.hero img{height:auto;min-height:0;object-fit:contain}.hero-media{order:-1}.grid{grid-template-columns:repeat(2,1fr)}.story{grid-template-columns:1fr}.story img{height:auto}.features{grid-template-columns:repeat(2,1fr)}.feature:nth-child(3){border-left:0;border-top:1px solid var(--line)}.feature:nth-child(4){border-top:1px solid var(--line)}}
+@media(max-width:620px){header{padding:9px 13px}.mark{width:38px;height:38px}.brand strong{font-size:19px}.brand small{font-size:9px}.hero-copy{padding:42px 20px}.hero h1{font-size:40px}.section{padding:54px 14px}.grid{grid-template-columns:1fr}.card .photo img{width:100%;height:auto!important;max-height:none!important;object-fit:contain!important}.features{grid-template-columns:1fr}.feature+.feature{border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header>
+<a class="brand" href="#top"><span class="mark">☁</span><span><strong>檀香雲境</strong><small>一縷檀香・一方心境</small></span></a>
+<nav class="desktop"><a href="#products">商品</a><a href="#story">品牌故事</a><a href="#features">特色</a><a href="#faq">常見問題</a><a href="#contact">聯絡我們</a></nav>
+<details class="mobile"><summary aria-label="開啟選單">☰</summary><div class="menu"><a href="#top">首頁</a><a href="#products">商品</a><a href="#story">品牌故事</a><a href="#features">使用方式</a><a href="#faq">常見問題</a><a href="#contact">聯絡我們</a></div></details>
+</header>
+
+<main id="top">
+<section class="hero">
+<div class="hero-copy"><small>源於自然・回歸內心</small><h1>天然檀香・<br>靜心養神</h1><p>嚴選天然檀香原料，讓溫潤木質香氣融入閱讀、泡茶、靜坐與日常生活。</p><div><a class="btn" href="#products">立即選購 →</a></div></div>
+<div class="hero-media"><img src="./assets/hero.jpg?v=stable1" alt="檀香雲境天然檀香商品"></div>
+</section>
+
+<section class="section" id="products">
+<div class="title"><small>SELECTED COLLECTION</small><h2>精選商品</h2><p>讓香氣陪伴你的每一天。</p></div>
+<div class="grid">
+<article class="card"><div class="photo"><img src="./assets/hero.jpg?v=stable1" alt="老山檀香線香"></div><div class="body"><div class="tag">沉穩木質調</div><h3>老山檀香線香</h3><p>香氣醇厚・安定心神</p><div class="price"><strong>NT$ 480</strong><a class="plus" href="#contact" aria-label="洽詢老山檀香線香">＋</a></div></div></article><article class="card"><div class="photo"><img src="./assets/hero.jpg?v=stable1" alt="天然檀香盤香"></div><div class="body"><div class="tag">居家薰香</div><h3>天然檀香盤香</h3><p>長時間薰香・居家首選</p><div class="price"><strong>NT$ 580</strong><a class="plus" href="#contact" aria-label="洽詢天然檀香盤香">＋</a></div></div></article><article class="card"><div class="photo"><img src="./assets/hero.jpg?v=stable1" alt="檀香精油"></div><div class="body"><div class="tag">日常香氛</div><h3>檀香精油</h3><p>天然萃取・淨化身心</p><div class="price"><strong>NT$ 880</strong><a class="plus" href="#contact" aria-label="洽詢檀香精油">＋</a></div></div></article><article class="card"><div class="photo"><img src="./assets/hero.jpg?v=stable1" alt="檀香禮盒"></div><div class="body"><div class="tag">送禮推薦</div><h3>檀香禮盒</h3><p>心意之選・傳遞美好</p><div class="price"><strong>NT$ 1,280</strong><a class="plus" href="#contact" aria-label="洽詢檀香禮盒">＋</a></div></div></article>
+</div>
+</section>
+
+<section class="story" id="story"><img src="./assets/hero.jpg?v=stable1" alt="天然檀香情境"><div class="story-text"><small style="color:#a8743e">OUR STORY</small><h2>讓檀香，走進生活的每一刻</h2><p>檀香雲境重視自然原料、溫潤香氣與日常儀式感。希望一縷香能成為忙碌生活中的片刻安定。</p><p>適合閱讀、泡茶、靜坐、瑜伽與居家空間使用。</p></div></section>
+
+<section class="section" id="features"><div class="title"><small>WHY US</small><h2>為什麼選擇檀香雲境</h2></div><div class="features"><div class="feature"><span>🍃</span><h3>天然原料</h3><p>追求乾淨自然的木質香氣。</p></div><div class="feature"><span>〰️</span><h3>香氣溫潤</h3><p>沉穩柔和，適合居家使用。</p></div><div class="feature"><span>🪷</span><h3>靜心放鬆</h3><p>建立自己的日常香氣儀式。</p></div><div class="feature"><span>🎁</span><h3>送禮自用</h3><p>簡約包裝，適合傳遞心意。</p></div></div></section>
+
+<section class="section faq" id="faq"><div class="title"><small>FAQ</small><h2>常見問題</h2></div><details open><summary>檀香線香適合什麼時候使用？</summary><p>閱讀、冥想、瑜伽、泡茶或想讓空間更有儀式感時都很適合，請保持適度通風。</p></details><details><summary>盤香和線香有什麼差別？</summary><p>線香適合較短時段；盤香通常燃燒較久，更適合長時間居家薰香。</p></details><details><summary>可以送禮嗎？</summary><p>可以，禮盒系列適合節慶、拜訪及日常心意。</p></details></section>
+</main>
+
+<footer id="contact"><strong>檀香雲境</strong><p>客服信箱：service@tanxiang.com.tw</p><p>© 2026 檀香雲境｜天然檀香・美好生活</p></footer>
+</body></html>
