@@ -69,7 +69,7 @@ const businesses: Business[] = [];
 
 export function PlatformLogo({ compact = false, homeVariant = false }: { compact?: boolean; homeVariant?: boolean }) {
   return (
-    <Link to="/" className="platform-logo" aria-label={homeVariant ? "百工數位營運平台首頁" : "創百業智慧鏈首頁"}>
+    <Link to="/" className="platform-logo" aria-label="創百業智慧鏈首頁">
       <img
         src={`${import.meta.env.BASE_URL}brand/chuang-baiye-header-logo.png`}
         alt="創百業智慧鏈藍金 AI 智慧鏈圖騰"
@@ -77,7 +77,7 @@ export function PlatformLogo({ compact = false, homeVariant = false }: { compact
       />
       {!compact && (
         <span className="brand-copy">
-          <strong>{homeVariant ? "百工數位營運平台" : "創百業智慧鏈"}</strong>
+          <strong>創百業智慧鏈</strong>
           <small>{homeVariant ? "串連百工・創造新機會" : "AI INDUSTRY SMART CHAIN"}</small>
         </span>
       )}
@@ -268,7 +268,7 @@ export function MobileBottomNav() {
     { label: "首頁", to: "/", icon: House },
     { label: "搜尋", to: "/businesses", icon: MagnifyingGlass },
     { label: "發布需求", to: "/collaborations/new", icon: Plus, primary: true },
-    { label: "私訊", to: "/messages", icon: ChatCircleDots },
+    { label: "商家功能", to: "/features", icon: Storefront },
     {
       label: "我的",
       to: session.role === "admin" ? "/admin" : "/merchant/login",
