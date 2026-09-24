@@ -57,7 +57,6 @@ import {
   type ComponentType,
   type CSSProperties,
   type FormEvent,
-  type MouseEvent,
   type ReactNode,
 } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -88,7 +87,7 @@ export function PlatformLogo({ compact = false, homeVariant = false }: { compact
 
 const navItems = [
   ["平台功能", "/features"],
-  ["商家網站專區", "/?section=merchant-sites"],
+  ["商家網站專區", "/merchant-sites"],
   ["商家方案", "/pricing"],
   ["商家加入", "/merchant/register"],
   ["承攬夥伴", "/partner"],
@@ -99,7 +98,6 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
   const { session, logout, inquiryCart, shopCart } = useAppStore();
   const shopCartCount = shopCart.reduce((sum, item) => sum + item.quantity, 0);
   const isBusiness = session.role === "business";
@@ -117,32 +115,13 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const openMerchantSites = (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-    setMenuOpen(false);
-    navigate("/?section=merchant-sites");
-    let attempts = 0;
-    const scrollWhenReady = () => {
-      const section = document.getElementById("merchant-sites-section");
-      if (section) {
-        section.scrollIntoView({ behavior: "auto", block: "start" });
-        return;
-      }
-      attempts += 1;
-      if (attempts < 20) window.setTimeout(scrollWhenReady, 50);
-    };
-    window.setTimeout(scrollWhenReady, 50);
-  };
-
   return (
     <header className={`site-header ${location.pathname === "/" ? "site-header-home" : ""} ${scrolled ? "is-scrolled" : ""}`}>
       <div className="header-inner">
         <PlatformLogo homeVariant={location.pathname === "/"} />
         <nav className="desktop-nav" aria-label="主要導覽">
           {navItems.map(([label, to]) => (
-            label === "商家網站專區"
-              ? <a key={to} href={`/#${to}`} onClick={openMerchantSites}>{label}</a>
-              : <NavLink key={to} to={to}>{label}</NavLink>
+            <NavLink key={to} to={to}>{label}</NavLink>
           ))}
         </nav>
         <div className="header-actions">
@@ -203,9 +182,7 @@ export function Header() {
       {menuOpen && (
         <div className="mobile-menu">
           {navItems.map(([label, to]) => (
-            label === "商家網站專區"
-              ? <a key={to} href={`/#${to}`} onClick={openMerchantSites}>{label}<CaretRight /></a>
-              : <NavLink key={to} to={to}>{label}<CaretRight /></NavLink>
+            <NavLink key={to} to={to}>{label}<CaretRight /></NavLink>
           ))}
           {session.role === "guest" ? (
             <div className="mobile-menu-actions">

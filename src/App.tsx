@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAppStore } from "./store";
-import { HomePage } from "./pages/HomePage";
+import { HomePage, MerchantSitesPage } from "./pages/HomePage";
 import { AdminLoginPage } from "./pages/AuthPages";
 import { AdminFinancePage } from "./pages/AdminFinance";
 import { AdminBookings } from "./pages/AdminBookings";
@@ -62,6 +62,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/join": "加入創百業智慧鏈｜商家方案與承攬夥伴簽約中心",
   "/plans": "方案合作契約｜創百業智慧鏈",
   "/features": "全部功能總覽｜創百業智慧鏈",
+  "/merchant-sites": "商家網站專區｜創百業智慧鏈",
   "/pos-comparison": "Web-POS 效益與成本比較｜創百業智慧鏈",
   "/pos-ordering": "免 POS 機智慧點餐｜創百業智慧鏈",
   "/pos-ordering/guide": "免 POS 機點餐操作教學｜創百業智慧鏈",
@@ -118,11 +119,8 @@ function ScrollAndMetadata() {
   const location = useLocation();
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
     const path = location.pathname;
-    const requestedSection = new URLSearchParams(location.search).get("section");
-    if (!(path === "/" && requestedSection === "merchant-sites")) {
-      window.scrollTo({ top: 0, behavior: "instant" });
-    }
     const title =
       PAGE_TITLES[path] ||
       (path.startsWith("/q/")
@@ -167,7 +165,7 @@ function ScrollAndMetadata() {
     robots.content = IS_BEEF_NOODLE_DEMO || IS_STAGING || path.startsWith("/owner-admin") ? "noindex,nofollow" : "index,follow";
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", activeTitle);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
-  }, [location.pathname, location.search]);
+  }, [location.pathname]);
 
   return null;
 }
@@ -237,6 +235,7 @@ export function App() {
       <ScrollAndMetadata />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/merchant-sites" element={<MerchantSitesPage />} />
         <Route path="/demo/beef-noodle" element={<BeefNoodleDemoPage />} />
         <Route path="/merchant/login" element={<MerchantLoginPage />} />
         <Route path="/merchant/register" element={<MerchantRegisterPage />} />

@@ -1,7 +1,7 @@
 import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, CrownSimple, DeviceMobile, ForkKnife, GlobeHemisphereWest, Handshake, Heart, Leaf, Lightning, LineSegments, LinkSimple, QrCode, Receipt, Robot, ShieldCheck, ShoppingCart, Sparkle, Storefront, User, X } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ComponentType } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import heroScene from "../assets/baiye-multi-industry-isometric-hero.png";
 import fireDragonJarImage from "../assets/merchant-sites/fire-dragon-jar.webp";
 import aiServiceTrainImage from "../assets/news/ai-service-train.png";
@@ -116,15 +116,7 @@ const merchantSiteSection = {
 } as const;
 
 export function HomePage() {
-  const location = useLocation();
   const [selected, setSelected] = useState<Feature | null>(null);
-  useEffect(() => {
-    if (new URLSearchParams(location.search).get("section") !== "merchant-sites") return;
-    const timer = window.setTimeout(() => {
-      document.getElementById("merchant-sites-section")?.scrollIntoView({ behavior: "auto", block: "start" });
-    }, 50);
-    return () => window.clearTimeout(timer);
-  }, [location.search]);
   useEffect(() => {
     if (!selected) return;
     const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelected(null); };
@@ -230,6 +222,13 @@ export function HomePage() {
 
     {selected && <div className="home-feature-detail" role="dialog" aria-modal="true" aria-labelledby="home-feature-title"><button type="button" className="home-feature-backdrop" aria-label="關閉功能介紹" onClick={() => setSelected(null)} /><article className={`home-feature-panel ${selected.name === "免POS機點餐" ? "softpos-feature-panel" : ""}`}><button type="button" className="home-feature-close" aria-label="關閉" onClick={() => setSelected(null)}><X /></button><span className="home-feature-panel-icon"><selected.icon weight="duotone" /></span><p className="home-feature-label">百工數位服務</p><h2 id="home-feature-title">{selected.name}</h2><p className="home-feature-summary">{selected.summary}</p>{selected.name === "免POS機點餐" ? <><div className="softpos-entry-grid"><Link to="/pos-ordering"><span><Storefront weight="duotone" /></span>免POS機點餐介紹<ArrowRight /></Link><Link to="/pos-ordering/guide"><span><BookOpenText weight="duotone" /></span>免POS機點餐教學<ArrowRight /></Link><Link to="/pos-ordering/experience"><span><ShoppingCart weight="duotone" /></span>體驗點餐<ArrowRight /></Link></div><small>選擇要了解的內容，或直接進入目前正式運作的 Demo 點餐流程。</small></> : <><dl><dt>適用對象</dt><dd>{selected.audience}</dd><dt>核心價值</dt><dd>{selected.value}</dd></dl><h3>主要功能</h3><ul>{selected.items.map((item) => <li key={item}><CheckCircle weight="fill" />{item}</li>)}</ul>{selected.name === "承攬 / 商家簽約" ? <div className="home-feature-contract-actions"><Link className="btn btn-primary btn-lg" to="/join?mode=merchant">商家方案簽約 <ArrowRight /></Link><Link className="btn btn-outline btn-lg" to="/partner/apply">承攬夥伴簽約 <ArrowRight /></Link></div> : <Link className="btn btn-primary btn-lg" to={selected.to}>{selected.cta} <ArrowRight /></Link>}</>}</article></div>}
     </main><MobileBottomNav />
+  </div>;
+}
+
+export function MerchantSitesPage() {
+  return <div className="app-shell"><a className="skip-link" href="#merchant-sites-section">跳到主要內容</a><Header />
+    <main><MerchantSitesSection /></main>
+    <MobileBottomNav />
   </div>;
 }
 
