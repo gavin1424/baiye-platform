@@ -100,7 +100,7 @@ export function HomePage() {
     observer.observe(section);
     return () => observer.disconnect();
   }, []);
-  return <div className="app-shell"><a className="skip-link" href="#home-content">跳到主要內容</a><Header />
+  return <div className="app-shell home-shell"><a className="skip-link" href="#home-content">跳到主要內容</a><Header />
     <main className="immersive-home" id="home-content">
     <section className="immersive-home-hero">
       <div className="immersive-home-heading"><span className="eyebrow hero-enter hero-enter-1">百工數位營運平台</span><h1 className="hero-enter hero-enter-2">全業態數位升級，<em>一站完成</em></h1><p className="hero-enter hero-enter-3">餐飲 × 美業 × 零售，多產業整合的智慧經營平台</p></div>
