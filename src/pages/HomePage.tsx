@@ -1,7 +1,7 @@
 import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, CrownSimple, DeviceMobile, ForkKnife, GlobeHemisphereWest, Handshake, Heart, Leaf, Lightning, LineSegments, LinkSimple, QrCode, Receipt, Robot, ShieldCheck, ShoppingCart, Sparkle, Storefront, User, X } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ComponentType } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import heroScene from "../assets/baiye-multi-industry-isometric-hero.png";
 import fireDragonJarImage from "../assets/merchant-sites/fire-dragon-jar.webp";
 import aiServiceTrainImage from "../assets/news/ai-service-train.png";
@@ -116,7 +116,15 @@ const merchantSiteSection = {
 } as const;
 
 export function HomePage() {
+  const location = useLocation();
   const [selected, setSelected] = useState<Feature | null>(null);
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get("section") !== "merchant-sites") return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("merchant-sites-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.search]);
   useEffect(() => {
     if (!selected) return;
     const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelected(null); };

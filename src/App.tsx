@@ -118,15 +118,8 @@ function ScrollAndMetadata() {
   const location = useLocation();
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
     const path = location.pathname;
-    const requestedSection = new URLSearchParams(location.search).get("section");
-    if (path === "/" && requestedSection === "merchant-sites") {
-      window.requestAnimationFrame(() => {
-        document.getElementById("merchant-sites-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    } else {
-      window.scrollTo({ top: 0, behavior: "instant" });
-    }
     const title =
       PAGE_TITLES[path] ||
       (path.startsWith("/q/")
@@ -171,7 +164,7 @@ function ScrollAndMetadata() {
     robots.content = IS_BEEF_NOODLE_DEMO || IS_STAGING || path.startsWith("/owner-admin") ? "noindex,nofollow" : "index,follow";
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", activeTitle);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
-  }, [location.pathname, location.search]);
+  }, [location.pathname]);
 
   return null;
 }
