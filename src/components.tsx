@@ -87,6 +87,7 @@ export function PlatformLogo({ compact = false, homeVariant = false }: { compact
 
 const navItems = [
   ["平台功能", "/features"],
+  ["商家網站專區", "/#merchant-sites-section"],
   ["商家方案", "/pricing"],
   ["商家加入", "/merchant/register"],
   ["承攬夥伴", "/partner"],
@@ -120,9 +121,9 @@ export function Header() {
         <PlatformLogo homeVariant={location.pathname === "/"} />
         <nav className="desktop-nav" aria-label="主要導覽">
           {navItems.map(([label, to]) => (
-            <NavLink key={to} to={to}>
-              {label}
-            </NavLink>
+            to.includes("#")
+              ? <a key={to} href={to}>{label}</a>
+              : <NavLink key={to} to={to}>{label}</NavLink>
           ))}
         </nav>
         <div className="header-actions">
@@ -183,10 +184,9 @@ export function Header() {
       {menuOpen && (
         <div className="mobile-menu">
           {navItems.map(([label, to]) => (
-            <NavLink key={to} to={to}>
-              {label}
-              <CaretRight />
-            </NavLink>
+            to.includes("#")
+              ? <a key={to} href={to}>{label}<CaretRight /></a>
+              : <NavLink key={to} to={to}>{label}<CaretRight /></NavLink>
           ))}
           {session.role === "guest" ? (
             <div className="mobile-menu-actions">

@@ -1,8 +1,9 @@
-import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, DeviceMobile, ForkKnife, GlobeHemisphereWest, Handshake, LineSegments, QrCode, Receipt, Robot, ShieldCheck, ShoppingCart, Storefront, User, X } from "@phosphor-icons/react";
+import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, ChartLineUp, CheckCircle, CrownSimple, DeviceMobile, ForkKnife, GlobeHemisphereWest, Handshake, Heart, Leaf, Lightning, LineSegments, LinkSimple, QrCode, Receipt, Robot, ShieldCheck, ShoppingCart, Sparkle, Storefront, User, X } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import heroScene from "../assets/baiye-multi-industry-isometric-hero.png";
+import fireDragonJarImage from "../assets/merchant-sites/fire-dragon-jar.webp";
 import aiServiceTrainImage from "../assets/news/ai-service-train.png";
 import cteeImage from "../assets/news/ctee.jpg";
 import cultureImage from "../assets/news/culture.jpg";
@@ -12,6 +13,7 @@ import yahooImage from "../assets/news/yahoo.webp";
 import { Header, MobileBottomNav } from "../components";
 import { BEEF_NOODLE_GUEST_ORDERING_URL } from "../config/orderingDemo";
 import "../home-media.css";
+import "../home-merchant-sites.css";
 import "../home-ordering-experience.css";
 
 type Feature = { name: string; summary: string; audience: string; value: string; items: string[]; cta: string; to: string; icon: ComponentType<{ weight?: "duotone" | "fill" }> };
@@ -76,6 +78,43 @@ const newsItems: NewsItem[] = [
   },
 ];
 
+const merchantSiteSection = {
+  highlights: [
+    { icon: CrownSimple, title: "精選優質商家", text: "真實品牌・安心選擇" },
+    { icon: GlobeHemisphereWest, title: "多元產業領域", text: "一站探索・拓展視野" },
+    { icon: Heart, title: "連結美好未來", text: "好的品牌・創造更好的生活" },
+  ],
+  featured: {
+    title: "雷火龍 / 火龍罐網站",
+    description: "結合傳統智慧與現代科學，讓養生更簡單、更貼近生活",
+    tags: ["火能罐", "傳統養生", "健康調理", "身心平衡"],
+    href: "https://chen-meiling-fire-cupping.www-asdfg14.chatgpt.site/",
+  },
+  cards: [
+    {
+      title: "檀香網站",
+      description: "天然香氣・淨化身心，傳遞心靈的寧靜與美好",
+      tags: ["天然檀香", "沉香文創", "生活美學"],
+      href: "https://baiyeconnect.com/tanxiang-stable/?v=2a1a4c4",
+      visual: "sandalwood",
+    },
+    {
+      title: "GreenSave Energy",
+      description: "綠色能源・永續未來，用創新科技打造更乾淨的地球",
+      tags: ["再生能源", "節能方案", "永續生活"],
+      href: "https://gavin1424.github.io/greensave-energy/",
+      visual: "energy",
+    },
+    {
+      title: "AI 虛擬生命陪伴網站",
+      description: "用 AI 連結情感・讓陪伴不再孤單，科技創造更溫暖的未來",
+      tags: ["AI 陪伴", "情感互動", "智慧生活"],
+      href: "https://ai-life-companion.www-asdfg14.chatgpt.site/",
+      visual: "ai",
+    },
+  ],
+} as const;
+
 export function HomePage() {
   const [selected, setSelected] = useState<Feature | null>(null);
   useEffect(() => {
@@ -134,6 +173,8 @@ export function HomePage() {
       </div>
     </section>
 
+    <MerchantSitesSection />
+
     <section className="home-ordering-experience" aria-labelledby="home-ordering-title">
       <div className="home-ordering-inner">
         <a className="home-ordering-poster" href={BEEF_NOODLE_GUEST_ORDERING_URL} aria-label="立即前往百工牛肉麵免 POS 機智慧點餐體驗頁">
@@ -182,6 +223,78 @@ export function HomePage() {
     {selected && <div className="home-feature-detail" role="dialog" aria-modal="true" aria-labelledby="home-feature-title"><button type="button" className="home-feature-backdrop" aria-label="關閉功能介紹" onClick={() => setSelected(null)} /><article className={`home-feature-panel ${selected.name === "免POS機點餐" ? "softpos-feature-panel" : ""}`}><button type="button" className="home-feature-close" aria-label="關閉" onClick={() => setSelected(null)}><X /></button><span className="home-feature-panel-icon"><selected.icon weight="duotone" /></span><p className="home-feature-label">百工數位服務</p><h2 id="home-feature-title">{selected.name}</h2><p className="home-feature-summary">{selected.summary}</p>{selected.name === "免POS機點餐" ? <><div className="softpos-entry-grid"><Link to="/pos-ordering"><span><Storefront weight="duotone" /></span>免POS機點餐介紹<ArrowRight /></Link><Link to="/pos-ordering/guide"><span><BookOpenText weight="duotone" /></span>免POS機點餐教學<ArrowRight /></Link><Link to="/pos-ordering/experience"><span><ShoppingCart weight="duotone" /></span>體驗點餐<ArrowRight /></Link></div><small>選擇要了解的內容，或直接進入目前正式運作的 Demo 點餐流程。</small></> : <><dl><dt>適用對象</dt><dd>{selected.audience}</dd><dt>核心價值</dt><dd>{selected.value}</dd></dl><h3>主要功能</h3><ul>{selected.items.map((item) => <li key={item}><CheckCircle weight="fill" />{item}</li>)}</ul>{selected.name === "承攬 / 商家簽約" ? <div className="home-feature-contract-actions"><Link className="btn btn-primary btn-lg" to="/join?mode=merchant">商家方案簽約 <ArrowRight /></Link><Link className="btn btn-outline btn-lg" to="/partner/apply">承攬夥伴簽約 <ArrowRight /></Link></div> : <Link className="btn btn-primary btn-lg" to={selected.to}>{selected.cta} <ArrowRight /></Link>}</>}</article></div>}
     </main><MobileBottomNav />
   </div>;
+}
+
+function MerchantSitesSection() {
+  return <section className="home-merchant-sites" id="merchant-sites-section" aria-labelledby="merchant-sites-title">
+    <div className="merchant-sites-hero">
+      <div className="merchant-sites-ambient" aria-hidden="true"><i /><i /><i /></div>
+      <div className="merchant-sites-inner">
+        <header className="merchant-sites-heading">
+          <span className="merchant-sites-kicker"><Sparkle weight="fill" /> CURATED BUSINESS WEBSITES</span>
+          <h2 id="merchant-sites-title">商家網站專區</h2>
+          <p>快速瀏覽不同產業的官方介紹網站</p>
+        </header>
+        <div className="merchant-sites-highlights" aria-label="商家網站專區特色">
+          {merchantSiteSection.highlights.map(({ icon: Icon, title, text }) => <article key={title}>
+            <span><Icon weight="duotone" /></span>
+            <div><strong>{title}</strong><small>{text}</small></div>
+          </article>)}
+        </div>
+      </div>
+    </div>
+
+    <div className="merchant-sites-content">
+      <article className="merchant-featured-card">
+        <img src={fireDragonJarImage} alt="雷火龍火龍罐深藍金主視覺" width="1774" height="887" loading="lazy" decoding="async" />
+        <div className="merchant-featured-overlay" />
+        <div className="merchant-featured-copy">
+          <span className="merchant-featured-label"><CrownSimple weight="fill" /> 本月精選網站</span>
+          <p className="merchant-featured-eyebrow">傳承古法・守護現代人的健康</p>
+          <h3>{merchantSiteSection.featured.title}</h3>
+          <p>{merchantSiteSection.featured.description}</p>
+          <div className="merchant-site-tags">{merchantSiteSection.featured.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+          <div className="merchant-featured-actions">
+            <a className="merchant-site-button" href={merchantSiteSection.featured.href} target="_blank" rel="noopener noreferrer">立即前往 <ArrowUpRight weight="bold" /></a>
+            <a className="merchant-official-link" href={merchantSiteSection.featured.href} target="_blank" rel="noopener noreferrer"><LinkSimple weight="bold" /> 官方連結</a>
+          </div>
+        </div>
+        <span className="merchant-featured-badge"><CrownSimple weight="fill" />推薦精選</span>
+      </article>
+
+      <div className="merchant-sites-list-heading" id="merchant-sites-list">
+        <h3>更多精選商家網站</h3>
+        <p>探索更多優質品牌・發現不同產業的精彩價值</p>
+      </div>
+
+      <div className="merchant-sites-grid">
+        {merchantSiteSection.cards.map((site) => <MerchantSiteCard key={site.title} site={site} />)}
+      </div>
+
+      <aside className="merchant-sites-cta">
+        <span className="merchant-cta-icon"><Handshake weight="duotone" /></span>
+        <div><h3>串聯百工・連結更大的世界</h3><p>在創百業智慧鏈，看見更多優質商家，一起創造共好、共贏、共榮的數位未來。</p></div>
+        <a href="#merchant-sites-list">探索更多商家 <ArrowRight weight="bold" /></a>
+      </aside>
+    </div>
+  </section>;
+}
+
+function MerchantSiteCard({ site }: { site: (typeof merchantSiteSection.cards)[number] }) {
+  return <article className="merchant-site-card">
+    <a className={`merchant-site-visual is-${site.visual}`} href={site.href} target="_blank" rel="noopener noreferrer" aria-label={`前往${site.title}官方網站（另開新視窗）`}>
+      {site.visual === "sandalwood" && <img src="/tanxiang-stable/assets/hero.jpg" alt="天然檀香與香爐" width="320" height="207" loading="lazy" decoding="async" />}
+      {site.visual === "energy" && <><span className="energy-sun"><Lightning weight="fill" /></span><i className="energy-line line-one" /><i className="energy-line line-two" /><span className="energy-leaf"><Leaf weight="fill" /></span></>}
+      {site.visual === "ai" && <><span className="ai-orbit orbit-one" /><span className="ai-orbit orbit-two" /><span className="ai-core"><Robot weight="duotone" /></span><i className="ai-spark spark-one" /><i className="ai-spark spark-two" /></>}
+      <span className="merchant-card-official"><LinkSimple weight="bold" /> 官方網站</span>
+    </a>
+    <div className="merchant-site-card-copy">
+      <h3>{site.title}</h3>
+      <p>{site.description}</p>
+      <div className="merchant-site-tags">{site.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+      <a className="merchant-site-button" href={site.href} target="_blank" rel="noopener noreferrer">立即前往 <ArrowUpRight weight="bold" /></a>
+    </div>
+  </article>;
 }
 
 function FeatureButton({ feature, index, onClick }: { feature: Feature; index: number; onClick: () => void }) { const Icon = feature.icon; return <button className={`immersive-feature feature-${index}`} type="button" onClick={onClick} aria-haspopup="dialog"><span><Icon weight="duotone" /></span><strong>{feature.name}</strong></button>; }
