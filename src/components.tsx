@@ -120,7 +120,7 @@ export function Header() {
   const openMerchantSites = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     setMenuOpen(false);
-    navigate("/");
+    navigate("/?section=merchant-sites");
     let attempts = 0;
     const scrollWhenReady = () => {
       const section = document.getElementById("merchant-sites-section");
