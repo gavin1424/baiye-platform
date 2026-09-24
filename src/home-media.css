@@ -94,3 +94,175 @@
 @media(prefers-reduced-motion:reduce){
   .home-media-section,.home-media-section.is-entering,.home-media-section.is-entering.is-visible,.home-media-card,.home-media-image img,.home-media-read svg{opacity:1!important;transform:none!important;transition:none!important}
 }
+
+
+/* 2026-09-24 mobile homepage layout: keep the bottom nav out of the content viewport
+   and place Media & News immediately below the compact hero. */
+@media(max-width:620px){
+  .home-shell{
+    height:100dvh;
+    min-height:100dvh;
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr) auto;
+    overflow:hidden;
+    background:#03132c;
+  }
+
+  .home-shell>.site-header{
+    grid-row:1;
+  }
+
+  .home-shell>.immersive-home{
+    grid-row:2;
+    min-height:0;
+    height:auto;
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+    padding-bottom:0;
+  }
+
+  .home-shell>.mobile-bottom-nav{
+    position:static;
+    z-index:120;
+    grid-row:3;
+    inset:auto;
+    width:100%;
+    min-height:66px;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+    box-shadow:0 -8px 24px rgba(2,13,32,.16);
+  }
+
+  .home-shell .immersive-home-hero{
+    min-height:0;
+    display:grid;
+    grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);
+    align-items:center;
+    column-gap:2px;
+    width:100%;
+    margin:0;
+    padding:22px 14px 18px;
+  }
+
+  .home-shell .immersive-home-heading{
+    grid-column:1;
+    align-self:center;
+    margin:0;
+    padding:0 0 0 2px;
+    text-align:left;
+  }
+
+  .home-shell .immersive-home-heading .eyebrow{
+    margin-bottom:8px;
+    font-size:.74rem;
+    letter-spacing:.08em;
+  }
+
+  .home-shell .immersive-home-heading h1{
+    font-size:clamp(26px,7.6vw,34px);
+    line-height:1.17;
+    white-space:normal;
+    letter-spacing:-.02em;
+  }
+
+  .home-shell .immersive-home-heading p{
+    max-width:190px;
+    margin-top:10px;
+    font-size:clamp(11px,3vw,14px);
+    line-height:1.55;
+    letter-spacing:.02em;
+  }
+
+  .home-shell .immersive-showcase{
+    grid-column:2;
+    align-self:center;
+    width:132%;
+    margin:0 0 0 -18%;
+  }
+
+  .home-shell .immersive-showcase>img{
+    width:100%;
+    filter:drop-shadow(0 18px 28px rgba(0,0,0,.28));
+  }
+
+  .home-shell .immersive-feature-overlay{
+    display:none;
+  }
+
+  .home-shell .immersive-values{
+    display:none!important;
+  }
+
+  .home-shell .home-media-section{
+    margin:0;
+    padding:24px 14px 28px;
+  }
+
+  .home-shell .home-media-heading{
+    margin-bottom:18px;
+  }
+
+  .home-shell .home-media-heading h2{
+    font-size:1.9rem;
+  }
+
+  .home-shell .home-media-heading>span{
+    max-width:330px;
+    font-size:.84rem;
+    line-height:1.5;
+  }
+
+  .home-shell .home-media-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+
+  .home-shell .home-media-card{
+    border-radius:14px;
+  }
+
+  .home-shell .home-media-content{
+    padding:11px 10px 13px;
+  }
+
+  .home-shell .home-media-content h3{
+    margin:7px 0 5px;
+    font-size:.82rem;
+    line-height:1.38;
+  }
+
+  .home-shell .home-media-content p{
+    font-size:.71rem;
+    line-height:1.45;
+  }
+
+  .home-shell .home-media-read{
+    font-size:.7rem;
+  }
+
+  body:has(.home-shell) .ai-chat-launcher{
+    right:12px;
+    bottom:calc(74px + env(safe-area-inset-bottom));
+    max-width:150px;
+    transform:scale(.9);
+    transform-origin:bottom right;
+  }
+}
+
+@media(max-width:390px){
+  .home-shell .immersive-home-hero{
+    grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);
+    padding-inline:10px;
+  }
+  .home-shell .immersive-home-heading h1{
+    font-size:clamp(24px,7.5vw,30px);
+  }
+  .home-shell .immersive-showcase{
+    width:138%;
+    margin-left:-21%;
+  }
+  .home-shell .home-media-section{
+    padding-inline:10px;
+  }
+}
