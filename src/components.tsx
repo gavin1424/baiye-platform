@@ -87,7 +87,7 @@ export function PlatformLogo({ compact = false, homeVariant = false }: { compact
 
 const navItems = [
   ["平台功能", "/features"],
-  ["商家網站專區", "/#merchant-sites-section"],
+  ["商家網站專區", "/?section=merchant-sites"],
   ["商家方案", "/pricing"],
   ["商家加入", "/merchant/register"],
   ["承攬夥伴", "/partner"],
@@ -106,7 +106,7 @@ export function Header() {
 
   useEffect(() => {
     setMenuOpen(false);
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
