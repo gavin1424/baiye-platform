@@ -57,6 +57,7 @@ import {
   type ComponentType,
   type CSSProperties,
   type FormEvent,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -98,6 +99,7 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { session, logout, inquiryCart, shopCart } = useAppStore();
   const shopCartCount = shopCart.reduce((sum, item) => sum + item.quantity, 0);
   const isBusiness = session.role === "business";
@@ -115,14 +117,31 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const openMerchantSites = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    setMenuOpen(false);
+    navigate("/");
+    let attempts = 0;
+    const scrollWhenReady = () => {
+      const section = document.getElementById("merchant-sites-section");
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      attempts += 1;
+      if (attempts < 30) window.requestAnimationFrame(scrollWhenReady);
+    };
+    window.requestAnimationFrame(scrollWhenReady);
+  };
+
   return (
     <header className={`site-header ${location.pathname === "/" ? "site-header-home" : ""} ${scrolled ? "is-scrolled" : ""}`}>
       <div className="header-inner">
         <PlatformLogo homeVariant={location.pathname === "/"} />
         <nav className="desktop-nav" aria-label="主要導覽">
           {navItems.map(([label, to]) => (
-            to.includes("#")
-              ? <a key={to} href={to}>{label}</a>
+            label === "商家網站專區"
+              ? <a key={to} href={`/#${to}`} onClick={openMerchantSites}>{label}</a>
               : <NavLink key={to} to={to}>{label}</NavLink>
           ))}
         </nav>
@@ -184,8 +203,8 @@ export function Header() {
       {menuOpen && (
         <div className="mobile-menu">
           {navItems.map(([label, to]) => (
-            to.includes("#")
-              ? <a key={to} href={to}>{label}<CaretRight /></a>
+            label === "商家網站專區"
+              ? <a key={to} href={`/#${to}`} onClick={openMerchantSites}>{label}<CaretRight /></a>
               : <NavLink key={to} to={to}>{label}<CaretRight /></NavLink>
           ))}
           {session.role === "guest" ? (
