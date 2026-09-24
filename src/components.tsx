@@ -125,13 +125,13 @@ export function Header() {
     const scrollWhenReady = () => {
       const section = document.getElementById("merchant-sites-section");
       if (section) {
-        section.scrollIntoView({ behavior: "smooth", block: "start" });
+        section.scrollIntoView({ behavior: "auto", block: "start" });
         return;
       }
       attempts += 1;
-      if (attempts < 30) window.requestAnimationFrame(scrollWhenReady);
+      if (attempts < 20) window.setTimeout(scrollWhenReady, 50);
     };
-    window.requestAnimationFrame(scrollWhenReady);
+    window.setTimeout(scrollWhenReady, 50);
   };
 
   return (

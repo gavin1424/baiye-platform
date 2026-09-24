@@ -120,10 +120,10 @@ export function HomePage() {
   const [selected, setSelected] = useState<Feature | null>(null);
   useEffect(() => {
     if (new URLSearchParams(location.search).get("section") !== "merchant-sites") return;
-    const frame = window.requestAnimationFrame(() => {
-      document.getElementById("merchant-sites-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => window.cancelAnimationFrame(frame);
+    const timer = window.setTimeout(() => {
+      document.getElementById("merchant-sites-section")?.scrollIntoView({ behavior: "auto", block: "start" });
+    }, 50);
+    return () => window.clearTimeout(timer);
   }, [location.search]);
   useEffect(() => {
     if (!selected) return;
