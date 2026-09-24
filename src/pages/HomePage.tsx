@@ -103,13 +103,19 @@ export function HomePage() {
   return <div className="app-shell home-shell"><a className="skip-link" href="#home-content">跳到主要內容</a><Header />
     <main className="immersive-home" id="home-content">
     <section className="immersive-home-hero">
-      <div className="immersive-home-heading"><span className="eyebrow hero-enter hero-enter-1">百工數位營運平台</span><h1 className="hero-enter hero-enter-2">全業態數位升級，<em>一站完成</em></h1><p className="hero-enter hero-enter-3">餐飲 × 美業 × 零售，多產業整合的智慧經營平台</p></div>
+      <div className="immersive-home-heading">
+        <span className="eyebrow hero-enter hero-enter-1">百工數位營運平台</span>
+        <h1 className="hero-enter hero-enter-2">全業態數位升級<em>一站完成</em></h1>
+        <p className="hero-enter hero-enter-3">餐飲 × 美業 × 零售 × 服務<br />多產業整合的智慧營運平台</p>
+        <Link className="home-hero-cta hero-enter hero-enter-4" to="/features">立即了解 <ArrowRight weight="bold" /></Link>
+      </div>
 
       <div className="immersive-showcase hero-enter hero-enter-4" aria-label="餐飲、美業與零售智慧經營場景">
         <img src={heroScene} alt="餐飲、美業與零售整合的智慧經營場景" />
         <div className="immersive-feature-overlay" aria-label="百工八大功能">
           {features.map((feature, index) => <FeatureButton key={feature.name} feature={feature} index={index + 1} onClick={() => setSelected(feature)} />)}
         </div>
+        <div className="home-hero-dots" aria-hidden="true"><i className="is-active" /><i /><i /><i /></div>
       </div>
 
       <section className="immersive-values baiye-reveal is-visible" aria-label="品牌價值">{values.map(([Icon, title, text]) => <article className="premium-card" key={title}><Icon weight="duotone" /><strong>{title}</strong><span>{text}</span></article>)}</section>
