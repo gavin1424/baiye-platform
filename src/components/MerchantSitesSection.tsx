@@ -1,5 +1,6 @@
 import { ArrowRight, ArrowUpRight, CrownSimple, GlobeHemisphereWest, Handshake, Heart, LinkSimple, Sparkle } from "@phosphor-icons/react";
 import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { getActiveMerchantSites, type MerchantSite } from "../data/merchantSites";
 import "../home-merchant-sites.css";
 
@@ -10,6 +11,7 @@ const merchantSiteHighlights = [
 ];
 
 export function MerchantSitesSection() {
+  const isDirectoryPage = useLocation().pathname === "/merchant-sites";
   useEffect(() => {
     const section = document.getElementById("merchant-sites-section");
     if (!section) return;
@@ -72,7 +74,9 @@ export function MerchantSitesSection() {
       <aside className="merchant-sites-cta">
         <span className="merchant-cta-icon"><Handshake weight="duotone" /></span>
         <div><h3>串聯百工・連結更大的世界</h3><p>在創百業智慧鏈，看見更多優質商家，一起創造共好、共贏、共榮的數位未來。</p></div>
-        <a href="#merchant-sites-list">探索更多商家 <ArrowRight weight="bold" /></a>
+        {isDirectoryPage
+          ? <a href="#merchant-sites-list">探索更多商家 <ArrowRight weight="bold" /></a>
+          : <Link to="/merchant-sites">前往商家網站專區 <ArrowRight weight="bold" /></Link>}
       </aside>
     </div>
   </section>;

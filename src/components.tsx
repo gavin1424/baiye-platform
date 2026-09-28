@@ -264,7 +264,7 @@ export function MobileBottomNav() {
     { label: "首頁", to: "/", icon: House },
     { label: "搜尋", to: "/businesses", icon: MagnifyingGlass },
     { label: "發布需求", to: "/collaborations/new", icon: Plus, primary: true },
-    { label: "商家功能", to: "/features", icon: Storefront },
+    { label: "商家網站", to: "/merchant-sites", icon: Storefront },
     {
       label: "我的",
       to: session.role === "admin" ? "/admin" : "/merchant/login",
