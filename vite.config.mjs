@@ -30,5 +30,14 @@ export default defineConfig({
       "/api/public": "http://127.0.0.1:8787",
     },
   },
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: "production-build-metadata",
+      transformIndexHtml(html) {
+        if (!process.env.GITHUB_SHA) return html;
+        return html.replace("</head>", `    <meta name="build-commit" content="${process.env.GITHUB_SHA}" />\n    <meta name="build-timestamp" content="${new Date().toISOString()}" />\n  </head>`);
+      },
+    },
+  ],
 });

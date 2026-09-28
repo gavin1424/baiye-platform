@@ -21,6 +21,7 @@ import {
 } from "@phosphor-icons/react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CTASection, MarketingHero, MarketingSection, PublicLayout, SectionHeading } from "../components";
+import { MerchantSitesSection } from "../components/MerchantSitesSection";
 import "../features-page.css";
 import "../feature-detail.css";
 
@@ -500,6 +501,8 @@ export function FeaturesPage() {
           <p>{allItems.length} 項商家數位能力，每個模組都可點進去查看完整銷售介紹與使用情境。</p>
         </aside>
       </MarketingHero>
+
+      <MerchantSitesSection />
 
       <MarketingSection className="features-status-section">
         <SectionHeading eyebrow="一套系統，串起整個生意流程" title="不是多裝幾個工具，而是把顧客與店家流程真正連起來" description="創百業從品牌曝光、顧客服務、成交、回購到後台管理，協助店家把分散的數位工具整理成同一套營運流程。" />
