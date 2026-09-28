@@ -200,23 +200,6 @@
 .merchant-site-card-copy .merchant-site-tags { color: #765c29; }
 .merchant-site-card-copy .merchant-site-button { align-self: flex-start; margin-top: auto; }
 
-.merchant-site-visual.is-energy { background: radial-gradient(circle at 78% 24%, rgba(93, 226, 141, .24), transparent 28%), linear-gradient(135deg, #07182b, #0e4360); }
-.energy-sun { position: absolute; top: 35px; left: 36px; display: grid; width: 64px; height: 64px; place-items: center; border-radius: 18px; background: linear-gradient(135deg, #4fe3ff, #5de28d); color: #06233a; box-shadow: 0 0 36px rgba(79, 227, 255, .28); }
-.energy-sun svg { width: 34px; height: 34px; }
-.energy-line { position: absolute; right: -20px; bottom: 52px; width: 75%; height: 5px; transform-origin: right center; border-radius: 99px; background: linear-gradient(90deg, transparent, #4fe3ff); box-shadow: 0 0 16px rgba(79, 227, 255, .48); }
-.energy-line.line-one { transform: rotate(-14deg); }
-.energy-line.line-two { bottom: 85px; width: 58%; transform: rotate(8deg); background: linear-gradient(90deg, transparent, #5de28d); }
-.energy-leaf { position: absolute; right: 42px; bottom: 25px; color: #7ef0a4; }
-.energy-leaf svg { width: 54px; height: 54px; }
-.merchant-site-visual.is-ai { background: radial-gradient(circle at 50% 50%, #1b6483 0%, #0c2f50 30%, #08182e 74%); }
-.ai-core { position: absolute; top: 50%; left: 50%; z-index: 2; display: grid; width: 82px; height: 82px; place-items: center; transform: translate(-50%, -50%); border: 1px solid rgba(141, 237, 255, .75); border-radius: 50%; background: rgba(7, 24, 45, .78); color: #8dedff; box-shadow: 0 0 44px rgba(92, 214, 237, .35); }
-.ai-core svg { width: 46px; height: 46px; }
-.ai-orbit { position: absolute; top: 50%; left: 50%; border: 1px solid rgba(122, 226, 245, .38); border-radius: 50%; }
-.ai-orbit.orbit-one { width: 186px; height: 102px; transform: translate(-50%, -50%) rotate(18deg); }
-.ai-orbit.orbit-two { width: 228px; height: 128px; transform: translate(-50%, -50%) rotate(-30deg); border-color: rgba(244, 200, 106, .3); }
-.ai-spark { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #f4c86a; box-shadow: 0 0 14px #f4c86a; }
-.ai-spark.spark-one { top: 37px; right: 26%; }
-.ai-spark.spark-two { right: 31%; bottom: 34px; background: #73e2f4; box-shadow: 0 0 14px #73e2f4; }
 
 .merchant-sites-cta { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 22px; margin-top: 24px; padding: 26px 30px; border: 1px solid rgba(223, 183, 94, .3); border-radius: 22px; background: linear-gradient(120deg, #07192e, #0d3152); color: #fff; box-shadow: 0 16px 42px rgba(8, 30, 52, .16); }
 .merchant-cta-icon { display: grid; width: 64px; height: 64px; place-items: center; border-radius: 18px; background: rgba(223, 183, 94, .12); color: var(--merchant-gold-light); }
@@ -224,6 +207,28 @@
 .merchant-sites-cta h3 { margin: 0; color: #fff8e7; font-family: "Noto Serif TC", "Songti TC", serif; font-size: clamp(1.35rem, 2.5vw, 2rem); }
 .merchant-sites-cta p { margin: 7px 0 0; color: #b8c7d7; line-height: 1.65; }
 .merchant-sites-cta > a { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 8px; padding: 11px 19px; border-radius: 999px; background: linear-gradient(135deg, #ffe4a1, #d9a83d); color: #17202b; font-weight: 950; text-decoration: none; white-space: nowrap; }
+
+/* Directory cards share one link so the preview, name and CTA all open the same site. */
+.merchant-featured-card {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  min-height: 390px;
+  color: #fff;
+  text-decoration: none;
+  transition: transform .22s ease, box-shadow .22s ease;
+}
+.merchant-featured-card:hover { transform: translateY(-3px); box-shadow: 0 28px 72px rgba(5, 20, 36, .27), 0 0 0 5px rgba(223, 183, 94, .12); }
+.merchant-featured-card:focus-visible, .merchant-site-card:focus-visible { outline: 3px solid #d4a838; outline-offset: 4px; }
+.merchant-featured-copy { width: 100%; min-height: 390px; padding: clamp(28px, 4vw, 55px); }
+.merchant-featured-visual { min-width: 0; overflow: hidden; background: #182b3b; }
+.merchant-featured-visual img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.merchant-site-card { display: flex; min-width: 0; flex-direction: column; color: inherit; text-decoration: none; }
+.merchant-site-visual { flex: 0 0 auto; width: 100%; height: auto; aspect-ratio: 16 / 10; }
+.merchant-site-visual > img { display: block; height: 100%; object-position: center top; transform: none; filter: none; }
+.merchant-site-card-copy { min-height: 260px; flex: 1; }
+.merchant-site-card-copy h3, .merchant-site-card-copy p { overflow-wrap: anywhere; }
+.merchant-site-card-copy .merchant-site-button { margin-top: auto; }
+.merchant-site-card:hover .merchant-site-button, .merchant-featured-card:hover .merchant-site-button { box-shadow: 0 14px 28px rgba(215, 166, 56, .34); }
 
 @media (max-width: 900px) {
   .merchant-sites-highlights { grid-template-columns: 1fr; gap: 15px; }
@@ -257,6 +262,25 @@
   .merchant-sites-cta { grid-template-columns: 1fr; padding: 25px 22px; text-align: center; }
   .merchant-cta-icon { margin: auto; }
   .merchant-sites-cta > a { grid-column: auto; width: 100%; }
+}
+
+@media (max-width: 650px) {
+  .merchant-featured-card { display: flex; min-height: 0; flex-direction: column; }
+  .merchant-featured-visual { order: -1; height: auto; aspect-ratio: 16 / 10; }
+  .merchant-featured-visual img { height: 100%; }
+  .merchant-featured-copy { min-height: 0; padding: 28px 22px 30px; }
+  .merchant-featured-badge { top: 13px; right: 13px; }
+  .merchant-site-card { display: flex; }
+  .merchant-site-visual { height: auto; aspect-ratio: 16 / 10; }
+  .merchant-site-card-copy { min-height: 0; gap: 0; }
+  .merchant-site-card-copy .merchant-site-button { margin-top: 22px; }
+}
+
+@media (min-width: 651px) and (max-width: 1000px) {
+  .merchant-sites-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .merchant-featured-copy { width: 100%; }
+  .merchant-site-card { display: flex; grid-template-columns: none; }
+  .merchant-site-visual { height: auto; min-height: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
