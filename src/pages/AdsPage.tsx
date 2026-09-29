@@ -83,12 +83,12 @@ export function AdsPage() {
       <section id="how" className="ads-section"><div className="ads-shell"><div className="ads-section-intro"><span className="ads-overline">FOUR SIMPLE STEPS</span><h2>從掃碼到接單，四步完成</h2></div><div className="ads-steps">{steps.map(([number, title, detail]) => <article key={number}><span>{number}</span><h3>{title}</h3><p>{detail}</p></article>)}</div></div></section>
       <section className="ads-section ads-ecosystem"><div className="ads-shell ads-split"><div className="ads-ecosystem-image"><img src={`${base}assets/ads/team.webp`} loading="lazy" width="900" height="600" alt="團隊討論店家數位營運" /></div><div><span className="ads-overline">BEYOND ORDERING</span><h2>不只點餐，也照顧長期經營</h2><p>網站與商城幫助展示品牌與商品；顧客資料管理與 AI 工具可依實際需求規劃。各功能與串接範圍，會在諮詢時清楚說明。</p><div className="ads-tags"><span>品牌網站</span><span>線上商城</span><span>顧客資料管理</span><span>AI 內容輔助</span></div><a href="#consult" className="ads-text-link" onClick={() => trackAdsEvent("contact_click")}>討論你的需求 <ArrowRight /></a></div></div></section>
       <section className="ads-section"><div className="ads-shell"><div className="ads-section-intro"><span className="ads-overline">WHO IT'S FOR</span><h2>從街角店家到專業工作室</h2><p>服務可依不同產業流程討論，以下是常見的使用情境。</p></div><div className="ads-industries">{industries.map(([name, image]) => <div key={name}><img src={`${base}assets/ads/${image}-small.webp`} loading="lazy" width="400" height="267" alt={`${name}店家工作情境`} /><strong>{name}</strong></div>)}</div></div></section>
-      <section id="pricing" className="ads-section ads-pricing"><div className="ads-shell ads-pricing-grid"><div><span className="ads-overline">CLEAR PRICING</span><h2>價格與服務範圍，<br />先講清楚</h2><p>目前平台公開的商家上架註冊費為一次性 NT$18,000。線上點餐、LINE 通知及其他加購功能是否包含，需依正式報價確認；我們會在簽約前列明費用、期間與功能。</p><a className="ads-text-link" href="#consult" onClick={() => trackAdsEvent("pricing_click")}>索取完整方案說明 <ArrowRight /></a></div><div className="ads-price-card"><span>目前公開方案</span><h3>商家上架註冊</h3><div className="ads-price">NT$18,000</div><strong>一次性開通</strong><p>包含商家資料、公開頁面與平台現有商家功能。點餐方案與三個月體驗活動條件尚待確認，因此沒有列入這項費用。</p><a href="#consult" className="ads-button" onClick={() => trackAdsEvent("pricing_click")}>了解適用方案 <ArrowRight /></a></div></div></section>
+      <section id="pricing" className="ads-section ads-pricing"><div className="ads-shell ads-pricing-grid"><div><span className="ads-overline">CLEAR PRICING</span><h2>價格與服務範圍，<br />先講清楚</h2><p>依現有正式方案目錄：百工標準方案 NT$18,000／24 個月；AI 智慧商城完整版 NT$50,000／24 個月。點餐方案費用列於右側，額外設備、第三方服務與客製項目依正式報價確認。</p><a className="ads-text-link" href="#consult" onClick={() => trackAdsEvent("pricing_click")}>索取完整方案說明 <ArrowRight /></a></div><div className="ads-price-card"><span>線上點餐方案</span><h3>免購置傳統大型 POS 硬體</h3><div className="ads-price">NT$24,000</div><strong>每 24 個月</strong><p>前 3 個月系統服務費 NT$0。首次開通費 NT$3,000、保證金 NT$6,000；保證金可抵首個 24 個月週期費用，該週期尚需 NT$18,000。後續每 24 個月 NT$24,000。活動起算與適用條件以正式契約為準。</p><a href="#consult" className="ads-button" onClick={() => trackAdsEvent("pricing_click")}>了解適用方案 <ArrowRight /></a></div></div></section>
       <section id="faq" className="ads-section"><div className="ads-shell"><div className="ads-section-intro"><span className="ads-overline">FAQ</span><h2>常見問題</h2></div><div className="ads-faq">{[
         ["需要購買 POS 機嗎？", "本頁所說的免購置，是指可先討論不另外購買傳統大型 POS 硬體的使用方式。店家仍需要可用的手機、平板或電腦及管理系統。"],
         ["LINE 線上點餐需要下載 App 嗎？", "顧客可透過店家提供的連結或 QR Code 開啟頁面。實際 LINE 功能與通知方式，依正式啟用項目確認。"],
         ["能設定取餐、外送和預約時間嗎？", "可依店家流程討論這些設定；確切可用功能會在方案說明中逐項列明。"],
-        ["三個月免費體驗如何計算？", "目前尚未核定活動資格、限制與起算日。若推出活動，會在正式條款公布後才接受申請。"],
+        ["三個月免費體驗如何計算？", "點餐方案前 3 個月的系統服務費為 NT$0，但首次開通費 NT$3,000 與保證金 NT$6,000 仍須依契約支付。保證金可抵首個 24 個月週期費用；活動起算與適用條件以正式契約為準。"],
         ["會直接串接外送平台嗎？", "目前沒有在此宣稱任何外送平台 API 已完成串接。若有需求，可在諮詢時討論可行性。"],
       ].map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div></div></section>
       <section id="consult" className="ads-section ads-consult"><div className="ads-shell ads-consult-grid"><div><span className="ads-overline">LET'S TALK</span><h2>告訴我們你的店家需求</h2><p>留下聯絡方式與想了解的功能。我們會依你的營運情況，說明合適的方案與確切費用。</p><div className="ads-contact-links"><ActionLink href={lineUrl} event="line_click" light>LINE 諮詢</ActionLink><a href={phone} onClick={() => trackAdsEvent("phone_click")}>電話聯絡：0987-353-751</a></div></div><LeadForm /></div></section>
@@ -106,7 +106,7 @@ const info: Record<string, [string, string, string[]]> = {
   platform: ["百工百業大平台", "連結各行各業的專業、資源與合作機會。", ["展示商家與服務", "尋找合作機會", "建立自己的數位經營能力"]],
   refund: ["退款／取消政策", "正式交易前，請以個別方案契約與付款頁公告為準。", ["取消或退款申請請透過聯絡頁提出", "請提供訂單與付款資料以便核對", "確認後依契約約定及適用法規處理"]],
   contact: ["聯絡我們", "告訴我們你的店家需求，或直接透過 LINE 與電話聯絡。", ["方案與費用諮詢", "網站與點餐需求", "帳號及服務問題"]],
-  pricing: ["方案與價格", "商家上架註冊費為一次性 NT$18,000。點餐與其他加購功能會依實際需求提供正式報價。", ["商家上架註冊：NT$18,000 一次性", "線上點餐功能：依正式報價確認", "三個月體驗活動：資格與條件尚待公告"]],
+  pricing: ["方案與價格", "以下依現有正式方案目錄整理。實際付款與服務範圍以簽署的契約及報價為準。", ["百工標準方案：NT$18,000／24 個月", "AI 智慧商城完整版：NT$50,000／24 個月", "免 POS 機智慧點餐：NT$24,000／24 個月；前 3 個月系統服務費 NT$0，另有開通費與保證金"]],
   about: ["關於創百業智慧鏈", "我們致力協助台灣店家與專業工作者運用網站、LINE 和數位工具，建立自己的數位經營能力。", ["專業 × 資源 × 機會", "降低中小企業數位化門檻", "連結百工百業的服務與需求"]],
   faq: ["常見問題", "關於店家方案、硬體、點餐流程與價格，先從最常見的問題開始。", ["免另外購買傳統大型 POS 硬體", "顧客可透過 QR Code 開啟店家頁面", "實際功能及費用以正式報價為準"]],
 };
@@ -125,7 +125,7 @@ const legal: Record<string, [string, [string, string][]]> = {
   terms: ["使用條款", [
     ["服務內容", "創百業智慧鏈提供商家展示、線上服務與數位工具。各功能、交付範圍與使用期間以個別方案及正式契約為準。"],
     ["帳號與內容", "使用者應提供正確資訊，不得發布違法、侵權或誤導內容，並應妥善保管帳號。"],
-    ["價格與付款", "目前公開的商家上架註冊費為一次性 NT$18,000。線上點餐及其他功能是否包含、付款方式與期間應以簽約前提供的正式報價與契約為準。"],
+    ["價格與付款", "目前正式方案目錄列有百工標準方案 NT$18,000／24 個月、AI 智慧商城完整版 NT$50,000／24 個月，以及免 POS 機智慧點餐 NT$24,000／24 個月。點餐方案另有開通費、保證金與前三個月系統服務費優惠；付款方式、起算及期間以正式契約為準。"],
     ["服務變更與責任", "我們會合理維護服務安全與可用性；功能調整或中斷將依契約與適用法規處理。商業成果會因個別營運情況而異。"],
   ]],
 };
