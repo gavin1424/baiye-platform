@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, ChartBar, Check, ClipboardText, DeviceMobile, ForkKnife, Globe, ListChecks, MagicWand, QrCode, Storefront } from "@phosphor-icons/react";
 import { initAdsTracking, submitLead, trackAdsEvent } from "../ads-service";
 import "./AdsPage.css";
@@ -74,7 +73,7 @@ export function LeadForm() {
       <div className="ads-form-grid">
         <label>姓名 *<input name="name" required maxLength={80} autoComplete="name" /></label>
         <label>店家名稱<input name="shopName" maxLength={100} /></label>
-        <label>手機 *<input name="phone" type="tel" required pattern="[0-9+()\- ]{8,20}" autoComplete="tel" /></label>
+        <label>手機 *<input name="phone" type="tel" required inputMode="tel" maxLength={20} autoComplete="tel" /></label>
         <label>LINE ID<input name="lineId" maxLength={80} /></label>
         <label>Email<input name="email" type="email" autoComplete="email" /></label>
         <label>產業 *<select name="industry" required defaultValue=""><option value="" disabled>請選擇</option>{industries.map(([name]) => <option key={name}>{name}</option>)}</select></label>
@@ -117,7 +116,7 @@ export function AdsPage() {
       <section id="consult" className="ads-section ads-consult"><div className="ads-shell ads-consult-grid"><div><span className="ads-overline">LET'S TALK</span><h2>告訴我們你的店家需求</h2><p>留下聯絡方式與想了解的功能。我們會依你的營運情況，說明合適的方案與確切費用。</p><div className="ads-contact-links"><ActionLink href={lineUrl} event="line_click" light>LINE 諮詢</ActionLink><a href={phone} onClick={() => trackAdsEvent("phone_click")}>電話聯絡：0987-353-751</a></div></div><LeadForm /></div></section>
       <section className="ads-company"><div className="ads-shell"><h2>公司與聯絡資訊</h2><p>創百業智慧鏈｜百工百業大平台</p><p>聯絡人：陳美玲　電話：0987-353-751　Email：<a href="mailto:mii460627@gmail.com">mii460627@gmail.com</a></p><p>地址：臺北市中山區民生東路三段57號4樓之3</p><p>統一編號：42868714</p><small>上述資訊依使用者提供的品牌海報整理；正式投放前請核對公司登記與 LINE 帳號。</small></div></section>
     </main>
-    <footer className="ads-footer"><div className="ads-shell"><span>© {new Date().getFullYear()} 創百業智慧鏈</span><nav><Link to="/privacy">隱私權政策</Link><Link to="/terms">使用條款</Link><Link to="/refund">退款／取消政策</Link><Link to="/contact">聯絡我們</Link></nav></div></footer>
+    <footer className="ads-footer"><div className="ads-shell"><span>© {new Date().getFullYear()} 創百業智慧鏈</span><nav><a href="/privacy">隱私權政策</a><a href="/terms">使用條款</a><a href="/refund">退款／取消政策</a><a href="/contact">聯絡我們</a></nav></div></footer>
     <div className="ads-mobile-actions"><a href={lineUrl} onClick={() => trackAdsEvent("line_click")}>LINE 諮詢</a><a href="#consult" onClick={() => trackAdsEvent("hero_cta_click")}>免費了解方案</a></div>
   </div>;
 }
@@ -137,7 +136,7 @@ export function AdsInfoPage({ topic }: { topic: keyof typeof info }) {
   const [title, intro, points] = info[topic];
   const plans = useCatalog();
   const visiblePoints = topic === "pricing" ? plans.map((plan) => `${plan.plan_id === "baiye_standard_18000_addons" ? "百工標準方案" : plan.plan_id === "baiye_commerce_ai_45000" ? "AI 智慧商城完整版" : "免 POS 機智慧點餐"}：${money(plan.price_minor)}／${plan.term_months} 個月${plan.trial_months ? `；前 ${plan.trial_months} 個月系統服務費 NT$0，另有開通費與保證金` : ""}`) : points;
-  return <div className="ads-page ads-info"><header className="ads-header"><div className="ads-shell ads-nav"><Link to="/" className="ads-brand"><img src={`${base}brand/chuang-baiye-smart-chain-logo.png`} alt="創百業智慧鏈標誌" /><strong>創百業智慧鏈</strong></Link><Link to="/google-ads" className="ads-nav-cta">了解店家方案 <ArrowRight /></Link></div></header><main className="ads-shell"><span className="ads-overline">創百業智慧鏈</span><h1>{title}</h1><p>{intro}</p><div className="ads-info-points">{visiblePoints.map((point) => <div key={point}><Check />{point}</div>)}</div>{topic === "contact" ? <div className="ads-consult-grid"><div><p>電話：<a href={phone}>0987-353-751</a><br />Email：<a href="mailto:mii460627@gmail.com">mii460627@gmail.com</a><br />LINE ID：mii460627</p><ActionLink href={lineUrl} event="line_click">LINE 諮詢</ActionLink></div><LeadForm /></div> : <Link to="/google-ads#consult" className="ads-button">免費了解方案 <ArrowRight /></Link>}</main><footer className="ads-footer"><div className="ads-shell"><Link to="/privacy">隱私權政策</Link><Link to="/terms">使用條款</Link><Link to="/contact">聯絡我們</Link></div></footer></div>;
+  return <div className="ads-page ads-info"><header className="ads-header"><div className="ads-shell ads-nav"><a href="/" className="ads-brand"><img src={`${base}brand/chuang-baiye-smart-chain-logo.png`} alt="創百業智慧鏈標誌" /><strong>創百業智慧鏈</strong></a><a href="/google-ads" className="ads-nav-cta">了解店家方案 <ArrowRight /></a></div></header><main className="ads-shell"><span className="ads-overline">創百業智慧鏈</span><h1>{title}</h1><p>{intro}</p><div className="ads-info-points">{visiblePoints.map((point) => <div key={point}><Check />{point}</div>)}</div>{topic === "contact" ? <div className="ads-consult-grid"><div><p>電話：<a href={phone}>0987-353-751</a><br />Email：<a href="mailto:mii460627@gmail.com">mii460627@gmail.com</a><br />LINE ID：mii460627</p><ActionLink href={lineUrl} event="line_click">LINE 諮詢</ActionLink></div><LeadForm /></div> : <a href="/google-ads#consult" className="ads-button">免費了解方案 <ArrowRight /></a>}</main><footer className="ads-footer"><div className="ads-shell"><a href="/privacy">隱私權政策</a><a href="/terms">使用條款</a><a href="/contact">聯絡我們</a></div></footer></div>;
 }
 
 const legal: Record<string, [string, [string, string][]]> = {
@@ -156,5 +155,5 @@ const legal: Record<string, [string, [string, string][]]> = {
 };
 export function AdsLegalPage({ topic }: { topic: "privacy" | "terms" }) {
   const [title, sections] = legal[topic];
-  return <div className="ads-page ads-info"><header className="ads-header"><div className="ads-shell ads-nav"><Link to="/" className="ads-brand"><img src={`${base}brand/chuang-baiye-smart-chain-logo.png`} alt="創百業智慧鏈標誌" /><strong>創百業智慧鏈</strong></Link><Link to="/contact" className="ads-nav-cta">聯絡我們 <ArrowRight /></Link></div></header><main className="ads-shell ads-legal"><span className="ads-overline">網站政策</span><h1>{title}</h1><p>最後更新：2026 年 9 月 29 日</p>{sections.map(([heading, body]) => <section key={heading}><h2>{heading}</h2><p>{body}</p></section>)}</main><footer className="ads-footer"><div className="ads-shell"><Link to="/privacy">隱私權政策</Link><Link to="/terms">使用條款</Link><Link to="/refund">退款／取消政策</Link></div></footer></div>;
+  return <div className="ads-page ads-info"><header className="ads-header"><div className="ads-shell ads-nav"><a href="/" className="ads-brand"><img src={`${base}brand/chuang-baiye-smart-chain-logo.png`} alt="創百業智慧鏈標誌" /><strong>創百業智慧鏈</strong></a><a href="/contact" className="ads-nav-cta">聯絡我們 <ArrowRight /></a></div></header><main className="ads-shell ads-legal"><span className="ads-overline">網站政策</span><h1>{title}</h1><p>最後更新：2026 年 9 月 29 日</p>{sections.map(([heading, body]) => <section key={heading}><h2>{heading}</h2><p>{body}</p></section>)}</main><footer className="ads-footer"><div className="ads-shell"><a href="/privacy">隱私權政策</a><a href="/terms">使用條款</a><a href="/refund">退款／取消政策</a></div></footer></div>;
 }
