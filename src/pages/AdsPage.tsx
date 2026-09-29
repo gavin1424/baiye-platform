@@ -114,7 +114,7 @@ export function AdsPage() {
         ["會直接串接外送平台嗎？", "目前沒有在此宣稱任何外送平台 API 已完成串接。若有需求，可在諮詢時討論可行性。"],
       ].map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div></div></section>
       <section id="consult" className="ads-section ads-consult"><div className="ads-shell ads-consult-grid"><div><span className="ads-overline">LET'S TALK</span><h2>告訴我們你的店家需求</h2><p>留下聯絡方式與想了解的功能。我們會依你的營運情況，說明合適的方案與確切費用。</p><div className="ads-contact-links"><ActionLink href={lineUrl} event="line_click" light>LINE 諮詢</ActionLink><a href={phone} onClick={() => trackAdsEvent("phone_click")}>電話聯絡：0987-353-751</a></div></div><LeadForm /></div></section>
-      <section className="ads-company"><div className="ads-shell"><h2>公司與聯絡資訊</h2><p>創百業智慧鏈｜百工百業大平台</p><p>聯絡人：陳美玲　電話：0987-353-751　Email：<a href="mailto:mii460627@gmail.com">mii460627@gmail.com</a></p><p>地址：臺北市中山區民生東路三段57號4樓之3</p><p>統一編號：42868714</p><small>上述資訊依使用者提供的品牌海報整理；正式投放前請核對公司登記與 LINE 帳號。</small></div></section>
+      <section className="ads-company"><div className="ads-shell"><h2>平台聯絡資訊</h2><p>創百業智慧鏈｜百工百業大平台</p><p>聯絡人：陳美玲　電話：0987-353-751　Email：<a href="mailto:mii460627@gmail.com">mii460627@gmail.com</a></p><p>LINE ID：mii460627</p></div></section>
     </main>
     <footer className="ads-footer"><div className="ads-shell"><span>© {new Date().getFullYear()} 創百業智慧鏈</span><nav><a href="/privacy">隱私權政策</a><a href="/terms">使用條款</a><a href="/refund">退款／取消政策</a><a href="/contact">聯絡我們</a></nav></div></footer>
     <div className="ads-mobile-actions"><a href={lineUrl} onClick={() => trackAdsEvent("line_click")}>LINE 諮詢</a><a href="#consult" onClick={() => trackAdsEvent("hero_cta_click")}>免費了解方案</a></div>
