@@ -7,6 +7,25 @@ import "./AdsPage.css";
 const base = import.meta.env.BASE_URL;
 const lineUrl = "https://line.me/ti/p/~mii460627";
 const phone = "tel:+886987353751";
+type CatalogPlan = { plan_id: string; price_minor: number; term_months: number; trial_months: number; activation_fee_minor: number; deposit_minor: number; first_cycle_balance_minor: number };
+const fallbackPlans: CatalogPlan[] = [
+  { plan_id: "baiye_standard_18000_addons", price_minor: 1800000, term_months: 24, trial_months: 0, activation_fee_minor: 0, deposit_minor: 0, first_cycle_balance_minor: 1800000 },
+  { plan_id: "baiye_commerce_ai_45000", price_minor: 5000000, term_months: 24, trial_months: 0, activation_fee_minor: 0, deposit_minor: 0, first_cycle_balance_minor: 5000000 },
+  { plan_id: "baiye_softpos_24000", price_minor: 2400000, term_months: 24, trial_months: 3, activation_fee_minor: 300000, deposit_minor: 600000, first_cycle_balance_minor: 1800000 },
+];
+const money = (minor: number) => `NT$${(minor / 100).toLocaleString("zh-TW")}`;
+function useCatalog() {
+  const [plans, setPlans] = useState(fallbackPlans);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("https://chuang-baiye-ai.baiye-platform.workers.dev/api/public/commercial-catalog", { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => { if (Array.isArray(data.plans) && data.plans.length >= 3) setPlans(data.plans); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  return plans;
+}
 const features = [
   [DeviceMobile, "LINE 線上點餐", "顧客由店家提供的連結進入，不需額外下載 App。"],
   [QrCode, "QR Code 點餐", "掃描店內 QR Code，直接瀏覽店家頁面。"],
@@ -73,6 +92,10 @@ export function LeadForm() {
 
 export function AdsPage() {
   useEffect(() => { initAdsTracking(); }, []);
+  const plans = useCatalog();
+  const standard = plans.find((plan) => plan.plan_id === "baiye_standard_18000_addons") || fallbackPlans[0];
+  const commerce = plans.find((plan) => plan.plan_id === "baiye_commerce_ai_45000") || fallbackPlans[1];
+  const ordering = plans.find((plan) => plan.plan_id === "baiye_softpos_24000") || fallbackPlans[2];
   return <div className="ads-page">
     <header className="ads-header"><div className="ads-shell ads-nav"><a href="/" className="ads-brand"><img src={`${base}brand/chuang-baiye-smart-chain-logo.png`} alt="創百業智慧鏈標誌" /><span><strong>創百業智慧鏈</strong><small>CHUANG BAIYE SMART CHAIN</small></span></a><nav aria-label="主要導覽"><a href="#features">服務功能</a><a href="#how">使用流程</a><a href="#pricing" onClick={() => trackAdsEvent("pricing_click")}>方案價格</a><a href="#faq">常見問題</a></nav><a className="ads-nav-cta" href="#consult" onClick={() => trackAdsEvent("contact_click")}>免費了解方案 <ArrowUpRight /></a></div></header>
     <main>
@@ -83,12 +106,12 @@ export function AdsPage() {
       <section id="how" className="ads-section"><div className="ads-shell"><div className="ads-section-intro"><span className="ads-overline">FOUR SIMPLE STEPS</span><h2>從掃碼到接單，四步完成</h2></div><div className="ads-steps">{steps.map(([number, title, detail]) => <article key={number}><span>{number}</span><h3>{title}</h3><p>{detail}</p></article>)}</div></div></section>
       <section className="ads-section ads-ecosystem"><div className="ads-shell ads-split"><div className="ads-ecosystem-image"><img src={`${base}assets/ads/team.webp`} loading="lazy" width="900" height="600" alt="團隊討論店家數位營運" /></div><div><span className="ads-overline">BEYOND ORDERING</span><h2>不只點餐，也照顧長期經營</h2><p>網站與商城幫助展示品牌與商品；顧客資料管理與 AI 工具可依實際需求規劃。各功能與串接範圍，會在諮詢時清楚說明。</p><div className="ads-tags"><span>品牌網站</span><span>線上商城</span><span>顧客資料管理</span><span>AI 內容輔助</span></div><a href="#consult" className="ads-text-link" onClick={() => trackAdsEvent("contact_click")}>討論你的需求 <ArrowRight /></a></div></div></section>
       <section className="ads-section"><div className="ads-shell"><div className="ads-section-intro"><span className="ads-overline">WHO IT'S FOR</span><h2>從街角店家到專業工作室</h2><p>服務可依不同產業流程討論，以下是常見的使用情境。</p></div><div className="ads-industries">{industries.map(([name, image]) => <div key={name}><img src={`${base}assets/ads/${image}-small.webp`} loading="lazy" width="400" height="267" alt={`${name}店家工作情境`} /><strong>{name}</strong></div>)}</div></div></section>
-      <section id="pricing" className="ads-section ads-pricing"><div className="ads-shell ads-pricing-grid"><div><span className="ads-overline">CLEAR PRICING</span><h2>價格與服務範圍，<br />先講清楚</h2><p>依現有正式方案目錄：百工標準方案 NT$18,000／24 個月；AI 智慧商城完整版 NT$50,000／24 個月。點餐方案費用列於右側，額外設備、第三方服務與客製項目依正式報價確認。</p><a className="ads-text-link" href="#consult" onClick={() => trackAdsEvent("pricing_click")}>索取完整方案說明 <ArrowRight /></a></div><div className="ads-price-card"><span>線上點餐方案</span><h3>免購置傳統大型 POS 硬體</h3><div className="ads-price">NT$24,000</div><strong>每 24 個月</strong><p>前 3 個月系統服務費 NT$0。首次開通費 NT$3,000、保證金 NT$6,000；保證金可抵首個 24 個月週期費用，該週期尚需 NT$18,000。後續每 24 個月 NT$24,000。活動起算與適用條件以正式契約為準。</p><a href="#consult" className="ads-button" onClick={() => trackAdsEvent("pricing_click")}>了解適用方案 <ArrowRight /></a></div></div></section>
+      <section id="pricing" className="ads-section ads-pricing"><div className="ads-shell ads-pricing-grid"><div><span className="ads-overline">CLEAR PRICING</span><h2>價格與服務範圍，<br />先講清楚</h2><p>依正式方案目錄：百工標準方案 {money(standard.price_minor)}／{standard.term_months} 個月；AI 智慧商城完整版 {money(commerce.price_minor)}／{commerce.term_months} 個月。額外設備、第三方服務與客製項目依正式報價確認。</p><a className="ads-text-link" href="#consult" onClick={() => trackAdsEvent("pricing_click")}>索取完整方案說明 <ArrowRight /></a></div><div className="ads-price-card"><span>線上點餐方案</span><h3>免購置傳統大型 POS 硬體</h3><div className="ads-price">{money(ordering.price_minor)}</div><strong>每 {ordering.term_months} 個月</strong><p>前 {ordering.trial_months} 個月系統服務費 NT$0。首次開通費 {money(ordering.activation_fee_minor)}、保證金 {money(ordering.deposit_minor)}；保證金可抵首個 {ordering.term_months} 個月週期費用，該週期尚需 {money(ordering.first_cycle_balance_minor)}。活動起算與適用條件以正式契約為準。</p><a href="#consult" className="ads-button" onClick={() => trackAdsEvent("pricing_click")}>了解適用方案 <ArrowRight /></a></div></div></section>
       <section id="faq" className="ads-section"><div className="ads-shell"><div className="ads-section-intro"><span className="ads-overline">FAQ</span><h2>常見問題</h2></div><div className="ads-faq">{[
         ["需要購買 POS 機嗎？", "本頁所說的免購置，是指可先討論不另外購買傳統大型 POS 硬體的使用方式。店家仍需要可用的手機、平板或電腦及管理系統。"],
         ["LINE 線上點餐需要下載 App 嗎？", "顧客可透過店家提供的連結或 QR Code 開啟頁面。實際 LINE 功能與通知方式，依正式啟用項目確認。"],
         ["能設定取餐、外送和預約時間嗎？", "可依店家流程討論這些設定；確切可用功能會在方案說明中逐項列明。"],
-        ["三個月免費體驗如何計算？", "點餐方案前 3 個月的系統服務費為 NT$0，但首次開通費 NT$3,000 與保證金 NT$6,000 仍須依契約支付。保證金可抵首個 24 個月週期費用；活動起算與適用條件以正式契約為準。"],
+        ["三個月免費體驗如何計算？", "點餐方案在體驗期間的系統服務費為 NT$0；開通費、保證金及首個正式週期的金額請查看本頁價格區，起算與適用條件以正式契約為準。"],
         ["會直接串接外送平台嗎？", "目前沒有在此宣稱任何外送平台 API 已完成串接。若有需求，可在諮詢時討論可行性。"],
       ].map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div></div></section>
       <section id="consult" className="ads-section ads-consult"><div className="ads-shell ads-consult-grid"><div><span className="ads-overline">LET'S TALK</span><h2>告訴我們你的店家需求</h2><p>留下聯絡方式與想了解的功能。我們會依你的營運情況，說明合適的方案與確切費用。</p><div className="ads-contact-links"><ActionLink href={lineUrl} event="line_click" light>LINE 諮詢</ActionLink><a href={phone} onClick={() => trackAdsEvent("phone_click")}>電話聯絡：0987-353-751</a></div></div><LeadForm /></div></section>
@@ -106,13 +129,15 @@ const info: Record<string, [string, string, string[]]> = {
   platform: ["百工百業大平台", "連結各行各業的專業、資源與合作機會。", ["展示商家與服務", "尋找合作機會", "建立自己的數位經營能力"]],
   refund: ["退款／取消政策", "正式交易前，請以個別方案契約與付款頁公告為準。", ["取消或退款申請請透過聯絡頁提出", "請提供訂單與付款資料以便核對", "確認後依契約約定及適用法規處理"]],
   contact: ["聯絡我們", "告訴我們你的店家需求，或直接透過 LINE 與電話聯絡。", ["方案與費用諮詢", "網站與點餐需求", "帳號及服務問題"]],
-  pricing: ["方案與價格", "以下依現有正式方案目錄整理。實際付款與服務範圍以簽署的契約及報價為準。", ["百工標準方案：NT$18,000／24 個月", "AI 智慧商城完整版：NT$50,000／24 個月", "免 POS 機智慧點餐：NT$24,000／24 個月；前 3 個月系統服務費 NT$0，另有開通費與保證金"]],
+  pricing: ["方案與價格", "價格與條件讀取正式方案目錄。實際付款與服務範圍以簽署的契約及報價為準。", []],
   about: ["關於創百業智慧鏈", "我們致力協助台灣店家與專業工作者運用網站、LINE 和數位工具，建立自己的數位經營能力。", ["專業 × 資源 × 機會", "降低中小企業數位化門檻", "連結百工百業的服務與需求"]],
   faq: ["常見問題", "關於店家方案、硬體、點餐流程與價格，先從最常見的問題開始。", ["免另外購買傳統大型 POS 硬體", "顧客可透過 QR Code 開啟店家頁面", "實際功能及費用以正式報價為準"]],
 };
 export function AdsInfoPage({ topic }: { topic: keyof typeof info }) {
   const [title, intro, points] = info[topic];
-  return <div className="ads-page ads-info"><header className="ads-header"><div className="ads-shell ads-nav"><Link to="/" className="ads-brand"><img src={`${base}brand/chuang-baiye-smart-chain-logo.png`} alt="創百業智慧鏈標誌" /><strong>創百業智慧鏈</strong></Link><Link to="/google-ads" className="ads-nav-cta">了解店家方案 <ArrowRight /></Link></div></header><main className="ads-shell"><span className="ads-overline">創百業智慧鏈</span><h1>{title}</h1><p>{intro}</p><div className="ads-info-points">{points.map((point) => <div key={point}><Check />{point}</div>)}</div>{topic === "contact" ? <div className="ads-consult-grid"><div><p>電話：<a href={phone}>0987-353-751</a><br />Email：<a href="mailto:mii460627@gmail.com">mii460627@gmail.com</a><br />LINE ID：mii460627</p><ActionLink href={lineUrl} event="line_click">LINE 諮詢</ActionLink></div><LeadForm /></div> : <Link to="/google-ads#consult" className="ads-button">免費了解方案 <ArrowRight /></Link>}</main><footer className="ads-footer"><div className="ads-shell"><Link to="/privacy">隱私權政策</Link><Link to="/terms">使用條款</Link><Link to="/contact">聯絡我們</Link></div></footer></div>;
+  const plans = useCatalog();
+  const visiblePoints = topic === "pricing" ? plans.map((plan) => `${plan.plan_id === "baiye_standard_18000_addons" ? "百工標準方案" : plan.plan_id === "baiye_commerce_ai_45000" ? "AI 智慧商城完整版" : "免 POS 機智慧點餐"}：${money(plan.price_minor)}／${plan.term_months} 個月${plan.trial_months ? `；前 ${plan.trial_months} 個月系統服務費 NT$0，另有開通費與保證金` : ""}`) : points;
+  return <div className="ads-page ads-info"><header className="ads-header"><div className="ads-shell ads-nav"><Link to="/" className="ads-brand"><img src={`${base}brand/chuang-baiye-smart-chain-logo.png`} alt="創百業智慧鏈標誌" /><strong>創百業智慧鏈</strong></Link><Link to="/google-ads" className="ads-nav-cta">了解店家方案 <ArrowRight /></Link></div></header><main className="ads-shell"><span className="ads-overline">創百業智慧鏈</span><h1>{title}</h1><p>{intro}</p><div className="ads-info-points">{visiblePoints.map((point) => <div key={point}><Check />{point}</div>)}</div>{topic === "contact" ? <div className="ads-consult-grid"><div><p>電話：<a href={phone}>0987-353-751</a><br />Email：<a href="mailto:mii460627@gmail.com">mii460627@gmail.com</a><br />LINE ID：mii460627</p><ActionLink href={lineUrl} event="line_click">LINE 諮詢</ActionLink></div><LeadForm /></div> : <Link to="/google-ads#consult" className="ads-button">免費了解方案 <ArrowRight /></Link>}</main><footer className="ads-footer"><div className="ads-shell"><Link to="/privacy">隱私權政策</Link><Link to="/terms">使用條款</Link><Link to="/contact">聯絡我們</Link></div></footer></div>;
 }
 
 const legal: Record<string, [string, [string, string][]]> = {
@@ -125,7 +150,7 @@ const legal: Record<string, [string, [string, string][]]> = {
   terms: ["使用條款", [
     ["服務內容", "創百業智慧鏈提供商家展示、線上服務與數位工具。各功能、交付範圍與使用期間以個別方案及正式契約為準。"],
     ["帳號與內容", "使用者應提供正確資訊，不得發布違法、侵權或誤導內容，並應妥善保管帳號。"],
-    ["價格與付款", "目前正式方案目錄列有百工標準方案 NT$18,000／24 個月、AI 智慧商城完整版 NT$50,000／24 個月，以及免 POS 機智慧點餐 NT$24,000／24 個月。點餐方案另有開通費、保證金與前三個月系統服務費優惠；付款方式、起算及期間以正式契約為準。"],
+    ["價格與付款", "方案價格與期間以正式方案目錄及個別有效契約為準。點餐方案如有開通費、保證金或體驗優惠，將於方案頁及簽約前揭露；付款方式與起算依正式契約。"],
     ["服務變更與責任", "我們會合理維護服務安全與可用性；功能調整或中斷將依契約與適用法規處理。商業成果會因個別營運情況而異。"],
   ]],
 };
