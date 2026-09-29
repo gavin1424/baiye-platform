@@ -6,12 +6,12 @@ export default defineConfig({
   build: {
     outDir: "dist/client",
     rollupOptions: {
+      input: ["index.html", "ads.html"],
       output: {
         manualChunks(id) {
-          if (id.includes("@phosphor-icons")) return "icons";
           if (id.includes("react-router")) return "router";
           if (id.includes("qrcode")) return "qrcode";
-          if (id.includes("react-dom") || id.includes("/react/")) return "react";
+          if (id.includes("/node_modules/react-dom/") || id.includes("/node_modules/react/")) return "react";
           return undefined;
         },
       },
