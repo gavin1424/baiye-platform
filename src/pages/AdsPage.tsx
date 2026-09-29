@@ -55,7 +55,7 @@ export function LeadForm() {
       <div className="ads-form-grid">
         <label>姓名 *<input name="name" required maxLength={80} autoComplete="name" /></label>
         <label>店家名稱<input name="shopName" maxLength={100} /></label>
-        <label>手機 *<input name="phone" type="tel" required pattern="[0-9+() -]{8,20}" autoComplete="tel" /></label>
+        <label>手機 *<input name="phone" type="tel" required pattern="[0-9+()\- ]{8,20}" autoComplete="tel" /></label>
         <label>LINE ID<input name="lineId" maxLength={80} /></label>
         <label>Email<input name="email" type="email" autoComplete="email" /></label>
         <label>產業 *<select name="industry" required defaultValue=""><option value="" disabled>請選擇</option>{industries.map(([name]) => <option key={name}>{name}</option>)}</select></label>
