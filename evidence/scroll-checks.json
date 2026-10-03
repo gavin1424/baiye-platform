@@ -1,0 +1,366 @@
+[
+  {
+    "chat": {
+      "bottom": 652,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 608,
+      "width": 44,
+      "x": 317,
+      "y": 608
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 844,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": []
+  },
+  {
+    "chat": {
+      "bottom": 772,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 728,
+      "width": 44,
+      "x": 317,
+      "y": 728
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 1477,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": []
+  },
+  {
+    "chat": {
+      "bottom": 692,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 648,
+      "width": 44,
+      "x": 317,
+      "y": 648
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 2110,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": [
+      {
+        "alt": "雷火龍官方網站首頁預覽",
+        "loaded": true
+      }
+    ]
+  },
+  {
+    "chat": {
+      "bottom": 708,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 664,
+      "width": 44,
+      "x": 317,
+      "y": 664
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 2743,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": [
+      {
+        "alt": "檀香雲境官方網站首頁預覽",
+        "loaded": true
+      }
+    ]
+  },
+  {
+    "chat": {
+      "bottom": 772,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 728,
+      "width": 44,
+      "x": 317,
+      "y": 728
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 3376,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": [
+      {
+        "alt": "檀香雲境官方網站首頁預覽",
+        "loaded": true
+      },
+      {
+        "alt": "GreenSave官方網站首頁預覽",
+        "loaded": true
+      },
+      {
+        "alt": "AI 虛擬生命官方網站首頁預覽",
+        "loaded": true
+      }
+    ]
+  },
+  {
+    "chat": {
+      "bottom": 748,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 704,
+      "width": 44,
+      "x": 317,
+      "y": 704
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 4009,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": [
+      {
+        "alt": "AI 虛擬生命官方網站首頁預覽",
+        "loaded": true
+      }
+    ]
+  },
+  {
+    "chat": {
+      "bottom": 772,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 728,
+      "width": 44,
+      "x": 317,
+      "y": 728
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 4642,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": [
+      {
+        "alt": "太報 TaiSounds報導：加速建構百工百業AI化生態鏈　工研院院士提5招",
+        "loaded": true
+      }
+    ]
+  },
+  {
+    "chat": {
+      "bottom": 660,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 616,
+      "width": 44,
+      "x": 317,
+      "y": 616
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 5275,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": [
+      {
+        "alt": "太報 TaiSounds報導：加速建構百工百業AI化生態鏈　工研院院士提5招",
+        "loaded": true
+      },
+      {
+        "alt": "Yahoo新聞報導：加速建構百工百業AI化生態鏈　工研院院士提AI發展倡議五大策略",
+        "loaded": true
+      }
+    ]
+  },
+  {
+    "chat": {
+      "bottom": 772,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 728,
+      "width": 44,
+      "x": 317,
+      "y": 728
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 5908,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": [
+      {
+        "alt": "百工百業AI服務列車報導：百工百業AI館－找AI解決方案",
+        "loaded": true
+      }
+    ]
+  },
+  {
+    "chat": {
+      "bottom": 756,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 712,
+      "width": 44,
+      "x": 317,
+      "y": 712
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 6541,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": []
+  },
+  {
+    "chat": {
+      "bottom": 772,
+      "height": 44,
+      "left": 317,
+      "right": 361,
+      "top": 728,
+      "width": 44,
+      "x": 317,
+      "y": 728
+    },
+    "nav": {
+      "bottom": 844,
+      "height": 60,
+      "left": 0,
+      "right": 375,
+      "top": 784,
+      "width": 375,
+      "x": 0,
+      "y": 784
+    },
+    "top": 7174,
+    "viewport": [
+      390,
+      844
+    ],
+    "visibleImages": [
+      {
+        "alt": "招牌紅燒牛肉麵示意圖",
+        "loaded": true
+      },
+      {
+        "alt": "半筋半肉牛肉麵示意圖",
+        "loaded": true
+      }
+    ]
+  }
+]

@@ -1,0 +1,110 @@
+[
+  {
+    "name": "mobile-360",
+    "chatBottom": 648,
+    "contentWidth": 345,
+    "h1Height": 91.78125,
+    "h1Size": "34px",
+    "headerHeight": 68,
+    "heroHeight": 571.625,
+    "navDisplay": "grid",
+    "navHeight": 60,
+    "navTop": 740,
+    "scrollWidth": 345,
+    "top": 0,
+    "viewport": [
+      360,
+      800
+    ]
+  },
+  {
+    "name": "mobile-390",
+    "chatBottom": 676,
+    "contentWidth": 375,
+    "h1Height": 96.84375,
+    "h1Size": "35.88px",
+    "headerHeight": 68,
+    "heroHeight": 594.859375,
+    "navDisplay": "grid",
+    "navHeight": 60,
+    "navTop": 784,
+    "scrollWidth": 375,
+    "top": 0,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "mobile-412",
+    "chatBottom": 843,
+    "contentWidth": 397,
+    "h1Height": 102.34375,
+    "h1Size": "37.904px",
+    "headerHeight": 68,
+    "heroHeight": 613.703125,
+    "navDisplay": "grid",
+    "navHeight": 60,
+    "navTop": 855,
+    "scrollWidth": 397,
+    "top": 0,
+    "viewport": [
+      412,
+      915
+    ]
+  },
+  {
+    "name": "s25-ultra-portrait-proxy",
+    "chatBottom": 968,
+    "contentWidth": 465,
+    "h1Height": 108,
+    "h1Size": "40px",
+    "headerHeight": 68,
+    "heroHeight": 621.171875,
+    "navDisplay": "grid",
+    "navHeight": 60,
+    "navTop": 980,
+    "scrollWidth": 465,
+    "top": 0,
+    "viewport": [
+      480,
+      1040
+    ]
+  },
+  {
+    "name": "tablet",
+    "chatBottom": 872,
+    "contentWidth": 753,
+    "h1Height": 104,
+    "h1Size": "40px",
+    "headerHeight": 72,
+    "heroHeight": 783.484375,
+    "navDisplay": "grid",
+    "navHeight": 60,
+    "navTop": 964,
+    "scrollWidth": 753,
+    "top": 0,
+    "viewport": [
+      768,
+      1024
+    ]
+  },
+  {
+    "name": "desktop",
+    "chatBottom": 976,
+    "contentWidth": 1425,
+    "h1Height": 149.71875,
+    "h1Size": "57.6px",
+    "headerHeight": 72,
+    "heroHeight": 579.9375,
+    "navDisplay": "none",
+    "navHeight": 0,
+    "navTop": 0,
+    "scrollWidth": 1425,
+    "top": 0,
+    "viewport": [
+      1440,
+      1000
+    ]
+  }
+]

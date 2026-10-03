@@ -1,0 +1,61 @@
+[
+  {
+    "index": 1,
+    "title": "官網建置",
+    "links": [
+      "#/pricing"
+    ]
+  },
+  {
+    "index": 2,
+    "title": "AI智能客服",
+    "links": [
+      "#/features"
+    ]
+  },
+  {
+    "index": 3,
+    "title": "LINE官方帳號",
+    "links": [
+      "#/contact"
+    ]
+  },
+  {
+    "index": 4,
+    "title": "會員回購",
+    "links": [
+      "#/member-benefits"
+    ]
+  },
+  {
+    "index": 5,
+    "title": "預約管理",
+    "links": [
+      "#/features"
+    ]
+  },
+  {
+    "index": 6,
+    "title": "免POS機點餐",
+    "links": [
+      "#/pos-ordering",
+      "#/pos-ordering/guide",
+      "#/pos-ordering/experience"
+    ]
+  },
+  {
+    "index": 7,
+    "title": "網站預約",
+    "links": [
+      "#/features?module=booking"
+    ]
+  },
+  {
+    "index": 8,
+    "title": "承攬 / 商家簽約",
+    "links": [
+      "#/join?mode=merchant",
+      "#/partner/apply"
+    ]
+  }
+]

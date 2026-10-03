@@ -1,0 +1,502 @@
+[
+  {
+    "path": "cloudflare-worker/.dev.vars.example",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/FINANCE_OPERATIONS.md",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/contractor-policy.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations-ordering-staging/0035_platform_member_numeric_password_auth_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0001_finance_core.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0002_partner_portal.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0003_partner_completion.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0004_contract_v1_hash.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0005_partner_activation_approval.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0006_contractor_v13_policy.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0007_merchant_ai_quota.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0008_ads_leads.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0008_merchant_booking_engine.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0009_production_admin_auth.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0010_merchant_settlements.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0011_qr_membership_ordering.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0012_member_benefits_integrations.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0013_growth_completion.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0013_qr_ordering_commercial_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0014_merchant_contracts.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0015_phone_only_platform_membership.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0016_partner_auto_approval.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0017_partner_passwordless_login.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0018_beef_noodle_production_trial_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0019_beef_noodle_production_trial_seed_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0020_beef_noodle_production_options_qr_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0021_beef_noodle_production_booking_golden_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0022_beef_noodle_production_golden_menu_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0023_beef_noodle_production_golden_options_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0024_merchant_numeric_password_auth_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0025_platform_member_numeric_password_auth_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0026_beef_noodle_general_ordering_entry_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0027_partner_contract_v1_production.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0030_pricing_plan_contracts_phase1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0031_pricing_plan_contracts_production.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0032_owner_admin_v1.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0033_owner_documents_monitor.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0039_ai_commerce_current_50000.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/0040_partner_contract_v1_6.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/rollback/0010_merchant_settlements.down.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/rollback/0011_qr_membership_ordering.down.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/rollback/0012_member_benefits_integrations.down.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/rollback/0013_growth_completion.down.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/rollback/0013_qr_ordering_commercial_v1.down.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/rollback/0014_merchant_contracts.down.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/rollback/0015_phone_only_platform_membership.down.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/rollback/0016_partner_auto_approval.down.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/migrations/rollback/0017_partner_passwordless_login.down.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/scripts/bootstrap-admin.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/admin-auth.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/booking.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/business.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/commercial-catalog.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/contract-engine.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/contract-pdf.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/demo-merchant.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/finance.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/index.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/integration-providers.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/inventory.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/leads.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/meiling-ai.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/member-integrations.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/merchant-admin.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/merchant-assets.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/merchant-auth.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/merchant-contracts.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/merchant-permissions.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/owner-admin.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/owner-auth.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/owner-worker.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/partner.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/payment-state.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/plan-contract-definitions.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/plan-contracts.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/platform-membership.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/qr-ordering.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/settlement-engine.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/settlement-pdf.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/settlements.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/src/taipei-date.js",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/staging/seed-beef-noodle-demo.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/staging/seed-ordering.sql",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/admin-auth.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/beef-noodle-normal-merchant-v1.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/beef-noodle-production-trial-v1.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/booking.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/commercial-catalog.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/contracts.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/growth-completion.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/homepage-production-release.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/leads.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/meiling-ai.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/member-benefits-public-page.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/member-integrations.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/merchant-numeric-password-auth-v1.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/merchant-session-reuse-ui.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/ordering-mobile-card-price.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/owner-admin-v1.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/partner-auto-approval.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/partner-legacy-modernization.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/partner-passwordless-login.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/plan-contracts.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/platform-membership.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/qr-ordering-commercial.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/qr-ordering.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/tests/settlements.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/wrangler.contract-staging.jsonc",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/wrangler.growth-staging.jsonc",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/wrangler.jsonc",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/wrangler.ordering-staging.jsonc",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/wrangler.owner.jsonc",
+    "unchanged": true
+  },
+  {
+    "path": "cloudflare-worker/wrangler.staging.jsonc.example",
+    "unchanged": true
+  },
+  {
+    "path": "server/payment-api.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "server/payment-core.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "server/payment-core.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "server/public-design-pricing.test.mjs",
+    "unchanged": true
+  },
+  {
+    "path": "src/App.tsx",
+    "unchanged": true
+  },
+  {
+    "path": "src/components.tsx",
+    "unchanged": true
+  },
+  {
+    "path": "src/data/merchantSites.ts",
+    "unchanged": true
+  },
+  {
+    "path": "src/pages/MerchantLoginPage.tsx",
+    "unchanged": true
+  },
+  {
+    "path": "src/payment-client.ts",
+    "unchanged": true
+  },
+  {
+    "path": "src/qr-ordering-client.ts",
+    "unchanged": true
+  },
+  {
+    "path": "src/store.tsx",
+    "unchanged": true
+  },
+  {
+    "path": "worker/index.js",
+    "unchanged": true
+  }
+]

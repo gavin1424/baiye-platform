@@ -1,4 +1,4 @@
-import { ChatCircleDots, CircleNotch, PaperPlaneTilt, Trash, X } from "@phosphor-icons/react";
+import { ChatCircleDots, CircleNotch, PaperPlaneTilt, Robot, Trash, X } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 type ChatRole = "assistant" | "user";
@@ -40,6 +40,52 @@ export function AiChatWidget() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+
+  // Presentation only: keep the compact launcher clear of homepage text and CTAs.
+  useEffect(() => {
+    let frame = 0;
+    const placeLauncher = () => {
+      frame = 0;
+      const launcher = launcherRef.current;
+      if (!launcher || open || !document.querySelector(".home-shell") || window.innerWidth > 900) {
+        launcher?.style.removeProperty("--chat-clearance");
+        return;
+      }
+      const bounds = launcher.getBoundingClientRect();
+      const blocks: DOMRect[] = [];
+      document.querySelectorAll(".home-shell h1,.home-shell h2,.home-shell h3,.home-shell p,.home-shell strong,.home-shell small,.home-shell .refresh-eyebrow,.home-shell .refresh-carousel-controls,.home-shell .refresh-hero-note,.home-shell .refresh-news-more,.home-shell .refresh-feature-link,.home-shell .merchant-site-button,.home-shell .home-ordering-cta,.home-shell .home-media-heading>span,.home-shell .footer-bottom,.home-shell .footer-brand>span,.home-shell a").forEach(node => {
+        if (node.closest(".mobile-bottom-nav,.site-header")) return;
+        const rect = node.getBoundingClientRect();
+        if (rect.bottom < window.innerHeight - 320 || rect.top > window.innerHeight || rect.right < bounds.left) return;
+        if (node.matches(".refresh-button,.refresh-secondary,.refresh-quick a,.refresh-feature-link,.merchant-site-button,.home-ordering-cta,.merchant-sites-cta>a,.refresh-news-more")) {
+          blocks.push(rect);
+        } else {
+          const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+          let text: Node | null;
+          while ((text = walker.nextNode())) {
+            if (!text.textContent?.trim()) continue;
+            const range = document.createRange(); range.selectNodeContents(text);
+            blocks.push(...Array.from(range.getClientRects()));
+          }
+        }
+      });
+      const currentOffset = Number.parseFloat(launcher.style.getPropertyValue("--chat-clearance")) || 0;
+      const baseTop = bounds.top + currentOffset;
+      let clearance = 0;
+      for (; clearance <= 240; clearance += 8) {
+        const top = baseTop - clearance;
+        if (!blocks.some(rect => rect.right > bounds.left - 5 && rect.left < bounds.right + 5 && rect.bottom > top - 5 && rect.top < top + bounds.height + 5)) break;
+      }
+      launcher.style.setProperty("--chat-clearance", `${Math.min(clearance, 240)}px`);
+    };
+    const schedule = () => { if (!frame) frame = window.requestAnimationFrame(placeLauncher); };
+    const observer = new ResizeObserver(schedule);
+    const home = document.querySelector(".home-shell"); if (home) observer.observe(home);
+    document.addEventListener("scroll", schedule, true); window.addEventListener("resize", schedule);
+    schedule();
+    return () => { if (frame) window.cancelAnimationFrame(frame); observer.disconnect(); document.removeEventListener("scroll", schedule, true); window.removeEventListener("resize", schedule); };
+  }, [open]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-MAX_HISTORY_MESSAGES)));
@@ -138,8 +184,8 @@ export function AiChatWidget() {
           </form>
         </section>
       )}
-      <button type="button" className="ai-chat-launcher" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-        <ChatCircleDots weight="fill" /> AI 智能客服
+      <button ref={launcherRef} type="button" className="ai-chat-launcher" aria-label="AI 智慧客服" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <Robot weight="regular" /><span className="ai-chat-launcher-label">AI 智慧客服</span>
       </button>
     </aside>
   );

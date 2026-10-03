@@ -2,7 +2,11 @@ import { ArrowRight, ArrowUpRight, BookOpenText, CalendarBlank, CalendarCheck, C
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
-import heroScene from "../assets/baiye-multi-industry-isometric-hero.png";
+import heroScene from "../assets/home-business-scene.webp";
+import diningScene from "../assets/home-dining-scene.webp";
+import beautyScene from "../assets/home-beauty-scene.webp";
+import retailScene from "../assets/home-retail-scene.webp";
+import { MagnifyingGlass, Plus, Pause, Play } from "@phosphor-icons/react";
 import { MerchantSitesSection } from "../components/MerchantSitesSection";
 import aiServiceTrainImage from "../assets/news/ai-service-train.png";
 import cteeImage from "../assets/news/ctee.jpg";
@@ -14,6 +18,7 @@ import { Footer, Header, MobileBottomNav } from "../components";
 import { BEEF_NOODLE_GUEST_ORDERING_URL } from "../config/orderingDemo";
 import "../home-media.css";
 import "../home-ordering-experience.css";
+import "../home-refresh.css";
 
 type Feature = { name: string; summary: string; audience: string; value: string; items: string[]; cta: string; to: string; icon: ComponentType<{ weight?: "duotone" | "fill" }> };
 
@@ -81,6 +86,7 @@ const newsItems: NewsItem[] = [
 
 export function HomePage() {
   const [selected, setSelected] = useState<Feature | null>(null);
+  const [showAllNews, setShowAllNews] = useState(false);
   useEffect(() => {
     if (!selected) return;
     const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelected(null); };
@@ -105,37 +111,24 @@ export function HomePage() {
   }, []);
   return <div className="app-shell home-shell"><a className="skip-link" href="#home-content">跳到主要內容</a><Header />
     <main className="immersive-home" id="home-content">
-    <section className="immersive-home-hero">
-      <div className="immersive-home-heading">
-        <span className="eyebrow hero-enter hero-enter-1">百工數位營運平台</span>
-        <h1 className="hero-enter hero-enter-2">全業態數位升級<em>一站完成</em></h1>
-        <p className="hero-enter hero-enter-3">餐飲 × 美業 × 零售 × 服務<br />多產業整合的智慧營運平台</p>
-        <Link className="home-hero-cta hero-enter hero-enter-4" to="/features">立即了解 <ArrowRight weight="bold" /></Link>
-      </div>
-
-      <div className="immersive-showcase hero-enter hero-enter-4" aria-label="餐飲、美業與零售智慧經營場景">
-        <img src={heroScene} alt="餐飲、美業與零售整合的智慧經營場景" />
-        <div className="immersive-feature-overlay" aria-label="百工八大功能">
-          {features.map((feature, index) => <FeatureButton key={feature.name} feature={feature} index={index + 1} onClick={() => setSelected(feature)} />)}
+    <section className="refresh-hero" aria-labelledby="refresh-hero-title">
+      <div className="refresh-hero-inner">
+        <div className="refresh-hero-copy">
+          <span className="refresh-eyebrow">BAIYE CONNECT · 百業數位經營</span>
+          <h1 id="refresh-hero-title">一個平台，<br />串起每一門生意</h1>
+          <p>餐飲、美業、零售與各類服務，<br className="refresh-mobile-break" />一站整合數位經營工具。</p>
+          <div className="refresh-hero-actions"><Link className="refresh-button" to="/features">立即了解 <ArrowRight /></Link><Link className="refresh-secondary" to="/businesses">探索服務 <ArrowUpRight /></Link></div>
+          <span className="refresh-hero-note">讓在地專業，連結更多可能。</span>
         </div>
-        <div className="home-hero-dots" aria-hidden="true"><i className="is-active" /><i /><i /><i /></div>
+        <HeroCarousel />
       </div>
-
-      <section className="immersive-values baiye-reveal is-visible" aria-label="品牌價值">{values.map(([Icon, title, text]) => <article className="premium-card" key={title}><Icon weight="duotone" /><strong>{title}</strong><span>{text}</span></article>)}</section>
     </section>
 
-    <section className="home-media-section" aria-labelledby="home-media-title">
-      <div className="home-media-inner">
-        <header className="home-media-heading">
-          <p>Media &amp; News</p>
-          <h2 id="home-media-title">媒體報導</h2>
-          <span>從專業技藝、文化傳承到 AI 創新應用，持續受到各界媒體與平台關注。</span>
-        </header>
-        <div className="home-media-grid">
-          {newsItems.map((item) => <NewsCard item={item} key={`${item.source}-${item.title}`} />)}
-        </div>
-      </div>
-    </section>
+    <nav className="refresh-quick" aria-label="首頁快速入口">
+      {quickEntries.map(({icon: Icon, title, to}) => <Link key={title} to={to}><Icon weight="regular" /><strong>{title}</strong><ArrowUpRight className="quick-arrow" /></Link>)}
+    </nav>
+
+    <section className="refresh-capabilities" aria-labelledby="refresh-capabilities-title"><div className="refresh-section-heading"><span className="refresh-eyebrow">BUILT FOR YOUR BUSINESS</span><h2 id="refresh-capabilities-title">平台能幫你做什麼</h2><p>從第一個數位門面，到每一次顧客互動。<br />把日常經營串起來，讓你專注自己的專業。</p></div><div className="refresh-feature-grid">{features.map((feature, index) => <FeatureButton key={feature.name} feature={feature} index={index + 1} onClick={() => setSelected(feature)} />)}</div></section>
 
     <MerchantSitesSection />
 
@@ -184,8 +177,24 @@ export function HomePage() {
       </div>
     </section>
 
+    <section className="home-media-section" aria-labelledby="home-media-title">
+      <div className="home-media-inner">
+        <header className="home-media-heading">
+          <p>Media &amp; News</p>
+          <h2 id="home-media-title">媒體報導</h2>
+          <span>關注產業 AI 應用與在地職人的故事。以下為既有媒體與產業內容連結。</span>
+        </header>
+        <div className="home-media-grid">
+          {(showAllNews ? newsItems : newsItems.slice(0, 3)).map((item) => <NewsCard item={item} key={`${item.source}-${item.title}`} />)}
+        </div>
+        <button className="refresh-news-more" type="button" aria-expanded={showAllNews} onClick={() => setShowAllNews(value => !value)}>{showAllNews ? "收起內容" : "查看更多媒體內容"}<ArrowRight /></button>
+      </div>
+    </section>
+
+    <section className="refresh-final-cta"><div><span className="refresh-eyebrow">YOUR NEXT CHAPTER</span><h2>你的下一步，<br />從這裡開始。</h2><p>讓好生意擁有更好的數位入口。</p></div><div className="refresh-final-actions"><Link to="/pricing" className="refresh-button">了解商家方案 <ArrowRight /></Link><Link to="/contact" className="refresh-secondary">與我們聊聊 <ArrowUpRight /></Link></div></section>
+
     {selected && <div className="home-feature-detail" role="dialog" aria-modal="true" aria-labelledby="home-feature-title"><button type="button" className="home-feature-backdrop" aria-label="關閉功能介紹" onClick={() => setSelected(null)} /><article className={`home-feature-panel ${selected.name === "免POS機點餐" ? "softpos-feature-panel" : ""}`}><button type="button" className="home-feature-close" aria-label="關閉" onClick={() => setSelected(null)}><X /></button><span className="home-feature-panel-icon"><selected.icon weight="duotone" /></span><p className="home-feature-label">百工數位服務</p><h2 id="home-feature-title">{selected.name}</h2><p className="home-feature-summary">{selected.summary}</p>{selected.name === "免POS機點餐" ? <><div className="softpos-entry-grid"><Link to="/pos-ordering"><span><Storefront weight="duotone" /></span>免POS機點餐介紹<ArrowRight /></Link><Link to="/pos-ordering/guide"><span><BookOpenText weight="duotone" /></span>免POS機點餐教學<ArrowRight /></Link><Link to="/pos-ordering/experience"><span><ShoppingCart weight="duotone" /></span>體驗點餐<ArrowRight /></Link></div><small>選擇要了解的內容，或直接進入目前正式運作的 Demo 點餐流程。</small></> : <><dl><dt>適用對象</dt><dd>{selected.audience}</dd><dt>核心價值</dt><dd>{selected.value}</dd></dl><h3>主要功能</h3><ul>{selected.items.map((item) => <li key={item}><CheckCircle weight="fill" />{item}</li>)}</ul>{selected.name === "承攬 / 商家簽約" ? <div className="home-feature-contract-actions"><Link className="btn btn-primary btn-lg" to="/join?mode=merchant">商家方案簽約 <ArrowRight /></Link><Link className="btn btn-outline btn-lg" to="/partner/apply">承攬夥伴簽約 <ArrowRight /></Link></div> : <Link className="btn btn-primary btn-lg" to={selected.to}>{selected.cta} <ArrowRight /></Link>}</>}</article></div>}
-    </main><MobileBottomNav />
+    </main><Footer /><MobileBottomNav />
   </div>;
 }
 
@@ -198,7 +207,35 @@ export function MerchantSitesPage() {
 }
 
 
-function FeatureButton({ feature, index, onClick }: { feature: Feature; index: number; onClick: () => void }) { const Icon = feature.icon; return <button className={`immersive-feature feature-${index}`} type="button" onClick={onClick} aria-haspopup="dialog"><span><Icon weight="duotone" /></span><strong>{feature.name}</strong></button>; }
+const quickEntries = [{icon: MagnifyingGlass, title: "找服務", to: "/businesses"}, {icon: Plus, title: "發布需求", to: "/collaborations/new"}, {icon: Storefront, title: "商家網站", to: "/merchant-sites"}, {icon: Robot, title: "AI 智慧工具", to: "/features"}];
+
+const heroSlides = [{image: heroScene, label: "百業整合", alt: "完整呈現餐飲、美業與零售商店的智慧平台場景"}, {image: diningScene, label: "餐飲經營", alt: "台灣咖啡餐飲店的吧台、用餐與廚房完整場景"}, {image: beautyScene, label: "美業預約", alt: "美髮、服務諮詢與美甲的完整商店場景"}, {image: retailScene, label: "零售與服務", alt: "零售、工藝工作室與顧問服務的完整場景"}];
+
+function HeroCarousel() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [interacting, setInteracting] = useState(false);
+  const [visible, setVisible] = useState(true);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const motion = () => setReducedMotion(query.matches);
+    const visibility = () => setVisible(document.visibilityState === "visible");
+    motion(); visibility(); query.addEventListener("change", motion); document.addEventListener("visibilitychange", visibility);
+    return () => { query.removeEventListener("change", motion); document.removeEventListener("visibilitychange", visibility); };
+  }, []);
+  useEffect(() => {
+    if (paused || interacting || reducedMotion || !visible) return;
+    const timer = window.setInterval(() => setActive(value => (value + 1) % heroSlides.length), 6500);
+    return () => window.clearInterval(timer);
+  }, [paused, interacting, reducedMotion, visible]);
+  return <div className="refresh-carousel" role="region" aria-roledescription="輪播" aria-label="百業商業場景" onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)} onFocusCapture={() => setInteracting(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}>
+    <div className="refresh-slides">{heroSlides.map((slide, index) => <div className={`refresh-slide ${active === index ? "is-active" : ""}`} key={slide.label} aria-hidden={active !== index}><img src={slide.image} alt={slide.alt} width="1536" height="1024" fetchPriority={index === 0 ? "high" : "low"} decoding="async" /></div>)}</div>
+    <div className="refresh-carousel-controls"><span>{heroSlides[active].label}</span><div className="refresh-carousel-dots">{heroSlides.map((slide, index) => <button type="button" key={slide.label} aria-label={`顯示${slide.label}場景`} aria-current={active === index ? "true" : undefined} onClick={() => { setActive(index); setPaused(true); }}><i /></button>)}</div><button className="refresh-carousel-pause" type="button" aria-label={paused ? "播放場景輪播" : "暫停場景輪播"} onClick={() => setPaused(value => !value)}>{paused ? <Play /> : <Pause />}</button></div>
+  </div>;
+}
+
+function FeatureButton({ feature, index, onClick }: { feature: Feature; index: number; onClick: () => void }) { const Icon = feature.icon; return <button className="refresh-feature" type="button" onClick={onClick} aria-haspopup="dialog"><span className="refresh-feature-top"><Icon weight="duotone" /><small>{String(index).padStart(2, "0")}</small></span><strong>{feature.name}</strong><p>{feature.summary}</p><span className="refresh-feature-link">了解功能 <ArrowUpRight /></span></button>; }
 
 function NewsCard({ item }: { item: NewsItem }) {
   return <article className="home-media-card">
