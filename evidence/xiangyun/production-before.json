@@ -1,0 +1,28 @@
+{
+  "id": "0f211f06-25a7-4c5a-ad17-456ac413f37b",
+  "url": "https://0f211f06.baiye-platform.pages.dev",
+  "environment": "production",
+  "created_on": "2026-10-03T04:59:27.385374Z",
+  "deployment_trigger": {
+    "type": "ad_hoc",
+    "metadata": {
+      "branch": "main",
+      "commit_hash": "141dfe77872f94e984cb2e1ff2172a4e2f9b84f9",
+      "commit_message": "Finalize homepage typography and AI launcher CTA clearance",
+      "commit_dirty": true
+    }
+  },
+  "latest_stage": {
+    "name": "deploy",
+    "started_on": null,
+    "ended_on": "2026-10-03T04:59:28.578166Z",
+    "status": "success"
+  },
+  "production_branch": "main",
+  "domains": [
+    "baiye-platform.pages.dev",
+    "admin.baiyeconnect.com",
+    "baiyeconnect.com",
+    "www.baiyeconnect.com"
+  ]
+}

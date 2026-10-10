@@ -1,0 +1,62 @@
+[
+  {
+    "broken": [],
+    "client": 345,
+    "detailCount": 6,
+    "h1Scroll": 309,
+    "h1Width": 309,
+    "productCount": 4,
+    "scroll": 345,
+    "viewport": 360
+  },
+  {
+    "broken": [],
+    "client": 375,
+    "detailCount": 6,
+    "h1Scroll": 339,
+    "h1Width": 339,
+    "productCount": 4,
+    "scroll": 375,
+    "viewport": 390
+  },
+  {
+    "broken": [],
+    "client": 415,
+    "detailCount": 6,
+    "h1Scroll": 379,
+    "h1Width": 379,
+    "productCount": 4,
+    "scroll": 415,
+    "viewport": 430
+  },
+  {
+    "broken": [],
+    "client": 753,
+    "detailCount": 6,
+    "h1Scroll": 705,
+    "h1Width": 705,
+    "productCount": 4,
+    "scroll": 753,
+    "viewport": 768
+  },
+  {
+    "broken": [],
+    "client": 1351,
+    "detailCount": 6,
+    "h1Scroll": 755,
+    "h1Width": 755,
+    "productCount": 4,
+    "scroll": 1351,
+    "viewport": 1366
+  },
+  {
+    "broken": [],
+    "client": 1905,
+    "detailCount": 6,
+    "h1Scroll": 890,
+    "h1Width": 890,
+    "productCount": 4,
+    "scroll": 1905,
+    "viewport": 1920
+  }
+]

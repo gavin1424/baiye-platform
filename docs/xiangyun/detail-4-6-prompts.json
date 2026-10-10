@@ -1,0 +1,18 @@
+{
+  "mode": "built-in image_gen",
+  "disclosure": "AI-generated concept images; not real product photos or evidence of provenance.",
+  "images": [
+    {
+      "file": "detail-4-original.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: original agarwood macro concept image for a museum-inspired website, visibly labeled as AI concept by the website. Create ONE separate photograph, landscape 3:2. Extreme close macro view of aged agarwood with a deep natural irregular longitudinal crack running diagonally across the frame. Uneven fibrous edges, weathered brown wood, small honey amber resin deposits, dark walnut grain. Photorealistic high detail, sophisticated warm amber museum lighting, gentle shadows that reveal tactile depth. Wood fills the entire frame. No collage, no text, no smoke, no people, no artificial polished pattern, no symbols, no graphic overlays, no claims of provenance. This is conceptual imagery, not documentation of a real product."
+    },
+    {
+      "file": "detail-5-original.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: original agarwood macro concept image for a museum-inspired website, clearly labeled as AI concept by the website. Create ONE separate photograph, landscape 3:2. Extreme close macro view of delicate fine aged agarwood grain, flowing fine brown and golden resin threads embedded in dense walnut fibers. Subtle natural variations, restrained amber sheen, dark organic undulating linear striations; not polished or varnished wood. Wood surface fills entire frame, highly detailed textile-like grain visible, slight diagonal flow. Sophisticated warm amber museum lighting, tactile realism, subtle shallow depth of field. No collage, no text, no smoke, no people, no artificial repeated pattern, no symbols, no graphic overlays, no provenance claims. Concept image, not documentation of a real product."
+    },
+    {
+      "file": "detail-6-original.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: original agarwood macro concept image for museum-inspired website, clearly labeled AI concept by website. Create ONE separate photograph, landscape 3:2. Tight macro photography of the SIDE FACE of an irregular weathered agarwood log. The composition clearly reveals natural irregular layered dark and honey-colored wood fibers and long fibrous ridges along the side surface; slender dark resin seams and subtle amber highlights, angular edge toward upper right showing layered depth. Wood fills entire frame. Highly realistic rough woody texture, predominantly deep walnut brown, warm amber museum lighting raking across the layered surface, restrained specular highlights, tactile imperfections and age. No collage, no text, no smoke, no people, no decorative objects, no artificial repeated pattern, no graphic overlays, no provenance claims. This is conceptual imagery, not documentation of any real product."
+    }
+  ]
+}
