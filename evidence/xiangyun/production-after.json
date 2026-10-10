@@ -1,0 +1,21 @@
+{
+  "id": "37eb064a-0e7d-4d45-a664-449370236816",
+  "url": "https://37eb064a.baiye-platform.pages.dev",
+  "environment": "production",
+  "created_on": "2026-10-10T10:55:26.447076Z",
+  "deployment_trigger": {
+    "type": "ad_hoc",
+    "metadata": {
+      "branch": "main",
+      "commit_hash": "6a2421af97e937ed77844311a8e7b38fd6a03df7",
+      "commit_message": "Version corrected pavilion viewer script",
+      "commit_dirty": false
+    }
+  },
+  "latest_stage": {
+    "name": "deploy",
+    "started_on": null,
+    "ended_on": "2026-10-10T10:55:27.810341Z",
+    "status": "success"
+  }
+}

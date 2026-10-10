@@ -1,0 +1,636 @@
+[
+  {
+    "file": "404.html",
+    "state": "match",
+    "sha256": "5e66edf6060d9358622b66e62155c461755981fda7ba86ef21a49471e2f76d4a"
+  },
+  {
+    "file": "ads.html",
+    "state": "match",
+    "sha256": "a793d92a8faf3613e32f2dc65f76897a4a64094c4bcd1dca27196f71b8fad053"
+  },
+  {
+    "file": "CNAME",
+    "state": "match",
+    "sha256": "605bfaaf19ff645281f6d76dd32f7ccfc2f8b7e1e673fdfdf904f57dbf3fc763"
+  },
+  {
+    "file": "index.html",
+    "state": "match",
+    "sha256": "5e66edf6060d9358622b66e62155c461755981fda7ba86ef21a49471e2f76d4a"
+  },
+  {
+    "file": "robots.txt",
+    "state": "match",
+    "sha256": "6f3553d05a15d9985f83a5433ca2d6d91836c481fc34a26be8915a1064b9231e"
+  },
+  {
+    "file": "sitemap.xml",
+    "state": "match",
+    "sha256": "5e9187d47fa41e3052caa81e39c54cb4e98613c8ddafa4105931a68075396fe4"
+  },
+  {
+    "file": "_headers",
+    "state": "config retained"
+  },
+  {
+    "file": ".well-known/README.md",
+    "state": "match",
+    "sha256": "c1d7aa65ad3dcfed14bc50f2e1af32dfbd18cdd9c8318795fcdb53a6ecf90224"
+  },
+  {
+    "file": "about/index.html",
+    "state": "match",
+    "sha256": "14e6442b6dc35cd811ccf50e36817e53a668a9a5cbf73478d60e010f8ec48505"
+  },
+  {
+    "file": "ai/index.html",
+    "state": "match",
+    "sha256": "a1c44c527bee3f4a683bb730cafaef1c868ef35fbaae276075eac116cd9d310d"
+  },
+  {
+    "file": "assets/ads-Bn4R39oC.js",
+    "state": "match",
+    "sha256": "f3753780b2a2bc1f7942623db96c67cc7c5416005c4ebc9bcffa2b35240dd688"
+  },
+  {
+    "file": "assets/ads-DLNwJe91.css",
+    "state": "match",
+    "sha256": "17430008c0555cdfdb3bff099ee52cf4e0c55af7fa8ec6e3c87e1d33cdb2cee8"
+  },
+  {
+    "file": "assets/ai-companion-site-CCx8fs9C.webp",
+    "state": "match",
+    "sha256": "9faf283c12a626c59bcb3d9498d68b44df3dfe41aab9fa621c7c2745d1605e9f"
+  },
+  {
+    "file": "assets/ai-service-train-Cbd2ETQf.png",
+    "state": "match",
+    "sha256": "c88a71c9724bbc36c1849e72e6d223802ab6c9166cb2ae78db1bbb0e0c848757"
+  },
+  {
+    "file": "assets/business-aquarium-cover.jpg",
+    "state": "match",
+    "sha256": "c059c067892d55587c616b657ec995441de09dc0cd8471592573fb5d3d2c865e"
+  },
+  {
+    "file": "assets/ctee-DnQZ0KMV.jpg",
+    "state": "match",
+    "sha256": "ba095bb64db9466e236c0a9e4730b48d999277a4b3295f6ff9a05911adc4a809"
+  },
+  {
+    "file": "assets/culture-B9olFFK-.jpg",
+    "state": "match",
+    "sha256": "086d97426a03ed886e50495e6fe4b353c962ca8385820f5c0c3b42cfaf0cc67a"
+  },
+  {
+    "file": "assets/economic-daily-Ck2aOv4A.jpg",
+    "state": "match",
+    "sha256": "ce97bba2477c7e17ce3cbf963be23f6bf925fb81da5bc816c64aedab2de837f2"
+  },
+  {
+    "file": "assets/fire-site-BoCSCJhA.webp",
+    "state": "match",
+    "sha256": "eb87e8146fcc6b9d0b33bf93486e01faa8051f213dce02c4130f45be643563f4"
+  },
+  {
+    "file": "assets/greensave-site-CkNqaSWI.webp",
+    "state": "match",
+    "sha256": "28bd9f88ffb60353293dd38c710cbf534b520596395a6658d3fe04e5868bb842"
+  },
+  {
+    "file": "assets/hero-industry-collage.jpg",
+    "state": "match",
+    "sha256": "4ae15e45d959bff3bfa72fe4f1029a9834ccf2c2c7d992a2e3a872ed64e151c1"
+  },
+  {
+    "file": "assets/home-beauty-scene-2Bnki1uP.webp",
+    "state": "match",
+    "sha256": "7f8af722d7895443c7ee94bae599f0e5bd86657b1d10993a226813b31e149379"
+  },
+  {
+    "file": "assets/home-business-scene-D4KYu7sm.webp",
+    "state": "match",
+    "sha256": "2f157af88ca53b9c702bf8d5708d6eead6759ed36b1e3d821767e3873da1e2ff"
+  },
+  {
+    "file": "assets/home-dining-scene-uQCFFaLQ.webp",
+    "state": "match",
+    "sha256": "5d8cdf5caff225104c9441cb5a4c681dcd73869e9416b3f8da2c46b5523b721e"
+  },
+  {
+    "file": "assets/home-retail-scene-CNhqDku7.webp",
+    "state": "match",
+    "sha256": "33235cd3ceb5e2de5063f450b7c8399586b8d59f69924cbd3c94e1b39ab1ad14"
+  },
+  {
+    "file": "assets/index-aIGHZBlQ.js",
+    "state": "match",
+    "sha256": "620acd576d765b2fb883e16b9fe0e5ede822b2afcae14b5aa62b274e262ec0c6"
+  },
+  {
+    "file": "assets/index-DLOBuQ-8.css",
+    "state": "match",
+    "sha256": "3e09449bf5056ac73733aff54409204dcef5e7c13064f2b37faa76e37cc5c723"
+  },
+  {
+    "file": "assets/modulepreload-polyfill-B5Qt9EMX.js",
+    "state": "match",
+    "sha256": "d2a32840421496e872ade591618d2fa5c33797605d1aec04301717e5a90757d0"
+  },
+  {
+    "file": "assets/qrcode-B2XmtGTM.js",
+    "state": "match",
+    "sha256": "e03c3d3968b170677d442c8e10069242ecb031696ed4398b4e2efdd64af4e5fc"
+  },
+  {
+    "file": "assets/react-IsLpfBRF.js",
+    "state": "match",
+    "sha256": "c2cb0ceafefcebcb1ad3177cbc87a9ef816206a08b29ca38c15e2ff715eaf155"
+  },
+  {
+    "file": "assets/router-Yez1IugW.js",
+    "state": "match",
+    "sha256": "1f4703702f456a9e8c7677a21e62f669836e4b00b6eda67ba1963b6600b86201"
+  },
+  {
+    "file": "assets/success-collaboration.jpg",
+    "state": "match",
+    "sha256": "5a0d2327d07f73b4fac1739d079d95cb7c374f1efc3789c0101d20544c327485"
+  },
+  {
+    "file": "assets/taisounds-BFHEwRBa.jpg",
+    "state": "match",
+    "sha256": "b1294a1c6a4773241b5363dadf609ec134cb002fd4c67b4335a05897617a2852"
+  },
+  {
+    "file": "assets/tanxiang-site-DqdzZEej.webp",
+    "state": "match",
+    "sha256": "6aa8d7255d0713ef28e3d76828eaab93811cdb72a05e9c351a5ab019406666eb"
+  },
+  {
+    "file": "assets/yahoo-BlaepX-w.webp",
+    "state": "match",
+    "sha256": "891c81b31112f3386d2e18943ae1058ad258a9244cc2e1d02bb0ee3efbef8f99"
+  },
+  {
+    "file": "brand/chuang-baiye-header-logo.png",
+    "state": "match",
+    "sha256": "3d254ac0beaed069929dea0dc33d3a2d21130197241b5d9bf064a092d4a3be19"
+  },
+  {
+    "file": "brand/chuang-baiye-smart-chain-logo.png",
+    "state": "match",
+    "sha256": "9910dec88af43d7b109ee17ffea940d9b8d5a5ae1f3f9be3ab6240abf5143a96"
+  },
+  {
+    "file": "businesses/index.html",
+    "state": "match",
+    "sha256": "4813415d2514173944a27f3009cfe13451d35468506c35043c22d127a6f33053"
+  },
+  {
+    "file": "categories/index.html",
+    "state": "match",
+    "sha256": "d2a52a678cf3ae767e110a7e483c2c173c7436b7d5afb0d4d12b024a9da25b8a"
+  },
+  {
+    "file": "collaborations/index.html",
+    "state": "match",
+    "sha256": "ea148c4003ed6d444f4408bff9b13dee4e9a97be8d6d0aed25833f2d7d729fc0"
+  },
+  {
+    "file": "contact/index.html",
+    "state": "match",
+    "sha256": "06dcd9ef6af0d07f2c2b0fa39cc3f0cbbfd9976e541c2b5381c962c97cda3a40"
+  },
+  {
+    "file": "demo-sites/index.html",
+    "state": "match",
+    "sha256": "fd25f2eaf5fb92ae99196ed8d1e8d42e52b7c89f0d88652074555564284c86aa"
+  },
+  {
+    "file": "faq/index.html",
+    "state": "match",
+    "sha256": "003c358a85420073f8ddc2b8b55338a143af2906f4b0d3686065da236ccc53bd"
+  },
+  {
+    "file": "forgot-password/index.html",
+    "state": "match",
+    "sha256": "a3ea44b2ee3e616b775c3555f68a264b0cbdd78b7b9ad0700e44c918d3fbf113"
+  },
+  {
+    "file": "google-ads/index.html",
+    "state": "match",
+    "sha256": "546b0e171b3f8ce4ec08cc8b5f311828ab2b2445bdb140bd5a45ce21aaf0bc9d"
+  },
+  {
+    "file": "how-it-works/index.html",
+    "state": "match",
+    "sha256": "6ea7f50e7ece9b81484d38da6c0b589ae85de8998844788e8f4bb8d597cd5aea"
+  },
+  {
+    "file": "join/index.html",
+    "state": "match",
+    "sha256": "3666a31ae2ae47cad7a82a3b5577d01260341616a6cd2611c7b25b2f08d4028f"
+  },
+  {
+    "file": "login/index.html",
+    "state": "match",
+    "sha256": "85c5b1ed876d784575511ab2b0f0c0042544da28a0d4d5e485c4e8039fd33c02"
+  },
+  {
+    "file": "marketplace/index.html",
+    "state": "match",
+    "sha256": "217557c06c645cec45da4986bf9cd46d4887e76a4fae01815106be8de1eea8ac"
+  },
+  {
+    "file": "media/baiye_intro_story_60s.mp4",
+    "state": "match",
+    "sha256": "47261e8ddee131548749bf335c9b8ec6bf2d444444321a938a59cf37b48dd03b"
+  },
+  {
+    "file": "media/baiye_intro_story_poster.webp",
+    "state": "match",
+    "sha256": "f7ddb90048abad27411c99bc677aaa39be17dca9244fb49062df878e24ab40d9"
+  },
+  {
+    "file": "merchant/index.html",
+    "state": "match",
+    "sha256": "6fc1bad03f8d78fa91f0b4919d27e90e6881bd62dcd63150f47451ecfe299b67"
+  },
+  {
+    "file": "ordering/index.html",
+    "state": "match",
+    "sha256": "5733f3ccd15bd0affd6d560455d3e1f5b2064ac8bc860a900ea1c38532b96389"
+  },
+  {
+    "file": "partner/index.html",
+    "state": "match",
+    "sha256": "65edd69d4e9e57f68962a486c02344f28a45acc452d62e5ccc0a58d875628e37"
+  },
+  {
+    "file": "platform/index.html",
+    "state": "match",
+    "sha256": "c1293461dce461e22aaaf2b6f2b554f5c68f6ff98a02b724daf0c3b3ebbf0ea6"
+  },
+  {
+    "file": "pricing/index.html",
+    "state": "match",
+    "sha256": "8c751225402c9f781c79748ee0c492a290469d544631f85567487a3cf6510d8d"
+  },
+  {
+    "file": "privacy/index.html",
+    "state": "match",
+    "sha256": "7bd0a144f0c2d166d64466d2542ac3d033eb7985c936c16418a26fed2431081e"
+  },
+  {
+    "file": "refund/index.html",
+    "state": "match",
+    "sha256": "d17e24c01ec484ab226b3a61d18d05f74c8cf5af6af13f4ce261718b9b57982f"
+  },
+  {
+    "file": "register/index.html",
+    "state": "match",
+    "sha256": "4f329f872f45d2747c96ab39decf2072be172a850c98eb48eeab078db4098813"
+  },
+  {
+    "file": "report/index.html",
+    "state": "match",
+    "sha256": "a9a9febf08e31427ae698ea13e14464a4f1d4acbc6d9f989127bd8123d63f3a4"
+  },
+  {
+    "file": "shop/index.html",
+    "state": "match",
+    "sha256": "7a9448cc1bce5dac9ab84104826d2d4f85d0970507f83abce56c05d789e55d5c"
+  },
+  {
+    "file": "success-stories/index.html",
+    "state": "match",
+    "sha256": "5d07a1b596c4f1c7f088f1a212fe262e8e317ce9ee56f6cfcef2d48627d05a68"
+  },
+  {
+    "file": "tanxiang/app.js",
+    "state": "match",
+    "sha256": "1fd4b35f2a98a66e5fed617eb31af34de2cd98b2ce421c6fe94841cecba3aaf0"
+  },
+  {
+    "file": "tanxiang/index.html",
+    "state": "match",
+    "sha256": "88acf322d23f880fbcd45d92742ae3db10d2a43f5e7f2820cac1de39ea7cefd0"
+  },
+  {
+    "file": "tanxiang-stable/index.html",
+    "state": "match",
+    "sha256": "ebfc58e9c410b520323e4c5433592e1bddcd5e5407e7272013b8be784a9316b8"
+  },
+  {
+    "file": "tanxiang-stable/pavilion.css",
+    "state": "match",
+    "sha256": "902793f3847d6cfdea6a450850e19764ea589ee614bb78888bb69b468b87bd65"
+  },
+  {
+    "file": "tanxiang-stable/pavilion.js",
+    "state": "match",
+    "sha256": "b90d8d48929d9d02311de73b7f736deb8525d6af4bd16fe455514f7ccd5924c8"
+  },
+  {
+    "file": "tanxiang-v2/index.html",
+    "state": "match",
+    "sha256": "88acf322d23f880fbcd45d92742ae3db10d2a43f5e7f2820cac1de39ea7cefd0"
+  },
+  {
+    "file": "terms/index.html",
+    "state": "match",
+    "sha256": "f91b96f713939f47dc3938808c6ff69644bf7fb61058394c62a81d462fe89094"
+  },
+  {
+    "file": "assets/ads/beauty-small.webp",
+    "state": "match",
+    "sha256": "f3d5616638452e9bf64518f563b49a3d17689552479aaba6917dc84e8ee1e5f2"
+  },
+  {
+    "file": "assets/ads/beauty.webp",
+    "state": "match",
+    "sha256": "d78294e0bc190418066840dfdb44560f019932bf9ff3357153d48ba0d94e9068"
+  },
+  {
+    "file": "assets/ads/cafe-small.webp",
+    "state": "match",
+    "sha256": "9819d07ed3c9a0e5cb4edad086a96a4ba0bab9e45db54c44f44fd47d3f9ffc5b"
+  },
+  {
+    "file": "assets/ads/cafe.webp",
+    "state": "match",
+    "sha256": "3492b81726ec95f1676b7076e58712d799c281be6f33d24db0cffb16c9359b2b"
+  },
+  {
+    "file": "assets/ads/retail-small.webp",
+    "state": "match",
+    "sha256": "a1b296a99b84b47f6a95de631fdc6442e62166af8e0be7d876eff383e22c6b9f"
+  },
+  {
+    "file": "assets/ads/retail.webp",
+    "state": "match",
+    "sha256": "441bb7b5210ffce01005dadb6179a9d277752c0b8271efa98c45e781ad1cefcc"
+  },
+  {
+    "file": "assets/ads/team-small.webp",
+    "state": "match",
+    "sha256": "6887a6358882d96db3715816fb467fd1dae7f4809b5b1d07a8d3eeb2b7e53f30"
+  },
+  {
+    "file": "assets/ads/team.webp",
+    "state": "match",
+    "sha256": "4b44d54d8bc4ff4cef48dfff22a9e672069c077ab086ca7aa8d78177109a91fd"
+  },
+  {
+    "file": "assets/ads/workspace-small.webp",
+    "state": "match",
+    "sha256": "bc238fcc2024d3682c2f56fdae52d64c869d18b9ffb3311db486570ccbcdeae9"
+  },
+  {
+    "file": "assets/ads/workspace.webp",
+    "state": "match",
+    "sha256": "333c53b5f59356cc8302e1b7f9e2d61d2ea74e0384e7cc1acaaa2cbefae7909f"
+  },
+  {
+    "file": "assets/demo-beef-noodle/braised-bowl.svg",
+    "state": "match",
+    "sha256": "9d42245a804b36e9814b196468139b22be2aade6999af3873c62faff4008c90c"
+  },
+  {
+    "file": "assets/demo-beef-noodle/dry-noodle.svg",
+    "state": "match",
+    "sha256": "cf0fd50fbd5e3aa405b80d444d457d1dc989a3a598d8585ef6c28b403c64ebc9"
+  },
+  {
+    "file": "assets/demo-beef-noodle/side-dish.svg",
+    "state": "match",
+    "sha256": "c7fac7751043a88341b62a0435bda918812f561f9e6527c5bd8131a6aa3bd970"
+  },
+  {
+    "file": "assets/demo-beef-noodle/tendon-bowl.svg",
+    "state": "match",
+    "sha256": "674b49fa0acce16d8374b0cc646fb7b0e0108147a447f8efe326b2eadc380e57"
+  },
+  {
+    "file": "member/login/index.html",
+    "state": "match",
+    "sha256": "d8bce46e7bd0e0fb39136b67e051f178d10f4586674c27dcbed560b9d082d2f6"
+  },
+  {
+    "file": "partner/apply/index.html",
+    "state": "match",
+    "sha256": "bca5e3b70d0ca525910af88591dc0ba209e9cbbb950341bfc182fcbb2163a1e3"
+  },
+  {
+    "file": "partner/contract/index.html",
+    "state": "match",
+    "sha256": "28d9cceb8797d042f1adcba5ed2e5e2c2197b3d315dd5dee11421ea9387e23b9"
+  },
+  {
+    "file": "partner/dashboard/index.html",
+    "state": "match",
+    "sha256": "9e8086259b704f122844703a1c6ca69e235307d8c8ce58589c4c9f899dc43f32"
+  },
+  {
+    "file": "partner/login/index.html",
+    "state": "match",
+    "sha256": "6c2a5890b534b4e00ccd4835afca7c1e1591a770b7620dd585827677cc7c2a08"
+  },
+  {
+    "file": "tanxiang/assets/hero.jpg",
+    "state": "match",
+    "sha256": "2c78a23cd80bc2db0912e8450f7d3c1b6ee2ce64ff440879a442e8991ea80a0c"
+  },
+  {
+    "file": "tanxiang-stable/assets/FONT-LICENSE.txt",
+    "state": "match",
+    "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2"
+  },
+  {
+    "file": "tanxiang-stable/assets/hero.jpg",
+    "state": "match",
+    "sha256": "c6ecb0651debe22714f2d671d88b1b98924a6c3adf5733f09729cf8b8f69b5a3"
+  },
+  {
+    "file": "tanxiang-stable/assets/serif-tc.woff2",
+    "state": "match",
+    "sha256": "6d0ff4f8817bfe71e4b59306c2dc645a3b1da03e75e1e995a8bedc36c5b2c1b3"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-1-large.webp",
+    "state": "match",
+    "sha256": "b07314e36199d7860836a46559dcf615972b59c1db71e9deddc2347b22a0c761"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-1.webp",
+    "state": "match",
+    "sha256": "d9d7191612d5eb82261dc4c945bee5b4eb64dc7fd84f4b82b217faac2c752ab0"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-2-large.webp",
+    "state": "match",
+    "sha256": "fd61b8e2c80662546416dae5ed5b9f814b3a35b8c8574d52451364c337b62f3b"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-2.webp",
+    "state": "match",
+    "sha256": "16e3a75c652421704b89ecaaae0e643ef2248c87bbd623ff028dc623bf4adfab"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-3-large.webp",
+    "state": "match",
+    "sha256": "86e6f25630c02c622c5afc99929c0e021af0771979409da04044560e5c2ba419"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-3.webp",
+    "state": "match",
+    "sha256": "32fbc2a9622ff86fe92adb978e78b1907e19a840209afacb87020ed112762d87"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-4-large.webp",
+    "state": "match",
+    "sha256": "dfeb01c1843ef80a951ae9aba9f20fb5f84c6094319cde6058eac5dddf30eae3"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-4.webp",
+    "state": "match",
+    "sha256": "6900f1a5430e9149921624c58181d5b7020086545a69624481345d039545eea1"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-5-large.webp",
+    "state": "match",
+    "sha256": "da8624d2657a6fc8d11c6930f9e92bc97951a2d898a820c08e392b5263df7905"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-5.webp",
+    "state": "match",
+    "sha256": "cc2971a030d1155828f8420ed9bc2631d3390e13480b09bb23cebca7e73f5274"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-6-large.webp",
+    "state": "match",
+    "sha256": "380aa732f9fb6fb1f8fd9844496a7e08e1fe6d6523acba57efc6c82e6d752e9d"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/detail-6.webp",
+    "state": "match",
+    "sha256": "829226914ba5785d3d71c5cfeb36e26c7e85e821047848b3f8947fedb8ae554f"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/pavilion-large.webp",
+    "state": "match",
+    "sha256": "fac11812a55c492065b1102f5f60e1294404e10bf6366a9455da514cff996547"
+  },
+  {
+    "file": "tanxiang-stable/assets/concepts/pavilion.webp",
+    "state": "match",
+    "sha256": "9fb057b556f321079df0a0b570a4375a5a36c4c84e72e308230127a7bdc8713a"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/ArrowCounterClockwise.svg",
+    "state": "match",
+    "sha256": "76e8e5466ef1b2d923d4a8171ff4f263e1cc19e2d2c6afeb71e8014abe4406f4"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/ArrowLeft.svg",
+    "state": "match",
+    "sha256": "f7ee96aa187b5c370ec6053bb9e280168e696dbb1e8d57d2c3354b5862e064df"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/ArrowRight.svg",
+    "state": "match",
+    "sha256": "31c11a98e02f26baa9711f9dd7e6a728396915c35874e82d73d62a6578796048"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/ArrowsClockwise.svg",
+    "state": "match",
+    "sha256": "736e6b07231a07d7770f1d2b01dc1738cca63882169134e3f965ebcbec156120"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/ArrowsVertical.svg",
+    "state": "match",
+    "sha256": "07e7f40337e80d2156468e01169d9877503665089c60c57bc83b87c17265129a"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/ArrowUpRight.svg",
+    "state": "match",
+    "sha256": "0982da43e71e3935e05bdcfadd16af5a1605eb1624cff95eec04a21db529b7aa"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/BookOpen.svg",
+    "state": "match",
+    "sha256": "f5eb3697db456e99f014aff960c693bfa08249be7a165bc010ef82d589b45289"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/Cloud.svg",
+    "state": "match",
+    "sha256": "b5cce32a1cf7bb461905817f9bcc93ea507b2bf05cbe4a7b273ad1cd474fa955"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/CornersOut.svg",
+    "state": "match",
+    "sha256": "df73bcabd82521876ba4ec7d3023bdf8442001af25b18d59b14f138e1b4a56e7"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/EnvelopeSimple.svg",
+    "state": "match",
+    "sha256": "08a1232f5afc0460efa6c4a24cc95128dc9b4c6a3a0f5e3b9076e8b14064d813"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/Hand.svg",
+    "state": "match",
+    "sha256": "1b372f68b3c41c688104b5763fd5e83ced3389fdc5be5c9be8a3f0d0ad6d1315"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/HandSwipe.svg",
+    "state": "match",
+    "sha256": "1b372f68b3c41c688104b5763fd5e83ced3389fdc5be5c9be8a3f0d0ad6d1315"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/Leaf.svg",
+    "state": "match",
+    "sha256": "6ea835ef98162183103a6935c3df5ca56a2953904ac183c0307e34e40dcf54a8"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/LICENSE",
+    "state": "match",
+    "sha256": "6918b72504641180600cbbd4a86b0dfa9dfccf788775694325b71b9a029f6eb4"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/List.svg",
+    "state": "match",
+    "sha256": "12623966e87ccadda77832085e0f5dd2716b022fb8b7c7f259b60d403cc6a187"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/MagnifyingGlassPlus.svg",
+    "state": "match",
+    "sha256": "4fbee5618e806353e81c813648ef35d670c3020bd8677e5c8898a86af605a6a5"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/Minus.svg",
+    "state": "match",
+    "sha256": "e395c67fc32c4e6c49a8684778b89d6711a6db9a8abe96f5eaf5d68563ac1e1f"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/Plus.svg",
+    "state": "match",
+    "sha256": "7c0cf2318cbf51f60d245deb0757f874d820454869ed9174eb332ffb8d02e23d"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/SpeakerSlash.svg",
+    "state": "match",
+    "sha256": "c22fa4e19c469bd205e62cc0a7e2ba39e9029bd587b05229e435975f17fca98d"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/Wind.svg",
+    "state": "match",
+    "sha256": "f3b6bc76f4b34a933eb54544a489afd4874de997e101ad38cb6c10dcc1dd849f"
+  },
+  {
+    "file": "tanxiang-stable/assets/icons/X.svg",
+    "state": "match",
+    "sha256": "6cd927548ddb468502158963277748c9598960eaaef600042c8d4cf56fbd6b64"
+  }
+]

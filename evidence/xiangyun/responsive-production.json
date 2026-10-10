@@ -1,0 +1,38 @@
+[
+  {
+    "broken": [],
+    "client": 345,
+    "scroll": 345,
+    "viewport": 360
+  },
+  {
+    "broken": [],
+    "client": 375,
+    "scroll": 375,
+    "viewport": 390
+  },
+  {
+    "broken": [],
+    "client": 415,
+    "scroll": 415,
+    "viewport": 430
+  },
+  {
+    "broken": [],
+    "client": 753,
+    "scroll": 753,
+    "viewport": 768
+  },
+  {
+    "broken": [],
+    "client": 1351,
+    "scroll": 1351,
+    "viewport": 1366
+  },
+  {
+    "broken": [],
+    "client": 1905,
+    "scroll": 1905,
+    "viewport": 1920
+  }
+]
