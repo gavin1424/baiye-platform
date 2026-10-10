@@ -9,7 +9,10 @@
   const pointers = new Map();
   function paint() {
     const box = stage.getBoundingClientRect();
-    const ratio = picture.naturalWidth / (picture.naturalHeight || 1);
+    // Keep pan bounds finite before an uncached image has decoded.
+    const ratio = picture.naturalWidth && picture.naturalHeight ? picture.naturalWidth / picture.naturalHeight : 1.5;
+    if (!Number.isFinite(x)) x = 0;
+    if (!Number.isFinite(y)) y = 0;
     const width = Math.min(box.width, box.height * ratio), height = width / ratio;
     const maxX = Math.max(0, (width * scale - box.width) / 2), maxY = Math.max(0, (height * scale - box.height) / 2);
     x = Math.max(-maxX, Math.min(maxX, x)); y = Math.max(-maxY, Math.min(maxY, y));
