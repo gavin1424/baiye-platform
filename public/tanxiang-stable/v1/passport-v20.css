@@ -2,3 +2,4 @@
 
 @media print{body.printing-passport-qr *{visibility:hidden}body.printing-passport-qr .passport-print-target,body.printing-passport-qr .passport-print-target *{visibility:visible}body.printing-passport-qr .passport-print-target{position:absolute;left:0;top:0;width:100%;background:white;color:#222}body.printing-passport-qr .passport-print-target .row,body.printing-passport-qr .passport-print-target button{display:none!important}}
 .passport .passport-header{position:static;display:block;top:auto;z-index:auto;padding:0;border:0;background:transparent;gap:0;min-height:0;max-width:100%}.passport .passport-header>*{max-width:100%;overflow-wrap:anywhere}.passport>footer{position:static;display:block;background:transparent;padding:1rem 0}.passport .passport-test-banner{position:static}
+.passport .passport-test-banner p{color:#4a3425}.passport .passport-test-banner strong{color:#4a3425}

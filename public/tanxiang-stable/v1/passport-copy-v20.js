@@ -1,4 +1,5 @@
 const copy={
+ qrPreparing:['正在準備下載','正在准备下载','Preparing download','ダウンロードを準備中'],qrReady:['已開始下載','已开始下载','Download started','ダウンロードを開始しました'],
  currency:['幣別','币种','Currency','通貨'],labelPrint:['列印QR標籤','打印QR标签','Print QR label','QRラベル印刷'],inquiry:['洽詢中','询价中','Enquiries','相談中'],display:['展示','展示','Display','展示'],collected:['已收藏','已收藏','Collected','収蔵済み'],saleStatus:['收藏狀態','收藏状态','Collection status','収蔵状態'],
 
  shape:['外形','外形','Shape','形'],colour:['顏色描述','颜色描述','Colour description','色の説明'],origin:['公開產地概述（勿填精確地點）','公开产地概述（勿填精确位置）','Public origin (no precise location)','公開産地概要（正確な位置は記載しない）'],provenance:['公開傳承說明','公开传承说明','Public provenance','公開する来歴'],condition:['保存狀況','保存状况','Condition','保存状態'],received:['入庫日期','入库日期','Date received','入庫日'],price:['本顆售價（最小幣別單位）','本颗售价（最小货币单位）','Price for this stone (minor currency units)','この石の価格（通貨最小単位）'],symbol:['元素','元素','Element','元素'],value:['儀器讀值','仪器读值','Instrument reading','装置の読値'],unit:['單位','单位','Unit','単位'],review:['變更公開／核對狀態','变更公开与核对状态','Change publication / review status','公開／確認状態を変更'],
