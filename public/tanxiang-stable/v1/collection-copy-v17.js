@@ -31,7 +31,7 @@ const strings={
  condition:['品況','品况','Condition','状態'],
  safety:['材料安全確認','材料安全确认','Material safety review','材料安全性の確認'],
  received:['實物入庫日期','实物入库日期','Physical intake date','実物入庫日'],
- xrf:['單件對應檢測／方法／日期','单件对应检测／方法／日期','Individual test / method / date','個別検査・方法・日付'],
+ xrf:['這顆石頭的檢測紀錄','这颗石头的检测记录','Measurements for this stone','この石の測定記録'],
  shipping:['合法出貨地區','合法出货地区','Approved shipping regions','出荷確認済み地域'],
  terms:['銷售及退換貨條款確認','销售及退换货条款确认','Sales and returns approval','販売・返品条件の確認'],
  qr:['典藏資料連結 QR','典藏资料链接 QR','Collection record link QR','収蔵記録のリンクQR'],

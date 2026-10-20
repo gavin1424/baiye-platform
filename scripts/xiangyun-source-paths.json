@@ -21,5 +21,13 @@
   "scripts/requirements-ore-pbr.txt",
   "scripts/xiangyun-source-paths.json",
   "scripts/xiangyun-preview-build.mjs",
-  "docs/lingstone/issue65"
+  "docs/lingstone/issue65",
+  "cloudflare-worker/tests/stone-passport-v20.test.mjs",
+  "docs/lingstone/issue67",
+  "cloudflare-worker/tests/collection-v17.test.mjs",
+  "cloudflare-worker/tests/catalog-v4.test.mjs",
+  "cloudflare-worker/tests/models-v19.test.mjs",
+  "cloudflare-worker/tests/xiangyun.test.mjs",
+  "server/lingstone-db.mjs",
+  "cloudflare-worker/migrations/0042_xiangyun_stone_passports.sql"
 ]

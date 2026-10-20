@@ -27,6 +27,7 @@ export async function eligibleRecommendations(db,elements){
 }
 export function validateProduct(b){
  const p={}; for(const k of ['serial','name','material','story','translations','category','grade','element','batch_id','currency','status','safety','source_status','compliance','lead_status','cadmium_status','other_elements','skin_contact']) if(k in b)p[k]=b[k]===null?null:text(b[k],k==='translations'?16000:4000);
+ if(/^XY-(?:CONCEPT-|C)\d+$/.test(p.serial||''))fail('RETIRED_DISPLAY_CODE',422);
  if(!p.serial||!p.name||!categories.includes(p.category))fail('INVALID_PRODUCT');
  for(const k of ['weight_g','length_mm','width_mm','height_mm','price_minor']) if(k in b){p[k]=b[k]===null||b[k]===''?null:Number(b[k]);if(p[k]!==null&&(!Number.isFinite(p[k])||p[k]<0||(k!=='price_minor'&&p[k]===0)))fail('INVALID_MEASUREMENT');}
  if(p.price_minor!=null&&!Number.isSafeInteger(p.price_minor))fail('INVALID_PRICE');
@@ -94,7 +95,7 @@ export async function handleLingstone(req,env,cors={}){
   const product=await db.prepare(`SELECT ${publicFields} FROM ls_products WHERE id=? AND status NOT IN('draft','withdrawn')`).bind(detail[1]).first();if(!product)fail('NOT_FOUND',404);
   const media=(await db.prepare('SELECT kind,url,alt FROM ls_media WHERE product_id=? AND verified_real=1').bind(product.id).all()).results;
   const xrf=(await db.prepare('SELECT id,tested_on,device,mode,element,reading,unit,original_url,note,confirmation FROM ls_xrf WHERE product_id=? AND is_public=1').bind(product.id).all()).results;
-  return out({product,media,xrf,xrf_label:'HISTORICAL_XRF_INSTRUMENT_READING',shipping:(await db.prepare('SELECT country,fee_minor FROM ls_shipping WHERE product_id=? AND enabled=1').bind(product.id).all()).results});
+  return out({product,media,xrf:[],individual_testing:'REQUIRES_MATCHED_STONE_REGISTRATION',xrf_label:'HISTORICAL_XRF_INSTRUMENT_READING',shipping:(await db.prepare('SELECT country,fee_minor FROM ls_shipping WHERE product_id=? AND enabled=1').bind(product.id).all()).results});
  }
  if(path==='/recommendations'&&method==='GET'){
   const element=url.searchParams.get('element');if(!['metal','wood','water','fire','earth'].includes(element))fail('INVALID_ELEMENT',422);

@@ -1,5 +1,6 @@
+import {publicDesignId} from './identity-v20.js';
 import {authenticateMember,requireBrandAdmin,json,rateLimit} from './auth.js';
-import {drafts} from '../../../public/tanxiang-stable/v1/collection-data-v17.js';
+import {drafts} from './legacy-designs-v17.js';
 import {modelById} from '../../../public/tanxiang-stable/v1/model-data-v19.js';
 
 export const collectionSchema=`
@@ -52,6 +53,7 @@ export async function handleCollection(req,env,path){
   const model=b.model_glb??null,frames=b.frames360;
   const ownAsset=v=>typeof v==='string'&&/^\/tanxiang-stable\/v1\/assets\/[\w/-]+\.(glb|webp|jpg|png)$/.test(v)&&!v.includes('..');
   if(model&&!ownAsset(model)||frames.some(x=>!ownAsset(x)))bad('INVALID_MEDIA');
+  if(b.physical_sku!==old.physical_sku)bad('USE_INDEPENDENT_STONE_REGISTRY');
   for(const k of ['condition_note','received_on','source_note','physical_sku'])if(b[k]!==null&&(typeof b[k]!=='string'||b[k].length>1000))bad('INVALID_RECORD');
   if(b.received_on&&!/^\d{4}-\d{2}-\d{2}$/.test(b.received_on))bad('INVALID_RECORD');
   const changes=await db.batch([db.prepare('UPDATE xy_product_records SET stock=?,condition_note=?,received_on=?,source_note=?,physical_sku=?,model_glb=?,frames360=?,terms_confirmed=?,revision=revision+1 WHERE product_id=? AND revision=?').bind(b.stock,b.condition_note,b.received_on,b.source_note,b.physical_sku,model,JSON.stringify(frames),b.terms_confirmed,id,b.revision),db.prepare("INSERT INTO ls_audit(id,actor_id,action,entity_id) SELECT ?,?,'collection.update',? WHERE changes()=1").bind(crypto.randomUUID(),admin.admin_user_id,id)]);
@@ -59,12 +61,12 @@ export async function handleCollection(req,env,path){
  }
  if(path==='/collection'&&method==='GET'){
   const records=(await db.prepare("SELECT p.id,p.serial,p.name,p.category,p.element,p.status,p.weight_g,p.length_mm,p.width_mm,p.height_mm,p.price_minor,p.currency,p.translations,r.stock,r.concept_url,r.media_provenance,a.catalog_sku,a.thumb_url,a.display_category,a.price_type FROM ls_products p JOIN xy_product_records r ON r.product_id=p.id LEFT JOIN xy_concept_art a ON a.product_id=p.id WHERE p.status NOT IN('draft','withdrawn') ORDER BY p.serial").all()).results;
-  return json({products:env.XIANGYUN_MODELS_V19==='1'?records.map(p=>({...p,...modelById(p.id)})):records,mode:'INQUIRY_ONLY',handoff:records.length===10&&records.every(p=>p.media_provenance==='AI_CONCEPT_V4')?'IMPORTED_V4':'MISSING',payment:'DISABLED'});
+  return json({products:env.XIANGYUN_MODELS_V19==='1'?records.map(p=>({...p,...modelById(publicDesignId(p.id))})):records,mode:'INQUIRY_ONLY',handoff:records.length===10&&records.every(p=>p.media_provenance==='AI_CONCEPT_V4')?'IMPORTED_V4':'MISSING',payment:'DISABLED'});
  }
  const record=path.match(/^\/collection\/([\w-]+)$/);
  if(record&&method==='GET'){
   const p=await db.prepare("SELECT id FROM ls_products WHERE id=? AND status NOT IN('draft','withdrawn')").bind(record[1]).first();if(!p)return json({error:'NOT_FOUND'},404);
-  const r=await collectionRecord(db,p.id);return r?json({record:{...clean(r),...(env.XIANGYUN_MODELS_V19==='1'?modelById(p.id):{})},mode:'INQUIRY_ONLY'}):json({error:'NOT_FOUND'},404);
+  const r=await collectionRecord(db,p.id);return r?json({record:{...clean(r),...(env.XIANGYUN_MODELS_V19==='1'?modelById(publicDesignId(p.id)):{})},mode:'INQUIRY_ONLY'}):json({error:'NOT_FOUND'},404);
  }
  const mine=path==='/inquiries'||/^\/inquiries\/[\w-]+$/.test(path);
  const admin=path==='/admin/inquiries'||/^\/admin\/inquiries\/[\w-]+$/.test(path);

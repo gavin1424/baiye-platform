@@ -47,13 +47,13 @@
     }
     const info=node('div','xy-lingstone-modal-info');info.append(title,price,specs,node('p','xy-lingstone-warning',t('warning')),node('p','xy-lingstone-safe',t('safety')));
     const contact=node('a','xy-lingstone-inquiry',t('inquiry'));
-    contact.href='mailto:service@tanxiang.com.tw?subject='+encodeURIComponent('香雲冷香館選石洽詢 '+product.sku+' '+product.displayName);
+    contact.href='mailto:service@tanxiang.com.tw?subject='+encodeURIComponent('香雲冷香館選石洽詢 '+product.displayName+' '+product.displayName);
     info.append(contact);
     const wrapper=node('div','xy-lingstone-modal-grid');wrapper.append(photo,info);dialog.append(closer,wrapper);
     if(typeof dialog.showModal==='function') dialog.showModal();
   }
   function makeCard(product, index){
-    const card=node('article','xy-lingstone-card');card.dataset.sku=product.sku;
+    const card=node('article','xy-lingstone-card');card.dataset.sku=product.displayName;
     const photoWrap=node('div','xy-lingstone-photo');
     const img=node('img');img.src=product.thumb || product.image;img.alt=product.displayName+' AI 風格概念圖';img.loading=index<2?'eager':'lazy'; img.decoding='async';img.width=450;img.height=563;
     img.addEventListener('error',()=>{photoWrap.classList.add('xy-lingstone-broken');const e=node('p','',t('imageError'));photoWrap.append(e);}, {once:true});
@@ -62,7 +62,7 @@
     const name=node('h3','',product.displayName),price=node('div','xy-lingstone-price',t('price')+' NT$ '+Number(product.priceTWD).toLocaleString('en-US'));
     const actions=node('div','xy-lingstone-actions');
     const detail=node('button','',t('details'));detail.type='button';detail.addEventListener('click',()=>openDetail(product));
-    const ask=node('a','',t('inquiry'));ask.href='mailto:service@tanxiang.com.tw?subject='+encodeURIComponent('香雲冷香館選石洽詢 '+product.sku+' '+product.displayName);
+    const ask=node('a','',t('inquiry'));ask.href='mailto:service@tanxiang.com.tw?subject='+encodeURIComponent('香雲冷香館選石洽詢 '+product.displayName+' '+product.displayName);
     actions.append(detail,ask);
     const copy=node('div','xy-lingstone-copy');copy.append(name,price,actions);
     card.append(photoWrap,copy);
@@ -95,7 +95,7 @@
       if(!res.ok)throw new Error('HTTP '+res.status);
       catalog=await res.json();
       if(!Array.isArray(catalog)||catalog.length!==10)throw new Error('應有10款但取得'+catalog?.length+'款');
-      if(new Set(catalog.map(p=>p.sku)).size!==10)throw new Error('SKU重複');
+      if(new Set(catalog.map(p=>p.id)).size!==10)throw new Error('SKU重複');
       if(!catalog.every(p=>p.imageType==='AI_CONCEPT_NOT_PRODUCT_PHOTO' && p.saleEnabled===false))throw new Error('未驗證項目不得收款');
       attachRepeatedly();
       console.info('[lingstone-gallery] 10款概念圖片來源已載入；等待圖片實際呈現驗收');

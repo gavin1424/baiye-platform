@@ -1,6 +1,6 @@
 [
   {
-    "sku": "XY-CONCEPT-001",
+    "sku": null,
     "displayName": "金雲鎮嶽石",
     "displayCategory": "典藏展示",
     "caption": "沉穩山岳意象，適合書房與收藏櫃展示。",
@@ -40,10 +40,11 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-4da8666c3a9e6dc4"
   },
   {
-    "sku": "XY-CONCEPT-002",
+    "sku": null,
     "displayName": "天輝金珠石",
     "displayCategory": "典藏展示",
     "caption": "暖白礦物紋理與金色光點交織的自然意象。",
@@ -83,10 +84,11 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-cf2130a6f0e5b00c"
   },
   {
-    "sku": "XY-CONCEPT-003",
+    "sku": null,
     "displayName": "五行聚氣石",
     "displayCategory": "禮盒構想",
     "caption": "原石紋理與深色典藏盒的收藏構想。",
@@ -126,10 +128,11 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-574160ec4c4c2236"
   },
   {
-    "sku": "XY-CONCEPT-004",
+    "sku": null,
     "displayName": "金輪圓融石",
     "displayCategory": "桌面擺設",
     "caption": "渾厚圓潤的石形，融入木質展示美學。",
@@ -169,10 +172,11 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-c1ec7e0779e4fb78"
   },
   {
-    "sku": "XY-CONCEPT-005",
+    "sku": null,
     "displayName": "靈峰凌霄石",
     "displayCategory": "典藏展示",
     "caption": "直立山峰外形的藝術概念，呼應天地山川。",
@@ -212,10 +216,11 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-e19515eb829bb71d"
   },
   {
-    "sku": "XY-CONCEPT-006",
+    "sku": null,
     "displayName": "玄金祥瑞石",
     "displayCategory": "典藏展示",
     "caption": "石色深淺交錯，點綴金屬色礦物反光。",
@@ -255,10 +260,11 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-273c46ddf89d5dc6"
   },
   {
-    "sku": "XY-CONCEPT-007",
+    "sku": null,
     "displayName": "雲脈藏金石",
     "displayCategory": "典藏展示",
     "caption": "不規則礦脈視覺與微光細節的典藏概念。",
@@ -298,10 +304,11 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-ab57c5ee730e10a5"
   },
   {
-    "sku": "XY-CONCEPT-008",
+    "sku": null,
     "displayName": "乾坤厚土石",
     "displayCategory": "桌面擺設",
     "caption": "方正厚實的礦物意象，搭配質樸木座。",
@@ -341,10 +348,11 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-d7f4c61f6e43cf84"
   },
   {
-    "sku": "XY-CONCEPT-009",
+    "sku": null,
     "displayName": "龍脈承氣石",
     "displayCategory": "桌面擺設",
     "caption": "橫臥式山石構圖，與沉香文化情境相映。",
@@ -384,10 +392,11 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-0c0e526bb37c6592"
   },
   {
-    "sku": "XY-CONCEPT-010",
+    "sku": null,
     "displayName": "星曜鎮守石",
     "displayCategory": "典藏展示",
     "caption": "稜角與深色礦紋交錯，呈現山巒氣象。",
@@ -427,6 +436,7 @@
       "verified_checkout_backend"
     ],
     "physicalPhotoConfirmed": false,
-    "displayType": "AI_CONCEPT"
+    "displayType": "AI_CONCEPT",
+    "id": "art-60d1e5d6b2c419b1"
   }
 ]

@@ -1,8 +1,8 @@
-// Issue #63 concept design IDs; these are not verified physical inventory.
+// Public design identities are not physical stone numbers.
 export const drafts=[
   {
-    "id": "xy-concept-01",
-    "serial": "XY-C001",
+    "id": "art-4da8666c3a9e6dc4",
+    "serial": null,
     "name": "金雲鎮嶽石",
     "translations": {
       "zh-Hans": {
@@ -27,8 +27,8 @@ export const drafts=[
     "sale_enabled": false
   },
   {
-    "id": "xy-concept-02",
-    "serial": "XY-C002",
+    "id": "art-cf2130a6f0e5b00c",
+    "serial": null,
     "name": "天輝金珠石",
     "translations": {
       "zh-Hans": {
@@ -53,8 +53,8 @@ export const drafts=[
     "sale_enabled": false
   },
   {
-    "id": "xy-concept-03",
-    "serial": "XY-C003",
+    "id": "art-574160ec4c4c2236",
+    "serial": null,
     "name": "五行聚氣石",
     "translations": {
       "zh-Hans": {
@@ -79,8 +79,8 @@ export const drafts=[
     "sale_enabled": false
   },
   {
-    "id": "xy-concept-04",
-    "serial": "XY-C004",
+    "id": "art-c1ec7e0779e4fb78",
+    "serial": null,
     "name": "金輪圓融石",
     "translations": {
       "zh-Hans": {
@@ -105,8 +105,8 @@ export const drafts=[
     "sale_enabled": false
   },
   {
-    "id": "xy-concept-05",
-    "serial": "XY-C005",
+    "id": "art-e19515eb829bb71d",
+    "serial": null,
     "name": "靈峰凌霄石",
     "translations": {
       "zh-Hans": {
@@ -131,8 +131,8 @@ export const drafts=[
     "sale_enabled": false
   },
   {
-    "id": "xy-concept-06",
-    "serial": "XY-C006",
+    "id": "art-273c46ddf89d5dc6",
+    "serial": null,
     "name": "玄金祥瑞石",
     "translations": {
       "zh-Hans": {
@@ -157,8 +157,8 @@ export const drafts=[
     "sale_enabled": false
   },
   {
-    "id": "xy-concept-07",
-    "serial": "XY-C007",
+    "id": "art-ab57c5ee730e10a5",
+    "serial": null,
     "name": "雲脈藏金石",
     "translations": {
       "zh-Hans": {
@@ -183,8 +183,8 @@ export const drafts=[
     "sale_enabled": false
   },
   {
-    "id": "xy-concept-08",
-    "serial": "XY-C008",
+    "id": "art-d7f4c61f6e43cf84",
+    "serial": null,
     "name": "乾坤厚土石",
     "translations": {
       "zh-Hans": {
@@ -209,8 +209,8 @@ export const drafts=[
     "sale_enabled": false
   },
   {
-    "id": "xy-concept-09",
-    "serial": "XY-C009",
+    "id": "art-0c0e526bb37c6592",
+    "serial": null,
     "name": "龍脈承氣石",
     "translations": {
       "zh-Hans": {
@@ -235,8 +235,8 @@ export const drafts=[
     "sale_enabled": false
   },
   {
-    "id": "xy-concept-10",
-    "serial": "XY-C010",
+    "id": "art-60d1e5d6b2c419b1",
+    "serial": null,
     "name": "星曜鎮守石",
     "translations": {
       "zh-Hans": {

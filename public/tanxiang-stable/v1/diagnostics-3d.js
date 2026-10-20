@@ -1,3 +1,4 @@
+import {drafts} from './collection-data-v17.js';
 import {extractMineralMaps,reloadMineralMaps} from './model-pbr-reload.js';
 import {modelCatalog} from './model-data-v19.js';
 import {MODEL_VIEWER_BUILD,loadModelLibrary,conceptCamera} from './model-viewer-v19.js';
@@ -12,7 +13,7 @@ function gpu(){const c=document.createElement('canvas'),gl=c.getContext('webgl2'
 async function probe(){report.gpu=gpu();const url=URL.createObjectURL(new Blob(['same-origin embedded texture fetch probe']));try{const r=await fetch(url);report.blobFetch={ok:r.ok,status:r.status}}catch(e){report.blobFetch={ok:false,error:String(e)}}finally{URL.revokeObjectURL(url)}try{const r=await fetch('./build-info.json',{cache:'no-store'});report.deployment=r.headers.get('x-xiangyun-deployment');report.build=r.ok?await r.json():{status:r.status}}catch(e){report.build={error:String(e)}}$('#device').textContent=navigator.userAgent;show();}
 function shaderEvidence(material){try{const objects=Object.getOwnPropertySymbols(material).map(s=>material[s]).find(v=>v instanceof Set&&Array.from(v).some(m=>m?.isMaterial));const m=objects&&Array.from(objects).find(m=>m?.isMaterial);if(!m)return {available:false,note:'Underlying renderer object not exposed; public SDK texture evidence is recorded separately.'};const map=t=>t?{name:t.name,colorSpace:t.colorSpace,width:t.source?.data?.width||t.image?.width,height:t.source?.data?.height||t.image?.height,version:t.version,format:t.format,type:t.type,sourceDataType:t.source?.data?.constructor?.name}:null;return {available:true,shader:m.type,color:m.color?.toArray(),materialVersion:m.version,map:map(m.map),normalMap:map(m.normalMap),roughnessMap:map(m.roughnessMap),metalnessMap:map(m.metalnessMap),aoMap:map(m.aoMap)};}catch(e){return {available:false,error:String(e)}}}
 async function run(meta,mode){
- $('#status').textContent='正在檢查 '+meta.sku+'；先保留商品圖…';$('#poster').src=meta.posterImage;$('#poster').hidden=false;$('#slot').replaceChildren();$('#slot').dataset.ready='false';const started=performance.now(),entry={sku:meta.sku,mode,modelURL:new URL(meta.modelUrl,location.href).href};results.push(entry);show();let viewer;
+ $('#status').textContent='正在檢查 '+meta.id+'；先保留商品圖…';$('#poster').src=meta.posterImage;$('#poster').hidden=false;$('#slot').replaceChildren();$('#slot').dataset.ready='false';const started=performance.now(),entry={sku:meta.id,mode,modelURL:new URL(meta.modelUrl,location.href).href};results.push(entry);show();let viewer;
  try{
   const r=await fetch(meta.modelUrl,{cache:'no-store'}),bytes=new Uint8Array(await r.arrayBuffer());entry.http={status:r.status,type:r.headers.get('content-type'),bytes:bytes.length,etag:r.headers.get('etag'),cache:r.headers.get('cache-control'),deployment:r.headers.get('x-xiangyun-deployment')};
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');entry.http.sha256=hash;if(!r.ok||!entry.http.type?.includes('model/gltf-binary')||hash!==meta.sha256)throw Error('MODEL_HTTP_OR_HASH_MISMATCH');
@@ -25,11 +26,11 @@ async function run(meta,mode){
   if(mode==='recover-color')material?.pbrMetallicRoughness.baseColorTexture?.setTexture(null);
   const restored=await reloadMineralMaps(viewer,await extractMineralMaps(bytes,meta));entry.reload=restored.evidence;
   if(mode==='missing-color')material?.pbrMetallicRoughness.baseColorTexture?.setTexture(null);
-  entry.runtime=shaderEvidence(material);try{entry.material=await verifyMineralMaterial(viewer)}finally{restored.dispose()};viewer.style.opacity='1';$('#slot').dataset.ready='true';$('#poster').hidden=true;entry.result='MATERIAL_AND_RENDER_VERIFIED';$('#status').textContent=meta.sku+' 貼圖與實際渲染色彩已驗證。';
- }catch(e){viewer?.remove();$('#poster').hidden=false;entry.result='PHOTO_FALLBACK';entry.error=e.message;entry.material=e.evidence||null;$('#status').textContent=meta.sku+' 3D 材質未通過檢查，繼續展示商品圖。';}
+  entry.runtime=shaderEvidence(material);try{entry.material=await verifyMineralMaterial(viewer)}finally{restored.dispose()};viewer.style.opacity='1';$('#slot').dataset.ready='true';$('#poster').hidden=true;entry.result='MATERIAL_AND_RENDER_VERIFIED';$('#status').textContent=meta.id+' 貼圖與實際渲染色彩已驗證。';
+ }catch(e){viewer?.remove();$('#poster').hidden=false;entry.result='PHOTO_FALLBACK';entry.error=e.message;entry.material=e.evidence||null;$('#status').textContent=meta.id+' 3D 材質未通過檢查，繼續展示商品圖。';}
  entry.elapsedMs=Math.round(performance.now()-started);entry.posterVisible=!$('#poster').hidden;show();return entry;
 }
-for(const m of modelCatalog.products){const o=document.createElement('option');o.value=m.id;o.textContent=m.sku;$('#sku').append(o)}$('#sku').value='xy-concept-03';
+for(const m of modelCatalog.products){const o=document.createElement('option');o.value=m.id;o.textContent=drafts.find(d=>d.id===m.id)?.name||'—';$('#sku').append(o)}$('#sku').value=modelCatalog.products[2].id;
 async function action(all){$('#run').disabled=$('#all').disabled=true;try{for(const m of (all?modelCatalog.products:[modelCatalog.products.find(m=>m.id===$('#sku').value)]))await run(m,$('#mode').value)}finally{$('#run').disabled=$('#all').disabled=false}}
 $('#run').onclick=()=>action(false);$('#all').onclick=()=>action(true);$('#download').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='xiangyun-3d-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 await probe();
