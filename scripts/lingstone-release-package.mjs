@@ -20,7 +20,7 @@ if(published){
  git('diff','--quiet',sourceCommit,'--',...scope);
 }
 const viewerCode=await readFile('public/tanxiang-stable/v1/model-viewer-v19.js','utf8'),clientBuild=viewerCode.match(/MODEL_VIEWER_BUILD='([^']+)'/)?.[1]||null;
-await writeFile(path.join(destination,'build-info.json'),JSON.stringify({release:'2.1-issue68',repository:'gavin1424/baiye-platform',branch:sourceBranch,sourceCommit,sourceState:published?'PUBLISHED_SOURCE_VERIFIED':'LOCAL_SOURCE_NOT_PUBLISHED',clientBuild,channel:publish?'production':'preview',builtAt:new Date().toISOString(),modelManifestSha256:createHash('sha256').update(await readFile('public/tanxiang-stable/v1/assets/lingstone/models-v19.json')).digest('hex'),payment:'disabled'},null,2)+'\n');
+await writeFile(path.join(destination,'build-info.json'),JSON.stringify({release:'2.1.1-issue68',repository:'gavin1424/baiye-platform',branch:sourceBranch,sourceCommit,sourceState:published?'PUBLISHED_SOURCE_VERIFIED':'LOCAL_SOURCE_NOT_PUBLISHED',clientBuild,channel:publish?'production':'preview',builtAt:new Date().toISOString(),modelManifestSha256:createHash('sha256').update(await readFile('public/tanxiang-stable/v1/assets/lingstone/models-v19.json')).digest('hex'),payment:'disabled'},null,2)+'\n');
 async function sourceFiles(dir){const result=[];for(const e of await readdir(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())result.push(...await sourceFiles(p));else result.push(p)}return result}
 for(const file of await sourceFiles(destination))if(/\.(html|js)$/.test(file)){
  const name=path.basename(file);let text=await readFile(file,'utf8');

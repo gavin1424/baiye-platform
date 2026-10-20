@@ -20,7 +20,7 @@ const copy = {
   mining:['循著家族口述，想像採金的往昔','循着家族口述，想象采金的往昔','Imagining the memories of mining','語り継がれた採掘の記憶を描く'],
   archive:['收藏，也收藏一段記憶','收藏，也收藏一段记忆','Objects that hold a memory','ものとともに、記憶を受け継ぐ'],
   elements:['金木水火土・文化意象','金木水火土・文化意象','Five elements · a cultural composition','木火土金水・文化のイメージ'],
-  preview:['V1.9 精品圖錄・預覽','V1.9 精品图录・预览','V1.9 · Gallery preview','V1.9・ギャラリープレビュー'],
+  preview:['天地靈石・典藏圖錄','天地灵石・典藏图录','THE LINGSTONE COLLECTION','天地霊石・コレクション'],
 };
 export function galleryCopy(lang,key){return copy[key][['zh-Hant','zh-Hans','en','ja'].indexOf(lang)]||copy[key][2]}
 export function artFigure(name,title,note,{esc,wide=false}={}){

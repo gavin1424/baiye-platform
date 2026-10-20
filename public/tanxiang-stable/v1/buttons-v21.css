@@ -159,3 +159,28 @@ button:disabled,.button[aria-disabled=true] {opacity:.48;cursor:not-allowed;box-
   }
   .passport .passport-marker {transform:translate(-50%,-50%)}
 }
+
+/* Customer-facing provenance sits beside the artwork, never over the stone. */
+#catalog .collection-image figcaption {
+  min-height:0;padding:8px 12px 4px;background:none;border:0;
+  color:#5b5040;font:400 12px/1.65 var(--btn-font);letter-spacing:0;
+}
+.collection-detail .collection-image figcaption {
+  padding:10px 0;background:none;border:0;color:#cbd1c6;
+  font:400 13px/1.65 var(--btn-font);letter-spacing:0;
+}
+.collection-detail .collection-model {border:0;padding:8px 0 0;margin:0}
+.collection-service-note {font:400 14px/1.8 var(--btn-font);color:#cbd1c6;margin:20px 0}
+.stone360 .stone360-caption {
+  margin:10px 0 4px;padding:0;background:none;border:0;
+  color:#cbd1c6;font:400 13px/1.65 var(--btn-font);letter-spacing:0;text-align:left;
+}
+.stone360-about {margin-top:18px;border-top:1px solid #c4a47755;padding-top:6px}
+.stone360-about summary {
+  min-height:44px;display:list-item;cursor:pointer;padding:10px 0;
+  color:#e1c393;font:400 14px/1.6 var(--btn-font);
+}
+.stone360[data-state=ready] [data-model-status] {
+  position:absolute;clip-path:inset(50%);width:1px;height:1px;min-height:0;
+  overflow:hidden;white-space:nowrap;margin:0;padding:0;border:0;
+}
