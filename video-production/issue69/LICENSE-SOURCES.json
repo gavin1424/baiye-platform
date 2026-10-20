@@ -1,0 +1,237 @@
+{
+  "scope": "Brand-specific use authorized by owner request; no redistribution license granted for owner art",
+  "noVerifiedSpecimenFootageAvailable": true,
+  "history": "Oral-family-memory narrative only; no private locality, age, assay percentages or certificates invented",
+  "music": "Original procedural synthesis without third-party melody or recording",
+  "voiceover": false,
+  "files": [
+    {
+      "path": "video-production/issue69/assets/audio/promo-01.wav",
+      "sha256": "4a23b42c86c623f46902891b13575b88da2bc40bc078232686a5187298a3aa90",
+      "source": "Original algorithmic ambient composition; no samples or imitated voices",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/audio/promo-02.wav",
+      "sha256": "b5f7f9497b365eb553d6029ae5ae669f6a9434c0a2463dbf21edea56fc97c45e",
+      "source": "Original algorithmic ambient composition; no samples or imitated voices",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/audio/promo-03.wav",
+      "sha256": "b48389db9c4f38a467ddfe8951146068328028f4f6628e8afe5d58b6c7deaf25",
+      "source": "Original algorithmic ambient composition; no samples or imitated voices",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/audio/promo-04.wav",
+      "sha256": "a4b03edaaa934f3a6a7737cf2e661d6c5d51421055fd49b9833048bf02966e91",
+      "source": "Original algorithmic ambient composition; no samples or imitated voices",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/audio/promo-05.wav",
+      "sha256": "3a1558f97ecdfb96d5503a128a9b2884bc5672292f4f57efc8fcefcce0aaa8bb",
+      "source": "Original algorithmic ambient composition; no samples or imitated voices",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/elements-art.webp",
+      "sha256": "d08bdaeed812a8075140fdc6be4c58bc5a3d6c782664df2baf7a5da184b8b934",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/fonts/OFL-Sans.txt",
+      "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9",
+      "source": "Official Google Fonts / SIL Open Font License 1.1",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/fonts/OFL-Serif.txt",
+      "sha256": "5e0da210fb04058a8c0087985d2d456b931c2579811a49655721d3cf0c36b6d6",
+      "source": "Official Google Fonts / SIL Open Font License 1.1",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/fonts/sans.woff2",
+      "sha256": "8b024471dbd63352d696325864cf1edff67135de44cc9a71d885b6b81f6d1a6b",
+      "source": "Official Google Fonts / SIL Open Font License 1.1",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/fonts/serif.woff2",
+      "sha256": "71a8844149503bf19f968d971466b74db930e1585503333df870ef2fe067997c",
+      "source": "Official Google Fonts / SIL Open Font License 1.1",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/footage/catalogue.mp4",
+      "sha256": "89a4a889569490c688bc934d5514d322ee14793b78f5e9d938ae25a61e138bf7",
+      "source": "Actual public Xiangyun preview, recorded with installed Chrome/Playwright; no customer data",
+      "classification": "REAL_WEBSITE_RECORDING_NOT_SPECIMEN_CAPTURE"
+    },
+    {
+      "path": "video-production/issue69/assets/footage/five-elements.mp4",
+      "sha256": "376a4fddc7386614f70e5d1909320b121261be8014ec421d8bac9c207763504d",
+      "source": "Actual public Xiangyun preview, recorded with installed Chrome/Playwright; no customer data",
+      "classification": "REAL_WEBSITE_RECORDING_NOT_SPECIMEN_CAPTURE"
+    },
+    {
+      "path": "video-production/issue69/assets/footage/model-1.mp4",
+      "sha256": "220fa6c5b84370ad5308df3072e6db9941bd202a17283695f758a04ff1f8b130",
+      "source": "Actual public Xiangyun preview, recorded with installed Chrome/Playwright; no customer data",
+      "classification": "REAL_WEBSITE_RECORDING_NOT_SPECIMEN_CAPTURE"
+    },
+    {
+      "path": "video-production/issue69/assets/footage/model-2.mp4",
+      "sha256": "1a51aac0b72de5e85e801a25701783fb15b6fb3496a332e248f8f15d73f16500",
+      "source": "Actual public Xiangyun preview, recorded with installed Chrome/Playwright; no customer data",
+      "classification": "REAL_WEBSITE_RECORDING_NOT_SPECIMEN_CAPTURE"
+    },
+    {
+      "path": "video-production/issue69/assets/footage/model-3.mp4",
+      "sha256": "a74852d1064bc9cbc84751ce353ada509b2800a5f4038ce894b6afba0094d144",
+      "source": "Actual public Xiangyun preview, recorded with installed Chrome/Playwright; no customer data",
+      "classification": "REAL_WEBSITE_RECORDING_NOT_SPECIMEN_CAPTURE"
+    },
+    {
+      "path": "video-production/issue69/assets/footage/selection.mp4",
+      "sha256": "1886e3dc8516fe757f9dd2a1f24d5c0085790f1760e2a7d9933113a0bc1c351c",
+      "source": "Actual public Xiangyun preview, recorded with installed Chrome/Playwright; no customer data",
+      "classification": "REAL_WEBSITE_RECORDING_NOT_SPECIMEN_CAPTURE"
+    },
+    {
+      "path": "video-production/issue69/assets/gsap.min.js",
+      "sha256": "c174bfce53a729418d57a8ad8625e7247c793a22fef8e2851e3cfa3de9cd8280",
+      "source": "GSAP 3.14.2 / https://gsap.com/standard-license",
+      "classification": "PRODUCTION_DEPENDENCY_OR_ORIGINAL_AUDIO"
+    },
+    {
+      "path": "video-production/issue69/assets/heritage-archive.webp",
+      "sha256": "c5ea2693d5c893dde144d47f91eebe4f2b2365873c63590e2594b80d23acea36",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/heritage-mining.webp",
+      "sha256": "bdc55744f93e7663e36e03517065e50caea2cb92a757a5aeff5fd4c5ae4e0284",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/heritage-mountains.webp",
+      "sha256": "ac1eb89210dc372fa3d300ab3868aeb490466faa9bdebb4ff46ac0d81926d151",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/incense-textures.webp",
+      "sha256": "6d2d94c675f4afdd8f44cf7d9a36de3e196c906e0965eb32f7ae85c6f88025f3",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/interior-living.webp",
+      "sha256": "4a5929b3386c2a1635499f40dfd6360ef5a346af09e3723a5d80a4ee703f9bfb",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/interior-study.webp",
+      "sha256": "148b0c83f543cb09473dda64c95592fc7e7fe7b851636abd423490ca937eb117",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/macro-crystal.webp",
+      "sha256": "38bbcb30fc49436d3a32393f05f67b950f728aba1788735c6d4c4065dc2c6453",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/macro-lustre.webp",
+      "sha256": "6b8bcc8930b8d972eb2ae1c260532447fb03b271d754bb0b1c1bc8335fcf99f8",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/macro-strata.webp",
+      "sha256": "15265471958ccfcdfbf09a187bd31b7a962dc4904e48753d14762b790f62eba8",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/realm-taoist.webp",
+      "sha256": "0b1fdfb2126248966bced41e7b7c28a7ae95187a8f98e8f3ee86d6d249358f70",
+      "source": "Existing brand-original generated artwork; documented in docs/lingstone/IMAGE-PROMPTS-V1.3.md and ASSETS-V1.6.md",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-1.webp",
+      "sha256": "8ffb00ea8ac1427005f35380d0a3791c812b351ede13bf92ca3bb580fa475fdd",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-10.webp",
+      "sha256": "7d54592bca3547389ef5a80d214be13d2eab2a88c10810dabbcca17cfda326a6",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-2.webp",
+      "sha256": "29e6721bf70748109aa42810382aac847ed7637a4d5e90cabdfec698107e8b24",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-3.webp",
+      "sha256": "947c7c6275b02f0d79fb2cef28ecbeffa81bdc6cdb57e9368f14c44a67c008db",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-4.webp",
+      "sha256": "692b9f5c673ace3b11e01bae4959d829e1c9e46ef838728ceaf6a7e2f66dea8f",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-5.webp",
+      "sha256": "cc073ac62fb34deed716df60e1cc7e087a561773ed532b836c997eddb0c5332f",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-6.webp",
+      "sha256": "1109fc39ee8382e663bb3aa6cc1134ff7a77ca90778173bcc7976730231ebe61",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-7.webp",
+      "sha256": "f93a5ac5521cbb95b09d37d07e1e616b11335a32fd5d85827e9c3ef28c1a5fe8",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-8.webp",
+      "sha256": "c9ea8813a03a2e20be8a530b4398dd410658c9e1c93f8e57e77e102c3d6bab69",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-9.webp",
+      "sha256": "5d83ec1c52ad21e7687e62914fa1ba395bc1050e7840dae12a7c520c8e989f58",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    },
+    {
+      "path": "video-production/issue69/assets/stone-series.webp",
+      "sha256": "1621665aafae15ca931baac880513aa7da35d138ec2c406c20890d701211d033",
+      "source": "Existing owner-supplied AI concept artwork, explicitly authorized for this brand by Issue 69",
+      "classification": "CONCEPT_ART_NOT_PHOTOGRAPH"
+    }
+  ]
+}

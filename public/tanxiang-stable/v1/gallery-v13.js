@@ -1,5 +1,6 @@
 // Public video presentation stays off until finished media passes review.
-export const SHOW_VIDEO = false;
+import {PROMO_RELEASE_READY} from './promos-data-v22.js';
+export const SHOW_VIDEO = PROMO_RELEASE_READY;
 const copy = {
   stoneArt:['黑金原石收藏意象','黑金原石收藏意象','Dark stone collection study','黒い原石のコレクションイメージ'],
   woodArt:['天然木質收藏意象','天然木质收藏意象','Natural wood collection study','天然木のコレクションイメージ'],

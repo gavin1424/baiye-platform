@@ -1,0 +1,182 @@
+{
+  "release": "2.2-issue69",
+  "qa": "ALL_SIX_DECODED_AND_SPEC_VERIFIED",
+  "duration": 24,
+  "originalAmbientMusic": true,
+  "voiceover": false,
+  "captionLanguage": "zh-Hant",
+  "conceptsDisclosed": true,
+  "promos": [
+    {
+      "number": 1,
+      "file": "xy-promo-01-vertical.mp4",
+      "poster": "xy-promo-01.webp",
+      "srt": "xy-promo-01-zh-Hant.srt",
+      "vtt": "xy-promo-01-zh-Hant.vtt",
+      "wide": "xy-promo-01-wide.mp4",
+      "widePoster": "xy-promo-01-wide.webp"
+    },
+    {
+      "number": 2,
+      "file": "xy-promo-02-vertical.mp4",
+      "poster": "xy-promo-02.webp",
+      "srt": "xy-promo-02-zh-Hant.srt",
+      "vtt": "xy-promo-02-zh-Hant.vtt"
+    },
+    {
+      "number": 3,
+      "file": "xy-promo-03-vertical.mp4",
+      "poster": "xy-promo-03.webp",
+      "srt": "xy-promo-03-zh-Hant.srt",
+      "vtt": "xy-promo-03-zh-Hant.vtt"
+    },
+    {
+      "number": 4,
+      "file": "xy-promo-04-vertical.mp4",
+      "poster": "xy-promo-04.webp",
+      "srt": "xy-promo-04-zh-Hant.srt",
+      "vtt": "xy-promo-04-zh-Hant.vtt"
+    },
+    {
+      "number": 5,
+      "file": "xy-promo-05-vertical.mp4",
+      "poster": "xy-promo-05.webp",
+      "srt": "xy-promo-05-zh-Hant.srt",
+      "vtt": "xy-promo-05-zh-Hant.vtt"
+    }
+  ],
+  "files": [
+    {
+      "file": "xy-promo-01-vertical.mp4",
+      "sha256": "f57686a0df20b6c86fac30ac420b117c352631b97c1305f10dda55290e232f93",
+      "bytes": 7234971,
+      "duration": 24,
+      "width": 1080,
+      "height": 1920,
+      "fps": "30/1",
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "audio": "aac",
+      "faststart": true,
+      "fullDecode": "PASS",
+      "compositionSha256": "d504e6aaf2b550f4c45933c9b3bf8d2a8a49724a678e5e95cf39f27515dae1ea",
+      "check": {
+        "ok": true,
+        "lintWarnings": 5,
+        "runtimeErrors": 0,
+        "layoutErrors": 0,
+        "contrastErrors": 0
+      }
+    },
+    {
+      "file": "xy-promo-02-vertical.mp4",
+      "sha256": "af7aa7c6895e9bfb909f63179f38429c50cc4ee1e37115ddf4322423feb69ed9",
+      "bytes": 6233979,
+      "duration": 24,
+      "width": 1080,
+      "height": 1920,
+      "fps": "30/1",
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "audio": "aac",
+      "faststart": true,
+      "fullDecode": "PASS",
+      "compositionSha256": "0f75dc676ca1a25024684a11f7a3329a3982c9a6b57de0c9dc1c688ec5374abb",
+      "check": {
+        "ok": true,
+        "lintWarnings": 7,
+        "runtimeErrors": 0,
+        "layoutErrors": 0,
+        "contrastErrors": 0
+      }
+    },
+    {
+      "file": "xy-promo-03-vertical.mp4",
+      "sha256": "c3b88cd15f05a84251bd893aa5fa07556f7058fc2e84e16a1abf35963780cc71",
+      "bytes": 5462671,
+      "duration": 24,
+      "width": 1080,
+      "height": 1920,
+      "fps": "30/1",
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "audio": "aac",
+      "faststart": true,
+      "fullDecode": "PASS",
+      "compositionSha256": "cc0ab770f00ccc52bd7bb771540f8414f140968f70a57fd701ac113f1091c190",
+      "check": {
+        "ok": true,
+        "lintWarnings": 4,
+        "runtimeErrors": 0,
+        "layoutErrors": 0,
+        "contrastErrors": 0
+      }
+    },
+    {
+      "file": "xy-promo-04-vertical.mp4",
+      "sha256": "31cb1d16f70f3fe35ec74e6b498e6e5c602688e4cde39a9fc19b53ea05563ca9",
+      "bytes": 9473770,
+      "duration": 24,
+      "width": 1080,
+      "height": 1920,
+      "fps": "30/1",
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "audio": "aac",
+      "faststart": true,
+      "fullDecode": "PASS",
+      "compositionSha256": "3b629be11b6ec5d7a98233b8f3aca2a15d41c59b970620b8df0184ea2b9791ab",
+      "check": {
+        "ok": true,
+        "lintWarnings": 5,
+        "runtimeErrors": 0,
+        "layoutErrors": 0,
+        "contrastErrors": 0
+      }
+    },
+    {
+      "file": "xy-promo-05-vertical.mp4",
+      "sha256": "5de2aa9f7ee8a4fd690f986bdb80d01b6ec0ed56c50de41d4db06d1e1c07d4a8",
+      "bytes": 4930404,
+      "duration": 24,
+      "width": 1080,
+      "height": 1920,
+      "fps": "30/1",
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "audio": "aac",
+      "faststart": true,
+      "fullDecode": "PASS",
+      "compositionSha256": "04152e02ea9fc964f96602b2bd462eb1196e314011d19a6d23657a4477035f4e",
+      "check": {
+        "ok": true,
+        "lintWarnings": 5,
+        "runtimeErrors": 0,
+        "layoutErrors": 0,
+        "contrastErrors": 0
+      }
+    },
+    {
+      "file": "xy-promo-01-wide.mp4",
+      "sha256": "5e2a425968899f4ba4a1a678814183e858ad232b862412306c04490bc6b0911b",
+      "bytes": 9565801,
+      "duration": 24,
+      "width": 1920,
+      "height": 1080,
+      "fps": "30/1",
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "audio": "aac",
+      "faststart": true,
+      "fullDecode": "PASS",
+      "compositionSha256": "8768996d57d87973622a59717c5a00a5295b8f74d6f084244a44080b65f47ddf",
+      "check": {
+        "ok": true,
+        "lintWarnings": 5,
+        "runtimeErrors": 0,
+        "layoutErrors": 0,
+        "contrastErrors": 0
+      }
+    }
+  ]
+}
