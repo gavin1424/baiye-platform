@@ -16,10 +16,13 @@ export default {async fetch(request,env){
   if(!path.startsWith('/api/lingstone/'))return json({error:'NOT_FOUND'},404);
   if(request.method==='OPTIONS')return new Response(null,{status:204});
   if(!['GET','HEAD'].includes(request.method)&&request.headers.get('origin')!==url.origin)return json({error:'ORIGIN_NOT_ALLOWED'},403);
-  return env.XIANGYUN_STORE.get(env.XIANGYUN_STORE.idFromName(env.XIANGYUN_STORE_NAME||'xiangyun-preview-v14')).fetch(request);
+  const response=await env.XIANGYUN_STORE.get(env.XIANGYUN_STORE.idFromName(env.XIANGYUN_STORE_NAME||'xiangyun-preview-v14')).fetch(request),headers=new Headers(response.headers);
+  if(env.CF_VERSION_METADATA?.id)headers.set('x-xiangyun-deployment',env.CF_VERSION_METADATA.id);
+  if(/^[a-f0-9]{40}$/.test(env.XIANGYUN_SOURCE_COMMIT||''))headers.set('x-xiangyun-source-commit',env.XIANGYUN_SOURCE_COMMIT);
+  return new Response(response.body,{status:response.status,headers});
  }
  if(!['GET','HEAD'].includes(request.method))return json({error:'METHOD_NOT_ALLOWED'},405);
- let assetRequest=request,certificateStatus=null;if(/^\/certificate\/(?:MET|WOD|WAT|FIR|EAR)-[0-9]{3,}\/?$/.test(path)){const u=new URL(request.url);u.pathname=PREFIX+'/api/lingstone/certificates/'+path.split('/')[2];const record=await env.XIANGYUN_STORE.get(env.XIANGYUN_STORE.idFromName(env.XIANGYUN_STORE_NAME||'xiangyun-preview-v14')).fetch(new Request(u));certificateStatus=record.status;u.pathname=PREFIX+'/certificate.html';assetRequest=new Request(u,request)}
+ let assetRequest=request,certificateStatus=null;if(/^\/certificate\/(?:MET|WOD|WAT|FIR|EAR)-[0-9]{3,}\/?$/.test(path)){const u=new URL(request.url);u.pathname=PREFIX+'/api/lingstone/certificates/'+path.split('/')[2];const record=await env.XIANGYUN_STORE.get(env.XIANGYUN_STORE.idFromName(env.XIANGYUN_STORE_NAME||'xiangyun-preview-v14')).fetch(new Request(u));certificateStatus=record.status;u.pathname=PREFIX+'/certificate';assetRequest=new Request(u,request)}
  const asset=await env.ASSETS.fetch(assetRequest),headers=new Headers(asset.headers);
  if(env.CF_VERSION_METADATA?.id)headers.set('x-xiangyun-deployment',env.CF_VERSION_METADATA.id);
  if(/^[a-f0-9]{40}$/.test(env.XIANGYUN_SOURCE_COMMIT||''))headers.set('x-xiangyun-source-commit',env.XIANGYUN_SOURCE_COMMIT);
