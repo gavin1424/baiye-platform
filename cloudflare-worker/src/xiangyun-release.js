@@ -10,7 +10,7 @@ export default {async fetch(request,env){
  const url=new URL(request.url);
  if(url.pathname===PREFIX)return Response.redirect(url.origin+PREFIX+'/'+url.search,308);
  if(!url.pathname.startsWith(PREFIX+'/'))return json({error:'NOT_FOUND'},404);
- const alias=legacyRedirect(url.pathname);if(alias)return Response.redirect(url.origin+alias+url.search,308);
+ const alias=legacyRedirect(url.pathname);if(alias){const oldLanguage=url.pathname.match(/index-(zh-Hant|zh-Hans|en|ja)\.html$/)?.[1];if(oldLanguage&&!url.searchParams.has('lang'))url.searchParams.set('lang',oldLanguage);return Response.redirect(url.origin+alias+url.search,308);}
  const path=url.pathname.slice(PREFIX.length);
  if(path.startsWith('/api/')){
   if(!path.startsWith('/api/lingstone/'))return json({error:'NOT_FOUND'},404);

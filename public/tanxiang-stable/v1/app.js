@@ -9,7 +9,7 @@ import {SHOW_VIDEO,applyGallery,applyVideoVisibility} from './gallery-v13.js';
 import {heroArtwork,verifiedPhoto,saleEligible,bindMenu} from './home-v11.js';
 import {languages,translator,errorKeys} from './locales.js';
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let lang=new URL(location.href).searchParams.get('lang')||location.pathname.match(/index-(zh-Hant|zh-Hans|en|ja)\.html$/)?.[1]||localStorage.getItem('ls-language')||'zh-Hant';if(!languages.includes(lang))lang='zh-Hant';
+let lang=new URL(location.href).searchParams.get('lang')||location.pathname.match(/index-(zh-Hant|zh-Hans|en|ja)(?:\.html)?$/)?.[1]||localStorage.getItem('ls-language')||'zh-Hant';if(!languages.includes(lang))lang='zh-Hant';
 let t=translator(lang),products=[],episodes=[],publicContent=[],csrf='',cart=[];
 function applyPublishedContent(){for(const c of publicContent.filter(x=>x.kind==='site')){if(c.slug==='story'){const node=$('#story');if(node){if(c.title)node.querySelector('h2').textContent=c.title;if(c.body)node.querySelector('p').textContent=c.body}}if(c.slug==='hero'){if(c.title)$('.hero h1').textContent=c.title;if(c.body)$('.hero-intro').textContent=c.body}}}
 function contentBody(slug,fallback){return publicContent.find(x=>x.kind==='policy'&&x.slug===slug)?.body||t(fallback)}
