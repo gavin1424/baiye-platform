@@ -5,10 +5,6 @@ export const videoAssets=[
     "bytes": 7234971
   },
   {
-    "path": "/assets/videos/xy-promo-02-vertical.mp4",
-    "bytes": 6233979
-  },
-  {
     "path": "/assets/videos/xy-promo-03-vertical.mp4",
     "bytes": 5462671
   },
@@ -23,5 +19,9 @@ export const videoAssets=[
   {
     "path": "/assets/videos/xy-promo-01-wide.mp4",
     "bytes": 9565801
+  },
+  {
+    "path": "/assets/videos/xy-promo-02-vertical.mp4",
+    "bytes": 5915992
   }
 ];

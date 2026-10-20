@@ -14,6 +14,8 @@
       "srt": "xy-promo-01-zh-Hant.srt",
       "vtt": "xy-promo-01-zh-Hant.vtt",
       "wide": "xy-promo-01-wide.mp4",
+      "revision": "f57686a0df20",
+      "wideRevision": "5e2a42596889",
       "widePoster": "xy-promo-01-wide.webp"
     },
     {
@@ -21,28 +23,32 @@
       "file": "xy-promo-02-vertical.mp4",
       "poster": "xy-promo-02.webp",
       "srt": "xy-promo-02-zh-Hant.srt",
-      "vtt": "xy-promo-02-zh-Hant.vtt"
+      "vtt": "xy-promo-02-zh-Hant.vtt",
+      "revision": "40ec8754a1a2"
     },
     {
       "number": 3,
       "file": "xy-promo-03-vertical.mp4",
       "poster": "xy-promo-03.webp",
       "srt": "xy-promo-03-zh-Hant.srt",
-      "vtt": "xy-promo-03-zh-Hant.vtt"
+      "vtt": "xy-promo-03-zh-Hant.vtt",
+      "revision": "c3b88cd15f05"
     },
     {
       "number": 4,
       "file": "xy-promo-04-vertical.mp4",
       "poster": "xy-promo-04.webp",
       "srt": "xy-promo-04-zh-Hant.srt",
-      "vtt": "xy-promo-04-zh-Hant.vtt"
+      "vtt": "xy-promo-04-zh-Hant.vtt",
+      "revision": "31cb1d16f70f"
     },
     {
       "number": 5,
       "file": "xy-promo-05-vertical.mp4",
       "poster": "xy-promo-05.webp",
       "srt": "xy-promo-05-zh-Hant.srt",
-      "vtt": "xy-promo-05-zh-Hant.vtt"
+      "vtt": "xy-promo-05-zh-Hant.vtt",
+      "revision": "5de2aa9f7ee8"
     }
   ],
   "files": [
@@ -63,28 +69,6 @@
       "check": {
         "ok": true,
         "lintWarnings": 5,
-        "runtimeErrors": 0,
-        "layoutErrors": 0,
-        "contrastErrors": 0
-      }
-    },
-    {
-      "file": "xy-promo-02-vertical.mp4",
-      "sha256": "af7aa7c6895e9bfb909f63179f38429c50cc4ee1e37115ddf4322423feb69ed9",
-      "bytes": 6233979,
-      "duration": 24,
-      "width": 1080,
-      "height": 1920,
-      "fps": "30/1",
-      "codec": "h264",
-      "pixelFormat": "yuv420p",
-      "audio": "aac",
-      "faststart": true,
-      "fullDecode": "PASS",
-      "compositionSha256": "0f75dc676ca1a25024684a11f7a3329a3982c9a6b57de0c9dc1c688ec5374abb",
-      "check": {
-        "ok": true,
-        "lintWarnings": 7,
         "runtimeErrors": 0,
         "layoutErrors": 0,
         "contrastErrors": 0
@@ -173,6 +157,28 @@
       "check": {
         "ok": true,
         "lintWarnings": 5,
+        "runtimeErrors": 0,
+        "layoutErrors": 0,
+        "contrastErrors": 0
+      }
+    },
+    {
+      "file": "xy-promo-02-vertical.mp4",
+      "sha256": "40ec8754a1a28211b1a19f47e440f2a35139fee7b939289893b878b4d3315a38",
+      "bytes": 5915992,
+      "duration": 24,
+      "width": 1080,
+      "height": 1920,
+      "fps": "30/1",
+      "codec": "h264",
+      "pixelFormat": "yuv420p",
+      "audio": "aac",
+      "faststart": true,
+      "fullDecode": "PASS",
+      "compositionSha256": "6c3bf738b116a0e6203f4b39a60493c7878689aab9ebdf381081ef8a6850d146",
+      "check": {
+        "ok": true,
+        "lintWarnings": 7,
         "runtimeErrors": 0,
         "layoutErrors": 0,
         "contrastErrors": 0
