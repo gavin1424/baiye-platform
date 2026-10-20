@@ -1,0 +1,33 @@
+/* 僅以 xy-lingstone- 前綴作用於加掛商城，不影響原有網站設計 */
+.xy-lingstone-gallery{font-family:"Noto Sans TC",system-ui,sans-serif;background:#f7f2e9;color:#24342c;max-width:1440px;margin:24px auto;padding:clamp(18px,3vw,48px);border:1px solid #c7b38d}
+.xy-lingstone-header{margin-bottom:28px}
+.xy-lingstone-header h2,.xy-lingstone-card h3,.xy-lingstone-modal h2{font-family:"Noto Serif TC",serif;font-weight:500;letter-spacing:.02em;color:#1d2f26}
+.xy-lingstone-header h2{font-size:clamp(27px,3vw,42px);margin:6px 0 12px}
+.xy-lingstone-header p{font-size:16px;line-height:1.8;margin:0}
+.xy-lingstone-eyebrow{font-size:11px;letter-spacing:.23em;color:#9a733a}
+.xy-lingstone-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.xy-lingstone-card{min-width:0;box-sizing:border-box;background:#fff;border:1px solid #ded3c0;overflow:hidden;box-shadow:0 10px 26px rgb(23 45 35 / 8%)}
+.xy-lingstone-photo{aspect-ratio:4/5;position:relative;overflow:hidden;background:#e7e0d5;display:flex;align-items:center;justify-content:center}
+.xy-lingstone-photo img{display:block;width:100%;height:100%;object-fit:cover}
+.xy-lingstone-broken img{display:none}
+.xy-lingstone-number{position:absolute;top:10px;left:10px;background:#fff8e9;border:1px solid #c9a36c;padding:4px 10px;font-family:serif;z-index:1}
+.xy-lingstone-copy{padding:16px 14px 18px}
+.xy-lingstone-card h3{margin:0 0 6px;font-size:clamp(16px,2vw,21px)}
+.xy-lingstone-price{color:#98672d;font-size:clamp(15px,1.6vw,19px);font-weight:600;line-height:1.7}
+.xy-lingstone-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.xy-lingstone-actions a,.xy-lingstone-actions button,.xy-lingstone-inquiry{font:inherit;box-sizing:border-box;text-align:center;min-height:44px;padding:10px 12px;border:1px solid #ac8953;background:#faf7f0;color:#33463a;cursor:pointer;text-decoration:none;flex:1;font-size:14px}
+.xy-lingstone-actions a,.xy-lingstone-inquiry{background:#143428;color:#f8eee0}
+.xy-lingstone-warning{font-size:14px;line-height:1.7;background:#eee6d8;padding:16px;border-left:3px solid #ad8b51;margin-top:24px}
+.xy-lingstone-modal{max-width:min(960px,95vw);width:95vw;max-height:90vh;overflow-y:auto;border:1px solid #c6a06b;padding:clamp(16px,3vw,30px);background:#f9f2e8;color:#213c2a}
+.xy-lingstone-modal::backdrop{background:rgb(0 0 0 / 75%)}
+.xy-lingstone-modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.xy-lingstone-modal-grid img{width:100%;height:auto;max-height:560px;object-fit:contain}
+.xy-lingstone-close{float:right;border:0;background:transparent;color:inherit;padding:10px 12px;cursor:pointer}
+.xy-lingstone-specs{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;margin:22px 0}
+.xy-lingstone-specs dt{font-weight:600}.xy-lingstone-specs dd{margin:0}
+.xy-lingstone-safe{font-size:14px;line-height:1.7}
+.xy-lingstone-inquiry{display:inline-flex;align-items:center;justify-content:center;margin-top:14px}
+@media(min-width:760px){.xy-lingstone-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:1180px){.xy-lingstone-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(max-width:440px){.xy-lingstone-gallery{padding:18px 10px}.xy-lingstone-grid{gap:10px}.xy-lingstone-copy{padding:12px 8px}.xy-lingstone-actions{flex-direction:column}.xy-lingstone-modal-grid{grid-template-columns:1fr}.xy-lingstone-specs{grid-template-columns:90px 1fr}}
+@media(prefers-reduced-motion:reduce){.xy-lingstone-gallery *, .xy-lingstone-gallery *::before,.xy-lingstone-gallery *::after{animation:none!important;transition:none!important}}

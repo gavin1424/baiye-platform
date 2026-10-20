@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "baiye-lingstone-v1-preview",
+  "main": "src/xiangyun-release.js",
+  "compatibility_date": "2026-08-20",
+  "workers_dev": true,
+  "version_metadata": {"binding":"CF_VERSION_METADATA"},
+  "upload_source_maps": false,
+  "routes": [],
+  "assets": {
+    "directory": "../data/lingstone/release-static",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "r2_buckets": [
+    {
+      "binding": "MERCHANT_ASSETS",
+      "bucket_name": "xiangyun-lingstone-v14-preview"
+    }
+  ],
+  "vars": {"XIANGYUN_MODELS_V19":"1","XIANGYUN_CATALOG_V4":"1",
+    "XIANGYUN_CATALOG_V17_PREVIEW": "1",
+    "LINGSTONE_PAYMENT_MODE": "disabled",
+    "LINGSTONE_LOCAL_SIMULATOR": "0"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "XIANGYUN_STORE",
+        "class_name": "XiangyunStore"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "xiangyun-v14-sqlite-1",
+      "new_sqlite_classes": [
+        "XiangyunStore"
+      ]
+    }
+  ]
+}

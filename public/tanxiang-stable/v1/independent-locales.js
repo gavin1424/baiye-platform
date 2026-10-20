@@ -1,0 +1,15 @@
+export const independentRows={
+ analysisIntro:['由香雲冷香館獨立曆法模組計算四柱與可見五行。基本解析免登入，不保存出生輸入。','由香云冷香馆独立历法模块计算四柱与可见五行。基础解析免登录，不保存出生输入。','Xiangyun’s independent calendar module calculates the pillars and visible elements. Basic analysis requires no account and does not store birth inputs.','香雲独自の暦モジュールで四柱と五行を計算。基本解析はログイン不要で、出生入力を保存しません。'],
+ calculate:['開始五行解析','开始五行解析','Explore five elements','五行解析を始める'],
+ login:['登入香雲會員','登录香云会员','Sign in to Xiangyun','香雲にログイン'],
+ qiOpen:['開啟香氣日記','开启香气日记','Open scent journal','香りの日記を開く'],
+ memberNote:['本館使用獨立會員與資料庫。購物不要求提供出生資料或照片，各項紀錄可分別授權及刪除。','本馆使用独立会员与数据库。购物不要求提供出生资料或照片，各项记录可分别授权及删除。','This store uses independent accounts and storage. Birth data and photos are optional; permissions and deletion are separate.','当館独自の会員とデータベースを使用します。出生情報や写真の提供は任意で、同意・削除は個別に選択できます。'],
+ privacyText:['本館會員、四靈紀錄與私人照片使用獨立資料庫及非公開儲存空間，不與其他品牌帳號共用。基本五行解析不保存出生輸入。生活紀錄及照片分別授權，可撤回並刪除；帳號刪除需要再次輸入密碼。必要交易紀錄會去除帳號關聯後依營運需求保存。','本馆会员、四灵记录及私人照片使用独立数据库与非公开存储，不与其他品牌共享账号。基础五行解析不保存出生输入。生活记录及照片分别授权，可撤回删除；账号删除需再次输入密码。必要交易记录解除账号关联后按运营要求保留。','Accounts, four-spirit records and private photos use dedicated storage with no cross-brand account sharing. Basic analysis does not store birth inputs. Journal and photo permissions can be revoked separately with deletion. Account deletion requires your password again. Required transaction records are de-linked and retained as needed.','会員・四霊の記録・非公開写真は専用の保存先を使用し、他ブランドとアカウントを共有しません。基本解析で出生入力を保存しません。日記と写真の同意は個別に撤回・削除できます。アカウント削除にはパスワードの再入力が必要です。必要な取引記録は関連を除いて保存します。'],
+ faceDesc:['自願保存自己的外觀照片與生活感受，可比較歷史照片並刪除。不進行醫療診斷或靈石效果判定。','自愿保存自己的外观照片及生活感受，可比较历史照片并删除。不作医疗诊断或灵石效果判断。','Optionally keep private appearance photos and feelings, compare history and delete your data. No medical diagnosis or stone-effect assessment.','任意で外観写真と生活感覚を保存し、過去の比較や削除ができます。医療診断や石の効果判定は行いません。'],
+ adminNote:['僅限本館獨立管理員帳號。尚未配置品牌管理員時，管理API維持封鎖，不使用其他平台登入。','仅限本馆独立管理员账号。未配置品牌管理员时，管理API保持封锁，不使用其他平台登录。','Only dedicated Xiangyun administrators have access. Admin APIs remain locked until an administrator is provisioned; no external platform login is used.','香雲専用の管理者のみ利用できます。管理者設定までは管理APIを閉じ、他のプラットフォームのログインは使用しません。'],
+ authInvalid:['電子郵件或密碼不正確；密碼需12～128字元。','邮箱或密码不正确；密码需12～128字符。','Email or password is invalid; use a 12–128 character password.','メールまたはパスワードが不正です。パスワードは12～128文字です。'],
+ registrationUnavailable:['無法註冊此帳號，請嘗試登入或使用其他電子郵件。','无法注册此账号，请尝试登录或使用其他邮箱。','Registration is unavailable for this account; try signing in or a different email.','このアカウントを登録できません。ログインまたは別のメールをお試しください。'],
+ photoConsentRequired:['請先同意私人照片保存。','请先同意私人照片保存。','Please consent to private photo storage first.','先に非公開写真の保存に同意してください。'],
+ invalidPhoto:['請選擇有效的JPEG或PNG照片；處理後需小於2MB。','请选择有效JPEG或PNG照片；处理后应小于2MB。','Choose a valid JPEG or PNG image; the processed file must be below 2MB.','有効なJPEGまたはPNGを選択してください。処理後は2MB未満が必要です。'],
+ rateLimited:['請稍後再試，短時間內的請求次數已達上限。','请稍后重试，短时间请求次数已达上限。','Too many requests; please try again later.','リクエストが多すぎます。しばらくしてからお試しください。'],
+};

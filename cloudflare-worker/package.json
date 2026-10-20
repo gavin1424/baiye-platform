@@ -1,0 +1,11 @@
+{
+  "name": "xiangyun-lingstone-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:preview": "cd .. && node scripts/xiangyun-preview-build.mjs && node scripts/lingstone-release-package.mjs",
+    "deploy:preview": "wrangler deploy --config wrangler.lingstone-preview.jsonc"
+  },
+  "dependencies": { "lunar-javascript": "1.7.7" },
+  "devDependencies": { "wrangler": "4.149.0" }
+}

@@ -1,0 +1,7 @@
+import {collectionCopy} from './collection-copy-v17.js';
+export async function inquiryAdmin(c){const {api,esc,lang,notify}=c,g=collectionCopy(lang),main=document.querySelector('#main');
+ main.innerHTML=`<section class="section inquiry-page"><a href="#admin">← ${esc(c.t('admin'))}</a><h1>${esc(g('admin'))}</h1><div id="enquiry-admin-records"></div></section>`;
+ let records;try{records=(await api('/admin/inquiries')).records}catch{document.querySelector('#enquiry-admin-records').textContent=c.t('adminNote');return}
+ document.querySelector('#enquiry-admin-records').innerHTML=records.map((r,i)=>`<article class="form-panel"><small>${esc(r.id)}</small><h3>${esc(r.email)}</h3><p>${esc(r.created_at)}</p><p>${esc(r.product_ids)}</p><p>${esc(r.note)}</p><label>${esc(c.t('status'))}<select data-inquiry-status="${i}">${['received','reviewing','closed'].map(s=>`<option value="${s}" ${r.status===s?'selected':''}>${esc(g(s==='received'?'receivedStatus':s))}</option>`).join('')}</select></label><button data-review="${i}">${esc(c.t('save'))}</button></article>`).join('');
+ main.querySelectorAll('[data-review]').forEach(b=>b.onclick=async()=>{const i=Number(b.dataset.review),r=records[i];b.disabled=true;try{await api('/admin/inquiries/'+r.id,{method:'PUT',body:JSON.stringify({status:main.querySelector(`[data-inquiry-status="${i}"]`).value,revision:r.revision})});await inquiryAdmin(c)}catch{b.disabled=false;notify(g('failure'))}});
+}

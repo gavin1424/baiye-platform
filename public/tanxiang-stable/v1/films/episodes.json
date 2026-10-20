@@ -1,0 +1,1933 @@
+[
+  {
+    "id": "EP01",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "heaven",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "修仙世界的靈石，真的來到人間？",
+        "synopsis": "仙俠裡的靈石是想像；眼前的原石需要照片與紀錄來認識。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "仙俠裡的靈石是想像；眼前的原石需要照片與紀錄來認識。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n仙俠裡的靈石是想像；眼前的原石需要照片與紀錄來認識。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "修仙世界的灵石，真的来到人间？",
+        "synopsis": "仙侠里的灵石是想象；眼前的原石需要照片与记录来认识。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "仙侠里的灵石是想象；眼前的原石需要照片与记录来认识。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n仙侠里的灵石是想象；眼前的原石需要照片与记录来认识。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "Have fantasy spirit stones arrived in our world?",
+        "synopsis": "Fantasy spirit stones belong to fiction. Real stones need photographs and records.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "Fantasy spirit stones belong to fiction. Real stones need photographs and records."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nFantasy spirit stones belong to fiction. Real stones need photographs and records.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "仙侠世界の霊石が現実に現れた？",
+        "synopsis": "仙侠の霊石は創作です。実在の石は写真と記録で知ります。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "仙侠の霊石は創作です。実在の石は写真と記録で知ります。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n仙侠の霊石は創作です。実在の石は写真と記録で知ります。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  },
+  {
+    "id": "EP02",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "blackgold",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "祖先採金，留下的神秘黑金",
+        "synopsis": "家族採金的口述記憶，等待文件與實物逐一對照。未查證的年代不作定論。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "家族採金的口述記憶，等待文件與實物逐一對照。未查證的年代不作定論。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n家族採金的口述記憶，等待文件與實物逐一對照。未查證的年代不作定論。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "祖先采金，留下的神秘黑金",
+        "synopsis": "家族采金的口述记忆，等待文件与实物逐一对照。未查证的年代不作定论。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "家族采金的口述记忆，等待文件与实物逐一对照。未查证的年代不作定论。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n家族采金的口述记忆，等待文件与实物逐一对照。未查证的年代不作定论。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "The mysterious black gold of a family story",
+        "synopsis": "Family oral memories of gold mining await comparison with documents and specimens. Dates remain unverified.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "Family oral memories of gold mining await comparison with documents and specimens. Dates remain unverified."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nFamily oral memories of gold mining await comparison with documents and specimens. Dates remain unverified.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "先祖の採金物語に残る神秘の黒金",
+        "synopsis": "家族に伝わる採金の記憶を資料と実物で照合します。未確認の年代は断定しません。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "家族に伝わる採金の記憶を資料と実物で照合します。未確認の年代は断定しません。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n家族に伝わる採金の記憶を資料と実物で照合します。未確認の年代は断定しません。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  },
+  {
+    "id": "EP03",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "heaven",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "一顆靈石，究竟經歷多少歲月？",
+        "synopsis": "紋理是觀察的起點，不能僅憑外觀推定地質年代。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "紋理是觀察的起點，不能僅憑外觀推定地質年代。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n紋理是觀察的起點，不能僅憑外觀推定地質年代。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "一颗灵石，究竟经历多少岁月？",
+        "synopsis": "纹理是观察的起点，不能仅凭外观推定地质年代。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "纹理是观察的起点，不能仅凭外观推定地质年代。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n纹理是观察的起点，不能仅凭外观推定地质年代。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "How much time does a stone hold?",
+        "synopsis": "Texture invites observation; appearance alone cannot establish geological age.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "Texture invites observation; appearance alone cannot establish geological age."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nTexture invites observation; appearance alone cannot establish geological age.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "一つの石はどれほどの時を経たのか",
+        "synopsis": "質感は観察の出発点ですが、外観だけで地質年代は決められません。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "質感は観察の出発点ですが、外観だけで地質年代は決められません。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n質感は観察の出発点ですが、外観だけで地質年代は決められません。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  },
+  {
+    "id": "EP04",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "blackgold",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "黑色原石裡，藏著什麼秘密？",
+        "synopsis": "黑色與金屬光澤都不是成分證明。材料判讀仍需要可追溯檢測。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "黑色與金屬光澤都不是成分證明。材料判讀仍需要可追溯檢測。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n黑色與金屬光澤都不是成分證明。材料判讀仍需要可追溯檢測。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "黑色原石里，藏着什么秘密？",
+        "synopsis": "黑色与金属光泽都不是成分证明。材料判读仍需要可追溯检测。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "黑色与金属光泽都不是成分证明。材料判读仍需要可追溯检测。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n黑色与金属光泽都不是成分证明。材料判读仍需要可追溯检测。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "What lies inside a dark natural stone?",
+        "synopsis": "Dark color and metallic luster do not prove composition. Traceable testing is still needed.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "Dark color and metallic luster do not prove composition. Traceable testing is still needed."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nDark color and metallic luster do not prove composition. Traceable testing is still needed.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "黒い原石には何が隠れているのか",
+        "synopsis": "黒い色や金属光沢は成分の証明になりません。追跡可能な検査が必要です。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "黒い色や金属光沢は成分の証明になりません。追跡可能な検査が必要です。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n黒い色や金属光沢は成分の証明になりません。追跡可能な検査が必要です。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  },
+  {
+    "id": "EP05",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "blackgold",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE",
+      "ORIGINAL_SHENZHEN_XRF_RECORD"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "深圳XRF檢測，揭開靈石元素之謎",
+        "synopsis": "口述深圳歷史XRF曾有Au約1.028%至1.973%讀值，原件尚待核對，不能代表整批或可提煉金量。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "口述深圳歷史XRF曾有Au約1.028%至1.973%讀值，原件尚待核對，不能代表整批或可提煉金量。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n口述深圳歷史XRF曾有Au約1.028%至1.973%讀值，原件尚待核對，不能代表整批或可提煉金量。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "深圳XRF检测，揭开灵石元素之谜",
+        "synopsis": "口述深圳历史XRF曾有Au约1.028%至1.973%读值，原件尚待核对，不能代表整批或可提炼金量。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "口述深圳历史XRF曾有Au约1.028%至1.973%读值，原件尚待核对，不能代表整批或可提炼金量。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n口述深圳历史XRF曾有Au约1.028%至1.973%读值，原件尚待核对，不能代表整批或可提炼金量。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "Shenzhen XRF: reading the elemental record",
+        "synopsis": "Reported historical Shenzhen XRF Au readings of about 1.028% to 1.973% await original records. They do not establish batch grade or recoverable gold.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "Reported historical Shenzhen XRF Au readings of about 1.028% to 1.973% await original records. They do not establish batch grade or recoverable gold."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nReported historical Shenzhen XRF Au readings of about 1.028% to 1.973% await original records. They do not establish batch grade or recoverable gold.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "深圳XRF、元素の記録を読む",
+        "synopsis": "深圳の過去XRFでAu約1.028%～1.973%との口伝は原本確認待ちです。ロット品位や回収金量を示しません。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "深圳の過去XRFでAu約1.028%～1.973%との口伝は原本確認待ちです。ロット品位や回収金量を示しません。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n深圳の過去XRFでAu約1.028%～1.973%との口伝は原本確認待ちです。ロット品位や回収金量を示しません。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  },
+  {
+    "id": "EP06",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "heaven",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "修仙者為什麼需要靈石？",
+        "synopsis": "故事中的靈力屬於虛構。真實收藏看重實物、來源與個人的審美。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "故事中的靈力屬於虛構。真實收藏看重實物、來源與個人的審美。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n故事中的靈力屬於虛構。真實收藏看重實物、來源與個人的審美。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "修仙者为什么需要灵石？",
+        "synopsis": "故事中的灵力属于虚构。真实收藏看重实物、来源与个人的审美。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "故事中的灵力属于虚构。真实收藏看重实物、来源与个人的审美。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n故事中的灵力属于虚构。真实收藏看重实物、来源与个人的审美。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "Why do fantasy cultivators seek spirit stones?",
+        "synopsis": "Spiritual power in this story is fictional. Real collecting values specimens, provenance and personal taste.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "Spiritual power in this story is fictional. Real collecting values specimens, provenance and personal taste."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nSpiritual power in this story is fictional. Real collecting values specimens, provenance and personal taste.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "仙侠の修行者はなぜ霊石を求めるのか",
+        "synopsis": "物語の霊力は創作です。現実の収集では実物、由来、個人の美意識を大切にします。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "物語の霊力は創作です。現実の収集では実物、由来、個人の美意識を大切にします。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n物語の霊力は創作です。現実の収集では実物、由来、個人の美意識を大切にします。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  },
+  {
+    "id": "EP07",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "elements",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "金木水火土，五行靈石如何選？",
+        "synopsis": "金木水火土是本系列的文化標籤，不是礦物成分或人體缺乏檢測。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "金木水火土是本系列的文化標籤，不是礦物成分或人體缺乏檢測。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n金木水火土是本系列的文化標籤，不是礦物成分或人體缺乏檢測。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "金木水火土，五行灵石如何选？",
+        "synopsis": "金木水火土是本系列的文化标签，不是矿物成分或人体缺乏检测。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "金木水火土是本系列的文化标签，不是矿物成分或人体缺乏检测。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n金木水火土是本系列的文化标签，不是矿物成分或人体缺乏检测。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "Choosing a stone through five-element culture",
+        "synopsis": "Metal, wood, water, fire and earth are cultural tags, not mineral composition or bodily deficiency tests.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "Metal, wood, water, fire and earth are cultural tags, not mineral composition or bodily deficiency tests."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nMetal, wood, water, fire and earth are cultural tags, not mineral composition or bodily deficiency tests.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "金木水火土、五行文化で石を選ぶ",
+        "synopsis": "金木水火土は文化タグであり、鉱物成分や身体の不足を調べる検査ではありません。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "金木水火土は文化タグであり、鉱物成分や身体の不足を調べる検査ではありません。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n金木水火土は文化タグであり、鉱物成分や身体の不足を調べる検査ではありません。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  },
+  {
+    "id": "EP08",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "elements",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "你的生辰八字，適合哪種靈石？",
+        "synopsis": "沿用香雲冷香館八字引擎，未知時辰保留未知。推薦顯示文化分類理由，不保證改運。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "沿用香雲冷香館八字引擎，未知時辰保留未知。推薦顯示文化分類理由，不保證改運。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n沿用香雲冷香館八字引擎，未知時辰保留未知。推薦顯示文化分類理由，不保證改運。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "你的生辰八字，适合哪种灵石？",
+        "synopsis": "沿用香雲冷香館八字引擎，未知时辰保留未知。推荐显示文化分类理由，不保证改运。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "沿用香雲冷香館八字引擎，未知时辰保留未知。推荐显示文化分类理由，不保证改运。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n沿用香雲冷香館八字引擎，未知时辰保留未知。推荐显示文化分类理由，不保证改运。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "Birth charts and cultural stone associations",
+        "synopsis": "The existing Xiangyun engine preserves unknown birth times. Recommendations explain cultural tags and promise no change of destiny.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "The existing Xiangyun engine preserves unknown birth times. Recommendations explain cultural tags and promise no change of destiny."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nThe existing Xiangyun engine preserves unknown birth times. Recommendations explain cultural tags and promise no change of destiny.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "生辰八字と石の文化的なつながり",
+        "synopsis": "既存の香雲冷香館エンジンを使い、不明な時刻は不明のまま扱います。文化タグの理由を示し、開運を保証しません。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "既存の香雲冷香館エンジンを使い、不明な時刻は不明のまま扱います。文化タグの理由を示し、開運を保証しません。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n既存の香雲冷香館エンジンを使い、不明な時刻は不明のまま扱います。文化タグの理由を示し、開運を保証しません。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  },
+  {
+    "id": "EP09",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "incense_pair",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "靈運、靈氣、靈契、靈色",
+        "synopsis": "四靈讓文化指引、心情、收藏與外觀紀錄各自選擇，各自授權。外觀變化不歸因於靈石。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "四靈讓文化指引、心情、收藏與外觀紀錄各自選擇，各自授權。外觀變化不歸因於靈石。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n四靈讓文化指引、心情、收藏與外觀紀錄各自選擇，各自授權。外觀變化不歸因於靈石。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "灵运、灵气、灵契、灵色",
+        "synopsis": "四灵让文化指引、心情、收藏与外观记录各自选择，各自授权。外观变化不归因于灵石。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "四灵让文化指引、心情、收藏与外观记录各自选择，各自授权。外观变化不归因于灵石。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n四灵让文化指引、心情、收藏与外观记录各自选择，各自授权。外观变化不归因于灵石。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "Ling Yun, Ling Qi, Ling Qi Collection, Ling Se",
+        "synopsis": "Choose guidance, mood, collection and appearance records independently, with separate consent. Appearance changes are not attributed to stones.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "Choose guidance, mood, collection and appearance records independently, with separate consent. Appearance changes are not attributed to stones."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nChoose guidance, mood, collection and appearance records independently, with separate consent. Appearance changes are not attributed to stones.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "霊運・霊気・霊契・霊色",
+        "synopsis": "文化ガイド、気分、収蔵、外見記録は個別に選択・同意します。外見の変化を石に帰因させません。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "文化ガイド、気分、収蔵、外見記録は個別に選択・同意します。外見の変化を石に帰因させません。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n文化ガイド、気分、収蔵、外見記録は個別に選択・同意します。外見の変化を石に帰因させません。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  },
+  {
+    "id": "EP10",
+    "status": "SCRIPT_AND_STORYBOARD_ONLY",
+    "duration_seconds": 60,
+    "aspect_ratio": "16:9",
+    "future_aspect_ratios": [
+      "9:16"
+    ],
+    "category": "home",
+    "product_ids": [],
+    "mp4_url": null,
+    "required_assets": [
+      "OWNER_VERIFIED_SPECIMEN_MACRO",
+      "SPECIMEN_REFERENCE",
+      "VERIFIED_PROVENANCE_RECORDS",
+      "OWNER_APPROVED_MUSIC",
+      "VERIFIED_PRODUCT_CAPTURE"
+    ],
+    "locales": {
+      "zh-Hant": {
+        "title": "靈石走入現代家庭",
+        "synopsis": "把原石放入日常之前，先確認安全、來源與運送條件；可收藏的心意，也需要負責任的紀錄。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9雲海遠景，緩推旅人背影；固定顯示「AI仙俠創作」。",
+            "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金標題卡，使用本集已核對的文字；未知事項保留待驗證。",
+            "narration": "把原石放入日常之前，先確認安全、來源與運送條件；可收藏的心意，也需要負責任的紀錄。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "實物編號與原石微距，側光緩移。素材未交付則保留缺件標記，不渲染替代原石。",
+            "narration": "鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圓環，慢速轉場；明示「文化敘事」。",
+            "narration": "五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核實商品頁截圖與追溯欄位；禁止出現未確認的安全徽章。",
+            "narration": "實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口與商城連結，5秒停留；不出現保證效果。",
+            "narration": "修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+          }
+        ],
+        "narration": "雲海深處，一位旅人循著石上的微光，尋找一段未完的故事。這是AI仙俠創作。\n把原石放入日常之前，先確認安全、來源與運送條件；可收藏的心意，也需要負責任的紀錄。\n鏡頭回到現實。每顆原石以獨立編號、實物照片和待確認欄位留下紀錄。\n五行是一種文化觀看方式。它不替代科學檢驗，也不承諾醫療或命運效果。\n實物素材尚待確認時，不以AI礦石代替。母石僅供展示，未通過安全與合規不開放付款。\n修仙之路，一石結緣。走進香雲冷香館，查看紀錄，再選擇屬於自己的收藏。"
+      },
+      "zh-Hans": {
+        "title": "灵石走入现代家庭",
+        "synopsis": "把原石放入日常之前，先确认安全、来源与运送条件；可收藏的心意，也需要负责任的记录。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9云海远景，缓推旅人背影；固定显示“AI仙侠创作”。",
+            "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黑底暖金标题卡，使用本集已核对的文字；未知事项保留待验证。",
+            "narration": "把原石放入日常之前，先确认安全、来源与运送条件；可收藏的心意，也需要负责任的记录。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "实物编号与原石微距，侧光缓移。素材未交付则保留缺件标记，不渲染替代原石。",
+            "narration": "镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行文字圆环，慢速转场；明示“文化叙事”。",
+            "narration": "五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "已核实商品页截图与追溯字段；禁止出现未确认的安全徽章。",
+            "narration": "实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "品牌字卡、系列入口与商城链接，5秒停留；不出现保证效果。",
+            "narration": "修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+          }
+        ],
+        "narration": "云海深处，一位旅人循着石上的微光，寻找一段未完的故事。这是AI仙侠创作。\n把原石放入日常之前，先确认安全、来源与运送条件；可收藏的心意，也需要负责任的记录。\n镜头回到现实。每颗原石以独立编号、实物照片和待确认字段留下记录。\n五行是一种文化观看方式。它不替代科学检验，也不承诺医疗或命运效果。\n实物素材尚待确认时，不以AI矿石代替。母石仅供展示，未通过安全与合规不开放付款。\n修仙之路，一石结缘。走进香云冷香馆，查看记录，再选择属于自己的收藏。"
+      },
+      "en": {
+        "title": "Natural stones in a modern home",
+        "synopsis": "Before bringing a stone home, verify safety, provenance and shipping. Meaningful collecting deserves responsible records.",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9 cloud vista, slow push toward a traveler. Persistent label: AI fantasy fiction.",
+            "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction."
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "Black-and-gold title card with the episode facts and explicit unverified status.",
+            "narration": "Before bringing a stone home, verify safety, provenance and shipping. Meaningful collecting deserves responsible records."
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Macro footage and specimen reference, slow side light. Missing real footage blocks rendering; no generated substitute.",
+            "narration": "The camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns."
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "Five-element typography circle, gentle transition. Label: cultural narrative.",
+            "narration": "The five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects."
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "Verified product-page capture with traceability fields. No unverified safety badges.",
+            "narration": "AI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance."
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "Brand end card, category link and store URL; hold five seconds, no effect claims.",
+            "narration": "A journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+          }
+        ],
+        "narration": "Beyond a sea of clouds, a traveler follows a glimmer in stone toward an unfinished story. This is AI fantasy fiction.\nBefore bringing a stone home, verify safety, provenance and shipping. Meaningful collecting deserves responsible records.\nThe camera returns to reality. Each specimen has its own reference, real photographs and explicit unknowns.\nThe five elements offer a cultural perspective. They do not replace scientific testing or promise medical or destiny effects.\nAI stones never replace missing specimen footage. Mother stones are for display; payment requires confirmed safety and compliance.\nA journey of wonder. A bond set in stone. Visit Xiangyun Lengxiang, read the records and choose your own collection."
+      },
+      "ja": {
+        "title": "現代の住まいに原石を迎える",
+        "synopsis": "原石を住まいに迎える前に、安全性、由来、配送条件を確認します。大切な収集には責任ある記録が必要です。",
+        "shots": [
+          {
+            "time": "0–10s",
+            "kind": "AI_FICTION",
+            "visual": "16:9の雲海。旅人の背へゆっくり接近。「AI仙侠創作」を常時表示。",
+            "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。"
+          },
+          {
+            "time": "10–20s",
+            "kind": "FACT_STATUS",
+            "visual": "黒と金のタイトルカード。確認済み情報と未確認表示を明記。",
+            "narration": "原石を住まいに迎える前に、安全性、由来、配送条件を確認します。大切な収集には責任ある記録が必要です。"
+          },
+          {
+            "time": "20–30s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "原石番号と実物マクロ、側光が移動。実物映像不足なら出力を保留し、生成物で代用しない。",
+            "narration": "カメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。"
+          },
+          {
+            "time": "30–40s",
+            "kind": "CULTURE",
+            "visual": "五行の文字円環、穏やかな転換。「文化的な物語」と表示。",
+            "narration": "五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。"
+          },
+          {
+            "time": "40–50s",
+            "kind": "REAL_ASSET_REQUIRED",
+            "visual": "確認済み商品ページと追跡項目。未確認の安全バッジを表示しない。",
+            "narration": "実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。"
+          },
+          {
+            "time": "50–60s",
+            "kind": "CULTURE",
+            "visual": "ブランドカード、シリーズ入口、商城リンク。5秒保持し、効果を保証しない。",
+            "narration": "仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+          }
+        ],
+        "narration": "雲海の奥で旅人が石の微光をたどり、未完の物語を探します。これはAI仙侠の創作です。\n原石を住まいに迎える前に、安全性、由来、配送条件を確認します。大切な収集には責任ある記録が必要です。\nカメラは現実へ。原石ごとに固有番号、実物写真、未確認項目を記録します。\n五行は文化的な見方です。科学検査に代わるものではなく、医療や運命への効果を約束しません。\n実物素材が未確認ならAIの石で代用しません。母石は展示のみ、安全と規制の確認前は決済できません。\n仙道の旅、一石が結ぶ縁。香雲冷香館で記録を読み、自分のコレクションを選びましょう。"
+      }
+    }
+  }
+]

@@ -1,0 +1,23 @@
+export const homeRows={
+shot_AI_FICTION:['仙俠故事','仙侠故事','Fantasy story','仙侠の物語'],shot_CULTURE:['五行文化','五行文化','Five-element culture','五行文化'],shot_FACT_STATUS:['資料確認','资料确认','Document review','資料確認'],shot_REAL_ASSET_REQUIRED:['實物素材','实物素材','Physical source material','実物素材'],
+heroSub:['香雲冷香館・祖傳金脈系列','香云冷香馆・祖传金脉系列','Xiangyun Lengxiang · Family Gold-Vein Collection','香雲冷香館・代々受け継ぐ金脈シリーズ'],
+heroIntro:['源自家族採金傳承的天然奇石，結合東方沉香文化、天地五行傳說與AI互動體驗，開啟專屬於你的靈石收藏故事。','源自家族采金传承的天然奇石，结合东方沉香文化、天地五行传说与AI互动体验，开启专属于你的灵石收藏故事。','Natural stones from a family gold-mining tradition meet Eastern incense culture, five-element legends and AI interaction. Begin a collection story of your own.','家族の採金の伝承に由来する天然石。東洋の香文化、天地五行の物語とAI体験を通じて、あなただけの収蔵の物語へ。'],
+stoneExplore:['探索靈石收藏','探索灵石收藏','Explore the stones','霊石コレクションへ'],
+incenseExplore:['探索沉香珍藏','探索沉香珍藏','Explore incense treasures','香のコレクションへ'],
+realArchive:['實物圖錄・逐石建檔','实物图录・逐石建档','REAL STONES · INDIVIDUAL RECORDS','実物図録・一石ごとの記録'],
+realPhotoPending:['祖傳黑金原石實拍待補。未以示意圖代替商品。','祖传黑金原石实拍待补。未以示意图代替商品。','Actual black-gold stone photography is pending. No illustration stands in for a product.','黒金原石の実物写真は準備中です。イメージ画像を商品写真として使用しません。'],
+viewArchive:['查看實物圖錄','查看实物图录','View the archive','実物図録を見る'],
+findStone:['尋找你的五行文化靈石','寻找你的五行文化灵石','Find your five-element stone theme','あなたの五行文化の石を探す'],
+incenseArt:['一木一香，收藏時間的紋理','一木一香，收藏时间的纹理','Wood, fragrance, and the texture of time','木と香、時を刻む質感'],
+incenseArtText:['木紋如山脈，香韻如雲。從日常聞香到細賞木質之美，在沉靜光影裡，留一方安放收藏與心意的空間。','木纹如山脉，香韵如云。从日常闻香到细赏木质之美，在沉静光影里，留一方安放收藏与心意的空间。','Grain flows like mountains; fragrance drifts like clouds. From a daily incense ritual to a quiet appreciation of wood, make room for objects and stories that matter.','木目は山脈のように、香りは雲のように。日々の香のひとときから木の美しさを味わう時間へ。静かな光の中に、大切なものと想いを置く余白を。'],
+legacyImage:['沿用原站香品情境圖，非沉香原木實拍','沿用原站香品情境图，非沉香原木实拍','Original incense scene; not a photograph of an agarwood log','従来サイトの香品イメージ。沈香原木の実物写真ではありません'],
+viewWood:['前往原館賞木','前往原馆赏木','Visit the wood pavilion','従来館の木の展示へ'],
+filmExplore:['探索同系列商品','探索同系列商品','Explore the same collection','同じシリーズを見る'],
+filmEntry:['走進天地靈石傳奇','走进天地灵石传奇','Discover Legends of the Stones','天地霊石伝奇へ'],
+filmPending:['影片尚待製作；先閱讀故事與分鏡','影片尚待制作；先阅读故事与分镜','Films in production · explore the scripts and storyboards','映像は制作準備中・脚本と絵コンテをご覧ください'],
+openMenu:['開啟選單','打开菜单','Open menu','メニューを開く'],closeMenu:['關閉選單','关闭菜单','Close menu','メニューを閉じる'],
+language:['語言','语言','Language','言語'],stock:['庫存狀態','库存状态','Availability','在庫状況'],meaning:['文化寓意','文化寓意','Cultural meaning','文化の意味'],
+unavailable:['尚未開放購買','尚未开放购买','Purchasing unavailable','購入受付前'],
+seriesBlack:['祖傳黑金靈石','祖传黑金灵石','Family black-gold stones','家伝の黒金霊石'],seriesElements:['天地五行靈石','天地五行灵石','Five-element stones','天地五行の霊石'],seriesHome:['居家鎮宅擺飾','居家镇宅摆饰','Stones for the home','住まいの石飾り'],seriesGift:['沉香靈石禮盒','沉香灵石礼盒','Incense & stone gifts','香と石のギフト'],
+previewLabel:['V1.1 測試版本・待確認','V1.1 测试版本・待确认','V1.1 preview · awaiting approval','V1.1 テスト版・確認待ち']
+};

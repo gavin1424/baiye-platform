@@ -1,0 +1,7 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {languages,translator} from '../public/tanxiang-stable/v1/locales.js';
+const base='https://baiyeconnect.com/tanxiang-stable/v1/',dir='public/tanxiang-stable/v1/';
+const source=readFileSync(dir+'index.html','utf8').replace(/<link[^>]+(?:hreflang|rel="canonical")[^>]*>/g,'');
+for(const lang of languages){const t=translator(lang);let html=source.replace('<html lang="zh-Hant">',`<html lang="${lang}">`).replace(/<title>.*?<\/title>/,`<title>${t('brand')}・${t('series')}</title>`).replace(/<meta name="description"[^>]+>/,`<meta name="description" content="${t('brand')}・${t('series')}。${t('tagline')}">`);html=html.replace('</head>',`<link rel="canonical" href="${base}index-${lang}.html">${languages.map(l=>`<link rel="alternate" hreflang="${l}" href="${base}index-${l}.html">`).join('')}</head>`);writeFileSync(dir+`index-${lang}.html`,html)}
+const sitemap=`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${languages.map(l=>`<url><loc>${base}index-${l}.html</loc>${languages.map(x=>`<xhtml:link rel="alternate" hreflang="${x}" href="${base}index-${x}.html"/>`).join('')}</url>`).join('')}</urlset>`;writeFileSync(dir+'sitemap.xml',sitemap);
+console.log('Four localized HTML metadata variants and hreflang sitemap generated. No private routes indexed.');

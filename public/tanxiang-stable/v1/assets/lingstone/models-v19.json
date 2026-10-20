@@ -1,0 +1,477 @@
+{
+  "version": "1.9.2",
+  "environmentImage": "/tanxiang-stable/v1/assets/lingstone/studio-v192-ed00e0e209.hdr",
+  "type": "AI_CONCEPT_NOT_PHYSICAL_SCAN",
+  "products": [
+    {
+      "id": "xy-concept-01",
+      "sku": "XY-CONCEPT-001",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-01-v192-f8a9919909d7.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-01.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3669156,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "f8a9919909d756f914c3c5ff63d8ee6c1bea160d8c9c680693e2797614c56594",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 1.65,
+        "width": 1.22,
+        "depth": 0.83
+      },
+      "sourceImageSha256": "8ffb00ea8ac1427005f35380d0a3791c812b351ede13bf92ca3bb580fa475fdd",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 0.8425115326759569,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19200,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.220001220703125,
+        "crystalFraction": 0.09918975830078125,
+        "oxideFraction": 0.08662923177083333,
+        "metallicFraction": 0.019683837890625,
+        "mapBytes": [
+          749515,
+          1089633,
+          377257
+        ],
+        "mapSha256": [
+          "f63eb58a803738ba8b2af80fb252a2393652b5c00bb47e10ef42227c865613c0",
+          "45ddd157e59c5f1c5bb3ae037094a80ad7c0c8e8e43f6bbd9db203cbf8dc5d46",
+          "b936cda44aaefffd5dec0dda967c0f3c1da61c8057d33c6704ff47ee6fa4c0b4"
+        ]
+      }
+    },
+    {
+      "id": "xy-concept-02",
+      "sku": "XY-CONCEPT-002",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-02-v192-0d09b153b91d.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-02.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3623940,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "0d09b153b91d7be6a2c0ae03264f1a5c45862a0cf6dad5e21043087ff6789260",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 1.25,
+        "width": 1.43,
+        "depth": 0.98
+      },
+      "sourceImageSha256": "29e6721bf70748109aa42810382aac847ed7637a4d5e90cabdfec698107e8b24",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 0.9737854749714783,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19201,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.1600011189778646,
+        "crystalFraction": 0.2093938191731771,
+        "oxideFraction": 0.060460408528645836,
+        "metallicFraction": 0.01483917236328125,
+        "mapBytes": [
+          754996,
+          1034708,
+          394126
+        ],
+        "mapSha256": [
+          "470fdbd1f68a9202eda915385663ac3a9dcbae98f28f1500253a53607fff7f8f",
+          "cfd6f2df3f2a445f5ed40d690a492717ed0bde032f38f058de337ab2476c9a52",
+          "253ec6fb293be33223961a517a8c3015e075b93bda1dd57e3943a81c90fa6847"
+        ]
+      }
+    },
+    {
+      "id": "xy-concept-03",
+      "sku": "XY-CONCEPT-003",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-03-v192-b8656a4f3341.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-03.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3724356,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "b8656a4f33415b494536f177db0cbbda4456f98bff77d73a1d23fc0ada3d5c9c",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 1.46,
+        "width": 1.24,
+        "depth": 0.88
+      },
+      "sourceImageSha256": "947c7c6275b02f0d79fb2cef28ecbeffa81bdc6cdb57e9368f14c44a67c008db",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 1.080393355991857,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19202,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.1999994913736979,
+        "crystalFraction": 0.05272674560546875,
+        "oxideFraction": 0.14263153076171875,
+        "metallicFraction": 0.036376953125,
+        "mapBytes": [
+          721127,
+          1130243,
+          388844
+        ],
+        "mapSha256": [
+          "0cc7c8b5cd339b17e11a844363ed6475d37632c26a5abc76a3c6a25ab2f00634",
+          "c484fb082c7753572b5a031070c2f54083b6417c9ce5428a8860eb76664e1efa",
+          "947ccddedfc127535216267bf32d79e096439afae491672476b64091bc755e3e"
+        ]
+      }
+    },
+    {
+      "id": "xy-concept-04",
+      "sku": "XY-CONCEPT-004",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-04-v192-055c9ec78bba.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-04.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3689812,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "055c9ec78bba9305b16c21b795eeddcfa7b5d7407f4ca47f85df1d24893a287d",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 1.23,
+        "width": 1.44,
+        "depth": 0.88
+      },
+      "sourceImageSha256": "692b9f5c673ace3b11e01bae4959d829e1c9e46ef838728ceaf6a7e2f66dea8f",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 0.9631002883161679,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19203,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.1600011189778646,
+        "crystalFraction": 0.058474222819010414,
+        "oxideFraction": 0.17239888509114584,
+        "metallicFraction": 0.044652303059895836,
+        "mapBytes": [
+          712637,
+          1127933,
+          393745
+        ],
+        "mapSha256": [
+          "9400c664c343883600e146a58b8400a63513497921bb05a7f3862d6a3ec532c2",
+          "655af238cdecf4a8f3dddbe448ea4415ad126e2caab0d7fb5601583e019183b7",
+          "efce835cabc3ca78fc90c8be660c0edf3efe5cf62c427b9e6783ed665ea731bd"
+        ]
+      }
+    },
+    {
+      "id": "xy-concept-05",
+      "sku": "XY-CONCEPT-005",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-05-v192-f6d81965e88b.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-05.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3571492,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "f6d81965e88b47bb3af3f1406d0934770a11a49ba6b4acc664df98631e5480f4",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 1.98,
+        "width": 0.94,
+        "depth": 0.76
+      },
+      "sourceImageSha256": "cc073ac62fb34deed716df60e1cc7e087a561773ed532b836c997eddb0c5332f",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 0.701243408854431,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19204,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.3400014241536458,
+        "crystalFraction": 0.1671778361002604,
+        "oxideFraction": 0.045354207356770836,
+        "metallicFraction": 0.008974711100260416,
+        "mapBytes": [
+          763603,
+          1038245,
+          379482
+        ],
+        "mapSha256": [
+          "6d332523bf295d8cebf32b19f822a11bfff029ec65b2c732ed7673c750ed0884",
+          "ef78fca00d93375ac73d90275bf97126db05a3478b192233427e708c92bb14ca",
+          "226288e125cb97180a4f38e7ad3b7daafbd96fb5640f2fbdfbf0d2c9f915b3d5"
+        ]
+      }
+    },
+    {
+      "id": "xy-concept-06",
+      "sku": "XY-CONCEPT-006",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-06-v192-451902295f1f.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-06.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3696748,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "451902295f1f581bf8b3a905dec31e9931a88d4afc335a3429259a9edd72df1c",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 1.62,
+        "width": 1.22,
+        "depth": 0.89
+      },
+      "sourceImageSha256": "1109fc39ee8382e663bb3aa6cc1134ff7a77ca90778173bcc7976730231ebe61",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 0.8656637993983611,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19205,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.21000162760416666,
+        "crystalFraction": 0.11675262451171875,
+        "oxideFraction": 0.1594060262044271,
+        "metallicFraction": 0.02109527587890625,
+        "mapBytes": [
+          759398,
+          1086332,
+          389493
+        ],
+        "mapSha256": [
+          "f7cafca23763f55e50d27102d55ac11934170f3676e81ed3892b115ff1b3c469",
+          "e4f623ab6c5acea217a8d9836c05021334523dc14197bcf4c1a5d6cb56efd9f4",
+          "a26f1570627cbe2f73f78ada8dba5dcf9d5207189e3c4418db4c2e51d3b7b8d7"
+        ]
+      }
+    },
+    {
+      "id": "xy-concept-07",
+      "sku": "XY-CONCEPT-007",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-07-v192-55ee893743fa.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-07.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3699172,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "55ee893743fa4841d23d342003e719752f5d821fc8c363783433dd25fbd4c999",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 1.29,
+        "width": 1.42,
+        "depth": 0.95
+      },
+      "sourceImageSha256": "f93a5ac5521cbb95b09d37d07e1e616b11335a32fd5d85827e9c3ef28c1a5fe8",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 1.0790285151528232,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19206,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.24000040690104166,
+        "crystalFraction": 0.09625498453776042,
+        "oxideFraction": 0.07824198404947917,
+        "metallicFraction": 0.025568644205729168,
+        "mapBytes": [
+          746714,
+          1095404,
+          388670
+        ],
+        "mapSha256": [
+          "0077fc2f876e20b53e9cd2dd7f37fc2758bada0caa97d2dbb8a84918770cf6a1",
+          "2a6c82e3a18ff00547661d8b3aa07747a5f0bda9ae7a04a422ed53ac6effc431",
+          "aae21f4d7966fbdaea54c93bca67fad4e68b60fa45320a4fdb6f12d85d1e0d79"
+        ]
+      }
+    },
+    {
+      "id": "xy-concept-08",
+      "sku": "XY-CONCEPT-008",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-08-v192-2ad01181a30a.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-08.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3603660,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "2ad01181a30aed82325c81c6e3f23d95d20f2e0a34a7b688e4d51fb6e0798913",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 1.4,
+        "width": 1.52,
+        "depth": 0.86
+      },
+      "sourceImageSha256": "c9ea8813a03a2e20be8a530b4398dd410658c9e1c93f8e57e77e102c3d6bab69",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 1.162745347052082,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19207,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.25,
+        "crystalFraction": 0.2066650390625,
+        "oxideFraction": 0.048833211263020836,
+        "metallicFraction": 0.02008056640625,
+        "mapBytes": [
+          754428,
+          1022920,
+          398299
+        ],
+        "mapSha256": [
+          "f2c6225d11942b1b0d810800e7b9e75d6f03c582ecf79b09946cd400f05fb890",
+          "a32087d698d05d17697d7a69c57c7b2b152e373179ed569eb144e923ebc2b859",
+          "0287d691c78c5943fa7a6fe09ee64faa866d7f0f480d8c6baccf80d1ef6788e6"
+        ]
+      }
+    },
+    {
+      "id": "xy-concept-09",
+      "sku": "XY-CONCEPT-009",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-09-v192-ed4b27f79887.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-09.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3695324,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "ed4b27f79887587ec926960387dd64af64f6900e9f14ad00dbefe189c23bd65a",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 0.96,
+        "width": 1.82,
+        "depth": 1.03
+      },
+      "sourceImageSha256": "5d83ec1c52ad21e7687e62914fa1ba395bc1050e7840dae12a7c520c8e989f58",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 1.2312935509038454,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19208,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.32999928792317706,
+        "crystalFraction": 0.09545135498046875,
+        "oxideFraction": 0.10196177164713542,
+        "metallicFraction": 0.0182647705078125,
+        "mapBytes": [
+          781700,
+          1072904,
+          377318
+        ],
+        "mapSha256": [
+          "c69a2f185cfc12ebb109311b63ff3fa9373942016c45935fbc48127a07ddf519",
+          "49a4406b9636d368d02a66f8c94c1c44325b3b3d8412c0eea14f804f82bb5c75",
+          "f2316d6ee069c98b93de914fdb4179e0adf8cf61902dd08337d8bf35eb155e84"
+        ]
+      }
+    },
+    {
+      "id": "xy-concept-10",
+      "sku": "XY-CONCEPT-010",
+      "modelUrl": "/tanxiang-stable/v1/assets/lingstone/models/lingstone-concept-10-v192-8465622133df.glb",
+      "posterImage": "/tanxiang-stable/v1/assets/lingstone/stones/lingstone-concept-10.webp",
+      "modelStatus": "concept",
+      "frames360": [],
+      "modelSource": "Original procedural concept mesh from supplied AI front artwork; sides and back inferred. Not a scan.",
+      "modelSizeBytes": 3617244,
+      "scaleApproximate": true,
+      "saleEnabled": false,
+      "sha256": "8465622133dff6b5bd1f27348d019e70c17233275a134605dd854dfed42bd2fe",
+      "vertices": 14067,
+      "triangles": 27936,
+      "silhouette": {
+        "height": 1.12,
+        "width": 1.52,
+        "depth": 1.02
+      },
+      "sourceImageSha256": "7d54592bca3547389ef5a80d214be13d2eab2a88c10810dabbcca17cfda326a6",
+      "presentation": {
+        "plinthTop": 0.2,
+        "plinthRadius": 1.1499874366333949,
+        "materialRevision": "1.9.2"
+      },
+      "materialLayers": {
+        "seed": 19209,
+        "resolution": [
+          768,
+          512
+        ],
+        "darkFraction": 0.28000132242838544,
+        "crystalFraction": 0.08734893798828125,
+        "oxideFraction": 0.049039204915364586,
+        "metallicFraction": 0.025143941243489582,
+        "mapBytes": [
+          758827,
+          1068762,
+          382011
+        ],
+        "mapSha256": [
+          "37fbb39452775574651ef327e434400a48ade3e761655300749483bc7a7ac4c6",
+          "b0b8a51cea3b5ab9f7d2d7c2ae67c1252e6899aeff0378517f64064bcc7e99a1",
+          "71306159c3647519363b9e1f84de89e1fdd44a59d7d42556e4d1cf89e4fb4dae"
+        ]
+      }
+    }
+  ]
+}

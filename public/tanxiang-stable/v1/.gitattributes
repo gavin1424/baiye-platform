@@ -1,0 +1,5 @@
+assets/vendor/model-viewer/model-viewer-4.4.0.min.js -text
+*.glb -text
+*.webp -text
+*.png -text
+*.hdr -text
