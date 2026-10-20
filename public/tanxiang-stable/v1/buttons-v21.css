@@ -1,0 +1,161 @@
+/* Shared interaction components. Loaded after legacy section styles. */
+:root {
+  --btn-radius:12px;
+  --btn-small-radius:10px;
+  --btn-height:48px;
+  --btn-font:'Noto Sans TC',sans-serif;
+  --btn-transition:180ms ease;
+  --btn-shadow:0 4px 16px rgba(32,22,9,.10);
+  --btn-gold:linear-gradient(135deg,#ddc9a7 0%,#c6aa7a 58%,#bda073 100%);
+  --btn-ink:#302820;
+  --btn-border:#967749;
+  --btn-secondary:linear-gradient(135deg,#263d32,#1b2f25);
+  --btn-secondary-ink:#f6f0e5;
+  --btn-secondary-border:#9e896c;
+  --btn-focus:#f2dfba;
+  --btn-link:#e1c393;
+}
+button,.button {
+  font:400 15px/1.5 var(--btn-font);
+  letter-spacing:.01em;
+  min-height:var(--btn-height);
+  min-width:44px;
+  max-width:100%;
+  padding:11px 18px;
+  border:1px solid var(--btn-border);
+  border-radius:var(--btn-radius);
+  background:var(--btn-gold);
+  color:var(--btn-ink);
+  box-shadow:var(--btn-shadow);
+  text-align:center;
+  text-decoration:none;
+  cursor:pointer;
+  vertical-align:middle;
+  transition:transform var(--btn-transition),box-shadow var(--btn-transition),border-color var(--btn-transition),background-color var(--btn-transition);
+  -webkit-tap-highlight-color:#c6aa7a33;
+}
+.button {display:inline-flex;align-items:center;justify-content:center;gap:7px}
+button.outline,.button.outline,button.btn--secondary,.button.btn--secondary {
+  background:var(--btn-secondary);
+  border-color:var(--btn-secondary-border);
+  color:var(--btn-secondary-ink);
+}
+:is(.collection-v17,.collection-detail,.inquiry-page,.stone360,.passport,.realm-page) :is(button,.button) {
+  font:400 15px/1.5 var(--btn-font);
+  letter-spacing:.01em;
+  border-radius:var(--btn-radius);
+  min-height:var(--btn-height);
+  padding:11px 16px;
+  background:var(--btn-gold);
+  color:var(--btn-ink);
+  border-color:var(--btn-border);
+  box-shadow:var(--btn-shadow);
+}
+:is(.collection-v17,.collection-detail,.inquiry-page,.stone360,.passport,.realm-page) :is(.outline,.btn--secondary) {
+  background:var(--btn-secondary);
+  color:var(--btn-secondary-ink);
+  border-color:var(--btn-secondary-border);
+}
+:is(.gallery-light,.gallery-warm,.collection-v17,.collection-record,.realm-buddhist,.realm-western) {
+  --btn-secondary:linear-gradient(135deg,#fffdf8,#f1e9dc);
+  --btn-secondary-ink:#493b2a;
+  --btn-secondary-border:#967749;
+  --btn-focus:#1e6047;
+  --btn-link:#674d2a;
+}
+.btn-orbit {display:inline-flex;flex:none;align-items:center;justify-content:center}
+.btn-orbit svg {width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5}
+.stone360-open {display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.stone360-open span:last-child {min-width:0}
+/* Two real buttons and a quiet, full 44px touch target without a third box. */
+#catalog .collection-actions {gap:8px;margin:0}
+#catalog .collection-actions>button {width:100%;padding:10px 8px;font-size:15px;min-height:48px;line-height:1.5}
+#catalog .collection-actions>.collection-record-link {
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  min-height:44px;padding:6px 0;
+  background:none;border:0;border-radius:10px;box-shadow:none;
+  font:400 14px/1.5 var(--btn-font);letter-spacing:0;color:var(--btn-link);
+  text-decoration:underline;text-decoration-color:#96774988;text-underline-offset:5px;
+}
+#catalog .collection-actions>.collection-record-link span:last-child {flex:none}
+#catalog .collection-price {margin:8px 0 10px}
+#catalog .collection-card-copy h3 {margin:8px 0}
+/* Header controls keep their display/visibility rules and their own layout. */
+.icon-button,.bag-link {
+  border:1px solid var(--btn-secondary-border);
+  border-radius:var(--btn-radius);
+  color:var(--btn-secondary-ink);
+  background:var(--btn-secondary);
+  box-shadow:var(--btn-shadow);
+  min-width:44px;min-height:44px;
+}
+.icon-button {padding:10px}
+.bag-link {padding:8px 10px}
+.series-link,.collection-v17 .series-link {
+  font:400 15px/1.5 var(--btn-font);
+  background:var(--btn-secondary);color:var(--btn-secondary-ink);
+  border-color:var(--btn-secondary-border);border-radius:var(--btn-radius);
+}
+.series-link span {color:inherit}
+.chips .chip,.collection-v17 .chips .chip {
+  border-radius:var(--btn-small-radius);min-height:44px;padding:8px 13px;
+  font:400 15px/1.5 var(--btn-font);background:var(--btn-secondary);
+  color:var(--btn-secondary-ink);border-color:var(--btn-secondary-border);box-shadow:none;
+}
+.chips .chip.active,.collection-v17 .chips .chip.active {
+  background:#254737;color:#f6f0e5;border-color:#8a7658;
+  box-shadow:inset 0 1px 0 #ffffff14;
+}
+select,.collection-sort select,.stone360 select {
+  border-radius:var(--btn-radius);min-height:48px;
+  font:400 15px/1.5 var(--btn-font);
+}
+.language-label select {min-height:44px;padding:9px 10px;border-color:var(--btn-secondary-border)}
+input:not([type=checkbox]):not([type=radio]),textarea {border-radius:var(--btn-radius)}
+.stone360 .stone360-controls button,.stone360 .stone360-switch button,.stone360 .stone360-header button {
+  background:var(--btn-secondary);color:var(--btn-secondary-ink);
+  border-color:var(--btn-secondary-border);font:400 15px/1.5 var(--btn-font);
+  min-width:44px;
+}
+.stone360 .stone360-controls [data-model-action=play] {background:var(--btn-gold);color:var(--btn-ink);border-color:var(--btn-border)}
+.stone360 .stone360-purchase>a {background:transparent;color:var(--btn-link);border:0;box-shadow:none;text-decoration:underline;text-underline-offset:5px}
+.realm-tabs a {
+  border-radius:var(--btn-radius);font:400 15px/1.5 var(--btn-font);
+  background:var(--btn-secondary);color:var(--btn-secondary-ink);
+  border-color:var(--btn-secondary-border);box-shadow:var(--btn-shadow);
+}
+.realm-tabs a[aria-current],.realm-buddhist .realm-tabs a[aria-current],.realm-western .realm-tabs a[aria-current] {
+  background:var(--btn-gold);color:var(--btn-ink);border-color:var(--btn-border);
+}
+.realm-transition button,.awakening-skip {background:var(--btn-secondary);color:var(--btn-secondary-ink);border-color:var(--btn-secondary-border)}
+.spirit-card .button,.hero-ctas .button {font:400 15px/1.5 var(--btn-font);letter-spacing:.01em;min-height:48px}
+/* Photograph markers are coordinates, not ordinary flowing buttons. */
+.passport .passport-marker {
+  width:44px;height:44px;min-height:44px;min-width:44px;padding:0;border-radius:50%;
+  background:#152d22;color:#fff;border:2px solid #e0c28d;
+  transform:translate(-50%,-50%);box-shadow:0 1px 8px #0008;
+}
+button:disabled,.button[aria-disabled=true] {opacity:.48;cursor:not-allowed;box-shadow:none}
+:is(button,a.button,.collection-record-link,.realm-tabs a,.bag-link,select):focus-visible {
+  outline:2px solid var(--btn-focus);outline-offset:3px;
+}
+@media(hover:hover) and (pointer:fine) {
+  :is(button,.button,.collection-record-link,.realm-tabs a,.bag-link):not(:disabled):not([aria-disabled=true]):not(.passport-marker):hover {
+    transform:translateY(-1px);box-shadow:0 6px 18px rgba(32,22,9,.15);
+  }
+  #catalog .collection-record-link:hover {box-shadow:none;color:#47341e}
+}
+:is(button,.button,.collection-record-link,.realm-tabs a,.bag-link):not(:disabled):not([aria-disabled=true]):not(.passport-marker):active {transform:scale(.99);box-shadow:0 2px 7px rgba(32,22,9,.09)}
+@media(max-width:400px) {
+  #catalog .collection-actions>button {padding-inline:6px;gap:4px}
+  #catalog .collection-actions>.collection-record-link {font-size:13px;gap:4px}
+  .stone360 .stone360-header button {padding:8px 10px;font-size:14px}
+}
+@media(prefers-reduced-motion:reduce) {
+  :is(button,.button,.collection-record-link,.realm-tabs a,.bag-link),
+  :is(button,.button,.collection-record-link,.realm-tabs a,.bag-link):not(:disabled):not([aria-disabled=true]):not(.passport-marker):hover,
+  :is(button,.button,.collection-record-link,.realm-tabs a,.bag-link):not(:disabled):not([aria-disabled=true]):not(.passport-marker):active {
+    transition:none;animation:none;transform:none;
+  }
+  .passport .passport-marker {transform:translate(-50%,-50%)}
+}

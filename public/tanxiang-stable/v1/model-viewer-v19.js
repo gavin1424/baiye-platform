@@ -7,7 +7,7 @@ import {drafts} from './collection-data-v17.js';
 import {plannedPrice,detailURL} from './collection-v17.js';
 let library;
 export function loadModelLibrary(){return library||(library=import('./assets/vendor/model-viewer/model-viewer-4.4.0.min.js').then(mod=>{mod.ModelViewerElement.modelCacheSize=1;return mod}).catch(e=>{library=null;throw e}))}
-export function modelButton(p,c){return p.modelStatus==='concept'&&typeof p.modelUrl==='string'&&modelById(p.id)?.modelUrl===p.modelUrl?`<button class="stone360-open outline" data-model-open="${c.esc(p.id)}">${c.esc(modelCopy(c.lang)('open'))}</button>`:''}
+export function modelButton(p,c){return p.modelStatus==='concept'&&typeof p.modelUrl==='string'&&modelById(p.id)?.modelUrl===p.modelUrl?`<button class="stone360-open outline btn--secondary" data-model-open="${c.esc(p.id)}"><span class="btn-orbit" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" focusable="false"><path d="M19 8a8 8 0 1 0 1 7M19 3v5h-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>${c.esc(modelCopy(c.lang)('open'))}</span></button>`:''}
 export const MODEL_VIEWER_BUILD='issue65-html-png-material-gate-2';
 export const conceptCamera={orbit:'0deg 65deg 120%',fieldOfView:'32deg',rotationPerSecond:'30deg'};
 
