@@ -1,4 +1,5 @@
 const rows={
+ fullChart:['展開完整命盤','展开完整命盘','Explore the complete chart','命盤の詳細をひらく'],
  year:['年柱','年柱','Year pillar','年柱'],month:['月柱','月柱','Month pillar','月柱'],day:['日柱','日柱','Day pillar','日柱'],hour:['時柱','时柱','Hour pillar','時柱'],
  title:['開啟你的五行靈境','开启你的五行灵境','Enter your five-element realm','あなたの五行の世界へ'],
  subtitle:['只需輸入生日與時間，系統將自動換算你的八字與五行，並為你推薦對應的天地靈石收藏。','只需输入生日与时间，系统将自动换算八字与五行，为你推荐对应的天地灵石收藏。','Enter your birth date and time to explore your four pillars, five elements and matching stone collections.','生年月日と時刻から四柱・五行を換算し、対応する霊石コレクションへご案内します。'],

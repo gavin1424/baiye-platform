@@ -1,0 +1,62 @@
+{
+  "version": "2.3-issue70",
+  "origin": "Original deterministic mathematical synthesis; no external samples, melodies or imitated IP",
+  "generator": "scripts/issue70-sound.py",
+  "seed": 70023,
+  "sampleRate": 48000,
+  "channels": 2,
+  "files": [
+    {
+      "file": "bell.wav",
+      "duration": 1.8,
+      "sha256": "9ca37fa057b0b521d0e872b7faf774b291cecb578d1dd2f55a7a9d708288db27",
+      "peak": 0.78,
+      "rms": 0.25346783851595023
+    },
+    {
+      "file": "drum.wav",
+      "duration": 0.72,
+      "sha256": "1e087b2e83efaa8e489ce9bb18ad09dfc7cb41f53c54c6be4105cc83a04be132",
+      "peak": 0.7617203070689211,
+      "rms": 0.1378715119337847
+    },
+    {
+      "file": "circle.wav",
+      "duration": 0.76,
+      "sha256": "ff0a2522bcc402cf511810ab3e99307057948a49559eb4083d82d26f20d18fbe",
+      "peak": 0.7343881055369189,
+      "rms": 0.13309119853071993
+    },
+    {
+      "file": "awaken.wav",
+      "duration": 0.76,
+      "sha256": "59a8a7d3d5f94e6aaa5688d370b620b319c0a251908105c1d1580b6046bc6dd3",
+      "peak": 0.6247310338540519,
+      "rms": 0.14675804556511854
+    },
+    {
+      "file": "guardian.wav",
+      "duration": 0.84,
+      "sha256": "b9018c49006bcaa3348278188a25f909eb4837162d0434ee1842d22cc8937bb8",
+      "peak": 0.7800000000000001,
+      "rms": 0.10522042284470784
+    }
+  ],
+  "stages": {
+    "0": [
+      "bell"
+    ],
+    "1": [
+      "drum",
+      "circle"
+    ],
+    "2": [
+      "drum",
+      "awaken"
+    ],
+    "3": [
+      "guardian"
+    ]
+  },
+  "volumeDefault": 0.35
+}

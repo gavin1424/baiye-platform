@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import {createHash} from 'node:crypto';
+test('original sound assets match manifest, remain bounded and contain real unclipped PCM audio',async()=>{
+ const root='public/tanxiang-stable/v1/assets/audio/awakening-v23/',m=JSON.parse(await readFile(root+'manifest.json'));assert.equal(m.files.length,5);let size=0;const hashes=[];
+ for(const f of m.files){const b=await readFile(root+f.file);size+=b.length;assert.equal(b.toString('ascii',0,4),'RIFF');assert.equal(b.toString('ascii',8,12),'WAVE');assert.equal(b.readUInt16LE(20),1);assert.equal(b.readUInt16LE(22),2);assert.equal(b.readUInt32LE(24),48000);assert.equal(b.readUInt16LE(34),16);const hash=createHash('sha256').update(b).digest('hex');assert.equal(hash,f.sha256);hashes.push(hash);let peak=0,power=0;for(let i=44;i<b.length;i+=2){const v=b.readInt16LE(i)/32768;peak=Math.max(peak,Math.abs(v));power+=v*v}assert.ok(peak>.1&&peak<.8);assert.ok(power/(b.length/2)>.0001);assert.ok(f.duration>0&&f.duration<2)}assert.equal(new Set(hashes).size,5);assert.ok(size<1024*1024);assert.equal(m.volumeDefault,.35);
+});

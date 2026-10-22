@@ -48,5 +48,11 @@
   "scripts/issue69-live-check.cjs",
   "scripts/issue69-finalize.cjs",
   "scripts/issue69-contact-sheet.py",
-  "cloudflare-worker/tests/video-range-v22.test.mjs"
+  "cloudflare-worker/tests/video-range-v22.test.mjs",
+  "scripts/issue70-baseline.cjs",
+  "scripts/issue70-check.cjs",
+  "scripts/issue70-sound.py",
+  "scripts/issue70-record.cjs",
+  "cloudflare-worker/tests/ceremony-v23.test.mjs",
+  "scripts/issue70-audio-probe.cjs"
 ]

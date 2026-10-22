@@ -1,5 +1,11 @@
+import {prepareCeremonyAudio,createCeremonyAudio} from './ceremony-audio-v23.js';
 import {realmCopy} from './realms-copy-v16.js';
 const rows={
+ soundOn:['音效開啟','音效开启','Sound on','音声オン'],
+ soundOff:['音效關閉','音效关闭','Sound off','音声オフ'],
+ soundEnable:['開啟音效','开启音效','Enable sound','音声を有効にする'],
+ volume:['音量','音量','Volume','音量'],
+
  intro:['一日一時，開啟你的五行篇章','一日一时，开启你的五行篇章','A date, a time, a story of five elements','生まれた日と時刻から、五行の物語へ'],
  help:['預設輸入國曆，自動換算農曆與節氣。不保存出生資料。','默认输入公历，自动换算农历与节气。不保存出生资料。','Enter a Gregorian date. Lunar dates and solar terms are calculated automatically. Birth inputs are not stored.','西暦で入力すると、旧暦と節気を自動換算します。出生情報は保存しません。'],
  advanced:['其他曆法與出生地設定','其他历法与出生地设置','Calendar and birth timezone options','暦・出生地のタイムゾーン設定'],
@@ -35,14 +41,21 @@ export function journeyForm(c){const {lang,t,esc}=c,g=k=>journeyCopy(lang,k),r=k
 function ceremony(c,skip){
  const g=k=>k==='stages'?realmCopy(c.lang,k):journeyCopy(c.lang,k),esc=c.esc;
  if(skip||matchMedia('(prefers-reduced-motion: reduce)').matches)return {finished:Promise.resolve(),close(){},setTheme(){}};
- const d=document.createElement('dialog');d.className='awakening';d.setAttribute('aria-labelledby','awakening-title');d.innerHTML=`<button type="button" class="awakening-skip">${esc(g('skip'))} ↗</button><div class="awakening-scene" data-stage="0"><img class="keeper" src="./assets/art/keeper-v15-960.webp" width="720" height="960" alt="${esc(g('guide'))}"><div class="element-circle" aria-hidden="true"><i></i>${['metal','wood','water','fire','earth'].map((k,i)=>`<span class="rune rune-${i}" data-element="${k}">${esc(c.t(k))}</span>`).join('')}<b class="story-stone"></b></div><div class="awakening-caption"><small>${esc(g('guide'))}</small><h2 id="awakening-title">${esc(g('stages')[0])}</h2><p>${esc(g('fiction'))}</p></div></div>`;document.body.append(d);d.showModal();
- let resolve,done=false;const timers=[],finished=new Promise(r=>resolve=r);const close=()=>{if(done)return;done=true;timers.forEach(clearTimeout);d.close();d.remove();resolve()};
- d.querySelector('button').onclick=close;d.addEventListener('cancel',e=>{e.preventDefault();close()});
- for(let i=1;i<4;i++)timers.push(setTimeout(()=>{d.querySelector('.awakening-scene').dataset.stage=i;d.querySelector('h2').textContent=g('stages')[i]},i*780));timers.push(setTimeout(close,3200));
- return {finished,close,setTheme(elements){if(done)return;for(const el of d.querySelectorAll('[data-element]'))el.classList.toggle('is-theme',elements.includes(el.dataset.element))}};
+ const d=document.createElement('dialog');d.className='awakening';d.setAttribute('aria-labelledby','awakening-title');d.innerHTML=`<div class="awakening-toolbar"><button type="button" class="awakening-sound" aria-pressed="true">${esc(g('soundOn'))}</button><label class="awakening-volume">${esc(g('volume'))}<input type="range" min="0" max="100" step="1" value="35" aria-label="${esc(g('volume'))}"></label><button type="button" class="awakening-skip">${esc(g('skip'))} ↗</button></div><div class="awakening-scene" data-stage="0"><img class="keeper" src="./assets/art/keeper-v15-960.webp" width="720" height="960" alt="${esc(g('guide'))}"><div class="element-circle" aria-hidden="true"><i></i>${['metal','wood','water','fire','earth'].map((k,i)=>`<span class="rune rune-${i}" data-element="${k}">${esc(c.t(k))}</span>`).join('')}<b class="story-stone"></b></div><div class="awakening-caption"><small>${esc(g('guide'))}</small><h2 id="awakening-title">${esc(g('stages')[0])}</h2><p>${esc(g('fiction'))}</p></div></div>`;document.body.append(d);d.showModal();
+ let resolve,done=false,ready=false,revealing=false;const start=performance.now(),timers=[],finished=new Promise(r=>resolve=r);
+ const soundButton=d.querySelector('.awakening-sound'),volume=d.querySelector('input[type=range]');
+ const sound=createCeremonyAudio(state=>{soundButton.textContent=g(state.available?(state.muted?'soundOff':'soundOn'):'soundEnable');soundButton.setAttribute('aria-pressed',String(!state.muted&&state.available));volume.value=String(Math.round(state.volume*100));d.dataset.audioState=state.stopped?'stopped':state.available?(state.muted?'muted':'running'):'unavailable'});
+ const close=()=>{if(done)return;done=true;timers.forEach(clearTimeout);sound.stop();document.removeEventListener('visibilitychange',hidden);window.removeEventListener('pagehide',close);d.close();d.remove();resolve()};
+ const hidden=()=>{if(document.hidden)close()};document.addEventListener('visibilitychange',hidden);window.addEventListener('pagehide',close,{once:true});
+ soundButton.onclick=()=>sound.toggle();volume.oninput=()=>sound.volume(Number(volume.value)/100);
+ d.querySelector('.awakening-skip').onclick=close;d.addEventListener('cancel',e=>{e.preventDefault();close()});
+ const stage=i=>{if(done)return;d.querySelector('.awakening-scene').dataset.stage=String(i);d.querySelector('h2').textContent=g('stages')[i];sound.stage(i)};
+ const reveal=()=>{if(done||!ready||revealing)return;revealing=true;stage(2);timers.push(setTimeout(()=>stage(3),780));timers.push(setTimeout(close,1640))};
+ stage(0);timers.push(setTimeout(()=>stage(1),780));timers.push(setTimeout(()=>{if(ready)reveal();else d.querySelector('h2').textContent=g('waiting')},1560));
+ return {finished,close,setTheme(elements){if(done)return;ready=true;for(const el of d.querySelectorAll('[data-element]'))el.classList.toggle('is-theme',elements.includes(el.dataset.element));if(performance.now()-start>=1560)reveal()}};
 }
 export function bindJourney(c){
- const {t,esc,post,card}=c,g=k=>journeyCopy(c.lang,k),form=document.querySelector('#birth-form'),output=document.querySelector('#analysis-result');if(!form||!output)return;
+ const {t,esc,post,card}=c,g=k=>journeyCopy(c.lang,k),form=document.querySelector('#birth-form'),output=document.querySelector('#analysis-result');if(!form||!output)return;prepareCeremonyAudio();
  form.elements.unknown_time.onchange=e=>{form.elements.time.disabled=e.target.checked;if(e.target.checked)form.elements.time.value=''};
  const section=document.querySelector('#analysis');if(section){section.querySelector('h1,h2').textContent=realmCopy(c.lang,'title');const intro=section.querySelector(':scope > p');if(intro)intro.textContent=realmCopy(c.lang,'subtitle')}
  let active=false;
