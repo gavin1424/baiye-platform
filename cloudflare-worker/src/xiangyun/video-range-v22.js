@@ -1,9 +1,10 @@
 import {videoAssets} from './video-assets-v22.js';
+import {reviewAssets} from './review-assets-v23.js';
 
 // ASSETS currently returns 200 for Range. Serve bounded single ranges as a
 // stream: never buffer an entire film in the Worker or change other assets.
 export function videoResponse(request,response,path){
- const spec=videoAssets.find(v=>v.path===path);
+ const spec=[...videoAssets,...reviewAssets].find(v=>v.path===path);
  if(!spec||response.status!==200)return response;
  const headers=new Headers(response.headers),size=spec.bytes;
  headers.set('accept-ranges','bytes');headers.set('content-type','video/mp4');headers.set('content-length',String(size));
