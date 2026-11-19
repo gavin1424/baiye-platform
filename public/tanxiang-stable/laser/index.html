@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="檀香雲境・紫光雷射木刻｜上傳照片，線上轉成雷射用灰階圖，把回憶刻在木頭上。">
+<title>紫光雷射木刻｜檀香雲境</title>
+<style>
+:root{--ink:#2c241e;--brown:#5f4938;--gold:#a8743e;--bg:#faf7f1;--soft:#efe5d8;--line:#e3d5c4;--line-green:#06c755}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.65}a{color:inherit;text-decoration:none}
+header{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fffaf4;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}.mark{width:40px;height:40px;border:1px solid #856e5c;border-radius:50%;display:grid;place-items:center;font-size:22px}.brand strong{display:block;font-family:serif;font-size:20px;letter-spacing:.08em}.brand small{display:block;font-size:10px;color:#806f61}
+.back{font-size:14px;color:var(--brown);padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}
+.hero{background:#46352a;color:#fff;padding:48px 18px 40px;text-align:center}.hero small{letter-spacing:.2em;color:#e2c79f}.hero h1{font-family:serif;font-size:clamp(32px,6vw,52px);line-height:1.25;margin:8px 0 12px}.hero p{color:#eaded3;max-width:640px;margin:0 auto}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:980px;margin:-22px auto 0;padding:0 14px;position:relative}.step{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 12px;text-align:center;box-shadow:0 8px 22px rgba(55,40,29,.08)}.step b{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--gold);color:#fff;font-size:14px}.step div{font-weight:700;margin-top:6px}.step p{margin:2px 0 0;font-size:13px;color:#806f61}
+main{max-width:1080px;margin:0 auto;padding:28px 14px 60px}
+.panel{background:#fff;border:1px solid #eee3d6;border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(55,40,29,.06);margin-bottom:18px}
+.panel h2{font-family:serif;font-size:24px;margin:0 0 12px}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed #d6c1a8;border-radius:16px;padding:34px 16px;text-align:center;background:#fffaf4;cursor:pointer}.drop.drag{background:#f6ead9;border-color:var(--gold)}.drop span{font-size:40px}.drop strong{font-size:18px}.drop small{color:#806f61}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:11px 18px;border-radius:11px;border:0;background:var(--gold);color:#fff;font-weight:700;font-size:16px;cursor:pointer;font-family:inherit}.btn.line{background:var(--line-green)}.btn.ghost{background:#fff;color:var(--brown);border:1px solid #dac7b1}.btn:disabled{opacity:.5;cursor:not-allowed}
+.work{display:none}.work.on{display:block}
+.views{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.view{background:var(--soft);border-radius:14px;padding:8px;text-align:center}.view canvas{width:100%;height:auto;display:block;border-radius:9px;background:#fff}.view figcaption{font-size:13px;color:#6e5e51;margin-top:6px}
+.controls{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 22px;margin-top:16px}
+.ctl label{display:flex;justify-content:space-between;font-weight:700;font-size:15px}.ctl label output{color:var(--gold);font-weight:700}.ctl input[type=range]{width:100%;accent-color:var(--gold);height:30px}
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.seg button{flex:1;min-width:70px;min-height:40px;border:1px solid #dac7b1;background:#fff;border-radius:9px;font-family:inherit;font-size:14px;color:var(--brown);cursor:pointer}.seg button.on{background:var(--brown);color:#fff;border-color:var(--brown)}
+.checks{display:flex;flex-wrap:wrap;gap:16px;margin-top:6px;font-size:15px}.checks label{display:flex;align-items:center;gap:6px;cursor:pointer}.checks input{width:20px;height:20px;accent-color:var(--gold)}
+.hint{font-size:13px;color:#806f61;margin:4px 0 0}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.actions .btn{flex:1;min-width:150px}
+.status{margin-top:10px;font-size:14px;color:var(--brown);min-height:20px}
+.tips{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.tip{background:var(--soft);border-radius:14px;padding:14px}.tip h3{margin:0 0 4px;font-size:16px}.tip p{margin:0;font-size:14px;color:#6e5e51}
+.faq details{padding:14px 0;border-top:1px solid var(--line)}.faq details:last-child{border-bottom:1px solid var(--line)}.faq summary{font-weight:700;cursor:pointer}.faq p{color:#75665a;margin:8px 0 0}
+footer{padding:36px 18px;text-align:center;background:#eadfd2;color:#705e50}
+@media(max-width:820px){.views{grid-template-columns:1fr 1fr}.views .view:first-child{grid-column:1/-1}.controls{grid-template-columns:1fr}.tips{grid-template-columns:1fr}.steps{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header>
+<a class="brand" href="../"><span class="mark">☁</span><span><strong>檀香雲境</strong><small>紫光雷射木刻</small></span></a>
+<a class="back" href="../">← 回檀香雲境</a>
+</header>
+
+<section class="hero">
+<small>UV LASER ・ WOOD PRINT</small>
+<h1>把照片，刻進木頭裡</h1>
+<p>上傳一張照片，網頁立刻幫你轉成適合紫光雷射的灰階圖，先看木頭上的效果，滿意再傳給我們製作。</p>
+</section>
+
+<div class="steps">
+<div class="step"><b>1</b><div>上傳照片</div><p>手機相簿直接選</p></div>
+<div class="step"><b>2</b><div>調整灰階</div><p>預覽木頭效果</p></div>
+<div class="step"><b>3</b><div>下載圖檔</div><p>一鍵存到手機</p></div>
+<div class="step"><b>4</b><div>傳 LINE 給我們</div><p>確認尺寸與報價</p></div>
+</div>
+
+<main>
+<section class="panel" id="upload">
+<h2>① 上傳照片</h2>
+<label class="drop" id="drop">
+<span>📷</span>
+<strong>點這裡選擇照片</strong>
+<small>支援 JPG / PNG，照片只在你的手機裡處理，不會上傳到網路</small>
+<input id="file" type="file" accept="image/*" hidden>
+</label>
+</section>
+
+<section class="panel work" id="work">
+<h2>② 調整與預覽</h2>
+<div class="views">
+<figure class="view" style="margin:0"><canvas id="cvWood"></canvas><figcaption>木頭上的模擬效果</figcaption></figure>
+<figure class="view" style="margin:0"><canvas id="cvSrc"></canvas><figcaption>原始照片</figcaption></figure>
+<figure class="view" style="margin:0"><canvas id="cvOut"></canvas><figcaption>雷射用圖檔</figcaption></figure>
+</div>
+
+<div class="controls">
+<div class="ctl">
+<label>輸出模式</label>
+<div class="seg" id="mode">
+<button type="button" data-v="gray" class="on">灰階（推薦）</button>
+<button type="button" data-v="dither">點陣網點</button>
+<button type="button" data-v="bw">純黑白</button>
+</div>
+<p class="hint">灰階：層次最自然。點陣：機器只能開關時用。純黑白：文字、線條、Logo。</p>
+</div>
+<div class="ctl">
+<label>輸出尺寸（長邊）</label>
+<div class="seg" id="size">
+<button type="button" data-v="1200">小 1200px</button>
+<button type="button" data-v="2000" class="on">中 2000px</button>
+<button type="button" data-v="3000">大 3000px</button>
+</div>
+<p class="hint">一般木板選「中」即可；大幅作品選「大」。</p>
+</div>
+<div class="ctl"><label for="bright">亮度 <output id="brightV">0</output></label><input id="bright" type="range" min="-100" max="100" value="0"></div>
+<div class="ctl"><label for="contrast">對比 <output id="contrastV">20</output></label><input id="contrast" type="range" min="-100" max="100" value="20"></div>
+<div class="ctl"><label for="sharp">銳利度 <output id="sharpV">30</output></label><input id="sharp" type="range" min="0" max="100" value="30"></div>
+<div class="ctl"><label for="gamma">中間調（臉部明暗） <output id="gammaV">1.0</output></label><input id="gamma" type="range" min="50" max="200" value="100"></div>
+<div class="ctl" style="grid-column:1/-1">
+<div class="checks">
+<label><input id="auto" type="checkbox" checked> 自動調整明暗</label>
+<label><input id="invert" type="checkbox"> 反相（深色木頭用）</label>
+<label><input id="mirror" type="checkbox"> 左右鏡像</label>
+</div>
+</div>
+</div>
+
+<div class="actions">
+<button class="btn ghost" type="button" id="reset">↺ 恢復預設</button>
+<button class="btn ghost" type="button" id="another">換一張照片</button>
+</div>
+</section>
+
+<section class="panel work" id="send">
+<h2>③ 下載並傳給我們</h2>
+<p style="margin:0 0 6px">下載雷射用圖檔後，用 LINE 傳給我們，並告訴我們：<b>想要的木頭尺寸、數量、要不要刻字</b>。我們會回覆報價與製作時間。</p>
+<div class="actions">
+<button class="btn" type="button" id="download">⬇ 下載雷射圖檔</button>
+<button class="btn line" type="button" id="share">分享到 LINE</button>
+</div>
+<div class="status" id="status"></div>
+</section>
+
+<section class="panel">
+<h2>照片小撇步</h2>
+<div class="tips">
+<div class="tip"><h3>☀️ 光線充足</h3><p>臉部明亮、背景單純的照片，刻出來最清楚。</p></div>
+<div class="tip"><h3>🔍 越清楚越好</h3><p>請用原圖，不要用截圖或 LINE 壓縮過的小圖。</p></div>
+<div class="tip"><h3>🪵 淺色木頭</h3><p>楓木、櫸木等淺色木頭對比最好；深色木頭可試「反相」。</p></div>
+</div>
+</section>
+
+<section class="panel faq">
+<h2>常見問題</h2>
+<details open><summary>什麼是紫光雷射木刻？</summary><p>使用紫光（UV）雷射在木頭表面打印圖像，靠深淺不同的灼痕呈現照片層次，適合人像、寵物、風景與紀念照。</p></details>
+<details><summary>照片會被上傳或保存嗎？</summary><p>不會。轉換全部在你的手機或電腦瀏覽器裡完成，只有你主動用 LINE 傳給我們的圖檔，我們才會收到。</p></details>
+<details><summary>預覽和成品會一樣嗎？</summary><p>預覽是模擬效果，實際顏色會依木頭紋路與材質略有不同。製作前我們會再跟你確認。</p></details>
+<details><summary>多少錢？多久可以拿到？</summary><p>依木頭尺寸、材質與數量報價，請把圖檔傳到 LINE 詢問，我們會盡快回覆。</p></details>
+</section>
+</main>
+
+<footer><strong>檀香雲境</strong><p>紫光雷射木刻・把回憶留在木頭上</p><p>© 2026 檀香雲境</p></footer>
+
+<script>
+(()=>{
+// LINE 官方帳號或個人 LINE 的加好友網址，例如 https://line.me/R/ti/p/@xxxx
+const LINE_URL='';
+
+const $=id=>document.getElementById(id);
+const cvSrc=$('cvSrc'),cvOut=$('cvOut'),cvWood=$('cvWood');
+const PREVIEW=900;
+const defaults={bright:0,contrast:20,sharp:30,gamma:100,auto:true,invert:false,mirror:false,mode:'gray',size:2000};
+let state={...defaults},img=null,fileName='photo',timer=0;
+
+function segInit(id,key){$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state[key]=key==='size'?+b.dataset.v:b.dataset.v;syncSeg(id,state[key]);schedule()})}
+function syncSeg(id,v){[...$(id).children].forEach(b=>b.classList.toggle('on',String(b.dataset.v)===String(v)))}
+segInit('mode','mode');segInit('size','size');
+for(const k of ['bright','contrast','sharp','gamma'])$(k).addEventListener('input',()=>{state[k]=+$(k).value;showVals();schedule()});
+for(const k of ['auto','invert','mirror'])$(k).addEventListener('change',()=>{state[k]=$(k).checked;schedule()});
+function showVals(){$('brightV').textContent=state.bright;$('contrastV').textContent=state.contrast;$('sharpV').textContent=state.sharp;$('gammaV').textContent=(state.gamma/100).toFixed(1)}
+$('reset').onclick=()=>{state={...defaults};for(const k of ['bright','contrast','sharp','gamma'])$(k).value=state[k];for(const k of ['auto','invert','mirror'])$(k).checked=state[k];syncSeg('mode',state.mode);syncSeg('size',state.size);showVals();schedule()};
+$('another').onclick=()=>$('file').click();
+
+const drop=$('drop');
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('drag')}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('drag')}));
+drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)load(f)});
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(f)load(f);e.target.value=''});
+
+function load(f){
+  if(!f.type.startsWith('image/')&&!/\.(jpe?g|png|webp|heic|heif)$/i.test(f.name)){status('請選擇照片檔（JPG 或 PNG）');return}
+  fileName=(f.name||'photo').replace(/\.[^.]+$/,'').replace(/[^\w一-鿿-]+/g,'_').slice(0,40)||'photo';
+  const url=URL.createObjectURL(f),im=new Image();
+  im.onload=()=>{img=im;URL.revokeObjectURL(url);document.querySelectorAll('.work').forEach(s=>s.classList.add('on'));status('');render();$('work').scrollIntoView({behavior:'smooth',block:'start'})};
+  im.onerror=()=>{URL.revokeObjectURL(url);status('這張照片無法讀取，請改用 JPG 或 PNG（iPhone 可在相簿選「最相容」格式）')};
+  im.src=url;
+}
+function schedule(){if(!img)return;clearTimeout(timer);timer=setTimeout(render,60)}
+
+// 把照片畫成指定長邊的灰階陣列
+function grayAt(longSide){
+  const s=Math.min(1,longSide/Math.max(img.naturalWidth,img.naturalHeight));
+  const w=Math.max(1,Math.round(img.naturalWidth*s)),h=Math.max(1,Math.round(img.naturalHeight*s));
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+  x.fillStyle='#fff';x.fillRect(0,0,w,h);
+  if(state.mirror){x.translate(w,0);x.scale(-1,1)}
+  x.drawImage(img,0,0,w,h);
+  const d=x.getImageData(0,0,w,h).data,g=new Float32Array(w*h);
+  for(let i=0,j=0;j<g.length;i+=4,j++)g[j]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  return {w,h,g,c};
+}
+function process(o){
+  const {w,h,g}=o,n=g.length;
+  // 自動調整：拉開 1%–99% 範圍
+  let lo=0,hi=255;
+  if(state.auto){const hist=new Uint32Array(256);for(let i=0;i<n;i++)hist[g[i]|0]++;let a=0;const cut=n*0.01;for(lo=0;lo<255&&(a+=hist[lo])<cut;lo++);a=0;for(hi=255;hi>0&&(a+=hist[hi])<cut;hi--);if(hi-lo<10){lo=0;hi=255}}
+  const cf=(259*(state.contrast*2.55+255))/(255*(259-state.contrast*2.55)),br=state.bright*1.28,gm=100/state.gamma;
+  const lut=new Float32Array(256);
+  for(let v=0;v<256;v++){let t=Math.min(1,Math.max(0,(v-lo)/(hi-lo)));t=Math.pow(t,gm)*255;t=cf*(t-128)+128+br;lut[v]=Math.min(255,Math.max(0,t))}
+  for(let i=0;i<n;i++)g[i]=lut[g[i]|0];
+  // 銳利化（unsharp mask）
+  if(state.sharp>0){
+    const amt=state.sharp/50,b=new Float32Array(n);
+    for(let y=0;y<h;y++){const y0=Math.max(0,y-1)*w,y1=y*w,y2=Math.min(h-1,y+1)*w;for(let x=0;x<w;x++){const x0=Math.max(0,x-1),x2=Math.min(w-1,x+1);b[y1+x]=(g[y0+x0]+g[y0+x]+g[y0+x2]+g[y1+x0]+g[y1+x]+g[y1+x2]+g[y2+x0]+g[y2+x]+g[y2+x2])/9}}
+    for(let i=0;i<n;i++)g[i]=Math.min(255,Math.max(0,g[i]+(g[i]-b[i])*amt));
+  }
+  if(state.invert)for(let i=0;i<n;i++)g[i]=255-g[i];
+  if(state.mode==='bw'){for(let i=0;i<n;i++)g[i]=g[i]<128?0:255}
+  else if(state.mode==='dither'){ // Floyd–Steinberg
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x,old=g[i],nv=old<128?0:255,e=old-nv;g[i]=nv;
+      if(x+1<w)g[i+1]+=e*7/16;if(y+1<h){if(x>0)g[i+w-1]+=e*3/16;g[i+w]+=e*5/16;if(x+1<w)g[i+w+1]+=e/16}}
+  }
+  return o;
+}
+function paint(cv,o,wood){
+  cv.width=o.w;cv.height=o.h;const x=cv.getContext('2d'),id=x.createImageData(o.w,o.h),d=id.data,g=o.g;
+  // 木頭模擬：白=原木色，黑=灼燒深褐
+  const W=[222,190,145],B=[52,31,18];
+  for(let i=0,j=0;j<g.length;i+=4,j++){const v=Math.min(255,Math.max(0,g[j]));
+    if(wood){const t=v/255,grain=1+0.035*Math.sin((j%o.w)*0.02+Math.sin((j/o.w)*0.05)*6);d[i]=(B[0]+(W[0]-B[0])*t)*grain;d[i+1]=(B[1]+(W[1]-B[1])*t)*grain;d[i+2]=(B[2]+(W[2]-B[2])*t)*grain}
+    else{d[i]=d[i+1]=d[i+2]=v}d[i+3]=255}
+  x.putImageData(id,0,0);
+}
+function render(){
+  const o=grayAt(PREVIEW);
+  cvSrc.width=o.w;cvSrc.height=o.h;cvSrc.getContext('2d').drawImage(o.c,0,0);
+  process(o);paint(cvOut,o,false);paint(cvWood,o,true);
+}
+function buildFull(){const o=process(grayAt(state.size)),c=document.createElement('canvas');paint(c,o,false);return c}
+function toBlob(c){return new Promise(r=>c.toBlob(r,'image/png'))}
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`}
+function outName(){return `雷射木刻_${fileName}_${stamp()}.png`}
+function status(t){$('status').textContent=t}
+
+$('download').onclick=async()=>{
+  if(!img)return;status('製作高解析圖檔中…');await new Promise(r=>setTimeout(r,30));
+  const blob=await toBlob(buildFull()),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=outName();document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  status('✅ 已下載。iPhone 若沒自動存：長按圖片 →「加入照片」。接著把圖檔用 LINE 傳給我們。');
+};
+$('share').onclick=async()=>{
+  if(!img)return;status('準備分享中…');await new Promise(r=>setTimeout(r,30));
+  const blob=await toBlob(buildFull()),file=new File([blob],outName(),{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'雷射木刻圖檔',text:'你好，我想訂做紫光雷射木刻，圖檔如附件。尺寸：＿＿ 數量：＿＿'});status('✅ 已開啟分享，請選擇 LINE 傳給我們。');return}
+    catch(e){if(e&&e.name==='AbortError'){status('');return}}
+  }
+  $('download').click();
+  if(LINE_URL){status('已下載圖檔，正在開啟 LINE，請把剛下載的圖片傳給我們。');setTimeout(()=>location.href=LINE_URL,800)}
+  else status('已下載圖檔，請打開 LINE 把圖片傳給我們。');
+};
+})();
+</script>
+</body>
+</html>
