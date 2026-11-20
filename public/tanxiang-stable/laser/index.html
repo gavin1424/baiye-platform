@@ -26,7 +26,9 @@ main{max-width:1080px;margin:0 auto;padding:28px 14px 60px}
 .checks{display:flex;flex-wrap:wrap;gap:16px;margin-top:6px;font-size:15px}.checks label{display:flex;align-items:center;gap:6px;cursor:pointer}.checks input{width:20px;height:20px;accent-color:var(--gold)}
 .hint{font-size:13px;color:#806f61;margin:4px 0 0}
 .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.actions .btn{flex:1;min-width:150px}
-.status{margin-top:10px;font-size:14px;color:var(--brown);min-height:20px}
+.status{margin-top:10px;font-size:15px;color:var(--brown);min-height:20px;font-weight:700}
+.inapp{background:#fff4d6;border:1px solid #e8c770;border-radius:11px;padding:10px 12px;font-size:14px;margin:10px 0 0}
+#result{margin-top:12px;background:var(--soft);border-radius:14px;padding:12px;text-align:center}.save-tip{margin:0 0 10px;font-size:16px;color:var(--ink)}#resultImg{display:block;width:100%;max-width:520px;height:auto;margin:0 auto;border-radius:9px;background:#fff;-webkit-touch-callout:default;user-select:auto}
 .tips{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.tip{background:var(--soft);border-radius:14px;padding:14px}.tip h3{margin:0 0 4px;font-size:16px}.tip p{margin:0;font-size:14px;color:#6e5e51}
 .faq details{padding:14px 0;border-top:1px solid var(--line)}.faq details:last-child{border-bottom:1px solid var(--line)}.faq summary{font-weight:700;cursor:pointer}.faq p{color:#75665a;margin:8px 0 0}
 footer{padding:36px 18px;text-align:center;background:#eadfd2;color:#705e50}
@@ -117,6 +119,11 @@ footer{padding:36px 18px;text-align:center;background:#eadfd2;color:#705e50}
 <button class="btn line" type="button" id="share">分享到 LINE</button>
 </div>
 <div class="status" id="status"></div>
+<p class="inapp" id="inapp" hidden>⚠️ 你現在用的是 LINE／FB 裡的瀏覽器，可能無法下載。做好圖後請<b>長按圖片儲存</b>；或點右上角「⋯」→「用預設瀏覽器開啟」。</p>
+<div id="result" hidden>
+<p class="save-tip">👇 <b>長按這張圖 →「儲存影像」／「加入照片」</b>就會存到手機相簿</p>
+<img id="resultImg" alt="雷射用圖檔（長按儲存）">
+</div>
 </section>
 
 <section class="panel">
@@ -139,6 +146,6 @@ footer{padding:36px 18px;text-align:center;background:#eadfd2;color:#705e50}
 
 <footer><strong>檀香雲境</strong><p>紫光雷射木刻・把回憶留在木頭上</p><p>© 2026 檀香雲境</p></footer>
 
-<script src="./laser.js?v=2"></script>
+<script src="./laser.js?v=3"></script>
 </body>
 </html>

@@ -88,10 +88,22 @@ function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.g
 function outName(){return `雷射木刻_${fileName}_${stamp()}.png`}
 function status(t){$('status').textContent=t}
 
+// LINE、FB、IG 內建瀏覽器常常不能下載檔案
+const inApp=/Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(navigator.userAgent);
+if(inApp)$('inapp').hidden=false;
+const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent));
+
+function showResult(c){
+  // 一定把成品圖顯示在頁面上，長按就能存，任何手機都可用
+  $('resultImg').src=c.toDataURL('image/png');$('result').hidden=false;
+  $('result').scrollIntoView({behavior:'smooth',block:'center'});
+}
 $('download').onclick=async()=>{
   if(!img)return;status('製作高解析圖檔中…');await new Promise(r=>setTimeout(r,30));
-  const blob=await toBlob(buildFull()),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=outName();document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-  status('✅ 已下載。iPhone 若沒自動存：長按圖片 →「加入照片」。接著把圖檔用 LINE 傳給我們。');
+  const c=buildFull();showResult(c);
+  if(mobile){status('✅ 圖檔做好了！請長按下面的圖片 →「儲存影像」或「加入照片」，存好後用 LINE 傳給我們。');return}
+  const a=document.createElement('a');a.href=$('resultImg').src;a.download=outName();document.body.appendChild(a);a.click();a.remove();
+  status('✅ 已下載。若沒看到檔案，可在下面圖片按右鍵 →「另存圖片」。接著把圖檔用 LINE 傳給我們。');
 };
 $('share').onclick=async()=>{
   if(!img)return;status('準備分享中…');await new Promise(r=>setTimeout(r,30));
@@ -100,8 +112,7 @@ $('share').onclick=async()=>{
     try{await navigator.share({files:[file],title:'雷射木刻圖檔',text:'你好，我想訂做紫光雷射木刻，圖檔如附件。尺寸：＿＿ 數量：＿＿'});status('✅ 已開啟分享，請選擇 LINE 傳給我們。');return}
     catch(e){if(e&&e.name==='AbortError'){status('');return}}
   }
-  $('download').click();
-  if(LINE_URL){status('已下載圖檔，正在開啟 LINE，請把剛下載的圖片傳給我們。');setTimeout(()=>location.href=LINE_URL,800)}
-  else status('已下載圖檔，請打開 LINE 把圖片傳給我們。');
+  showResult(buildFull());
+  status('這個瀏覽器不能直接分享。請長按下面的圖片 →「儲存影像」，再打開 LINE 傳給我們。');
 };
 })();
